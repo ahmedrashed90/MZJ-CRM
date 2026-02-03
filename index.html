@@ -621,12 +621,17 @@
 
       const last = fmtTS(l.lastActivityAt||l.updatedAt||l.createdAt);
 
-      const assignedCell = assignedUid
-        ? (assignedName
-            ? `<div style='font-weight:800;color:var(--brown)'>${assignedName}</div><div style='font-size:12px;color:var(--muted)'>${assignedUid}</div>`
-            : `<div style='font-size:12px;color:var(--muted)'>${assignedUid}</div>`
-          )
-        : '—';
+      const assignedCell = (()=>{
+        if(!assignedUid) return '—';
+        if(!isAdmin){
+          return assignedName || '—';
+        }
+        if(assignedName){
+          return `<div style='font-weight:800;color:var(--brown)'>${assignedName}</div>`+
+                 `<div style='font-size:12px;color:var(--muted)'>${assignedUid}</div>`;
+        }
+        return `<div style='font-size:12px;color:var(--muted)'>${assignedUid}</div>`;
+      })();
 
       return `
         <tr>
