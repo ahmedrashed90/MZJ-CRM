@@ -403,7 +403,7 @@
 
   // ===== WhatsApp (Mersal via Vercel Serverless) =====
   // يرسل رسالة ترحيب ثابتة عبر endpoint: /api/whatsapp/send
-  async function sendWhatsApp(leadId){
+  window.sendWhatsApp = async function sendWhatsApp(leadId){
     const lead = leadsCache.find(x => x.id === leadId) || {};
     const phone = normPhone(lead.phone || leadId || '');
     if(!phone){
