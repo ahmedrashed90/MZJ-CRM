@@ -128,6 +128,15 @@
   .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;background:#fff}
   .pill.brown{border-color:rgba(62,36,32,.25);color:var(--brown);background:#fff8ef}
   .pill.gray{color:#374151;background:#f9fafb}
+  
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media(max-width:980px){.grid3{grid-template-columns:1fr}}
+    .kpi{padding:16px}
+    .kpi-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+    .kpi-label{font-weight:900;color:#111827}
+    .kpi-hint{font-size:12px;color:var(--muted)}
+    .kpi-num{margin-top:10px;font-size:42px;font-weight:1000;color:var(--brown);letter-spacing:.5px}
+
   </style>
 </head>
 
@@ -144,6 +153,7 @@
     </div>
 
     <div class="tabs">
+          <button class="tab" data-tab="dash">الداش بورد</button>
       <a class="tab" id="tabAdmin" href="#" onclick="window.switchTab('admin');return false;">الإدارة</a>
       <a class="tab" id="tabCustomers" href="#" onclick="window.switchTab('customers');return false;">العملاء</a>
       <a class="tab" id="tabReports" href="#" onclick="return false;">التقارير</a>
@@ -402,6 +412,61 @@
     return a;
   }
 
+  
+  // Inline edits (status/contact) داخل الجدول
+  document.addEventListener('change', async (e)=>{
+    const t = e.target;
+    if(!(t && (t.classList.contains('sel-status') || t.classList.contains('sel-contact')))) return;
+
+    const leadId = t.getAttribute('data-id');
+    const isStatus = t.classList.contains('sel-status');
+    const kind = isStatus ? 'status' : 'contact';
+    const chosen = clean(t.value||'');
+
+    // لو اختار مخصص… اطلب نص
+    let payload = {};
+    if(chosen === 'مخصص…'){
+      const text = prompt(isStatus ? 'اكتب حالة مخصصة:' : 'اكتب تواصل مخصص:');
+      if(!text){ // cancel
+        // رجّع للقيمة السابقة من الكاش
+        const lead = leadsCache.find(x=>x.id===leadId) || {};
+        const raw = isStatus ? clean(lead.status||'') : clean(lead.contact||'');
+        t.value = (raw==='مخصص' ? 'مخصص…' : raw) || '';
+        return;
+      }
+      payload[kind] = 'مخصص';
+      payload[isStatus ? 'statusCustom' : 'contactCustom'] = clean(text);
+    } else if(chosen === ''){
+      payload[kind] = '';
+      payload[isStatus ? 'statusCustom' : 'contactCustom'] = '';
+    } else {
+      payload[kind] = chosen;
+      payload[isStatus ? 'statusCustom' : 'contactCustom'] = '';
+    }
+
+    payload.updatedAt = serverTimestamp();
+    try{
+      await updateDoc(doc(db,'leads', leadId), payload);
+      // سجل نشاط بسيط
+      try{
+        const title = isStatus ? 'تحديث الحالة' : 'تحديث التواصل';
+        const shown = (payload[kind]==='مخصص') ? payload[isStatus ? 'statusCustom' : 'contactCustom'] : payload[kind];
+        await addDoc(collection(db,'leads', leadId, 'activity'), {
+          type: isStatus ? 'status' : 'contact',
+          text: `${title}: ${shown || '-'}`,
+          byUid: auth.currentUser.uid,
+          at: serverTimestamp(),
+        });
+        await updateDoc(doc(db,'leads', leadId), { lastActivityAt: serverTimestamp() });
+      }catch(_){}
+      showToast('تم الحفظ ✅','ok');
+    }catch(err){
+      console.error(err);
+      showToast('فشل الحفظ (صلاحيات/قواعد)','err');
+    }
+  });
+
+
   // ===== WhatsApp (Mersal via Vercel Serverless) =====
   // يرسل رسالة ترحيب ثابتة عبر endpoint: /api/whatsapp/send
   window.sendWhatsApp = async function sendWhatsApp(leadId){
@@ -499,8 +564,8 @@
   let currentRole = 'member';
   let currentUid = null;
   let currentUserName = '';
-  const STATUS_OPTIONS = ['جديد','تم التواصل','مهتم','غير مهتم','متابعة','مغلق'];
-  const CONTACT_OPTIONS = ['واتساب','اتصال','زيارة','رسالة','انستجرام','سناب','اخرى'];
+  const STATUS_OPTIONS = ['مؤهل للتمويل','غير مؤهل للتمويل','مؤهل دفعة أولى','مؤهل تعريف راتب شهر','مؤهل تعريف راتب شهرين','مؤهل تعريف راتب ثلاثة شهور','غير مؤهل للتمويل التزامات عالية','غير مؤهل للتمويل لمدة شهر','غير مؤهل للتمويل لمدة شهرين','غير مؤهل للتمويل لمدة ثلاثة شهور','مخصص…'];
+  const CONTACT_OPTIONS = ['تم التواصل','قيد التواصل','تم التواصل وتحديد موعد لاحق','تم التواصل دون رد','مخصص…'];
 
   async function loadUsersMap(){
     try{
@@ -515,7 +580,34 @@
 
   function detachLeadsRealtime(){ if(unsubLeads){unsubLeads();unsubLeads=null;} leadsCache=[]; renderLeads();
       syncStatusFilter2();
-      renderLeads2(); }
+      renderLeads2();
+      updateDashboard(); }
+
+  
+  function updateDashboard(){
+    const isAdmin = (currentRole==='admin');
+    const list = isAdmin ? leadsCache : leadsCache.filter(l=>clean(l.assignedTo||'')===currentUid);
+
+    const newCount = list.filter(l=>isEmptyContactRaw(l.contact) && !clean(l.contactCustom||'')).length;
+    const contactedCount = list.filter(l=>!isEmptyContactRaw(l.contact) || !!clean(l.contactCustom||'')).length;
+    const closedCount = list.filter(l=>isClosedStatusRaw(l.status)).length;
+
+    const elN = document.getElementById('kpiNewNum');
+    const elC = document.getElementById('kpiContactedNum');
+    const elCl = document.getElementById('kpiClosedNum');
+    if(elN) elN.textContent = String(newCount);
+    if(elC) elC.textContent = String(contactedCount);
+    if(elCl) elCl.textContent = String(closedCount);
+
+    // clicks: jump to customers tab with quick filters
+    const k1=document.getElementById('kpiNew');
+    const k2=document.getElementById('kpiContacted');
+    const k3=document.getElementById('kpiClosed');
+    if(k1) k1.onclick = ()=>{ switchTab(isAdmin?'admin':'customers'); document.getElementById(isAdmin?'q':'q2').value=''; if(isAdmin){ statusFilter.value='الكل'; } else { statusFilter2.value='الكل'; } renderLeads(); renderLeads2(); };
+    if(k2) k2.onclick = ()=>{ switchTab(isAdmin?'admin':'customers'); };
+    if(k3) k3.onclick = ()=>{ switchTab(isAdmin?'admin':'customers'); };
+  }
+
 
   function attachLeadsRealtime(){
     if(unsubLeads) return;
@@ -534,6 +626,7 @@
         renderLeads();
         syncStatusFilter2();
         renderLeads2();
+        updateDashboard();
       }catch(err){
         console.error(err);
         connDot.className='dot err'; connText.textContent='مشكلة اتصال';
@@ -620,8 +713,8 @@
       const country = clean(l.country||'—');
       const city = clean(l.city||'—');
       const source = clean(l.source||'—');
-      const contact = clean(l.contact||'—');
-      const status = clean(l.status||'—');
+      const contact = leadContactLabel(l);
+      const status = leadStatusLabel(l);
 
       const assignedUid = clean(l.assignedTo||'');
       const u = assignedUid ? (usersMap[assignedUid] || {}) : {};
@@ -651,8 +744,8 @@
           <td>${country}</td>
           <td>${city}</td>
           <td>${source}</td>
-          <td>${contact}</td>
-          <td>${status}</td>
+          <td>${buildInlineSelect('contact', l)}</td>
+          <td>${buildInlineSelect('status', l)}</td>
           <td class="nowrap">${assignedCell}</td>
           <td class="nowrap">${last}</td>
           <td class="cell-actions">
@@ -723,6 +816,7 @@ function applyRoleUI(){
       renderLeads();
       syncStatusFilter2();
       renderLeads2();
+      updateDashboard();
     }catch(err){
       console.error(err);
       connDot.className='dot err'; connText.textContent='مشكلة اتصال';
@@ -771,8 +865,8 @@ function applyRoleUI(){
       const country = clean(l.country||'—');
       const city = clean(l.city||'—');
       const source = clean(l.source||'—');
-      const contact = clean(l.contact||'—');
-      const status = clean(l.status||'—');
+      const contact = leadContactLabel(l);
+      const status = leadStatusLabel(l);
       const assignedUid = clean(l.assignedTo||'');
       const u = assignedUid ? (usersMap[assignedUid] || {}) : {};
       const assignedName = clean(u.Name || u.name || u.fullName || '');
@@ -786,8 +880,8 @@ function applyRoleUI(){
           <td>${country}</td>
           <td>${city}</td>
           <td>${source}</td>
-          <td>${contact}</td>
-          <td>${status}</td>
+          <td>${buildInlineSelect('contact', l)}</td>
+          <td>${buildInlineSelect('status', l)}</td>
           <td class="nowrap">${(()=>{ const uid=assignedUid; if(!uid) return '—'; const u=usersMap[uid]||{}; const nm=clean(u.Name||u.name||u.fullName||''); if(nm){ return `<div style='font-weight:800;color:var(--brown)'>${nm}</div><div style='font-size:12px;color:var(--muted)'>${uid}</div>`; } return `<div style='font-size:12px;color:var(--muted)'>${uid}</div>`; })()}</td>
           <td class="nowrap">${last}</td>
           <td class="cell-actions">
@@ -1069,6 +1163,46 @@ function applyRoleUI(){
   };
 
   
+  
+  function normOpt(v){ return clean(v||'').trim(); }
+  function leadStatusLabel(lead){
+    const s = normOpt(lead.status);
+    if(s === 'مخصص…' || s === 'مخصص') return normOpt(lead.statusCustom) || '—';
+    return s || '—';
+  }
+  function leadContactLabel(lead){
+    const c = normOpt(lead.contact);
+    if(c === 'مخصص…' || c === 'مخصص') return normOpt(lead.contactCustom) || '—';
+    return c || '—';
+  }
+
+  function isClosedStatusRaw(s){
+    const v = clean(s||'').trim();
+    return v.startsWith('غير مؤهل');
+  }
+  function isEmptyContactRaw(c){
+    const v = clean(c||'').trim();
+    return (!v || v==='-' || v==='—');
+  }
+
+  function buildInlineSelect(kind, lead){
+    const id = lead.id;
+    const isStatus = (kind==='status');
+    const options = isStatus ? STATUS_OPTIONS : CONTACT_OPTIONS;
+    const raw = isStatus ? clean(lead.status||'') : clean(lead.contact||'');
+    const cur = (raw==='مخصص' ? 'مخصص…' : raw) || '';
+    const cls = isStatus ? 'sel-status' : 'sel-contact';
+    let html = `<select class="${cls}" data-id="${id}">`;
+    html += `<option value="" ${cur===''?'selected':''}>-</option>`;
+    for(const opt of options){
+      const sel = (cur===opt) ? 'selected' : '';
+      html += `<option value="${opt}" ${sel}>${opt}</option>`;
+    }
+    html += `</select>`;
+    return html;
+  }
+
+
   function fillSelect(el, options, current){
     el.innerHTML = options.map(x=>`<option value="${x}">${x}</option>`).join('');
     if(current && options.includes(current)) el.value = current;
@@ -1080,8 +1214,8 @@ function applyRoleUI(){
     const editCard = document.getElementById('editCard');
     if(!editCard) return;
 
-    // Admin ممكن يشوفه لكنه مش محتاجه، خليها للـsales/member فقط
-    const allowEdit = !isAdmin;
+    // التعديل متاح للأدمن والموظف (حسب الـRules)
+    const allowEdit = true;
     editCard.style.display = allowEdit ? 'block' : 'none';
     if(!allowEdit) return;
 
@@ -1093,8 +1227,29 @@ function applyRoleUI(){
 
     ec.value = clean(lead.country||'');
     eci.value = clean(lead.city||'');
-    fillSelect(es, STATUS_OPTIONS, clean(lead.status||'') || STATUS_OPTIONS[0]);
-    fillSelect(econt, CONTACT_OPTIONS, clean(lead.contact||'') || CONTACT_OPTIONS[0]);
+    const curStatus = clean(lead.status||'');
+    const curContact = clean(lead.contact||'');
+    const uiStatus = (curStatus==='مخصص' ? 'مخصص…' : curStatus);
+    const uiContact = (curContact==='مخصص' ? 'مخصص…' : curContact);
+
+    fillSelect(es, STATUS_OPTIONS, uiStatus || STATUS_OPTIONS[0]);
+    fillSelect(econt, CONTACT_OPTIONS, uiContact || CONTACT_OPTIONS[0]);
+
+    const esc = document.getElementById('editStatusCustom');
+    const ecc = document.getElementById('editContactCustom');
+    esc.value = clean(lead.statusCustom||'');
+    ecc.value = clean(lead.contactCustom||'');
+
+    function toggleCustom(){
+      const stv = clean(es.value);
+      const ctv = clean(econt.value);
+      esc.style.display = (stv==='مخصص…') ? 'block' : 'none';
+      ecc.style.display = (ctv==='مخصص…') ? 'block' : 'none';
+    }
+    es.onchange = toggleCustom;
+    econt.onchange = toggleCustom;
+    toggleCustom();
+
     en.value = clean(lead.notes||'');
 
     document.getElementById('btnSaveLead').onclick = saveLeadEdits;
@@ -1106,8 +1261,10 @@ function applyRoleUI(){
       const payload = {
         country: clean(document.getElementById('editCountry').value),
         city: clean(document.getElementById('editCity').value),
-        status: clean(document.getElementById('editStatus').value),
-        contact: clean(document.getElementById('editContact').value),
+        status: (()=>{ const v=clean(document.getElementById('editStatus').value); return v==='مخصص…' ? 'مخصص' : v; })(),
+        contact: (()=>{ const v=clean(document.getElementById('editContact').value); return v==='مخصص…' ? 'مخصص' : v; })(),
+        statusCustom: clean(document.getElementById('editStatusCustom').value),
+        contactCustom: clean(document.getElementById('editContactCustom').value),
         notes: clean(document.getElementById('editNotes').value),
         updatedAt: serverTimestamp(),
         lastActivityAt: serverTimestamp(),
@@ -1143,8 +1300,8 @@ function applyRoleUI(){
       ['اسم العميل', clean(l.name||'—')],
       ['الجوال', clean(l.phone||l.id||'—')],
       ['المصدر', clean(l.source||'—')],
-      ['التواصل', clean(l.contact||'—')],
-      ['الحالة', clean(l.status||'—')],
+      ['التواصل', leadContactLabel(l)],
+      ['الحالة', leadStatusLabel(l)],
       ['Assigned To', (()=>{ const uid=clean(l.assignedTo||''); const u=uid?(usersMap[uid]||{}):{}; const nm=clean(u.Name||u.name||u.fullName||''); return uid ? (nm? `${nm} — ${uid}`: uid) : '—'; })()],
       ['ملاحظات', clean(l.notes||'—')],
       ['آخر تحديث', fmtTS(l.updatedAt||l.lastActivityAt||l.createdAt)],
