@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -1163,14 +1164,19 @@ function applyRoleUI(){
         const a = d.data()||{};
         const type = clean(a.type||'activity');
         const at = fmtTS(a.at);
-        const by = clean(a.byUid||'—');
+        const byUid = clean(a.byUid||'');
+        const byUser = byUid ? (usersMap[byUid] || {}) : {};
+        const byName = clean(byUser.Name || byUser.name || byUser.fullName || '');
+        const by = byName || byUid || '—';
         const text = clean(a.text||'');
         const action = clean(a.action||'');
         const toUid = clean(a.toUid||'');
+        const toUser = toUid ? (usersMap[toUid] || {}) : {};
+        const toName = clean(toUser.Name || toUser.name || toUser.fullName || '');
 
         let title = type;
         if(type==='import') title = `استيراد (${action||''})`;
-        if(type==='assigned') title = `توزيع -> ${toUid||'—'}`;
+        if(type==='assigned') title = `توزيع -> ${toName || toUid || '—'}`;
         if(type==='note') title = 'ملاحظة';
 
         return `
