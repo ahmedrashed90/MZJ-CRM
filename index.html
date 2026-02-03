@@ -471,7 +471,14 @@
         const uSnap = await getDoc(doc(db,'user', user.uid));
         const uData = uSnap.exists() ? (uSnap.data()||{}) : {};
         currentRole = String(uData.role||'member').toLowerCase();
-      }catch(e){ currentRole = 'member'; }
+        currentUserName = String(uData.Name||uData.name||uData.fullName||'').trim();
+      }catch(e){
+        currentRole = 'member';
+        currentUserName = '';
+      }
+      if(!currentUserName){
+        currentUserName = String(user.displayName||'').trim();
+      }
 
       await loadUsersMap();
       applyRoleUI();
@@ -491,6 +498,7 @@
   let usersMap = {}; // uid -> user doc data
   let currentRole = 'member';
   let currentUid = null;
+  let currentUserName = '';
   const STATUS_OPTIONS = ['جديد','تم التواصل','مهتم','غير مهتم','متابعة','مغلق'];
   const CONTACT_OPTIONS = ['واتساب','اتصال','زيارة','رسالة','انستجرام','سناب','اخرى'];
 
@@ -624,7 +632,10 @@
       const assignedCell = (()=>{
         if(!assignedUid) return '—';
         if(!isAdmin){
-          return assignedName || '—';
+          // المستخدم العادي غالبًا ما يقدر يقرأ كولكشن user، فاعرض اسمه من بيانات دخوله
+          if(assignedName) return assignedName;
+          if(assignedUid === currentUid) return (currentUserName || 'أنت');
+          return '—';
         }
         if(assignedName){
           return `<div style='font-weight:800;color:var(--brown)'>${assignedName}</div>`+
