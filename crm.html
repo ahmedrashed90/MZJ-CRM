@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -400,6 +401,50 @@
     return a;
   }
 
+  // ===== WhatsApp (Mersal via Vercel Serverless) =====
+  // يرسل رسالة ترحيب ثابتة عبر endpoint: /api/whatsapp/send
+  async function sendWhatsApp(leadId){
+    const lead = leadsCache.find(x => x.id === leadId) || {};
+    const phone = normPhone(lead.phone || leadId || '');
+    if(!phone){
+      showToast('رقم العميل غير متوفر','err');
+      return;
+    }
+
+    try{
+      const res = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      const out = await res.json().catch(()=>({}));
+      if(!res.ok || !out.ok){
+        console.error(out);
+        showToast('فشل إرسال واتساب','err');
+        return;
+      }
+
+      showToast('تم إرسال رسالة واتساب ✅','ok');
+
+      // سجل نشاط (اختياري) — الأدمن يقدر يشوفه
+      try{
+        await addDoc(collection(db,'leads', leadId, 'activity'), {
+          type:'whatsapp',
+          text:'تم إرسال رسالة واتساب ترحيبية عبر مرسال',
+          byUid: auth.currentUser.uid,
+          at: serverTimestamp(),
+        });
+        await updateDoc(doc(db,'leads', leadId), { lastActivityAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      }catch(e){}
+
+    }catch(err){
+      console.error(err);
+      showToast('خطأ في الاتصال بالسيرفر','err');
+    }
+  }
+
+
+
   // ===== Auth =====
   $('#btnLogin').onclick = async ()=>{
     $('#authHint').textContent='';
@@ -595,7 +640,7 @@
           <td class="nowrap">${last}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
-            <button class="btn btn-ghost" disabled style="margin-top:6px" title="هنشتغل عليه بعدين"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+            <button class="btn btn-ghost" style="margin-top:6px" onclick="sendWhatsApp('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
           </td>
           
         </tr>
@@ -730,7 +775,7 @@ function applyRoleUI(){
           <td class="nowrap">${last}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
-            <button class="btn btn-ghost" disabled style="margin-top:6px" title="هنشتغل عليه بعدين"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+            <button class="btn btn-ghost" style="margin-top:6px" onclick="sendWhatsApp('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
           </td>
           
         </tr>
