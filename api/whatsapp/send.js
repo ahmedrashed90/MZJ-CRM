@@ -7,23 +7,21 @@ export default async function handler(req, res) {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ ok:false, error:"Phone required" });
 
-    // 🔹 رسالة الترحيب الثابتة
     const message = `أهلاً وسهلاً بك 👋
 معك فريق محمد بن دخار العجمي للسيارات 🚗
 يسعدنا خدمتك ومساعدتك في اختيار سيارتك المناسبة ✨`;
 
-    // 🔹 بيانات مرسال (هتتحط في Environment Variables)
-    const MERSAL_URL = process.env.MERSAL_URL;
-    const MERSAL_TOKEN = process.env.MERSAL_TOKEN;
+    const BASE = process.env.MERSAL_BASE_URL;
+    const TOKEN = process.env.MERSAL_TOKEN;
 
-    const response = await fetch(MERSAL_URL, {
+    const response = await fetch(`${BASE}/api/send-message`, {  // ← المسار غالبًا كده (لو اختلف نعدله)
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${MERSAL_TOKEN}`
+        "Authorization": `Bearer ${TOKEN}`
       },
       body: JSON.stringify({
-        to: phone,
+        phone: phone,
         message: message
       })
     });
