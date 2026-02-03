@@ -153,7 +153,7 @@
     </div>
 
     <div class="tabs">
-          <button class="tab" data-tab="dash">الداش بورد</button>
+          <a class="tab" id="tabDash" href="#" onclick="window.switchTab('dash');return false;">الداش بورد</a>
       <a class="tab" id="tabAdmin" href="#" onclick="window.switchTab('admin');return false;">الإدارة</a>
       <a class="tab" id="tabCustomers" href="#" onclick="window.switchTab('customers');return false;">العملاء</a>
       <a class="tab" id="tabReports" href="#" onclick="return false;">التقارير</a>
@@ -183,6 +183,47 @@
 
 <div id="app" style="display:none">
   <div class="container">
+    
+    <!-- ===== Dashboard ===== -->
+    <div id="dashSection" style="display:none">
+      <div class="section-head">
+        <div class="section-title">
+          <div class="ic"><i class="fa-solid fa-chart-line"></i></div>
+          <div>
+            <h2>لوحة الإحصائيات</h2>
+            <p>ملخص سريع للأداء حسب صلاحيتك.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid3" style="margin-top:14px">
+        <div class="card kpi" id="kpiNew" style="cursor:pointer">
+          <div class="kpi-top">
+            <div class="kpi-label">جديد</div>
+            <div class="kpi-hint">بدون تواصل</div>
+          </div>
+          <div class="kpi-num" id="kpiNewNum">0</div>
+        </div>
+
+        <div class="card kpi" id="kpiContacted" style="cursor:pointer">
+          <div class="kpi-top">
+            <div class="kpi-label">تم التواصل</div>
+            <div class="kpi-hint">أي تواصل</div>
+          </div>
+          <div class="kpi-num" id="kpiContactedNum">0</div>
+        </div>
+
+        <div class="card kpi" id="kpiClosed" style="cursor:pointer">
+          <div class="kpi-top">
+            <div class="kpi-label">مقفول</div>
+            <div class="kpi-hint">غير مؤهل بجميع أنواعه</div>
+          </div>
+          <div class="kpi-num" id="kpiClosedNum">0</div>
+        </div>
+      </div>
+    </div>
+
+
     <div id="adminSection">
 
     <div class="card">
@@ -649,23 +690,43 @@
   
   
   window.switchTab = function(tab){
+    const dashSec = document.getElementById('dashSection');
     const adminSec = document.getElementById('adminSection');
-    const custSec = document.getElementById('customersSection');
+    const custSec  = document.getElementById('customersSection');
+
+    const tD = document.getElementById('tabDash');
     const tA = document.getElementById('tabAdmin');
     const tC = document.getElementById('tabCustomers');
+
     if(!adminSec || !custSec || !tA || !tC) return;
 
-    if(tab === 'customers'){
-      adminSec.style.display = 'none';
-      custSec.style.display = 'block';
-      tA.classList.remove('active');
-      tC.classList.add('active');
-    } else {
-      adminSec.style.display = 'block';
-      custSec.style.display = 'none';
-      tC.classList.remove('active');
-      tA.classList.add('active');
+    // إخفاء الكل
+    if(dashSec) dashSec.style.display = 'none';
+    adminSec.style.display = 'none';
+    custSec.style.display  = 'none';
+
+    // إزالة active
+    if(tD) tD.classList.remove('active');
+    tA.classList.remove('active');
+    tC.classList.remove('active');
+
+    if(tab === 'dash'){
+      if(dashSec) dashSec.style.display = 'block';
+      if(tD) tD.classList.add('active');
+      // تحديث الداش بورد كل مرة تفتحها
+      try{ updateDashboard(); }catch(e){}
+      return;
     }
+
+    if(tab === 'customers'){
+      custSec.style.display = 'block';
+      tC.classList.add('active');
+      return;
+    }
+
+    // default admin
+    adminSec.style.display = 'block';
+    tA.classList.add('active');
   }
 
   function syncStatusFilter2(){
@@ -1189,13 +1250,28 @@ function applyRoleUI(){
     const id = lead.id;
     const isStatus = (kind==='status');
     const options = isStatus ? STATUS_OPTIONS : CONTACT_OPTIONS;
+
     const raw = isStatus ? clean(lead.status||'') : clean(lead.contact||'');
+    const custom = isStatus ? clean(lead.statusCustom||'') : clean(lead.contactCustom||'');
+
+    // لو مخصص: خلّي المعروض هو النص المكتوب (وبنفس الوقت قيمة الاختيار تكون مخصص…)
+    const isCustom = (raw==='مخصص');
     const cur = (raw==='مخصص' ? 'مخصص…' : raw) || '';
+
     const cls = isStatus ? 'sel-status' : 'sel-contact';
     let html = `<select class="${cls}" data-id="${id}">`;
+
+    // placeholder
     html += `<option value="" ${cur===''?'selected':''}>-</option>`;
+
+    // custom display option (selected)
+    if(isCustom && custom){
+      html += `<option value="مخصص…" selected>${custom}</option>`;
+    }
+
     for(const opt of options){
-      const sel = (cur===opt) ? 'selected' : '';
+      // لو حاطين custom option فوق، ما نكررش "مخصص…" هنا كنص مختار
+      const sel = (!isCustom && cur===opt) ? 'selected' : '';
       html += `<option value="${opt}" ${sel}>${opt}</option>`;
     }
     html += `</select>`;
