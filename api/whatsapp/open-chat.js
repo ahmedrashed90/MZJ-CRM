@@ -1,72 +1,52 @@
 export default async function handler(req, res) {
   const token = process.env.MERSAL_TOKEN;
-  const api = (process.env.MERSAL_API_ENDPOINT || "").replace(/\/+$/g, "");
-
+  const apiEndpoint = (process.env.MERSAL_API_ENDPOINT || "").replace(/\/+$/g, "");
   if (!token) return res.status(500).json({ ok: false, error: "Missing MERSAL_TOKEN" });
-  if (!api) return res.status(500).json({ ok: false, error: "Missing MERSAL_API_ENDPOINT" });
+  if (!apiEndpoint) return res.status(500).json({ ok: false, error: "Missing MERSAL_API_ENDPOINT" });
 
-  const phoneRaw = String(req.query?.phone || req.body?.phone || "");
-  const phone = phoneRaw.replace(/\D/g, "");
+  const normalizeKSA = (v) => {
+    let p = String(v || "").replace(/\D/g, "");
+    if (p.length === 10 && p.startsWith("05")) p = "966" + p.slice(1);
+    if (p.length === 9 && p.startsWith("5")) p = "966" + p;
+    if (p.startsWith("00")) p = p.slice(2);
+    return p;
+  };
+
+  const phoneRaw = String(req.query?.phone || "");
+  const phone = normalizeKSA(phoneRaw);
   if (!phone) return res.status(400).json({ ok: false, error: "Missing phone" });
 
-  const last9 = phone.slice(-9);
-
-  async function readJson(resp) {
-    const text = await resp.text();
-    let json = null;
-    try { json = JSON.parse(text); } catch (_) {}
-    return { text, json };
-  }
-
   try {
-    // 1) getContacts
-    const r1 = await fetch(`${api}/api/wpbox/getContacts?token=${encodeURIComponent(token)}`);
-    const p1 = await readJson(r1);
+    const r = await fetch(`${apiEndpoint}/api/wpbox/getContacts?token=${encodeURIComponent(token)}`);
+    const text = await r.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch (_) {}
 
-    if (!r1.ok || !p1.json) {
-      return res.status(500).json({
-        ok: false,
-        step: "getContacts",
-        status: r1.status,
-        error: p1.json || p1.text?.slice(0, 200) || "Bad response",
-      });
+    if (!r.ok || !data) {
+      return res.status(500).json({ ok: false, step: "getContacts", status: r.status, error: data || text });
     }
 
-    const contacts = p1.json.contacts || p1.json.data?.contacts || [];
-    let contact = contacts.find((c) => {
-      const p = String(c.phone || c.mobile || c.number || "").replace(/\D/g, "");
-      return p.endsWith(last9);
-    });
+    const contacts = data.contacts || data.data?.contacts || [];
+    const pick = (c) => normalizeKSA(c?.phone || c?.mobile || c?.number || "");
 
-    // 2) لو مش موجود: makeContact
-    if (!contact) {
-      const r2 = await fetch(`${api}/api/wpbox/makeContact?token=${encodeURIComponent(token)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      });
-      const p2 = await readJson(r2);
-
-      if (!r2.ok || !p2.json) {
-        return res.status(500).json({
-          ok: false,
-          step: "makeContact",
-          status: r2.status,
-          error: p2.json || p2.text?.slice(0, 200) || "Create failed",
-        });
-      }
-
-      contact = p2.json.contact || p2.json.data?.contact || null;
+    let matches = contacts.filter(c => pick(c) === phone);
+    if (!matches.length) {
+      const last9 = phone.slice(-9);
+      matches = contacts.filter(c => pick(c).endsWith(last9));
     }
 
-    const contactId = contact?.id || contact?.contact_id;
-    if (!contactId) {
-      return res.status(500).json({ ok: false, step: "resolveContactId", error: "No contact id" });
-    }
+    if (!matches.length) return res.status(404).json({ ok: false, error: "Contact not found" });
+
+    const score = (c) => Date.parse(c.updated_at || c.created_at || c.updatedAt || c.createdAt || "") || 0;
+    matches.sort((a, b) => score(b) - score(a));
+
+    const contact = matches[0];
+    const contactId = contact.id || contact.contact_id;
+    if (!contactId) return res.status(500).json({ ok: false, error: "Contact id missing" });
 
     const chatUrl = `https://w-mersal.com/chat?contact_id=${encodeURIComponent(contactId)}`;
-    return res.status(200).json({ ok: true, contact_id: contactId, chat_url: chatUrl });
+    return res.status(200).json({ ok: true, phone, contact_id: contactId, chat_url: chatUrl });
   } catch (e) {
-    return res.status(500).json({ ok: false, step: "exception", error: e?.message || "Unknown error" });
+    return res.status(500).json({ ok: false, error: e?.message || "Unknown error" });
   }
 }
