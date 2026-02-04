@@ -3,14 +3,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
 
-  // منع الكاش (مهم على Vercel)
+  // منع الكاش
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
 
   const token = process.env.MERSAL_TOKEN;
   const apiEndpoint = (process.env.MERSAL_API_ENDPOINT || "").replace(/\/+$/g, "");
-  const MY_NUMBER = String(process.env.WHATSAPP_MY_NUMBER || "").trim();
+  const MY_NUMBER = String(process.env.WHATSAPP_MY_NUMBER || "").trim(); // 966920014635
 
   if (!token) return res.status(500).json({ ok: false, error: "Missing MERSAL_TOKEN" });
   if (!apiEndpoint) return res.status(500).json({ ok: false, error: "Missing MERSAL_API_ENDPOINT" });
@@ -26,7 +26,6 @@ export default async function handler(req, res) {
 
   const asMs = (v) => {
     if (v == null) return 0;
-
     if (typeof v === "number") return v > 1e12 ? v : v * 1000;
 
     const s = String(v).trim();
@@ -41,9 +40,12 @@ export default async function handler(req, res) {
     return Number.isFinite(t) ? t : 0;
   };
 
-  // ---- Deep string extraction ----
+  const normDigits = (v) => String(v || "").replace(/[^\d]/g, "");
+  const MY = normDigits(MY_NUMBER);
+
+  // -------- deep scan helpers --------
   const collectStrings = (obj, out, depth = 0) => {
-    if (depth > 7 || obj == null) return;
+    if (depth > 8 || obj == null) return;
 
     const t = typeof obj;
 
@@ -56,7 +58,7 @@ export default async function handler(req, res) {
     if (t !== "object") return;
 
     if (Array.isArray(obj)) {
-      for (let i = 0; i < Math.min(obj.length, 80); i++) {
+      for (let i = 0; i < Math.min(obj.length, 120); i++) {
         collectStrings(obj[i], out, depth + 1);
       }
       return;
@@ -71,16 +73,64 @@ export default async function handler(req, res) {
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s) ||
     /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s);
 
-  const looksLikeId = (s) =>
-    /^[A-Za-z0-9+/_=-]{20,}$/.test(s);
+  const looksLikeId = (s) => /^[A-Za-z0-9+/_=-]{20,}$/.test(s);
+  const looksLikeWamid = (s) => /^wamid\./i.test(String(s || "").trim());
 
-  const looksLikeJson = (s) =>
-    s.startsWith("{") || s.includes('"type":"reply"');
+  // يشيل القيم الفاضية اللي بتطلع عندك "[]"
+  const looksEmptyJson = (s) => {
+    const t = String(s || "").trim();
+    return t === "[]" || t === "{}" || t === "[ ]" || t === "{ }";
+  };
 
-  const looksLikeWamid = (s) =>
-    /^wamid\./i.test(String(s || "").trim());
+  // -------- استخراج Title بتاع زر الرد --------
+  // مزودك بيرجع interactive reply بشكل object فيه title/id
+  const findReplyTitle = (obj, depth = 0) => {
+    if (depth > 8 || obj == null) return "";
 
-  // لو مفيش نص: رجّع وصف محترم (بدل "لا يوجد نص...")
+    if (typeof obj === "object") {
+      // لو ده شكل reply مباشر
+      if (obj.type === "reply" && typeof obj.title === "string" && obj.title.trim()) {
+        return obj.title.trim();
+      }
+
+      // لو فيه reply جوه
+      if (obj.reply && typeof obj.reply === "object") {
+        const t = findReplyTitle(obj.reply, depth + 1);
+        if (t) return t;
+      }
+
+      // لو فيه parameters فيها title
+      if (obj.parameters && Array.isArray(obj.parameters)) {
+        for (const p of obj.parameters) {
+          const t = findReplyTitle(p, depth + 1);
+          if (t) return t;
+        }
+      }
+
+      // لو فيه عنوان في object مرتبط بزر
+      if (typeof obj.title === "string" && obj.title.trim()) {
+        // غالبًا بيكون مع id يبدأ btn_
+        if (typeof obj.id === "string" && obj.id.startsWith("btn_")) {
+          return obj.title.trim();
+        }
+      }
+
+      if (Array.isArray(obj)) {
+        for (const it of obj) {
+          const t = findReplyTitle(it, depth + 1);
+          if (t) return t;
+        }
+      } else {
+        for (const k of Object.keys(obj)) {
+          const t = findReplyTitle(obj[k], depth + 1);
+          if (t) return t;
+        }
+      }
+    }
+
+    return "";
+  };
+
   const fallbackLabel = (m) => {
     let blob = "";
     try {
@@ -89,10 +139,11 @@ export default async function handler(req, res) {
       blob = String(m || "").toLowerCase();
     }
 
+    // لو كانت reply buttons ومفيش title اتسحب
     if (blob.includes('"type":"reply"') || blob.includes("buttons") || blob.includes("interactive"))
-      return "🔘 رسالة بأزرار";
+      return "🔘 رد بزر";
 
-    if (blob.includes("location") || blob.includes("latitude") || blob.includes("longitude") || blob.includes('"lat"') || blob.includes('"lng"'))
+    if (blob.includes("location") || blob.includes('"lat"') || blob.includes('"lng"'))
       return "📍 موقع";
 
     if (blob.includes("image") || blob.includes("jpg") || blob.includes("jpeg") || blob.includes("png") || blob.includes("webp"))
@@ -113,19 +164,39 @@ export default async function handler(req, res) {
     return "";
   };
 
-  // اختيار النص الحقيقي (أو label لو غير نصي)
+  const cleanText = (s) => {
+    let t = String(s || "").trim();
+
+    // أصلح /https://
+    t = t.replace(/^\s*\/\s*(https?:\/\/)/i, "$1");
+
+    // شيل strings اللي عبارة عن JSON فاضي
+    if (looksEmptyJson(t)) return "";
+
+    return t;
+  };
+
+  // اختيار النص الحقيقي:
+  // 1) لو فيه عنوان زر reply -> رجّعه
+  // 2) غير كده اعمل deep strings + فلترة
+  // 3) لو مفيش -> label محترم
   const pickTextDeep = (m) => {
+    // زرار reply title
+    const replyTitle = findReplyTitle(m);
+    if (replyTitle) return replyTitle;
+
     const strs = [];
     collectStrings(m, strs);
 
     const clean = strs
-      .map((s) => s.trim())
+      .map((x) => cleanText(x))
       .filter((s) =>
+        s &&
         s.length > 1 &&
         !looksLikeWamid(s) &&
         !looksLikeId(s) &&
-        !looksLikeJson(s) &&
-        !isIsoDate(s)
+        !isIsoDate(s) &&
+        !looksEmptyJson(s)
       );
 
     if (clean.length) {
@@ -136,22 +207,17 @@ export default async function handler(req, res) {
     return fallbackLabel(m) || "";
   };
 
-  // ---- MAIN FIX: detect outgoing using WHATSAPP_MY_NUMBER ----
-  const normDigits = (v) => String(v || "").replace(/[^\d]/g, "");
-  const MY = normDigits(MY_NUMBER);
-
-  const pickFromMe = (m) => {
-    // flags صريحة لو موجودة
+  // تحديد out/in:
+  // 1) flags صريحة
+  // 2) رقمك موجود في حقول sender المحتملة
+  // 3) fallback لرسائل النظام (دومينات mzj + رقم 920014635)
+  const pickFromMe = (m, textMsg) => {
     const direct =
-      m?.from_me ?? m?.fromMe ?? m?.fromme ??
-      m?.mine ?? m?.is_me ?? m?.me ?? m?.owner ??
-      m?.isMine ?? m?.is_mine ??
-      m?.key?.fromMe ??
-      m?.data?.from_me ?? m?.payload?.from_me;
+      m?.from_me ?? m?.fromMe ?? m?.mine ?? m?.is_me ?? m?.me ?? m?.owner ??
+      m?.key?.fromMe ?? m?.data?.from_me ?? m?.payload?.from_me;
 
     if (direct !== undefined) return Boolean(direct);
 
-    // حقول هوية المرسل المحتملة
     const candidates = [
       m?.from, m?.sender, m?.author, m?.participant, m?.remoteJid,
       m?.chatId, m?.chat_id,
@@ -163,10 +229,13 @@ export default async function handler(req, res) {
 
     if (candidates.some((v) => normDigits(v).includes(MY))) return true;
 
-    // fallback أخير: فتش جوه الـ object كله
-    let blob = "";
-    try { blob = JSON.stringify(m || ""); } catch (_) {}
-    return normDigits(blob).includes(MY);
+    // fallback: رسائل النظام بتاعتك
+    const t = String(textMsg || "");
+    if (t.includes("920014635")) return true;
+    if (t.includes("mzj-crm.vercel.app")) return true;
+    if (t.includes("mzj-tracking.vercel.app")) return true;
+
+    return false;
   };
 
   try {
@@ -193,27 +262,25 @@ export default async function handler(req, res) {
     const arr = Array.isArray(raw) ? raw : (raw.messages || raw.data || []);
     const list = Array.isArray(arr) ? arr : [];
 
-    // ترتيب زمني + آخر MAX
     const sorted = [...list].sort((a, b) => asMs(pickTime(a)) - asMs(pickTime(b)));
     const slice = sorted.slice(-MAX);
 
     const messages = slice
       .map((m) => {
-        const txt = pickTextDeep(m);
+        const msgText = pickTextDeep(m);
+        const cleaned = cleanText(msgText);
 
-        // تنظيف بداية اللينك لو ظهر "/https://"
-        const cleanedText = String(txt || "").replace(/^\/https?:\/\//, (x) => x.slice(1));
+        const fromMe = pickFromMe(m, cleaned);
 
-        const fromMe = pickFromMe(m);
         return {
           id: m?.id || m?.message_id || m?.wamid || m?.uuid || null,
-          text: cleanedText,
+          text: cleaned,
           from_me: fromMe,
           direction: fromMe ? "out" : "in",
           time: pickTime(m) || "",
         };
       })
-      // لو لسه فاضي بعد كل ده، اشيله بدل ما يظهر placeholder في الواجهة
+      // شيل الرسائل اللي مفيهاش أي معنى بعد التنضيف
       .filter((x) => String(x.text || "").trim().length > 0);
 
     return res.status(200).json({ ok: true, count: messages.length, messages });
