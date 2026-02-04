@@ -1,90 +1,72 @@
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
-  }
-
   const token = process.env.MERSAL_TOKEN;
   const api = (process.env.MERSAL_API_ENDPOINT || "").replace(/\/+$/g, "");
 
-  if (!token) {
-    return res.status(500).json({ ok: false, error: "Missing MERSAL_TOKEN" });
+  if (!token) return res.status(500).json({ ok: false, error: "Missing MERSAL_TOKEN" });
+  if (!api) return res.status(500).json({ ok: false, error: "Missing MERSAL_API_ENDPOINT" });
+
+  const phoneRaw = String(req.query?.phone || req.body?.phone || "");
+  const phone = phoneRaw.replace(/\D/g, "");
+  if (!phone) return res.status(400).json({ ok: false, error: "Missing phone" });
+
+  const last9 = phone.slice(-9);
+
+  async function readJson(resp) {
+    const text = await resp.text();
+    let json = null;
+    try { json = JSON.parse(text); } catch (_) {}
+    return { text, json };
   }
-
-  if (!api) {
-    return res.status(500).json({ ok: false, error: "Missing MERSAL_API_ENDPOINT" });
-  }
-
-  const phoneRaw = String(req.body?.phone || "");
-  const phone = phoneRaw.replace(/[^\d+]/g, "");
-  if (!phone) {
-    return res.status(400).json({ ok: false, error: "Missing phone" });
-  }
-
-  const cleanPhone = phone.replace(/\D/g, "");
-
-  async function readJSON(r) {
-    const text = await r.text();
-    try { return JSON.parse(text); } catch { return null; }
-  }
-
-  const bases = [
-    `${api}/api/wpbox`,
-    `${api}/api/wpbx`
-  ];
 
   try {
-    for (const base of bases) {
+    // 1) getContacts
+    const r1 = await fetch(`${api}/api/wpbox/getContacts?token=${encodeURIComponent(token)}`);
+    const p1 = await readJson(r1);
 
-      // 1️⃣ Get Contacts
-      const r1 = await fetch(`${base}/getContacts?token=${encodeURIComponent(token)}`);
-      const j1 = await readJSON(r1);
-
-      if (!r1.ok || !j1) continue;
-
-      const contacts = j1.contacts || j1.data?.contacts || [];
-
-      let contact = contacts.find(c => {
-        const p = String(c.phone || c.mobile || c.number || "").replace(/\D/g, "");
-        return p === cleanPhone;
-      });
-
-      // 2️⃣ لو مش موجود اعمل Contact
-      if (!contact) {
-        const r2 = await fetch(`${base}/makeContact?token=${encodeURIComponent(token)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone, name: phone })
-        });
-
-        const j2 = await readJSON(r2);
-        if (!r2.ok || !j2) continue;
-
-        contact = j2.contact || j2.data?.contact || null;
-      }
-
-      const contactId = contact?.id || contact?.contact_id;
-      if (!contactId) continue;
-
-      // ✅ الرابط الصحيح لفتح المحادثة في مرسال
-      const chatUrl = `https://w-mersal.com/contacts/${contactId}`;
-
-      return res.status(200).json({
-        ok: true,
-        url: chatUrl,
-        contactId,
-        usedBase: base
+    if (!r1.ok || !p1.json) {
+      return res.status(500).json({
+        ok: false,
+        step: "getContacts",
+        status: r1.status,
+        error: p1.json || p1.text?.slice(0, 200) || "Bad response",
       });
     }
 
-    return res.status(500).json({
-      ok: false,
-      error: "No working API endpoint found"
+    const contacts = p1.json.contacts || p1.json.data?.contacts || [];
+    let contact = contacts.find((c) => {
+      const p = String(c.phone || c.mobile || c.number || "").replace(/\D/g, "");
+      return p.endsWith(last9);
     });
 
-  } catch (err) {
-    return res.status(500).json({
-      ok: false,
-      error: err.message
-    });
+    // 2) لو مش موجود: makeContact
+    if (!contact) {
+      const r2 = await fetch(`${api}/api/wpbox/makeContact?token=${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      const p2 = await readJson(r2);
+
+      if (!r2.ok || !p2.json) {
+        return res.status(500).json({
+          ok: false,
+          step: "makeContact",
+          status: r2.status,
+          error: p2.json || p2.text?.slice(0, 200) || "Create failed",
+        });
+      }
+
+      contact = p2.json.contact || p2.json.data?.contact || null;
+    }
+
+    const contactId = contact?.id || contact?.contact_id;
+    if (!contactId) {
+      return res.status(500).json({ ok: false, step: "resolveContactId", error: "No contact id" });
+    }
+
+    const chatUrl = `https://w-mersal.com/chat?contact_id=${encodeURIComponent(contactId)}`;
+    return res.status(200).json({ ok: true, contact_id: contactId, chat_url: chatUrl });
+  } catch (e) {
+    return res.status(500).json({ ok: false, step: "exception", error: e?.message || "Unknown error" });
   }
 }
