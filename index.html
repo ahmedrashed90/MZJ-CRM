@@ -1078,7 +1078,7 @@ async function sendWhatsApp(leadId){
           <td>${(()=>{const n=clean(l.lastNote||""); if(!n) return "—"; const t=fmtTS(l.lastNoteAt||l.lastActivityAt||l.updatedAt||l.createdAt); return `<div style="font-weight:800">${escHtml(n)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${t}</div>`;})()}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
-            <button class="btn btn-ghost" style="margin-top:6px" onclick="openWAModal('${phone}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+            <button class="btn btn-ghost" style="margin-top:6px" onclick="openWAModal('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
           </td>
           
         </tr>
@@ -1231,7 +1231,7 @@ function applyRoleUI(){
           <td>${(()=>{const n=clean(l.lastNote||""); if(!n) return "—"; const t=fmtTS(l.lastNoteAt||l.lastActivityAt||l.updatedAt||l.createdAt); return `<div style="font-weight:800">${escHtml(n)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${t}</div>`;})()}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
-            <button class="btn btn-ghost" style="margin-top:6px" onclick="openWAModal('${phone}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+            <button class="btn btn-ghost" style="margin-top:6px" onclick="openWAModal('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
           </td>
           
         </tr>
@@ -1948,13 +1948,26 @@ let __waContactId = null;
 let __waPollTimer = null;
 let __waLastKey = null;
 
+
+function showWASkeleton(){
+  const box = document.getElementById('waMessages');
+  if(!box) return;
+  box.innerHTML = `
+    <div class="wa-skel"></div>
+    <div class="wa-skel right"></div>
+    <div class="wa-skel"></div>
+    <div class="wa-skel right"></div>
+    <div class="wa-skel"></div>
+  `;
+}
+
 function openWAModal(phone){
   __waPhone = String(phone||"").replace(/\D/g,'');
   __waContactId = null;
   __waLastKey = null;
 
   document.getElementById('waSubTitle').textContent = __waPhone ? ('+' + __waPhone) : '';
-  document.getElementById('waMessages').innerHTML = '';
+  showWASkeleton();
   document.getElementById('waMessageInput').value = '';
   showWAMsgHint('جاري تحميل الرسائل...');
 
@@ -2018,66 +2031,13 @@ function __waNormalizeDisplayText(raw){
   return s;
 }
 
-function __waMsgTime(m){
-  const v = (m && (m.timestamp ?? m.time ?? m.created_at ?? m.date ?? m.sent_at)) || "";
-  if(typeof v === "number"){
-    return v > 1000000000000 ? v : v*1000;
-  }
-  if(typeof v === "string"){
-    const s = v.trim();
-    if(!s) return 0;
-    if(/^\d{10,13}$/.test(s)){
-      const n = Number(s);
-      return n > 1000000000000 ? n : n*1000;
-    }
-    const t = new Date(s).getTime();
-    return isNaN(t) ? 0 : t;
-  }
-  return 0;
-}
-
-// ===== Sent-from-modal memory (fix provider missing from_me) =====
-function __waSentKey(){
-  // per contact/phone
-  return '__wa_sent_' + String(__waPhone || __waContactId || 'global');
-}
-
-function __waRememberSent(text){
-  const t = (text||'').toString().trim();
-  if(!t) return;
-  const key = __waSentKey();
-  let arr = [];
-  try{ arr = JSON.parse(localStorage.getItem(key) || '[]'); }catch(e){ arr = []; }
-  const now = Date.now();
-  // keep last 50, last 30 minutes
-  arr = (Array.isArray(arr)?arr:[])
-    .filter(x => x && typeof x.text==='string' && (now - Number(x.ts||0)) < 30*60*1000)
-    .slice(-49);
-  arr.push({ text: t, ts: now });
-  try{ localStorage.setItem(key, JSON.stringify(arr)); }catch(e){}
-}
-
-function __waIsRememberedSent(text){
-  const t = (text||'').toString().trim();
-  if(!t) return false;
-  const key = __waSentKey();
-  let arr = [];
-  try{ arr = JSON.parse(localStorage.getItem(key) || '[]'); }catch(e){ arr = []; }
-  const now = Date.now();
-  arr = (Array.isArray(arr)?arr:[]).filter(x => x && typeof x.text==='string' && (now - Number(x.ts||0)) < 30*60*1000);
-  // exact match (after normalize)
-  return arr.some(x => x.text.trim() === t);
-}
-
-
-
 function renderWAMessages(messages){
   const box = document.getElementById('waMessages');
   const nearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 140;
 
   box.innerHTML = '';
   (messages||[]).forEach(m=>{
-    let dir = m.direction || (m.from_me ? 'out' : 'in');
+    const dir = m.direction || (m.from_me ? 'out' : 'in');
 
     const bubble = document.createElement('div');
     bubble.className = 'wa-bubble ' + (dir === 'out' ? 'wa-out' : 'wa-in');
@@ -2086,12 +2046,6 @@ function renderWAMessages(messages){
     main.className = 'wa-text';
     let txt = (m.text || m.message || '').toString();
     txt = __waNormalizeDisplayText(txt).trim();
-    // hide internal test label if it appears
-    if(txt === 'المدير') return;
-    // Provider sometimes doesn't mark sent messages; force OUT if we just sent same text from modal
-    if(dir !== 'out' && __waIsRememberedSent(txt)) dir = 'out';
-    // apply final direction
-    bubble.className = 'wa-bubble ' + (dir === 'out' ? 'wa-out' : 'wa-in');
     main.textContent = txt || '⛔ لا يوجد نص (قد تكون رسالة غير نصية أو المابنج غير مضبوط)';
     bubble.appendChild(main);
 
@@ -2123,7 +2077,7 @@ async function loadWAMessages(firstLoad){
       return;
     }
 
-    const r2 = await fetch(`/api/whatsapp/get-messages?contact_id=${encodeURIComponent(__waContactId)}&limit=120&timeout_ms=12000&_=${Date.now()}`);
+    const r2 = await fetch(`/api/whatsapp/get-messages?contact_id=${encodeURIComponent(__waContactId)}/api/whatsapp/get-messages?contact_id=${encodeURIComponent(__waContactId)}limit=60/api/whatsapp/get-messages?contact_id=${encodeURIComponent(__waContactId)}timeout_ms=12000`);
     const j2 = await r2.json().catch(()=>null);
 
     if(!j2 || !j2.ok){
@@ -2131,8 +2085,7 @@ async function loadWAMessages(firstLoad){
       return;
     }
 
-    const msgs = (j2.messages || []).slice();
-    msgs.sort((a,b)=>__waMsgTime(a)-__waMsgTime(b));
+    const msgs = j2.messages || [];
     showWAMsgHint('');
 
     const last = msgs[msgs.length-1];
@@ -2169,24 +2122,6 @@ async function confirmSendWA(){
     }
 
     showWAMsgHint('');
-    __waRememberSent(msg);
-    // optimistic render (instant right bubble)
-    try{
-      const nowIso = new Date().toISOString();
-      const box = document.getElementById('waMessages');
-      const bubble = document.createElement('div');
-      bubble.className = 'wa-bubble wa-out';
-      const main = document.createElement('div');
-      main.className = 'wa-text';
-      main.textContent = msg;
-      bubble.appendChild(main);
-      const meta = document.createElement('div');
-      meta.className = 'wa-meta';
-      meta.textContent = nowIso;
-      bubble.appendChild(meta);
-      box.appendChild(bubble);
-      box.scrollTop = box.scrollHeight;
-    }catch(e){}
     await loadWAMessages(true);
   }catch(e){
     showWAMsgHint('خطأ اتصال أثناء الإرسال.');
@@ -2263,18 +2198,13 @@ window.openChat = openChat;
 .wa-x{border:none;background:transparent;font-size:18px;cursor:pointer}
 .wa-messages{
   flex:1;overflow:auto;padding:14px;background:#f6f7fb;
-  display:flex;flex-direction:column;gap:10px;
-  direction:ltr
-
+  display:flex;flex-direction:column;gap:10px
 }
 .wa-bubble{
   max-width:78%;padding:10px 12px;border-radius:14px;
   box-shadow:0 1px 2px rgba(0,0,0,.06);
   white-space:pre-wrap;word-break:break-word;
   border:1px solid transparent;
-  direction:rtl;
-  text-align:right;
-
 }
 .wa-in{align-self:flex-start;background:#fff;border-color:#e8e8e8}
 .wa-out{align-self:flex-end;background:#e9fff0;border-color:#c8f3d6}
@@ -2290,6 +2220,16 @@ window.openChat = openChat;
 .wa-send{background:#25d366;border-color:#25d366;color:#fff}
 .wa-debug{border-color:#c9a07e}
 .wa-hint{margin-top:8px;background:#fff7d6;border:1px solid #f0d98a;border-radius:12px;padding:8px 10px;font-size:12px}
+
+/* Skeleton loader (opening chat) */
+.wa-skel{height:42px;width:66%;border-radius:14px;margin:8px 0;
+  background:linear-gradient(90deg,#e9e9e9,#f6f6f6,#e9e9e9);
+  background-size:200% 100%;
+  animation:waShimmer 1.15s linear infinite;
+}
+.wa-skel.right{margin-left:auto;}
+@keyframes waShimmer{0%{background-position:-200px 0}100%{background-position:200px 0}}
+
 </style>
 
 </body>
