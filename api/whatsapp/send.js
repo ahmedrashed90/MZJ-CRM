@@ -4,24 +4,21 @@ export default async function handler(req, res) {
   }
 
   const token = process.env.MERSAL_TOKEN;
-  const api = (process.env.MERSAL_API_ENDPOINT || "").replace(/\/+$/g, "");
+  const apiEndpoint = (process.env.MERSAL_API_ENDPOINT || "").replace(/\/+$/g, "");
 
   if (!token) return res.status(500).json({ ok: false, error: "Missing MERSAL_TOKEN" });
-  if (!api) return res.status(500).json({ ok: false, error: "Missing MERSAL_API_ENDPOINT" });
+  if (!apiEndpoint) return res.status(500).json({ ok: false, error: "Missing MERSAL_API_ENDPOINT" });
 
   const phoneRaw = String(req.body?.phone || "");
   const phone = phoneRaw.replace(/[^\d+]/g, "");
   if (!phone) return res.status(400).json({ ok: false, error: "Missing phone" });
 
-  // رسالة افتتاحية (تقدر تغيرها براحتك)
+  // Optional: user-provided message text, otherwise default welcome text
   const text =
     String(req.body?.text || "").trim() ||
     "مرحباً 👋\nمعك فريق المبيعات.\nكيف نقدر نخدمك؟";
 
-  // لو عندك template/lang في بيئة Vercel (مش لازم)
-  const lang = (process.env.MERSAL_LANG || "ar").trim();
-  const template = (process.env.MERSAL_TEMPLATE || "").trim();
-
+  // Helpers
   async function readResp(r) {
     const raw = await r.text();
     let json = null;
@@ -29,36 +26,37 @@ export default async function handler(req, res) {
     return { raw, json };
   }
 
-  // مرسال عندك يظهر في الدوكس wpbox / wpbx — فهنجرّب أكتر من مسار إرسال
+  // Mersal endpoints vary; try common bases & routes.
   const bases = [
-    `${api}/api/wpbox`,
-    `${api}/api/wpbx`,
+    `${apiEndpoint}/api/wpbox`,
+    `${apiEndpoint}/api/wpbx`,
   ];
 
-  // endpoints محتملة للإرسال (حسب اختلاف الإصدارات)
-  const paths = [
+  const routes = [
     "sendMessage",
     "send-message",
     "sendText",
     "send-text",
     "messages/send",
+    "send",
   ];
 
-  // body محتمل (نجرّب أكثر من شكل)
-  const bodies = [
-    // أبسط شكل: phone + message/text
-    (b) => ({ phone, message: text, lang, template: template || undefined }),
-    (b) => ({ phone, text, lang, template: template || undefined }),
-    // أحياناً تكون to بدل phone
-    (b) => ({ to: phone, message: text, lang, template: template || undefined }),
+  // Common payload shapes
+  const payloads = [
+    () => ({ phone, message: text }),
+    () => ({ phone, text }),
+    () => ({ to: phone, message: text }),
+    () => ({ to: phone, text }),
   ];
+
+  let lastError = null;
 
   for (const base of bases) {
-    for (const p of paths) {
-      const url = `${base}/${p}?token=${encodeURIComponent(token)}`;
+    for (const route of routes) {
+      const url = `${base}/${route}?token=${encodeURIComponent(token)}`;
 
-      for (const mkBody of bodies) {
-        const body = mkBody();
+      for (const mk of payloads) {
+        const body = mk();
 
         try {
           const r = await fetch(url, {
@@ -69,26 +67,31 @@ export default async function handler(req, res) {
 
           const out = await readResp(r);
 
-          // نجاح: response ok + رجوع JSON يشير للنجاح
+          // Success heuristics
           const ok =
             r.ok &&
             (out.json?.ok === true ||
-              out.json?.status === "success" ||
+              out.json?.success === true ||
               out.json?.status === true ||
-              out.json?.success === true);
+              out.json?.status === "success" ||
+              (typeof out.json?.message === "string" && out.json.message.toLowerCase().includes("success")));
 
           if (ok) {
             return res.status(200).json({
               ok: true,
-              used: { base, path: p },
+              used: { base, route },
               response: out.json,
             });
           }
 
-          // لو مش ok بس رجّع JSON فيه رسالة واضحة — نكمل نجرب لكن نخزن آخر خطأ
-          // هنكمّل التجارب
+          lastError = {
+            base,
+            route,
+            status: r.status,
+            error: out.json?.message || out.json?.error || out.raw?.slice(0, 250) || "Unknown error",
+          };
         } catch (e) {
-          // نكمل نجرب
+          lastError = { base, route, status: 0, error: e?.message || "Network error" };
         }
       }
     }
@@ -97,6 +100,7 @@ export default async function handler(req, res) {
   return res.status(500).json({
     ok: false,
     error: "Send failed (no matching endpoint/body)",
-    hint: "Check MERSAL_API_ENDPOINT/token and confirm exact send endpoint in Mersal docs",
+    lastError,
+    hint: "Verify the exact send endpoint in your Mersal API docs and ensure MERSAL_API_ENDPOINT points to the API host (e.g., https://api.w-mersal.com).",
   });
 }
