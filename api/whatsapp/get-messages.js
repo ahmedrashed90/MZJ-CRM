@@ -3,6 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
 
+  // منع الكاش
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
     return Number.isFinite(t) ? t : 0;
   };
 
-  // استخراج كل النصوص من أي عمق داخل الرسالة
+  // استخراج النصوص من أي عمق
   const collectStrings = (obj, out, depth = 0) => {
     if (depth > 6 || obj == null) return;
     if (typeof obj === "string") {
@@ -43,23 +44,29 @@ export default async function handler(req, res) {
     }
   };
 
+  // اختيار النص الفعلي وتنضيفه
   const pickTextDeep = (m) => {
     const strs = [];
     collectStrings(m, strs);
+
     if (!strs.length) return "";
 
-    // نختار أطول نص منطقي
-    strs.sort((a, b) => b.length - a.length);
-    return strs[0];
+    const clean = strs.filter(s =>
+      s.length > 2 &&
+      !s.startsWith("wamid.") &&                 // منع IDs
+      !/^[A-Za-z0-9+/_=-]{20,}$/.test(s)         // منع النصوص المشفرة الطويلة
+    );
+
+    if (!clean.length) return "";
+
+    clean.sort((a, b) => b.length - a.length);
+    return clean[0];
   };
 
   // تحديد الرسالة الصادرة من الشركة
   const pickFromMe = (m) => {
     const txt = pickTextDeep(m);
-
-    // رسائل الشركة عندك دايمًا فيها الرقم ده
-    if (txt.includes("920014635")) return true;
-
+    if (txt.includes("920014635")) return true; // رقم شركتك
     return false;
   };
 
