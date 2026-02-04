@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -763,6 +764,37 @@ updatedAt: serverTimestamp(),
     }
   }
 
+  // ===== Open Mersal chat in new tab =====
+
+window.openMersalChat = async function openMersalChat(leadId){
+  const lead = leadsCache.find(x => x.id === leadId) || {};
+  const phone = normPhone(lead.phone || leadId || '');
+  if(!phone){
+    showToast('رقم العميل غير متوفر','err');
+    return;
+  }
+
+  try{
+    const res = await fetch('/api/open-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone })
+    });
+    const out = await res.json().catch(()=>({}));
+    if(!res.ok || !out.ok || !out.url){
+      console.error(out);
+      showToast('فشل فتح محادثة مرسال','err');
+      return;
+    }
+    window.open(out.url, '_blank', 'noopener');
+    showToast('تم فتح محادثة مرسال ✅','ok');
+  }catch(err){
+    console.error(err);
+    showToast('خطأ في الاتصال بالسيرفر','err');
+  }
+}
+
+
 
 
   // ===== Auth =====
@@ -1039,7 +1071,7 @@ updatedAt: serverTimestamp(),
           <td>${(()=>{const n=clean(l.lastNote||""); if(!n) return "—"; const t=fmtTS(l.lastNoteAt||l.lastActivityAt||l.updatedAt||l.createdAt); return `<div style="font-weight:800">${escHtml(n)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${t}</div>`;})()}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
-            <button class="btn btn-ghost" style="margin-top:6px" onclick="sendWhatsApp('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+            <button class="btn btn-ghost" style="margin-top:6px" onclick=\"openMersalChat('${l.id}')\"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
           </td>
           
         </tr>
@@ -1192,7 +1224,7 @@ function applyRoleUI(){
           <td>${(()=>{const n=clean(l.lastNote||""); if(!n) return "—"; const t=fmtTS(l.lastNoteAt||l.lastActivityAt||l.updatedAt||l.createdAt); return `<div style="font-weight:800">${escHtml(n)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${t}</div>`;})()}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
-            <button class="btn btn-ghost" style="margin-top:6px" onclick="sendWhatsApp('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+            <button class="btn btn-ghost" style="margin-top:6px" onclick=\"openMersalChat('${l.id}')\"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
           </td>
           
         </tr>
