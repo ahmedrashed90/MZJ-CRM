@@ -182,6 +182,27 @@ export default async function handler(req, res) {
     const direct = m.from_me ?? m.fromMe ?? m.mine ?? m.is_me ?? m.me ?? m.owner ?? m.isMine ?? m.is_mine ?? m?.key?.fromMe ?? m?.data?.from_me ?? m?.payload?.from_me;
     if (direct !== undefined) return Boolean(direct);
 
+    // لو المزود بيرجع اتجاه صريح
+    const dir = (m.direction || m.dir || m?.data?.direction || m?.payload?.direction || m?.message?.direction || "").toString().toLowerCase();
+    if (dir === "out" || dir === "outgoing" || dir === "sent" || dir === "send") return true;
+    if (dir === "in" || dir === "incoming" || dir === "recv" || dir === "received") return false;
+
+    // لو فيه type/status صريحين
+    const typeStr = (m.type || m.msg_type || m?.data?.type || m?.payload?.type || "").toString().toLowerCase();
+    if (typeStr.includes("out")) return true;
+    if (typeStr.includes("in")) return false;
+
+    const statusStr = (m.status || m?.data?.status || m?.payload?.status || "").toString().toLowerCase();
+    if (statusStr.includes("out")) return true;
+    if (statusStr.includes("in")) return false;
+
+    // فحص عام (احتياطي) لو ظهر في الـ raw أي علامة out
+    try{
+      const blob = JSON.stringify(m || {}).toLowerCase();
+      if (blob.includes('"direction":"out"') || blob.includes('"from_me":true') || blob.includes('"fromme":true') || blob.includes('"key":{"fromme":true')) return true;
+      if (blob.includes('"direction":"in"') || blob.includes('"from_me":false') || blob.includes('"fromme":false')) return false;
+    }catch(_){}
+
     // حقول هوية المرسل المحتملة
     const candidates = [
       m?.from, m?.sender, m?.author, m?.participant, m?.remoteJid,
