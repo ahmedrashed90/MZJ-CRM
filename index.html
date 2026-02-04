@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -11,7 +12,39 @@
   <!-- نفس الخط والهوية من admin.html -->
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"/>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+function updateGlobalFollowupBar(){
+  const bar = document.getElementById('globalFollowupBar');
+  const txt = document.getElementById('globalFollowupText');
+  if(!bar || !txt) return;
+
+  const now = new Date();
+  let overdue = 0, soon = 0;
+
+  leadsCache.forEach(l=>{
+    if(!l.followUpAt) return;
+    const d = l.followUpAt.toDate ? l.followUpAt.toDate() : new Date(l.followUpAt);
+    const diffH = (d - now) / (1000*60*60);
+    if(diffH < 0) overdue++;
+    else if(diffH <= 3) soon++;
+  });
+
+  if(overdue===0 && soon===0){
+    bar.style.display='none';
+    return;
+  }
+
+  bar.style.display='flex';
+  txt.textContent = `لديك ${overdue} متابعة متأخرة و ${soon} خلال 3 ساعات`;
+}
+
+document.addEventListener('click', e=>{
+  if(e.target.id==='btnHideGlobalFu'){
+    document.getElementById('globalFollowupBar').style.display='none';
+  }
+});
+
+</script>
 
   <style>
   :root{
@@ -143,7 +176,18 @@
     .badge.warn{border-color:rgba(255,193,7,.45);background:rgba(255,193,7,.18);color:#8a5b00}
     .badge.danger{border-color:rgba(220,38,38,.35);background:rgba(220,38,38,.12);color:#b91c1c}
 
-  </style>
+  
+  /* Follow-up notifications (safe) */
+  .fu-banner{margin:12px 0;padding:12px 14px;border:1px solid var(--line-strong);border-radius:16px;
+    background:linear-gradient(180deg,#fff,rgba(188,143,116,.10));display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .fu-left{display:flex;align-items:center;gap:12px}
+  .fu-ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(62,36,32,.10);color:var(--brown);
+    border:1px solid rgba(62,36,32,.18)}
+  .fu-title{font-weight:1000;color:#111827}
+  .fu-sub{font-size:13px;color:var(--muted);margin-top:2px}
+  .fu-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+</style>
 </head>
 
 <body>
@@ -188,6 +232,13 @@
 </div>
 
 <div id="app" style="display:none">
+<div id="globalFollowupBar" style="display:none;margin:12px 16px 0 16px;padding:12px 14px;border-radius:14px;
+border:1px solid #e5e7eb;background:linear-gradient(180deg,#fff,rgba(192,122,74,.10));
+font-weight:700;color:#3e2420;align-items:center;justify-content:space-between;gap:12px">
+  <span id="globalFollowupText">تنبيهات المتابعات</span>
+  <button id="btnHideGlobalFu" style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:6px 10px;cursor:pointer">إخفاء</button>
+</div>
+
   <div class="container">
     
     <!-- ===== Dashboard ===== -->
@@ -279,6 +330,25 @@
 
         </div>
 
+      
+      <div id="fuBannerAdmin" class="fu-banner" style="display:none">
+        <div class="fu-left">
+          <span class="fu-ic"><i class="fa-solid fa-bell"></i></span>
+          <div class="fu-text">
+            <div class="fu-title">تنبيهات المتابعات</div>
+            <div class="fu-sub" id="fuBannerAdminText">—</div>
+          </div>
+        </div>
+        <div class="fu-actions">
+          <button class="btn btn-ghost" id="fuAdmin1h"><i class="fa-regular fa-clock"></i> ساعة</button>
+          <button class="btn btn-ghost" id="fuAdmin2h"><i class="fa-regular fa-clock"></i> ساعتين</button>
+          <button class="btn btn-ghost" id="fuAdmin3h"><i class="fa-regular fa-clock"></i> 3 ساعات</button>
+          <button class="btn btn-ghost" id="fuAdminToday"><i class="fa-regular fa-calendar"></i> اليوم</button>
+          <button class="btn btn-ghost" id="fuAdminOverdue"><i class="fa-solid fa-triangle-exclamation"></i> متأخر</button>
+          <button class="btn" id="fuAdminClear"><i class="fa-solid fa-filter-circle-xmark"></i> إلغاء الفلتر</button>
+        </div>
+      </div>
+
       <div class="table-wrap">
         <table id="leadsTable">
           <thead>
@@ -339,6 +409,25 @@
               <option value="week">هذا الأسبوع</option>
               <option value="none">بدون موعد</option>
             </select>
+          </div>
+        </div>
+
+        
+        <div id="fuBannerCust" class="fu-banner" style="display:none">
+          <div class="fu-left">
+            <span class="fu-ic"><i class="fa-solid fa-bell"></i></span>
+            <div class="fu-text">
+              <div class="fu-title">تنبيهات المتابعات</div>
+              <div class="fu-sub" id="fuBannerCustText">—</div>
+            </div>
+          </div>
+          <div class="fu-actions">
+            <button class="btn btn-ghost" id="fuCust1h"><i class="fa-regular fa-clock"></i> ساعة</button>
+            <button class="btn btn-ghost" id="fuCust2h"><i class="fa-regular fa-clock"></i> ساعتين</button>
+            <button class="btn btn-ghost" id="fuCust3h"><i class="fa-regular fa-clock"></i> 3 ساعات</button>
+            <button class="btn btn-ghost" id="fuCustToday"><i class="fa-regular fa-calendar"></i> اليوم</button>
+            <button class="btn btn-ghost" id="fuCustOverdue"><i class="fa-solid fa-triangle-exclamation"></i> متأخر</button>
+            <button class="btn" id="fuCustClear"><i class="fa-solid fa-filter-circle-xmark"></i> إلغاء الفلتر</button>
           </div>
         </div>
 
@@ -599,6 +688,8 @@
     try{
       await updateDoc(doc(db,'leads', currentLeadId), {
         followUpAt: null,
+        followUpStatus: 'done',
+        followUpDoneAt: serverTimestamp(),
         followUpNote: '',
         updatedAt: serverTimestamp(),
         lastActivityAt: serverTimestamp(),
@@ -734,9 +825,9 @@
     }
   }
 
-  function detachLeadsRealtime(){ if(unsubLeads){unsubLeads();unsubLeads=null;} leadsCache=[]; renderLeads();
+  function detachLeadsRealtime(){ if(unsubLeads){unsubLeads();unsubLeads=null;} leadsCache=[]; renderLeads(); updateGlobalFollowupBar();
       syncStatusFilter2();
-      renderLeads2();
+      renderLeads2(); updateGlobalFollowupBar();
       updateDashboard(); }
 
   
@@ -759,7 +850,7 @@
     const k1=document.getElementById('kpiNew');
     const k2=document.getElementById('kpiContacted');
     const k3=document.getElementById('kpiClosed');
-    if(k1) k1.onclick = ()=>{ switchTab(isAdmin?'admin':'customers'); document.getElementById(isAdmin?'q':'q2').value=''; if(isAdmin){ statusFilter.value='الكل'; } else { statusFilter2.value='الكل'; } renderLeads(); renderLeads2(); };
+    if(k1) k1.onclick = ()=>{ switchTab(isAdmin?'admin':'customers'); document.getElementById(isAdmin?'q':'q2').value=''; if(isAdmin){ statusFilter.value='الكل'; } else { statusFilter2.value='الكل'; } renderLeads(); updateGlobalFollowupBar(); renderLeads2(); updateGlobalFollowupBar(); };
     if(k2) k2.onclick = ()=>{ switchTab(isAdmin?'admin':'customers'); };
     if(k3) k3.onclick = ()=>{ switchTab(isAdmin?'admin':'customers'); };
   }
@@ -779,9 +870,9 @@
         connDot.className='dot ok'; connText.textContent='متصل ✅';
         leadsCache = snap.docs.map(d=>({ id:d.id, ...d.data() }));
         refreshStatusFilter();
-        renderLeads();
+        renderLeads(); updateGlobalFollowupBar();
         syncStatusFilter2();
-        renderLeads2();
+        renderLeads2(); updateGlobalFollowupBar();
         updateDashboard();
       }catch(err){
         console.error(err);
@@ -794,7 +885,7 @@
       connDot.className='dot ok'; connText.textContent='متصل ✅';
       leadsCache = snap.docs.map(d=>({ id:d.id, ...d.data() }));
       refreshStatusFilter();
-      renderLeads();
+      renderLeads(); updateGlobalFollowupBar();
     }, (err)=>{
       console.error(err);
       connDot.className='dot err'; connText.textContent='مشكلة اتصال';
@@ -1005,9 +1096,9 @@ function applyRoleUI(){
       connDot.className='dot ok'; connText.textContent='متصل ✅';
       leadsCache = snap.docs.map(d=>({ id:d.id, ...d.data() }));
       refreshStatusFilter();
-      renderLeads();
+      renderLeads(); updateGlobalFollowupBar();
       syncStatusFilter2();
-      renderLeads2();
+      renderLeads2(); updateGlobalFollowupBar();
       updateDashboard();
     }catch(err){
       console.error(err);
@@ -1428,12 +1519,29 @@ function applyRoleUI(){
     const x = new Date(d); x.setDate(x.getDate()+7); return x;
   }
   function followUpStatusLabel(lead){
+    // done takes precedence (even if followUpAt is cleared)
+    const st = clean(lead.followUpStatus||'');
+    if(st === 'done' || lead.followUpDoneAt){
+      return { key:'done', text:'تمّت المتابعة', badge:'ok' };
+    }
+
     const fu = tsToDate(lead.followUpAt);
     if(!fu) return { key:'none', text:'—', badge:'muted' };
+
     const now = new Date();
     if(fu < now) return { key:'overdue', text:'متأخر', badge:'danger' };
+
+    // within 1/2/3 hours buckets (for UI/filtering)
+    const t1 = new Date(now.getTime()+60*60*1000);
+    const t2 = new Date(now.getTime()+2*60*60*1000);
+    const t3 = new Date(now.getTime()+3*60*60*1000);
+    if(fu <= t1) return { key:'1h', text:'خلال ساعة', badge:'warn' };
+    if(fu <= t2) return { key:'2h', text:'خلال ساعتين', badge:'warn' };
+    if(fu <= t3) return { key:'3h', text:'خلال 3 ساعات', badge:'warn' };
+
     const s = startOfDay(now), e = endOfDay(now);
     if(fu >= s && fu <= e) return { key:'today', text:'اليوم', badge:'warn' };
+
     return { key:'pending', text:'قادم', badge:'ok' };
   }
   function isEmptyContactRaw(c){
@@ -1698,6 +1806,38 @@ function applyRoleUI(){
       showToast('فشل إضافة النشاط','err');
     }
   };
+
+function updateGlobalFollowupBar(){
+  const bar = document.getElementById('globalFollowupBar');
+  const txt = document.getElementById('globalFollowupText');
+  if(!bar || !txt) return;
+
+  const now = new Date();
+  let overdue = 0, soon = 0;
+
+  leadsCache.forEach(l=>{
+    if(!l.followUpAt) return;
+    const d = l.followUpAt.toDate ? l.followUpAt.toDate() : new Date(l.followUpAt);
+    const diffH = (d - now) / (1000*60*60);
+    if(diffH < 0) overdue++;
+    else if(diffH <= 3) soon++;
+  });
+
+  if(overdue===0 && soon===0){
+    bar.style.display='none';
+    return;
+  }
+
+  bar.style.display='flex';
+  txt.textContent = `لديك ${overdue} متابعة متأخرة و ${soon} خلال 3 ساعات`;
+}
+
+document.addEventListener('click', e=>{
+  if(e.target.id==='btnHideGlobalFu'){
+    document.getElementById('globalFollowupBar').style.display='none';
+  }
+});
+
 </script>
 
 </body>
