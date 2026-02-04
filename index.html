@@ -723,7 +723,18 @@ updatedAt: serverTimestamp(),
 
   // ===== WhatsApp (Mersal via Vercel Serverless) =====
   // يرسل رسالة ترحيب ثابتة عبر endpoint: /api/whatsapp/send
-  window.sendWhatsApp = async function sendWhatsApp(leadId){
+  window.sendWhatsApp =   function openMersalPopup(url){
+    const w = 1100, h = 760;
+    const left = Math.max(0, (screen.width - w) / 2);
+    const top  = Math.max(0, (screen.height - h) / 2);
+    window.open(
+      url,
+      "mersal_chat",
+      `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+  }
+
+  async function sendWhatsApp(leadId){
     const lead = leadsCache.find(x => x.id === leadId) || {};
     const phone = normPhone(lead.phone || leadId || '');
     if(!phone){
@@ -731,12 +742,17 @@ updatedAt: serverTimestamp(),
       return;
     }
 
+    // رسالة افتراضية (تقدر تغيرها من هنا لاحقًا)
+    const msg = `اهلاً وسهلاً بك\n${clean(lead.name||'')}\nمعك ${clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'')}\nكيف نقدر نخدمك؟`.trim();
+
     try{
-      const res = await fetch('/api/whatsapp/send', {
+      // 1) ارسال الرسالة عبر مرسال API (Serverless)
+      const res = await fetch('/api/mersal/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone })
+        body: JSON.stringify({ phone, message: msg })
       });
+
       const out = await res.json().catch(()=>({}));
       if(!res.ok || !out.ok){
         console.error(out);
@@ -744,17 +760,28 @@ updatedAt: serverTimestamp(),
         return;
       }
 
-      showToast('تم إرسال رسالة واتساب ✅','ok');
+      showToast('تم إرسال واتساب ✅','ok');
 
-      
+      // 2) فتح الشات في Popup (شبه مودال) على نفس contact_id
+      try{
+        const openRes = await fetch(`/api/mersal/open-chat?phone=${encodeURIComponent(phone)}`);
+        const openOut = await openRes.json().catch(()=>({}));
+        if(openRes.ok && openOut.ok && openOut.chat_url){
+          openMersalPopup(openOut.chat_url);
+        }else{
+          console.error(openOut);
+          // fallback: افتح شاشة الشات العامة
+          openMersalPopup('https://w-mersal.com/chat');
+        }
+      }catch(e){
+        openMersalPopup('https://w-mersal.com/chat');
+      }
 
-      // افتح لوحة مرسال للمحادثات (المحادثة ستظهر أعلى القائمة بعد الإرسال)
-      try{ window.open('https://w-mersal.com/chat','_blank'); }catch(_){ }
-// سجل نشاط (اختياري) — الأدمن يقدر يشوفه
+      // سجل نشاط (اختياري) — الأدمن يقدر يشوفه
       try{
         await addDoc(collection(db,'leads', leadId, 'activity'), {
           type:'whatsapp',
-          text:'تم إرسال رسالة واتساب ترحيبية عبر مرسال',
+          text:'تم إرسال رسالة واتساب عبر مرسال',
           byUid: auth.currentUser.uid,
           byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
           at: serverTimestamp(),
@@ -1905,4 +1932,3 @@ document.addEventListener("click", function(e){
 
 </body>
 </html>
-
