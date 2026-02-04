@@ -1528,30 +1528,32 @@ function applyRoleUI(){
     const x = new Date(d); x.setDate(x.getDate()+7); return x;
   }
   function followUpStatusLabel(lead){
-    // done takes precedence (even if followUpAt is cleared)
+    // If there is a scheduled follow-up time, it defines the status (even if lead was previously marked done)
+    const fu = tsToDate(lead.followUpAt);
+    if(fu){
+      const now = new Date();
+      if(fu < now) return { key:'overdue', text:'متأخر', badge:'danger' };
+
+      // within 1/2/3 hours buckets (for UI/filtering)
+      const t1 = new Date(now.getTime()+60*60*1000);
+      const t2 = new Date(now.getTime()+2*60*60*1000);
+      const t3 = new Date(now.getTime()+3*60*60*1000);
+      if(fu <= t1) return { key:'1h', text:'خلال ساعة', badge:'warn' };
+      if(fu <= t2) return { key:'2h', text:'خلال ساعتين', badge:'warn' };
+      if(fu <= t3) return { key:'3h', text:'خلال 3 ساعات', badge:'warn' };
+
+      const s = startOfDay(now), e = endOfDay(now);
+      if(fu >= s && fu <= e) return { key:'today', text:'اليوم', badge:'warn' };
+
+      return { key:'pending', text:'قادم', badge:'ok' };
+    }
+
+    // No scheduled follow-up: show done if it was marked done, otherwise empty
     const st = clean(lead.followUpStatus||'');
     if(st === 'done' || lead.followUpDoneAt){
       return { key:'done', text:'تمّت المتابعة ✓', badge:'ok' };
     }
-
-    const fu = tsToDate(lead.followUpAt);
-    if(!fu) return { key:'none', text:'—', badge:'muted' };
-
-    const now = new Date();
-    if(fu < now) return { key:'overdue', text:'متأخر', badge:'danger' };
-
-    // within 1/2/3 hours buckets (for UI/filtering)
-    const t1 = new Date(now.getTime()+60*60*1000);
-    const t2 = new Date(now.getTime()+2*60*60*1000);
-    const t3 = new Date(now.getTime()+3*60*60*1000);
-    if(fu <= t1) return { key:'1h', text:'خلال ساعة', badge:'warn' };
-    if(fu <= t2) return { key:'2h', text:'خلال ساعتين', badge:'warn' };
-    if(fu <= t3) return { key:'3h', text:'خلال 3 ساعات', badge:'warn' };
-
-    const s = startOfDay(now), e = endOfDay(now);
-    if(fu >= s && fu <= e) return { key:'today', text:'اليوم', badge:'warn' };
-
-    return { key:'pending', text:'قادم', badge:'ok' };
+    return { key:'none', text:'—', badge:'muted' };
   }
   function isEmptyContactRaw(c){
     const v = clean(c||'').trim();
@@ -1854,6 +1856,46 @@ document.addEventListener('click', e=>{
   }
 });
 
+</script>
+
+
+<script>
+function computeFollowStatus(followDateValue, isDone){
+    if(followDateValue){
+        const followDate = new Date(followDateValue);
+        const now = new Date();
+        if(followDate > now){
+            return "قادم";
+        }
+    }
+    if(isDone){
+        return "✓ تمّت المتابعة";
+    }
+    return "";
+}
+
+// Hook into save follow-up buttons
+document.addEventListener("click", function(e){
+    if(e.target.matches(".save-followup")){
+        const modal = e.target.closest(".modal");
+        if(!modal) return;
+
+        const dateInput = modal.querySelector("input[type='datetime-local']");
+        const doneCheckbox = modal.querySelector("input[type='checkbox'][name='followDone']");
+
+        const status = computeFollowStatus(dateInput ? dateInput.value : null, doneCheckbox ? doneCheckbox.checked : false);
+
+        // Find related row via data-id
+        const recordId = modal.getAttribute("data-id");
+        const row = document.querySelector(`tr[data-id='${recordId}']`);
+        if(row){
+            const statusCell = row.querySelector(".follow-status");
+            if(statusCell){
+                statusCell.textContent = status;
+            }
+        }
+    }
+});
 </script>
 
 </body>
