@@ -24,8 +24,20 @@ export default async function handler(req, res) {
   const pickTime = (m) =>
     m?.time || m?.created_at || m?.date || m?.sent_at || m?.timestamp || "";
 
+  // ✅ Fix microseconds: 2026-02-04T15:06:07.000000Z -> 2026-02-04T15:06:07.000Z
+  const normalizeIso = (s) => {
+    const str = String(s || "").trim();
+    const m = str.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.(\d+)(Z)?$/);
+    if (!m) return str;
+    const base = m[1];
+    const frac = (m[2] || "0").padEnd(3, "0").slice(0, 3);
+    const z = m[3] || "Z";
+    return `${base}.${frac}${z}`;
+  };
+
   const asMs = (v) => {
     if (v == null) return 0;
+
     if (typeof v === "number") return v > 1e12 ? v : v * 1000;
 
     const s = String(v).trim();
@@ -36,7 +48,7 @@ export default async function handler(req, res) {
       return n > 1e12 ? n : n * 1000;
     }
 
-    const t = Date.parse(s);
+    const t = Date.parse(normalizeIso(s));
     return Number.isFinite(t) ? t : 0;
   };
 
@@ -76,30 +88,25 @@ export default async function handler(req, res) {
   const looksLikeId = (s) => /^[A-Za-z0-9+/_=-]{20,}$/.test(s);
   const looksLikeWamid = (s) => /^wamid\./i.test(String(s || "").trim());
 
-  // يشيل القيم الفاضية اللي بتطلع عندك "[]"
   const looksEmptyJson = (s) => {
     const t = String(s || "").trim();
     return t === "[]" || t === "{}" || t === "[ ]" || t === "{ }";
   };
 
   // -------- استخراج Title بتاع زر الرد --------
-  // مزودك بيرجع interactive reply بشكل object فيه title/id
   const findReplyTitle = (obj, depth = 0) => {
     if (depth > 8 || obj == null) return "";
 
     if (typeof obj === "object") {
-      // لو ده شكل reply مباشر
       if (obj.type === "reply" && typeof obj.title === "string" && obj.title.trim()) {
         return obj.title.trim();
       }
 
-      // لو فيه reply جوه
       if (obj.reply && typeof obj.reply === "object") {
         const t = findReplyTitle(obj.reply, depth + 1);
         if (t) return t;
       }
 
-      // لو فيه parameters فيها title
       if (obj.parameters && Array.isArray(obj.parameters)) {
         for (const p of obj.parameters) {
           const t = findReplyTitle(p, depth + 1);
@@ -107,9 +114,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // لو فيه عنوان في object مرتبط بزر
       if (typeof obj.title === "string" && obj.title.trim()) {
-        // غالبًا بيكون مع id يبدأ btn_
         if (typeof obj.id === "string" && obj.id.startsWith("btn_")) {
           return obj.title.trim();
         }
@@ -139,7 +144,6 @@ export default async function handler(req, res) {
       blob = String(m || "").toLowerCase();
     }
 
-    // لو كانت reply buttons ومفيش title اتسحب
     if (blob.includes('"type":"reply"') || blob.includes("buttons") || blob.includes("interactive"))
       return "🔘 رد بزر";
 
@@ -170,21 +174,18 @@ export default async function handler(req, res) {
     // أصلح /https://
     t = t.replace(/^\s*\/\s*(https?:\/\/)/i, "$1");
 
-    // شيل strings اللي عبارة عن JSON فاضي
+    // شيل القيم الفاضية
     if (looksEmptyJson(t)) return "";
 
     return t;
   };
 
-  // اختيار النص الحقيقي:
-  // 1) لو فيه عنوان زر reply -> رجّعه
-  // 2) غير كده اعمل deep strings + فلترة
-  // 3) لو مفيش -> label محترم
   const pickTextDeep = (m) => {
-    // زرار reply title
+    // 1) reply button title
     const replyTitle = findReplyTitle(m);
     if (replyTitle) return replyTitle;
 
+    // 2) deep strings
     const strs = [];
     collectStrings(m, strs);
 
@@ -204,13 +205,11 @@ export default async function handler(req, res) {
       return clean[0];
     }
 
+    // 3) fallback label for media/interactive
     return fallbackLabel(m) || "";
   };
 
-  // تحديد out/in:
-  // 1) flags صريحة
-  // 2) رقمك موجود في حقول sender المحتملة
-  // 3) fallback لرسائل النظام (دومينات mzj + رقم 920014635)
+  // تحديد out/in (مع fallback لرسائل النظام)
   const pickFromMe = (m, textMsg) => {
     const direct =
       m?.from_me ?? m?.fromMe ?? m?.mine ?? m?.is_me ?? m?.me ?? m?.owner ??
@@ -229,7 +228,7 @@ export default async function handler(req, res) {
 
     if (candidates.some((v) => normDigits(v).includes(MY))) return true;
 
-    // fallback: رسائل النظام بتاعتك
+    // fallback لرسائل النظام اللي بتطلع من المودال
     const t = String(textMsg || "");
     if (t.includes("920014635")) return true;
     if (t.includes("mzj-crm.vercel.app")) return true;
@@ -245,16 +244,16 @@ export default async function handler(req, res) {
       body: JSON.stringify({ token, contact_id: contactId }),
     });
 
-    const text = await r.text();
+    const rawText = await r.text();
     let data = null;
-    try { data = JSON.parse(text); } catch (_) {}
+    try { data = JSON.parse(rawText); } catch (_) {}
 
     if (!r.ok) {
       return res.status(500).json({
         ok: false,
         step: "getMessages",
         status: r.status,
-        error: data || text,
+        error: data || rawText,
       });
     }
 
@@ -262,8 +261,19 @@ export default async function handler(req, res) {
     const arr = Array.isArray(raw) ? raw : (raw.messages || raw.data || []);
     const list = Array.isArray(arr) ? arr : [];
 
-    const sorted = [...list].sort((a, b) => asMs(pickTime(a)) - asMs(pickTime(b)));
-    const slice = sorted.slice(-MAX);
+    // ✅ SORT ثابت: الأقدم -> الأحدث (مع tie-breaker)
+    const sorted = [...list].sort((a, b) => {
+      const ta = asMs(pickTime(a));
+      const tb = asMs(pickTime(b));
+      if (ta !== tb) return ta - tb;
+
+      const ia = Number(a?.id || a?.message_id || 0) || 0;
+      const ib = Number(b?.id || b?.message_id || 0) || 0;
+      return ia - ib;
+    });
+
+    // آخر MAX فقط لكن بنفس ترتيب الأقدم->الأحدث
+    const slice = sorted.slice(Math.max(0, sorted.length - MAX));
 
     const messages = slice
       .map((m) => {
@@ -280,7 +290,6 @@ export default async function handler(req, res) {
           time: pickTime(m) || "",
         };
       })
-      // شيل الرسائل اللي مفيهاش أي معنى بعد التنضيف
       .filter((x) => String(x.text || "").trim().length > 0);
 
     return res.status(200).json({ ok: true, count: messages.length, messages });
