@@ -260,7 +260,13 @@ export default async function handler(req, res) {
         time: tm || "",
         _t: parseTimeMs(tm)
       };
-    }).filter((x) => String(x.text || "").trim().length > 0);
+    }).filter((x) => {
+      const t = String(x.text || '').trim();
+      if(!t) return false;
+      // hide internal label if it appears
+      if(t === 'المدير') return false;
+      return true;
+    });
 
     // sort ثابت: الأقدم -> الأحدث (مع tie-breaker بالـ id)
     normalized.sort((a, b) => {
