@@ -9,7 +9,10 @@ export default async function handler(req, res) {
   const contactId = String(req.query?.contact_id || "").trim();
   if (!contactId) return res.status(400).json({ ok: false, error: "Missing contact_id" });
 
-  const isoLike = (s) =>
+  const TIMEOUT_MS = Number(req.query?.timeout_ms || 15000);
+  const MAX = Math.min(Math.max(Number(req.query?.limit || 80), 1), 300);
+
+  const isIsoLike = (s) =>
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s) ||
     /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s) ||
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z?$/.test(s);
@@ -37,13 +40,11 @@ export default async function handler(req, res) {
   };
 
   const pickTextDeep = (m) => {
-    // Priority keys (common message text carriers)
     const priority = [
-      "text","message","body","content","caption","msg","message_text","text_message",
-      "data.text","data.message","data.body","data.content",
-      "payload.text","payload.message","payload.body","payload.content",
-      "message.body","message.text","message.content",
-      "messages.body","messages.text","messages.content"
+      "text", "message", "body", "content", "caption", "msg", "message_text", "text_message",
+      "data.text", "data.message", "data.body", "data.content",
+      "payload.text", "payload.message", "payload.body", "payload.content",
+      "message.body", "message.text", "message.content"
     ];
 
     const getByPath = (o, p) => {
@@ -58,22 +59,20 @@ export default async function handler(req, res) {
 
     for (const p of priority) {
       const v = getByPath(m, p);
-      if (typeof v === "string" && v.trim() && !isoLike(v.trim())) return v.trim();
+      if (typeof v === "string" && v.trim() && !isIsoLike(v.trim())) return v.trim();
     }
 
-    // Fallback: scan all strings and pick best candidate (non-iso, not too short)
     const strs = [];
     collectStrings(m, strs);
 
     const filtered = strs
-      .map(x => ({...x, s: x.s.trim()}))
-      .filter(x => x.s && !isoLike(x.s))
-      .filter(x => x.s.length >= 2)
-      .filter(x => !/^(ok|true|false|null)$/i.test(x.s));
+      .map((x) => ({ ...x, s: x.s.trim() }))
+      .filter((x) => x.s && !isIsoLike(x.s))
+      .filter((x) => x.s.length >= 2)
+      .filter((x) => !/^(ok|true|false|null)$/i.test(x.s));
 
     if (!filtered.length) return "";
 
-    // Prefer longer strings and those from likely paths
     const score = (x) => {
       let sc = x.s.length;
       if (/text|body|message|content|caption/i.test(x.path)) sc += 50;
@@ -81,24 +80,27 @@ export default async function handler(req, res) {
       return sc;
     };
 
-    filtered.sort((a,b)=>score(b)-score(a));
+    filtered.sort((a, b) => score(b) - score(a));
     return filtered[0].s;
   };
 
   const pickTime = (m) =>
-    (m.time || m.created_at || m.date || m.sent_at || m.timestamp ||
-     m?.data?.time || m?.data?.created_at || m?.payload?.created_at || "");
+    (m.time || m.created_at || m.date || m.sent_at || m.timestamp || m?.data?.time || m?.data?.created_at || m?.payload?.created_at || "");
 
   const pickFromMe = (m) => {
     const v = m.from_me ?? m.mine ?? m.is_me ?? m.me ?? m.fromMe ?? m.fromme ?? m.owner ?? m.isMine ?? m.is_mine;
     return Boolean(v);
   };
 
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
   try {
     const r = await fetch(`${apiEndpoint}/api/wpbox/getMessages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, contact_id: contactId })
+      body: JSON.stringify({ token, contact_id: contactId }),
+      signal: controller.signal
     });
 
     const text = await r.text();
@@ -113,24 +115,30 @@ export default async function handler(req, res) {
     const arr = Array.isArray(raw) ? raw : (raw.messages || raw.data || []);
     const list = Array.isArray(arr) ? arr : [];
 
-    const debug = String(req.query?.debug || "") === "1";
+    // غالبًا الـ API بيرجع قديم -> ناخد آخر MAX رسالة (الأحدث)
+    const slice = list.slice(-MAX);
 
-    const messages = list.map(m => {
+    const messages = slice.map((m) => {
       const fromMe = pickFromMe(m);
-      const t = pickTextDeep(m);
+      const txt = pickTextDeep(m);
       const tm = pickTime(m);
       return {
         id: m.id || m.message_id || m.wamid || m.message_wamid || m.uuid || null,
-        text: t || "",
+        text: txt || "",
         from_me: fromMe,
         direction: fromMe ? "out" : "in",
-        time: tm || "",
-        ...(debug ? { _raw: m } : {})
+        time: tm || ""
       };
     });
 
     return res.status(200).json({ ok: true, count: messages.length, messages });
   } catch (e) {
-    return res.status(500).json({ ok: false, error: e?.message || "Unknown error" });
+    const isTimeout = String(e?.name || "") === "AbortError";
+    return res.status(isTimeout ? 504 : 500).json({
+      ok: false,
+      error: isTimeout ? `Timeout after ${TIMEOUT_MS}ms (getMessages)` : (e?.message || "Unknown error")
+    });
+  } finally {
+    clearTimeout(t);
   }
 }
