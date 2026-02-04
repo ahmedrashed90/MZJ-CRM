@@ -724,6 +724,9 @@ updatedAt: serverTimestamp(),
   // ===== WhatsApp (Mersal via Vercel Serverless) =====
   // يرسل رسالة ترحيب ثابتة عبر endpoint: /api/whatsapp/send
   window.sendWhatsApp = async function sendWhatsApp(leadId){
+    showToast('تم إرسال رسالة واتساب ✅','ok');
+window.open('https://w-mersal.com/chat', '_blank'); // ✅ افتح مرسال
+
     const lead = leadsCache.find(x => x.id === leadId) || {};
     const phone = normPhone(lead.phone || leadId || '');
     if(!phone){
