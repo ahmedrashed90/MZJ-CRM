@@ -44,7 +44,16 @@ export default async function handler(req, res) {
     }
   };
 
-  // اختيار النص الفعلي وتنضيفه
+  const isIsoDate = (s) =>
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s);
+
+  const looksLikeId = (s) =>
+    /^[A-Za-z0-9+/_=-]{20,}$/.test(s);
+
+  const looksLikeJson = (s) =>
+    s.startsWith("{") || s.includes('"type":"reply"');
+
+  // اختيار النص الحقيقي وتنضيفه
   const pickTextDeep = (m) => {
     const strs = [];
     collectStrings(m, strs);
@@ -53,8 +62,10 @@ export default async function handler(req, res) {
 
     const clean = strs.filter(s =>
       s.length > 2 &&
-      !s.startsWith("wamid.") &&                 // منع IDs
-      !/^[A-Za-z0-9+/_=-]{20,}$/.test(s)         // منع النصوص المشفرة الطويلة
+      !s.startsWith("wamid.") &&
+      !looksLikeId(s) &&
+      !looksLikeJson(s) &&
+      !isIsoDate(s)
     );
 
     if (!clean.length) return "";
