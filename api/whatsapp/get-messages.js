@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
 
-  // منع الكاش
+  // منع الكاش نهائيًا (مهم على Vercel)
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
@@ -20,32 +20,55 @@ export default async function handler(req, res) {
   const MAX = Math.min(Math.max(Number(req.query?.limit || 80), 1), 300);
 
   const pickTime = (m) =>
-    m.time || m.created_at || m.date || m.sent_at || m.timestamp || "";
+    m?.time || m?.created_at || m?.date || m?.sent_at || m?.timestamp || "";
 
   const asMs = (v) => {
     if (!v) return 0;
-    const t = Date.parse(v);
+
+    // لو رقم (ثواني/ملي ثانية)
+    if (typeof v === "number") return v > 1e12 ? v : v * 1000;
+
+    const s = String(v).trim();
+    if (!s) return 0;
+
+    if (/^\d+$/.test(s)) {
+      const n = Number(s);
+      return n > 1e12 ? n : n * 1000;
+    }
+
+    const t = Date.parse(s);
     return Number.isFinite(t) ? t : 0;
   };
 
   // استخراج النصوص من أي عمق
   const collectStrings = (obj, out, depth = 0) => {
-    if (depth > 6 || obj == null) return;
-    if (typeof obj === "string") {
+    if (depth > 7 || obj == null) return;
+
+    const t = typeof obj;
+
+    if (t === "string") {
       const s = obj.trim();
       if (s) out.push(s);
       return;
     }
-    if (typeof obj !== "object") return;
+
+    if (t !== "object") return;
+
     if (Array.isArray(obj)) {
-      obj.forEach(x => collectStrings(x, out, depth + 1));
-    } else {
-      Object.values(obj).forEach(x => collectStrings(x, out, depth + 1));
+      for (let i = 0; i < Math.min(obj.length, 80); i++) {
+        collectStrings(obj[i], out, depth + 1);
+      }
+      return;
+    }
+
+    for (const k of Object.keys(obj)) {
+      collectStrings(obj[k], out, depth + 1);
     }
   };
 
   const isIsoDate = (s) =>
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s);
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s) ||
+    /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s);
 
   const looksLikeId = (s) =>
     /^[A-Za-z0-9+/_=-]{20,}$/.test(s);
@@ -53,31 +76,72 @@ export default async function handler(req, res) {
   const looksLikeJson = (s) =>
     s.startsWith("{") || s.includes('"type":"reply"');
 
-  // اختيار النص الحقيقي وتنضيفه
+  const looksLikeWamid = (s) =>
+    /^wamid\./i.test(String(s || "").trim());
+
+  // ✅ لو مفيش نص: رجّع وصف محترم بدل "لا يوجد نص..."
+  const fallbackLabel = (m) => {
+    let blob = "";
+    try {
+      blob = JSON.stringify(m || {}).toLowerCase();
+    } catch (_) {
+      blob = String(m || "").toLowerCase();
+    }
+
+    if (blob.includes('"type":"reply"') || blob.includes("buttons") || blob.includes("interactive"))
+      return "🔘 رسالة بأزرار";
+
+    if (blob.includes("location") || blob.includes("latitude") || blob.includes("longitude") || blob.includes('"lat"') || blob.includes('"lng"'))
+      return "📍 موقع";
+
+    if (blob.includes("image") || blob.includes("jpg") || blob.includes("jpeg") || blob.includes("png") || blob.includes("webp"))
+      return "📷 صورة";
+
+    if (blob.includes("video") || blob.includes("mp4") || blob.includes("mov") || blob.includes("mkv"))
+      return "🎥 فيديو";
+
+    if (blob.includes("audio") || blob.includes("voice") || blob.includes("ogg") || blob.includes("mp3") || blob.includes("wav"))
+      return "🎙️ رسالة صوتية";
+
+    if (blob.includes("document") || blob.includes("file") || blob.includes("pdf") || blob.includes("doc") || blob.includes("xls") || blob.includes("ppt"))
+      return "📎 ملف";
+
+    // لو الرسالة "Reaction" أو حاجة مشابهة
+    if (blob.includes("reaction") || blob.includes("emoji"))
+      return "😊 تفاعل";
+
+    return "";
+  };
+
+  // ✅ اختيار النص الحقيقي (مع فلترة IDs/JSON/Timestamps) أو fallback
   const pickTextDeep = (m) => {
     const strs = [];
     collectStrings(m, strs);
 
-    if (!strs.length) return "";
+    const clean = strs
+      .map((s) => s.trim())
+      .filter((s) =>
+        s.length > 2 &&
+        !looksLikeWamid(s) &&
+        !looksLikeId(s) &&
+        !looksLikeJson(s) &&
+        !isIsoDate(s)
+      );
 
-    const clean = strs.filter(s =>
-      s.length > 2 &&
-      !s.startsWith("wamid.") &&
-      !looksLikeId(s) &&
-      !looksLikeJson(s) &&
-      !isIsoDate(s)
-    );
+    if (clean.length) {
+      clean.sort((a, b) => b.length - a.length);
+      return clean[0];
+    }
 
-    if (!clean.length) return "";
-
-    clean.sort((a, b) => b.length - a.length);
-    return clean[0];
+    // لو مفيش نص واضح رجّع وصف محترم (صورة/أزرار/ملف…)
+    return fallbackLabel(m) || "";
   };
 
-  // تحديد الرسالة الصادرة من الشركة
+  // ✅ تحديد الرسالة الصادرة من الشركة (بنفس منطقك الحالي)
   const pickFromMe = (m) => {
     const txt = pickTextDeep(m);
-    if (txt.includes("920014635")) return true; // رقم شركتك
+    // رقم شركتك بيظهر في رسائل النظام
+    if (txt && txt.includes("920014635")) return true;
     return false;
   };
 
@@ -88,24 +152,41 @@ export default async function handler(req, res) {
       body: JSON.stringify({ token, contact_id: contactId }),
     });
 
-    const data = await r.json();
+    const text = await r.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch (_) {}
+
+    if (!r.ok) {
+      return res.status(500).json({
+        ok: false,
+        step: "getMessages",
+        status: r.status,
+        error: data || text,
+      });
+    }
 
     const raw = (data && (data.messages || data.data?.messages || data.data || data)) || [];
-    const list = Array.isArray(raw) ? raw : [];
+    const arr = Array.isArray(raw) ? raw : (raw.messages || raw.data || []);
+    const list = Array.isArray(arr) ? arr : [];
 
+    // ترتيب زمني + آخر MAX
     const sorted = [...list].sort((a, b) => asMs(pickTime(a)) - asMs(pickTime(b)));
     const slice = sorted.slice(-MAX);
 
-    const messages = slice.map((m) => {
-      const fromMe = pickFromMe(m);
-      return {
-        id: m.id || m.message_id || m.wamid || m.uuid || null,
-        text: pickTextDeep(m),
-        from_me: fromMe,
-        direction: fromMe ? "out" : "in",
-        time: pickTime(m) || "",
-      };
-    });
+    const messages = slice
+      .map((m) => {
+        const textMsg = pickTextDeep(m);
+        const fromMe = pickFromMe(m);
+        return {
+          id: m.id || m.message_id || m.wamid || m.uuid || null,
+          text: textMsg || "",
+          from_me: fromMe,
+          direction: fromMe ? "out" : "in",
+          time: pickTime(m) || "",
+        };
+      })
+      // ✅ لو بعد كل ده لسه فاضي، اشيله خالص بدل ما يظهر "لا يوجد نص..."
+      .filter((x) => String(x.text || "").trim().length > 0);
 
     return res.status(200).json({ ok: true, count: messages.length, messages });
   } catch (e) {
