@@ -990,6 +990,7 @@ function applyRoleUI(){
     const q = clean($('#q')?.value).toLowerCase();
     const st = clean($('#statusFilter')?.value);
     const af = clean(document.getElementById('assignedFilter')?.value);
+    const fuFilter = clean(document.getElementById('followFilter')?.value || '');
 
     // غير الأدمن يشوف عملاؤه فقط
     const isAdmin = (currentRole === 'admin');
