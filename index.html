@@ -2,6 +2,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -364,6 +365,7 @@ font-weight:700;color:#3e2420;align-items:center;justify-content:space-between;g
               <th class="w-160">آخر تحديث</th>
                 <th class="w-160">متابعة قادمة</th>
                 <th class="w-120">حالة المتابعة</th>
+                <th class="w-160">آخر ملاحظة</th>
               <th class="w-160">تحكم</th>
               
             </tr>
@@ -446,6 +448,7 @@ font-weight:700;color:#3e2420;align-items:center;justify-content:space-between;g
                 <th class="w-160">آخر تحديث</th>
                 <th class="w-160">متابعة قادمة</th>
                 <th class="w-120">حالة المتابعة</th>
+                <th class="w-160">آخر ملاحظة</th>
                 <th class="w-160">تحكم</th>
                 
               </tr>
@@ -495,9 +498,6 @@ font-weight:700;color:#3e2420;align-items:center;justify-content:space-between;g
               <input id="followUpStatusText" type="text" disabled placeholder="—"/>
             </div>
           </div>
-
-          <label style="margin-top:8px">ملاحظة المتابعة (اختياري)</label>
-          <textarea id="editFollowUpNote" placeholder="مثال: متابعة تمويل / إرسال عرض / موعد زيارة…"></textarea>
 
           <div class="actions" style="justify-content:flex-end">
             <button class="btn btn-outline" id="btnDoneFollowUp"><i class="fa-solid fa-check-double"></i> تمّت المتابعة</button>
@@ -574,6 +574,15 @@ font-weight:700;color:#3e2420;align-items:center;justify-content:space-between;g
       .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g,'')
       .replace(/\s+/g,' ')
       .trim();
+  }
+
+  function escHtml(v){
+    return String(v ?? '')
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
   }
 
   function normPhone(p){
@@ -662,8 +671,7 @@ font-weight:700;color:#3e2420;align-items:center;justify-content:space-between;g
     try{
       await updateDoc(doc(db,'leads', currentLeadId), {
         followUpAt: Timestamp.fromDate(dt),
-        followUpNote: note,
-        updatedAt: serverTimestamp(),
+updatedAt: serverTimestamp(),
         lastActivityAt: serverTimestamp(),
       });
       try{
@@ -690,8 +698,7 @@ font-weight:700;color:#3e2420;align-items:center;justify-content:space-between;g
         followUpAt: null,
         followUpStatus: 'done',
         followUpDoneAt: serverTimestamp(),
-        followUpNote: '',
-        updatedAt: serverTimestamp(),
+updatedAt: serverTimestamp(),
         lastActivityAt: serverTimestamp(),
       });
       try{
@@ -1029,6 +1036,7 @@ font-weight:700;color:#3e2420;align-items:center;justify-content:space-between;g
           <td class="nowrap">${last}</td>
           <td class="nowrap">${fmtDateTime(l.followUpAt)}</td>
           <td>${(()=>{const s=followUpStatusLabel(l); const cls = s.badge==='danger'?'badge danger':(s.badge==='warn'?'badge warn':(s.badge==='ok'?'badge ok':'badge')); return `<span class="${cls}">${s.text}</span>`;})()}</td>
+          <td>${(()=>{const n=clean(l.lastNote||""); if(!n) return "—"; const t=fmtTS(l.lastNoteAt||l.lastActivityAt||l.updatedAt||l.createdAt); return `<div style="font-weight:800">${escHtml(n)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${t}</div>`;})()}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
             <button class="btn btn-ghost" style="margin-top:6px" onclick="sendWhatsApp('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
@@ -1036,7 +1044,7 @@ font-weight:700;color:#3e2420;align-items:center;justify-content:space-between;g
           
         </tr>
       `;
-    }).join('') || `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:20px">لا يوجد عملاء</td></tr>`;
+    }).join('') || `<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:20px">لا يوجد عملاء</td></tr>`;
   }
 
 function applyRoleUI(){
@@ -1181,6 +1189,7 @@ function applyRoleUI(){
           <td class="nowrap">${last}</td>
           <td class="nowrap">${fmtDateTime(l.followUpAt)}</td>
           <td>${(()=>{const s=followUpStatusLabel(l); const cls = s.badge==='danger'?'badge danger':(s.badge==='warn'?'badge warn':(s.badge==='ok'?'badge ok':'badge')); return `<span class="${cls}">${s.text}</span>`;})()}</td>
+          <td>${(()=>{const n=clean(l.lastNote||""); if(!n) return "—"; const t=fmtTS(l.lastNoteAt||l.lastActivityAt||l.updatedAt||l.createdAt); return `<div style="font-weight:800">${escHtml(n)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${t}</div>`;})()}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
             <button class="btn btn-ghost" style="margin-top:6px" onclick="sendWhatsApp('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
@@ -1188,7 +1197,7 @@ function applyRoleUI(){
           
         </tr>
       `;
-    }).join('') || `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:20px">لا يوجد عملاء</td></tr>`;
+    }).join('') || `<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:20px">لا يوجد عملاء</td></tr>`;
   }
 
   // ===== Import / Export UI =====
@@ -1522,7 +1531,7 @@ function applyRoleUI(){
     // done takes precedence (even if followUpAt is cleared)
     const st = clean(lead.followUpStatus||'');
     if(st === 'done' || lead.followUpDoneAt){
-      return { key:'done', text:'تمّت المتابعة', badge:'ok' };
+      return { key:'done', text:'تمّت المتابعة ✓', badge:'ok' };
     }
 
     const fu = tsToDate(lead.followUpAt);
@@ -1734,9 +1743,7 @@ function applyRoleUI(){
         fuInp.value = '';
       }
     }
-    if(fuNote) fuNote.value = clean(l.followUpNote||'');
-
-    if(fuStatus){
+if(fuStatus){
       if(!fuDate){
         fuStatus.value = '—';
       }else{
@@ -1798,7 +1805,16 @@ function applyRoleUI(){
         type:'note', text, byUid: auth.currentUser.uid,
           byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
       });
-      await updateDoc(doc(db,'leads', currentLeadId), { lastActivityAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      await updateDoc(doc(db,'leads', currentLeadId), { lastNote: text, lastNoteAt: serverTimestamp(), lastActivityAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      try{
+        // تحديث الكاش المحلي فوراً علشان يظهر العمود الجديد بدون ريفرش
+        const now = new Date();
+        if(currentLeadCache){ currentLeadCache.lastNote = text; currentLeadCache.lastNoteAt = now; }
+        const i = Array.isArray(leadsCache) ? leadsCache.findIndex(x=>x.id===currentLeadId) : -1;
+        if(i>-1){ leadsCache[i] = { ...(leadsCache[i]||{}), lastNote: text, lastNoteAt: now }; }
+        renderLeads();
+        if(typeof renderLeads2 === 'function') renderLeads2();
+      }catch(e){}
       $('#activityText').value='';
       showToast('تمت الإضافة','ok');
     }catch(err){
