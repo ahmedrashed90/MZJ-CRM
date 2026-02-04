@@ -390,6 +390,34 @@
           <div class="grid grid-2" id="leadDetailsGrid"></div>
         </div>
 
+
+        <div class="card" id="followUpCard" style="box-shadow:none;margin:12px 0 0 0;border:1px solid var(--line)">
+          <div class="card-header" style="margin-bottom:8px">
+            <div class="section-title"><i class="fa-solid fa-calendar-check"></i><h2 style="margin:0;font-size:16px">متابعة قادمة</h2></div>
+          </div>
+
+          <div class="grid grid-2">
+            <div>
+              <label>تاريخ/وقت المتابعة</label>
+              <input id="editFollowUpAt" type="datetime-local"/>
+            </div>
+            <div>
+              <label>حالة المتابعة</label>
+              <input id="followUpStatusText" type="text" disabled placeholder="—"/>
+            </div>
+          </div>
+
+          <label style="margin-top:8px">ملاحظة المتابعة (اختياري)</label>
+          <textarea id="editFollowUpNote" placeholder="مثال: متابعة تمويل / إرسال عرض / موعد زيارة…"></textarea>
+
+          <div class="actions" style="justify-content:flex-end">
+            <button class="btn btn-outline" id="btnDoneFollowUp"><i class="fa-solid fa-check-double"></i> تمّت المتابعة</button>
+            <button class="btn btn-primary" id="btnSaveFollowUp"><i class="fa-solid fa-floppy-disk"></i> حفظ المتابعة</button>
+          </div>
+
+          <div class="hint">المتابعة تظهر داخل النظام، وتظهر “قادمة/متأخرة” تلقائياً حسب الوقت.</div>
+        </div>
+
         <div class="card" id="addActivityCard" style="box-shadow:none;margin:12px 0 0 0;border:1px solid var(--line)">
           <div class="card-header" style="margin-bottom:8px">
             <div class="section-title"><i class="fa-solid fa-pen"></i><h2 style="margin:0;font-size:16px">إضافة نشاط</h2></div>
@@ -404,7 +432,7 @@
       </div>
 
       <div>
-        <div class="card" style="box-shadow:none;margin:0;border:1px solid var(--line)">
+        <div class="card" id="activityLogCard" style="box-shadow:none;margin:0;border:1px solid var(--line)">
           <div class="card-header" style="margin-bottom:8px">
             <div class="section-title"><i class="fa-solid fa-clipboard-list"></i><h2 style="margin:0;font-size:16px">سجل النشاط</h2></div>
             <span class="pill brown" id="activityCount">0</span>
@@ -515,6 +543,8 @@
           type: isStatus ? 'status' : 'contact',
           text: `${title}: ${shown || '-'}`,
           byUid: auth.currentUser.uid,
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
           at: serverTimestamp(),
         });
         await updateDoc(doc(db,'leads', leadId), { lastActivityAt: serverTimestamp() });
@@ -552,6 +582,7 @@
           type:'followup',
           text:`تم تحديد موعد متابعة: ${dt.toLocaleString('ar-SA',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}${note?(' — '+note):''}`,
           byUid: auth.currentUser.uid,
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
           at: serverTimestamp(),
         });
       }catch(_){}
@@ -577,6 +608,7 @@
           type:'followup',
           text:'تمت المتابعة الآن ✅',
           byUid: auth.currentUser.uid,
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
           at: serverTimestamp(),
         });
       }catch(_){}
@@ -621,6 +653,7 @@
           type:'whatsapp',
           text:'تم إرسال رسالة واتساب ترحيبية عبر مرسال',
           byUid: auth.currentUser.uid,
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
           at: serverTimestamp(),
         });
         await updateDoc(doc(db,'leads', leadId), { lastActivityAt: serverTimestamp(), updatedAt: serverTimestamp() });
@@ -1211,7 +1244,8 @@ function applyRoleUI(){
           await setDoc(ref, payload, { merge:true });
           created++;
           await addDoc(collection(db,'leads', leadId, 'activity'), {
-            type:'import', action:'append', byUid: auth.currentUser.uid, at: serverTimestamp(),
+            type:'import', action:'append', byUid: auth.currentUser.uid,
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
           });
         } else if(importMode==='update'){
           if(!existing.exists()){ skipped++; continue; }
@@ -1224,13 +1258,15 @@ function applyRoleUI(){
           await setDoc(ref, safe, { merge:true });
           updated++;
           await addDoc(collection(db,'leads', leadId, 'activity'), {
-            type:'import', action:'update', byUid: auth.currentUser.uid, at: serverTimestamp(),
+            type:'import', action:'update', byUid: auth.currentUser.uid,
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
           });
         } else if(importMode==='replace'){
           await setDoc(ref, payload, { merge:true });
           if(existing.exists()) updated++; else created++;
           await addDoc(collection(db,'leads', leadId, 'activity'), {
-            type:'import', action:'replace', byUid: auth.currentUser.uid, at: serverTimestamp(),
+            type:'import', action:'replace', byUid: auth.currentUser.uid,
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
           });
         }
       }
@@ -1283,7 +1319,8 @@ function applyRoleUI(){
         const lead = shuffled[i];
         const uid = targets[i % targets.length];
         await addDoc(collection(db,'leads', lead.id, 'activity'), {
-          type:'assigned', toUid: uid, byUid: auth.currentUser.uid, at: serverTimestamp(),
+          type:'assigned', toUid: uid, byUid: auth.currentUser.uid,
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
         });
       }
 
@@ -1330,9 +1367,17 @@ function applyRoleUI(){
     renderLeadDetails();
     setupEditUI();
     openModal(leadModal);
-    // activity فقط للأدمن
-    if(currentRole === 'admin') startActivity(); else { stopActivity(); document.getElementById('activityCard').style.display='none'; document.getElementById('addActivityCard').style.display='none'; }
-    if(currentRole === 'admin'){ document.getElementById('activityCard').style.display='block'; document.getElementById('addActivityCard').style.display='block'; }
+    // السجل للأدمن فقط — لكن “تفاصيل العميل + إضافة نشاط” تظهر للجميع
+    document.getElementById('activityCard').style.display='block';
+    document.getElementById('addActivityCard').style.display='block';
+
+    if(currentRole === 'admin'){
+      document.getElementById('activityLogCard').style.display='block';
+      startActivity();
+    }else{
+      stopActivity();
+      document.getElementById('activityLogCard').style.display='none';
+    }
   };
 
   
@@ -1504,6 +1549,7 @@ function applyRoleUI(){
           type:'update',
           text:`تحديث: الحالة=${payload.status} | التواصل=${payload.contact} | البلد=${payload.country} | المدينة=${payload.city}`,
           byUid: auth.currentUser.uid,
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
           at: serverTimestamp(),
         });
       }catch(e){}
@@ -1552,6 +1598,45 @@ function applyRoleUI(){
       await navigator.clipboard.writeText(n);
       showToast('تم نسخ الاسم','ok');
     };
+
+    // متابعة قادمة داخل المودال
+    const fuInp = document.getElementById('editFollowUpAt');
+    const fuNote = document.getElementById('editFollowUpNote');
+    const fuStatus = document.getElementById('followUpStatusText');
+
+    // قراءة الوقت من Firestore Timestamp أو Date
+    let fuDate = null;
+    try{
+      if(l.followUpAt){
+        fuDate = (typeof l.followUpAt.toDate === 'function') ? l.followUpAt.toDate() : (l.followUpAt instanceof Date ? l.followUpAt : null);
+      }
+    }catch(_){}
+
+    if(fuInp){
+      if(fuDate){
+        // to datetime-local (YYYY-MM-DDTHH:MM)
+        const pad = (n)=> String(n).padStart(2,'0');
+        const yyyy = fuDate.getFullYear();
+        const mm = pad(fuDate.getMonth()+1);
+        const dd = pad(fuDate.getDate());
+        const hh = pad(fuDate.getHours());
+        const mi = pad(fuDate.getMinutes());
+        fuInp.value = `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+      }else{
+        fuInp.value = '';
+      }
+    }
+    if(fuNote) fuNote.value = clean(l.followUpNote||'');
+
+    if(fuStatus){
+      if(!fuDate){
+        fuStatus.value = '—';
+      }else{
+        const now = new Date();
+        const diff = fuDate.getTime() - now.getTime();
+        fuStatus.value = diff >= 0 ? 'قادمة' : 'متأخرة';
+      }
+    }
   }
 
   function startActivity(){
@@ -1602,7 +1687,8 @@ function applyRoleUI(){
     if(!text){ showToast('اكتب ملاحظة أولاً','info'); return; }
     try{
       await addDoc(collection(db,'leads', currentLeadId, 'activity'), {
-        type:'note', text, byUid: auth.currentUser.uid, at: serverTimestamp(),
+        type:'note', text, byUid: auth.currentUser.uid,
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
       });
       await updateDoc(doc(db,'leads', currentLeadId), { lastActivityAt: serverTimestamp(), updatedAt: serverTimestamp() });
       $('#activityText').value='';
