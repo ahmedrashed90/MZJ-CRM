@@ -772,7 +772,8 @@ async function sendWhatsApp(leadId){
         const openRes = await fetch(`/api/whatsapp/open-chat?phone=${encodeURIComponent(phone)}`);
         const openOut = await openRes.json().catch(()=>({}));
         if(openRes.ok && openOut.ok && openOut.chat_url){
-          if(popWin) popWin.location.href = openOut.chat_url; else openMersalPopup(openOut.chat_url);
+          if(!chatUrl){ showToast('open-chat رجع بدون رابط','err'); if(popWin && !popWin.closed) popWin.close(); return; }
+        if(popWin) popWin.location.href = chatUrl; else openMersalPopup(chatUrl);
         }else{
           console.error(openOut);
           // fallback: افتح شاشة الشات العامة
@@ -1943,4 +1944,3 @@ document.addEventListener("click", function(e){
 
 </body>
 </html>
-
