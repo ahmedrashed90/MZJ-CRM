@@ -160,7 +160,21 @@ export default async function handler(req, res) {
       .filter((s) => s && !isIsoLike(s) && !looksLikeWamid(s))
       .filter((s) => !/^(true|false|null)$/i.test(s));
 
-    if (!filtered.length) return "";
+    if (!filtered.length) {
+      // 4) fallback قوي: استخرج أي مقطع عربي من الرسالة حتى لو قصير
+      try {
+        const blob = JSON.stringify(m || {});
+        const ar = (blob.match(/[\u0600-\u06FF]{1,}/g) || [])
+          .map(s => s.trim())
+          .filter(Boolean);
+
+        if (ar.length) {
+          ar.sort((a,b)=> b.length - a.length);
+          return ar[0];
+        }
+      } catch(e) {}
+      return "";
+    }
 
     // score: prefer longer strings but avoid obvious IDs
     const score = (s) => {
