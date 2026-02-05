@@ -239,6 +239,68 @@ document.addEventListener('click', e=>{
   pointer-events:none;
 }
 
+
+/* ===== WA Quick Templates (inline menu, stable buttons) ===== */
+.wa-tpl-bar{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  flex-wrap:wrap;
+}
+#waTemplatesBtn,#waAddTplBtn{
+  height:38px;
+  padding:0 16px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  border-radius:10px;
+  transition:background .2s ease, box-shadow .2s ease, transform .05s ease;
+}
+#waTemplatesBtn:hover,#waAddTplBtn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 4px 10px rgba(0,0,0,.08);
+}
+#waTemplatesMenu{
+  display:none;
+  width:260px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  background:#fff;
+  max-height:220px;
+  overflow:auto;
+}
+.wa-tpl-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-top:1px solid #eef2f7}
+.wa-tpl-row:first-child{border-top:0}
+.wa-tpl-row:hover{background:#f9fafb}
+.wa-tpl-title{font-weight:900;color:#3e2420;max-width:62%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-tpl-actions{display:flex;gap:6px;flex-wrap:wrap}
+.wa-tpl-preview{border:1px dashed #e5e7eb;border-radius:12px;padding:10px 12px;background:#fff;white-space:pre-wrap;margin-top:10px}
+.wa-tpl-editor{display:none;border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#fff;margin-top:10px;width:100%}
+.wa-tpl-editor .wa-lbl{display:block;font-weight:800;color:#3e2420;margin:0 0 6px 0;font-size:13px}
+.wa-tpl-editor input,.wa-tpl-editor textarea{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;outline:none;font-family:inherit;font-size:13px}
+.wa-tpl-editor textarea{min-height:90px;resize:vertical}
+.wa-tpl-editor-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
+.wa-tpl-status{margin-top:6px;color:#6b7280;font-size:13px}
+
+
+/* ===== WA Templates Dropdown ===== */
+.wa-tpl-select{
+  height:38px;
+  padding:0 14px;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  background:#fff;
+  font-weight:800;
+  outline:none;
+  min-width:260px;
+  max-width:min(100%, 360px);
+}
+.wa-tpl-select:focus{
+  box-shadow:0 0 0 3px rgba(192,122,74,.18);
+  border-color: rgba(192,122,74,.65);
+}
+
 </style>
 </head>
 
@@ -875,14 +937,10 @@ async function sendWhatsApp(leadId){
         const uSnap = await getDoc(doc(db,'user', user.uid));
         const uData = uSnap.exists() ? (uSnap.data()||{}) : {};
         currentRole = String(uData.role||'member').toLowerCase();
-        window.currentRole = currentRole;
-        try{ if(typeof updateWATplAdminUI==='function') updateWATplAdminUI(); }catch(e){}
         currentUserName = String(uData.Name||uData.name||uData.fullName||'').trim();
       }catch(e){
         currentRole = 'member';
         currentUserName = '';
-        window.currentRole = currentRole;
-        try{ if(typeof updateWATplAdminUI==='function') updateWATplAdminUI(); }catch(e){}
       }
       if(!currentUserName){
         currentUserName = String(user.displayName||'').trim();
@@ -890,7 +948,7 @@ async function sendWhatsApp(leadId){
 
       await loadUsersMap();
       applyRoleUI();
-      try{ if(typeof updateWATplAdminUI==='function') updateWATplAdminUI(); }catch(e){}
+      try{ window.__waUpdateAdminUI && window.__waUpdateAdminUI(); }catch(e){}
       attachLeadsRealtime();
     }else{
       $('#authGate').style.display='grid';
@@ -1949,6 +2007,169 @@ document.addEventListener('click', e=>{
 
   // expose for inline onclick
   window.sendWhatsApp = sendWhatsApp;
+
+
+  
+  // ===== WA Quick Templates (Firestore) - dropdown, no hover =====
+  const waTemplatesSelect = document.getElementById('waTemplatesSelect');
+  const waAddTplBtn = document.getElementById('waAddTplBtn');
+  const waEditTplBtn = document.getElementById('waEditTplBtn');
+  const waDeleteTplBtn = document.getElementById('waDeleteTplBtn');
+  const waTplEditor = document.getElementById('waTplEditor');
+  const waTplTitleInput = document.getElementById('waTplTitleInput');
+  const waTplTextInput  = document.getElementById('waTplTextInput');
+  const waTplSaveBtn = document.getElementById('waTplSaveBtn');
+  const waTplCancelBtn = document.getElementById('waTplCancelBtn');
+  const waTplStatus = document.getElementById('waTplStatus');
+
+  let waTplUnsub = null;
+  let waTemplates = [];
+  let waEditingId = null;
+
+  const waTplCol = collection(db, 'wa_templates');
+  const waIsAdmin = ()=> String(currentRole||'').toLowerCase()==='admin';
+
+  function waClean(v){
+    return String(v ?? '')
+      .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g,'')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+
+  function waUpdateAdminUI(){
+    if(waAddTplBtn) waAddTplBtn.style.display = waIsAdmin() ? 'inline-flex' : 'none';
+  }
+
+  function waShowEditor(mode, tpl){
+    if(!waTplEditor) return;
+    waTplEditor.style.display = 'block';
+    if(waTplTitleInput) waTplTitleInput.value = waClean(tpl?.title || tpl?.name || '');
+    if(waTplTextInput)  waTplTextInput.value  = waClean(tpl?.text  || tpl?.body || '');
+    waEditingId = tpl?.id || null;
+    if(waTplStatus) waTplStatus.textContent = mode==='edit' ? 'تعديل قالب' : 'إضافة قالب';
+  }
+  function waHideEditor(){
+    if(waTplEditor) waTplEditor.style.display = 'none';
+    waEditingId = null;
+    if(waTplTitleInput) waTplTitleInput.value = '';
+    if(waTplTextInput)  waTplTextInput.value  = '';
+    if(waTplStatus) waTplStatus.textContent = '—';
+  }
+
+  function waRenderDropdown(){
+    if(!waTemplatesSelect) return;
+    const prev = waTemplatesSelect.value;
+    waTemplatesSelect.innerHTML = '<option value="" selected disabled>اختر قالب…</option>' +
+      waTemplates
+        .slice()
+        .sort((a,b)=> waClean(a.title||a.name||'').localeCompare(waClean(b.title||b.name||''), 'ar'))
+        .map(t=>{
+          const title = waClean(t.title||t.name||'بدون عنوان');
+          return `<option value="${t.id}">${title}</option>`;
+        }).join('');
+
+    // keep selection if possible
+    if(prev && waTemplates.some(x=>x.id===prev)) waTemplatesSelect.value = prev;
+  }
+
+  function waStartListener(){
+    if(waTplUnsub) try{ waTplUnsub(); }catch(_){}
+    waTplUnsub = onSnapshot(waTplCol, (snap)=>{
+      waTemplates = snap.docs.map(d=>({ id:d.id, ...(d.data()||{}) }));
+      waRenderDropdown();
+    }, (err)=>{
+      console.error(err);
+      if(waTplStatus) waTplStatus.textContent = `تعذر تحميل القوالب: ${err?.code||''} ${err?.message||''}`;
+    });
+  }
+
+  async function waSaveTemplate(){
+    if(!waIsAdmin()){
+      if(waTplStatus) waTplStatus.textContent = 'غير مسموح';
+      return;
+    }
+    const title = waClean(waTplTitleInput?.value||'');
+    const text  = waClean(waTplTextInput?.value||'');
+    if(!title || !text){
+      if(waTplStatus) waTplStatus.textContent = 'اكتب اسم القالب ومحتواه';
+      return;
+    }
+    try{
+      if(waTplStatus) waTplStatus.textContent = 'جارٍ الحفظ…';
+      if(waEditingId){
+        await updateDoc(doc(db,'wa_templates', waEditingId), { title, text, updatedAt: serverTimestamp() });
+        if(waTplStatus) waTplStatus.textContent = 'تم التعديل ✅';
+      }else{
+        await addDoc(waTplCol, { title, text, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        if(waTplStatus) waTplStatus.textContent = 'تم الحفظ ✅';
+      }
+      waHideEditor();
+    }catch(err){
+      console.error(err);
+      if(waTplStatus) waTplStatus.textContent = `فشل الحفظ: ${err?.code||''} ${err?.message||''}`;
+    }
+  }
+
+  async function waDeleteTemplate(id){
+    if(!waIsAdmin()) return;
+    try{
+      await deleteDoc(doc(db,'wa_templates', id));
+      if(waTplStatus) waTplStatus.textContent = 'تم الحذف ✅';
+    }catch(err){
+      console.error(err);
+      if(waTplStatus) waTplStatus.textContent = `فشل الحذف: ${err?.code||''} ${err?.message||''}`;
+    }
+  }
+
+  // Dropdown selection -> write into chat immediately
+  if(waTemplatesSelect){
+    waTemplatesSelect.addEventListener('change', ()=>{
+      const id = waTemplatesSelect.value;
+      const t = waTemplates.find(x=>x.id===id);
+      const msgBox = document.getElementById('waMessageInput') || document.getElementById('waMessage');
+      if(msgBox) msgBox.value = String(t?.text||t?.body||'');
+      waUpdateAdminUI();
+    });
+  if(waEditTplBtn){
+    waEditTplBtn.addEventListener('click', ()=>{
+      const id = waTemplatesSelect?.value;
+      const t = waTemplates.find(x=>x.id===id);
+      if(t) waShowEditor('edit', t);
+    });
+  }
+  if(waDeleteTplBtn){
+    waDeleteTplBtn.addEventListener('click', async ()=>{
+      const id = waTemplatesSelect?.value;
+      if(!id) return;
+      await waDeleteTemplate(id);
+      // reset selection after delete
+      if(waTemplatesSelect) waTemplatesSelect.selectedIndex = 0;
+      waUpdateAdminUI();
+    });
+  }
+
+  }
+
+  // Admin: add template opens editor
+  if(waAddTplBtn){
+    waAddTplBtn.addEventListener('click', ()=>{
+      if(!waIsAdmin()) return;
+      waShowEditor('add', null);
+    });
+  }
+  if(waTplCancelBtn) waTplCancelBtn.addEventListener('click', waHideEditor);
+  if(waTplSaveBtn) waTplSaveBtn.addEventListener('click', waSaveTemplate);
+
+  // Optional: allow delete/edit via typing template ID (not exposed in UI here)
+  window.__waDeleteTemplate = waDeleteTemplate;
+  window.__waEditTemplate = (id)=>{ const t=waTemplates.find(x=>x.id===id); waShowEditor('edit', t); };
+
+  window.__waUpdateAdminUI = waUpdateAdminUI;
+  waUpdateAdminUI();
+  waStartListener();
+  // ===== /WA Quick Templates =====
+// ===== /WA Quick Templates =====
+
 </script>
 
 
@@ -2054,9 +2275,7 @@ function openWAModal(phone){
 
   document.getElementById('waModal').setAttribute('aria-hidden','false');
 
-  
-  try{ initWATemplates(); updateWATplAdminUI(); }catch(e){}
-loadWAMessages(true);
+  loadWAMessages(true);
   if(__waPollTimer) clearInterval(__waPollTimer);
   __waPollTimer = setInterval(()=>loadWAMessages(false), 3000);
 }
@@ -2067,228 +2286,13 @@ function closeWAModal(){
   __waPollTimer = null;
 }
 
-// ===== WhatsApp Quick Templates (Firebase) =====
-let __waTemplates = [];
-let __waTplEditingId = null;
-let __waTplUnsub = null;
-let __waTplInited = false;
-
-function __waIsAdmin(){
-  try{ return (typeof currentRole !== 'undefined' && currentRole === 'admin'); }catch(e){ return false; }
-}
-
-function updateWATplAdminUI(){
-  const btn = document.getElementById('waAddTplBtn');
-  if(btn) btn.style.display = __waIsAdmin() ? 'inline-flex' : 'none';
-}
-
-function toggleWATemplates(){
-  try{ initWATemplates(); }catch(e){}
-  const menu = document.getElementById('waTemplatesMenu');
-  if(!menu) return;
-  const isOpen = (menu.style.display === 'block');
-  menu.style.display = isOpen ? 'none' : 'block';
-  if(!isOpen){
-    // render now (in case)
-    renderWATemplatesMenu();
-  }
-}
-
-function hideWATemplates(){
-  const menu = document.getElementById('waTemplatesMenu');
-  if(menu) menu.style.display = 'none';
-}
-
-document.addEventListener('click',(e)=>{
-  const wrap = e.target.closest('.wa-tpl-wrap');
-  if(!wrap) hideWATemplates();
-});
-
-function initWATemplates(){
-  if(__waTplInited) return;
-  __waTplInited = true;
-
-  updateWATplAdminUI();
-
-  // live updates from Firestore (no orderBy to avoid missing-field issues)
-  try{
-    const qy = collection(db,'wa_templates');
-    __waTplUnsub = onSnapshot(qy, (snap)=>{
-      __waTemplates = snap.docs.map(d=>({ id:d.id, ...(d.data()||{}) }));
-      renderWATemplatesMenu();
-    }, (err)=>{
-      console.error(err);
-    });
-  }catch(err){
-    console.error(err);
-  }
-}
-
-function renderWATemplatesMenu(){
-  const menu = document.getElementById('waTemplatesMenu');
-  if(!menu) return;
-
-  const isAdmin = __waIsAdmin();
-
-  if(!__waTemplates.length){
-    menu.innerHTML = `<div class="wa-tpl-empty">لا توجد قوالب بعد</div>`;
-    return;
-  }
-
-  const sorted = __waTemplates.slice().sort((a,b)=>{
-    const ta = String(a.title||a.name||'').toLowerCase();
-    const tb = String(b.title||b.name||'').toLowerCase();
-    return ta.localeCompare(tb,'ar');
-  });
-
-  menu.innerHTML = sorted.map(t=>{
-    const title = escHtml(String(t.title||t.name||'بدون عنوان'));
-    const text = escHtml(String(t.text||t.body||''));
-    const adminBtns = isAdmin ? `
-      <div class="wa-tpl-admin">
-        <button type="button" class="wa-tpl-ic" title="تعديل" onclick="openWATplEditor('${t.id}')"><i class="fa-regular fa-pen-to-square"></i></button>
-        <button type="button" class="wa-tpl-ic danger" title="حذف" onclick="deleteWATemplateNoPopup('${t.id}')"><i class="fa-regular fa-trash-can"></i></button>
-      </div>` : '';
-    return `
-      <div class="wa-tpl-item" data-id="${t.id}"
-           onmouseenter="showWATplPreview('${t.id}')"
-           onmouseleave="hideWATplPreview()">
-        <div class="wa-tpl-main" onclick="applyWATemplate('${t.id}')">
-          <div class="wa-tpl-title">${title}</div>
-        </div>
-        ${adminBtns}
-        <div class="wa-tpl-hidden" id="waTplText_${t.id}" style="display:none">${text}</div>
-      </div>
-    `;
-  }).join('');
-}
-
-
-function openWATplEditor(id){
-  if(!__waIsAdmin()) return;
-
-  const editor = document.getElementById('waTplEditor');
-  const titleIn = document.getElementById('waTplTitleInput');
-  const textIn  = document.getElementById('waTplTextInput');
-  if(!editor || !titleIn || !textIn) return;
-
-  const tpl = id ? __waGetTplById(id) : null;
-  __waTplEditingId = id || null;
-
-  titleIn.value = String((tpl && (tpl.title||tpl.name)) || '');
-  textIn.value  = String((tpl && (tpl.text||tpl.body)) || '');
-
-  editor.style.display = 'block';
-
-  // show menu so user sees list
-  const menu = document.getElementById('waTemplatesMenu');
-  if(menu) menu.style.display = 'block';
-}
-
-function hideWATplEditor(){
-  const editor = document.getElementById('waTplEditor');
-  if(editor) editor.style.display = 'none';
-  __waTplEditingId = null;
-}
-
-async function saveWATplEditor(){
-  if(!__waIsAdmin()) return;
-
-  const titleIn = document.getElementById('waTplTitleInput');
-  const textIn  = document.getElementById('waTplTextInput');
-  const title = clean(titleIn?.value||'');
-  const text  = clean(textIn?.value||'');
-  if(!title || !text) return showToast('اكتب اسم القالب ومحتواه','info');
-
-  try{
-    if(__waTplEditingId){
-      await updateDoc(doc(db,'wa_templates', __waTplEditingId), { title, text, updatedAt: serverTimestamp() });
-      showToast('تم تعديل القالب ✅','ok');
-    }else{
-      await addDoc(collection(db,'wa_templates'), { title, text, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-      showToast('تم حفظ القالب ✅','ok');
-    }
-    hideWATplEditor();
-    // list updates automatically via onSnapshot
-  }catch(err){
-    console.error(err);
-    showToast('فشل الحفظ (Rules/صلاحيات)','err');
-  }
-}
-
-async function deleteWATemplateNoPopup(id){
-  if(!__waIsAdmin()) return;
-  try{
-    await deleteDoc(doc(db,'wa_templates', id));
-    showToast('تم حذف القالب ✅','ok');
-    // list updates automatically via onSnapshot
-  }catch(err){
-    console.error(err);
-    showToast('فشل الحذف (Rules/صلاحيات)','err');
-  }
-}
-
-// ===== expose WhatsApp template funcs for inline onclick (module scope -> window) =====
-try{
-  window.addWATemplatePrompt = addWATemplatePrompt;
-  window.openWATplEditor = openWATplEditor;
-  window.hideWATplEditor = hideWATplEditor;
-  window.saveWATplEditor = saveWATplEditor;
-  window.deleteWATemplateNoPopup = deleteWATemplateNoPopup;
-  // keep backward compatibility
-  window.editWATemplatePrompt = editWATemplatePrompt;
-  window.deleteWATemplatePrompt = deleteWATemplatePrompt;
-}catch(e){ console.error(e); }
-// ===== /expose =====
-
-
-function __waGetTplById(id){
-  return __waTemplates.find(x=>String(x.id)===String(id)) || null;
-}
-
-function applyWATemplate(id){
-  const t = __waGetTplById(id);
-  if(!t) return;
+function insertQuickMsg(){
   const ta = document.getElementById('waMessageInput');
-  if(!ta) return;
-  ta.value = String(t.text||'');
+  if(!ta.value.trim()){
+    ta.value = "مرحباً 👋\nمعك فريق المبيعات.\nكيف نقدر نخدمك؟";
+  }
   ta.focus();
-  hideWATemplates();
-  hideWATplPreview();
 }
-
-function showWATplPreview(id){
-  const t = __waGetTplById(id);
-  const box = document.getElementById('waTplPreview');
-  if(!box || !t) return;
-  box.textContent = String(t.text||'');
-  box.style.display = 'block';
-}
-
-function hideWATplPreview(){
-  const box = document.getElementById('waTplPreview');
-  if(box){ box.style.display = 'none'; box.textContent=''; }
-}
-
-async function addWATemplatePrompt(){
-  // no popup: open inline editor
-  if(!__waIsAdmin()) return;
-  __waTplEditingId = null;
-  openWATplEditor(null);
-}
-
-async function editWATemplatePrompt(id){
-  // deprecated (kept for backward calls)
-  openWATplEditor(id);
-}
-
-async function deleteWATemplatePrompt(id){
-  // deprecated (kept for backward calls)
-  deleteWATemplateNoPopup(id);
-}
-
-// fallback old function name (if any old button calls it)
-function insertQuickMsg(){ toggleWATemplates(); }
 
 function showWAMsgHint(msg){
   const el = document.getElementById('waHint');
@@ -2545,32 +2549,38 @@ window.openChat = openChat;
 
     <div class="wa-compose">
       <textarea id="waMessageInput" placeholder="اكتب رسالتك هنا..."></textarea>
-      <div class="wa-actions">
-  <div class="wa-tpl-wrap">
-    <button type="button" class="wa-btn" id="waTemplatesBtn" onclick="toggleWATemplates()">قوالب</button>
-    <div id="waTemplatesMenu" class="wa-tpl-menu" style="display:none"></div>
-  </div>
-  <button type="button" class="wa-btn" id="waAddTplBtn" onclick="addWATemplatePrompt()" style="display:none">إضافة قالب</button>
 
-  <button type="button" class="wa-btn wa-send" onclick="confirmSendWA()">إرسال</button>
-  <button type="button" class="wa-btn wa-debug" onclick="waDebugOnce()">تشخيص</button>
+    
+<div class="wa-tpl-bar">
+  <label class="wa-lbl" style="margin:0;align-self:center">قوالب</label>
+  <select id="waTemplatesSelect" class="wa-tpl-select">
+    <option value="" selected disabled>اختر قالب…</option>
+  </select>
+  <button type="button" class="btn" id="waEditTplBtn" style="display:none">تعديل</button>
+  <button type="button" class="btn" id="waDeleteTplBtn" style="display:none;border-color:#ef4444;color:#ef4444">حذف</button>
+
+  <button type="button" class="btn btn-primary" id="waAddTplBtn" style="display:none">إضافة قالب</button>
 </div>
-<div id="waTplPreview" class="wa-tpl-preview" style="display:none;"></div>
-<div id="waTplEditor" class="wa-tpl-editor" style="display:none;">
-  <div class="wa-tpl-editor-row">
-    <div style="flex:1">
-      <label class="wa-lbl">اسم القالب</label>
-      <input id="waTplTitleInput" class="wa-inp" type="text" placeholder="مثال: ترحيب"/>
+
+
+    <div id="waTplEditor" class="wa-tpl-editor">
+      <div>
+        <label class="wa-lbl">اسم القالب</label>
+        <input id="waTplTitleInput" type="text" placeholder="مثال: ترحيب"/>
+      </div>
+      <div style="margin-top:10px">
+        <label class="wa-lbl">محتوى القالب</label>
+        <textarea id="waTplTextInput" placeholder="اكتب نص القالب…"></textarea>
+      </div>
+      <div class="wa-tpl-editor-actions">
+        <button type="button" class="btn" id="waTplCancelBtn">إلغاء</button>
+        <button type="button" class="btn btn-beige" id="waTplSaveBtn">حفظ القالب</button>
+      </div>
+      <div id="waTplStatus" class="wa-tpl-status">—</div>
     </div>
-  </div>
-  <div style="margin-top:10px">
-    <label class="wa-lbl">محتوى القالب</label>
-    <textarea id="waTplTextInput" class="wa-ta" placeholder="اكتب نص القالب…"></textarea>
-  </div>
-  <div class="wa-tpl-editor-actions">
-    <button type="button" class="wa-btn" onclick="hideWATplEditor()">إلغاء</button>
-    <button type="button" class="wa-btn wa-send" onclick="saveWATplEditor()">حفظ القالب</button>
-  </div>
+
+      <div class="wa-actions">
+<button type="button" class="wa-btn wa-send" onclick="confirmSendWA()">إرسال</button>
 </div>
       <div class="wa-hint" id="waHint" style="display:none;"></div>
     </div>
@@ -2660,45 +2670,6 @@ window.openChat = openChat;
   100%{ transform:scale(.98); opacity:.65 }
 }
 
-
-/* ===== WhatsApp Templates UI ===== */
-.wa-tpl-wrap{position:relative;display:inline-flex}
-.wa-tpl-menu{
-  position:absolute; bottom:44px; right:0;
-  width:320px; max-height:320px; overflow:auto;
-  background:#fff; border:1px solid #e5e7eb; border-radius:12px;
-  box-shadow:0 18px 48px rgba(0,0,0,.14);
-  padding:6px; z-index:100000;
-}
-.wa-tpl-item{
-  display:flex; align-items:center; gap:8px;
-  padding:8px 10px; border-radius:10px;
-  cursor:default;
-}
-.wa-tpl-item:hover{background:#f3f4f6}
-.wa-tpl-main{flex:1; cursor:pointer}
-.wa-tpl-title{font-weight:800; font-size:13px; color:#111827}
-.wa-tpl-empty{padding:10px 12px;color:#6b7280;font-size:13px;text-align:center}
-.wa-tpl-admin{display:flex; gap:6px}
-.wa-tpl-ic{
-  width:30px;height:30px;border-radius:9px;
-  border:1px solid #e5e7eb;background:#fff;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;
-}
-.wa-tpl-ic:hover{background:#f9fafb}
-.wa-tpl-ic.danger{border-color:#fecaca;color:#b91c1c}
-.wa-tpl-preview{
-  margin-top:10px;
-  border:1px dashed #e5e7eb;
-  background:#fff;
-  border-radius:12px;
-  padding:10px 12px;
-  color:#111827;
-  font-size:13px;
-  line-height:1.8;
-  max-height:140px;
-  overflow:auto;
-}
 </style>
 
 </body>
