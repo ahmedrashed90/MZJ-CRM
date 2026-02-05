@@ -1078,7 +1078,7 @@ async function sendWhatsApp(leadId){
           <td>${(()=>{const n=clean(l.lastNote||""); if(!n) return "—"; const t=fmtTS(l.lastNoteAt||l.lastActivityAt||l.updatedAt||l.createdAt); return `<div style="font-weight:800">${escHtml(n)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${t}</div>`;})()}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
-            <button class="btn btn-ghost" style="margin-top:6px" onclick="openWAModal('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+            <button class="btn btn-ghost" style="margin-top:6px" onclick="openWAModal('${(l.phone||l.contact||'')}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
           </td>
           
         </tr>
@@ -1231,7 +1231,7 @@ function applyRoleUI(){
           <td>${(()=>{const n=clean(l.lastNote||""); if(!n) return "—"; const t=fmtTS(l.lastNoteAt||l.lastActivityAt||l.updatedAt||l.createdAt); return `<div style="font-weight:800">${escHtml(n)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${t}</div>`;})()}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
-            <button class="btn btn-ghost" style="margin-top:6px" onclick="openWAModal('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+            <button class="btn btn-ghost" style="margin-top:6px" onclick="openWAModal('${(l.phone||l.contact||'')}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
           </td>
           
         </tr>
