@@ -157,24 +157,16 @@ export default async function handler(req, res) {
 
     const filtered = strs
       .map(cleanText)
-      .filter((s) => s && !isIsoLike(s) && !looksLikeWamid(s))
+      .filter((s) => {
+        if(!s) return false;
+        if (/^[0-9]+$/.test(s)) return true; // allow pure numbers
+        if (isIsoLike(s)) return false;
+        if (looksLikeWamid(s)) return false;
+        return true;
+      })
       .filter((s) => !/^(true|false|null)$/i.test(s));
 
-    if (!filtered.length) {
-      // 4) fallback قوي: استخرج أي مقطع عربي من الرسالة حتى لو قصير
-      try {
-        const blob = JSON.stringify(m || {});
-        const ar = (blob.match(/[\u0600-\u06FF]{1,}/g) || [])
-          .map(s => s.trim())
-          .filter(Boolean);
-
-        if (ar.length) {
-          ar.sort((a,b)=> b.length - a.length);
-          return ar[0];
-        }
-      } catch(e) {}
-      return "";
-    }
+    if (!filtered.length) return "";
 
     // score: prefer longer strings but avoid obvious IDs
     const score = (s) => {
@@ -249,14 +241,9 @@ export default async function handler(req, res) {
       signal: controller.signal
     });
 
-    // اقرأ البايتات الخام (حل مشكلة Encoding العربي من مزوّد مرسال)
-    const buffer = await r.arrayBuffer();
-    const rawText = new TextDecoder("utf-8").decode(buffer);
-
+    const rawText = await r.text();
     let data = null;
-    try { data = JSON.parse(rawText); } catch (e) {
-      console.error("JSON parse error:", e, rawText.slice(0, 500));
-    }
+    try { data = JSON.parse(rawText); } catch (_) {}
 
     if (!r.ok) {
       return res.status(500).json({ ok: false, step: "getMessages", status: r.status, error: data || rawText });
