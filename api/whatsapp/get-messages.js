@@ -125,13 +125,13 @@ export default async function handler(req, res) {
     return t;
   };
 
-  const pickTextDeep = (m) => {
+    const pickTextDeep = (m) => {
     // 1) reply title
     const rt = findReplyTitle(m);
     if (rt) return rt;
 
-    // 2) try common paths
-    const candidates = [
+    // 2) try common direct paths
+    const direct = [
       m?.text,
       m?.message,
       m?.body,
@@ -144,14 +144,11 @@ export default async function handler(req, res) {
       m?.message?.text,
       m?.message?.body,
       m?.message?.content
-    ].filter((x) => typeof x === "string" && x.trim());
+    ].find((x) => typeof x === "string" && x.trim());
 
-    for (const c of candidates) {
-      const t = cleanText(c);
-      if (t && !isIsoLike(t) && !looksLikeWamid(t)) return t;
-    }
+    if (direct) return cleanText(direct);
 
-    // 3) deep scan
+    // 3) deep scan (accept short text & numbers too)
     const strs = [];
     collectStrings(m, strs);
 
@@ -162,11 +159,10 @@ export default async function handler(req, res) {
 
     if (!filtered.length) return "";
 
-    // score: prefer longer strings but avoid obvious IDs
+    // Prefer links slightly, otherwise longest text
     const score = (s) => {
       let sc = s.length;
-      if (/^https?:\/\//i.test(s)) sc += 20; // الروابط مهمة
-      if (/text|body|message|content|caption/i.test(JSON.stringify(m || ""))) sc += 0;
+      if (/^https?:\/\//i.test(s)) sc += 5;
       return sc;
     };
 
