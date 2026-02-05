@@ -125,13 +125,13 @@ export default async function handler(req, res) {
     return t;
   };
 
-    const pickTextDeep = (m) => {
+  const pickTextDeep = (m) => {
     // 1) reply title
     const rt = findReplyTitle(m);
     if (rt) return rt;
 
-    // 2) try common direct paths
-    const direct = [
+    // 2) try common paths
+    const candidates = [
       m?.text,
       m?.message,
       m?.body,
@@ -144,11 +144,14 @@ export default async function handler(req, res) {
       m?.message?.text,
       m?.message?.body,
       m?.message?.content
-    ].find((x) => typeof x === "string" && x.trim());
+    ].filter((x) => typeof x === "string" && x.trim());
 
-    if (direct) return cleanText(direct);
+    for (const c of candidates) {
+      const t = cleanText(c);
+      if (t && !isIsoLike(t) && !looksLikeWamid(t)) return t;
+    }
 
-    // 3) deep scan (accept short text & numbers too)
+    // 3) deep scan
     const strs = [];
     collectStrings(m, strs);
 
@@ -159,10 +162,11 @@ export default async function handler(req, res) {
 
     if (!filtered.length) return "";
 
-    // Prefer links slightly, otherwise longest text
+    // score: prefer longer strings but avoid obvious IDs
     const score = (s) => {
       let sc = s.length;
-      if (/^https?:\/\//i.test(s)) sc += 5;
+      if (/^https?:\/\//i.test(s)) sc += 20; // الروابط مهمة
+      if (/text|body|message|content|caption/i.test(JSON.stringify(m || ""))) sc += 0;
       return sc;
     };
 
@@ -231,9 +235,14 @@ export default async function handler(req, res) {
       signal: controller.signal
     });
 
-    const rawText = await r.text();
+    // اقرأ البايتات الخام (حل مشكلة Encoding العربي من مزوّد مرسال)
+    const buffer = await r.arrayBuffer();
+    const rawText = new TextDecoder("utf-8").decode(buffer);
+
     let data = null;
-    try { data = JSON.parse(rawText); } catch (_) {}
+    try { data = JSON.parse(rawText); } catch (e) {
+      console.error("JSON parse error:", e, rawText.slice(0, 500));
+    }
 
     if (!r.ok) {
       return res.status(500).json({ ok: false, step: "getMessages", status: r.status, error: data || rawText });
