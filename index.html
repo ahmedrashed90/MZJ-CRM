@@ -5,7 +5,6 @@
 
 
 
-
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -16,8 +15,7 @@
   <!-- نفس الخط والهوية من admin.html -->
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"/>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
 function updateGlobalFollowupBar(){
   const bar = document.getElementById('globalFollowupBar');
   const txt = document.getElementById('globalFollowupText');
@@ -26,7 +24,7 @@ function updateGlobalFollowupBar(){
   const now = new Date();
   let overdue = 0, soon = 0;
 
-  (window.leadsCache || []).forEach(l=>{
+  leadsCache.forEach(l=>{
     if(!l.followUpAt) return;
     const d = l.followUpAt.toDate ? l.followUpAt.toDate() : new Date(l.followUpAt);
     const diffH = (d - now) / (1000*60*60);
@@ -44,14 +42,17 @@ function updateGlobalFollowupBar(){
 }
 
 document.addEventListener('click', e=>{
-  if(e.target && e.target.id==='btnHideGlobalFu'){
-    const b = document.getElementById('globalFollowupBar');
-    if(b) b.style.display='none';
+  if(e.target.id==='btnHideGlobalFu'){
+    document.getElementById('globalFollowupBar').style.display='none';
   }
 });
+
+
+  // expose for inline onclick
+  window.sendWhatsApp = sendWhatsApp;
 </script>
 
-<style>
+  <style>
   :root{
     --brown:#3e2420; --beige:#bc8f74; --cream:#fff8ef; --text:#1f2937; --muted:#6b7280;
     --line:#e5e7eb; --line-strong:#d1d5db; --table-head:#fafafa;
@@ -645,8 +646,8 @@ font-weight:700;color:#3e2420;align-items:center;justify-content:space-between;g
           type: isStatus ? 'status' : 'contact',
           text: `${title}: ${shown || '-'}`,
           byUid: auth.currentUser.uid,
-          byName: clean(currentUserName||'') || clean((usersMap[auth.currentUser.uid]||{}).name||'') || '',
-          byName: clean(currentUserName||'') || clean((usersMap[auth.currentUser.uid]||{}).name||'') || '',
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
           at: serverTimestamp(),
         });
         await updateDoc(doc(db,'leads', leadId), { lastActivityAt: serverTimestamp() });
@@ -683,7 +684,7 @@ updatedAt: serverTimestamp(),
           type:'followup',
           text:`تم تحديد موعد متابعة: ${dt.toLocaleString('ar-SA',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}${note?(' — '+note):''}`,
           byUid: auth.currentUser.uid,
-          byName: clean(currentUserName||'') || clean((usersMap[auth.currentUser.uid]||{}).name||'') || '',
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
           at: serverTimestamp(),
         });
       }catch(_){}
@@ -710,7 +711,7 @@ updatedAt: serverTimestamp(),
           type:'followup',
           text:'تمت المتابعة الآن ✅',
           byUid: auth.currentUser.uid,
-          byName: clean(currentUserName||'') || clean((usersMap[auth.currentUser.uid]||{}).name||'') || '',
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
           at: serverTimestamp(),
         });
       }catch(_){}
@@ -737,41 +738,69 @@ function openMersalPopup(url){
   );
 }
 
-async function sendWhatsApp(leadIdOrPhone){
-  try{
-    // يدعم: تمرير leadId (doc id) أو رقم مباشر
-    const raw = String(leadIdOrPhone||'').trim();
-    const lead = (window.leadsCache||[]).find(x => x.id === raw) || {};
-    const phoneRaw = lead.phone || raw;
-    const phone = normPhone(phoneRaw);
-
+async function sendWhatsApp(leadId){
+    const lead = leadsCache.find(x => x.id === leadId) || {};
+    const phone = normPhone(lead.phone || leadId || '');
     if(!phone){
       showToast('رقم العميل غير متوفر','err');
       return;
     }
 
-    // افتح مودال الشات داخل الـCRM (بدون أي Popup)
-    openWAModal(phone);
+    // رسالة افتراضية (تقدر تغيرها من هنا لاحقًا)
+    const msg = `اهلاً وسهلاً بك\n${clean(lead.name||'')}\nمعك ${clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'')}\nكيف نقدر نخدمك؟`.trim();
 
-    // اكتب رسالة ترحيب في صندوق الكتابة (بدون إرسال تلقائي)
-    const agentName =
-      (window.currentUserName||'') ||
-      (auth.currentUser ? (usersMap[auth.currentUser.uid]?.name || '') : '') ||
-      '';
-    const msg = `اهلاً وسهلاً بك\n${clean(lead.name||'')}\nمعك ${clean(agentName)}\nكيف نقدر نخدمك؟`.trim();
+    let popWin = openMersalPopup('about:blank');
 
-    const ta = document.getElementById('waMessageInput');
-    if(ta){
-      ta.value = msg;
-      ta.focus();
+    try{
+      // 1) ارسال الرسالة عبر مرسال API (Serverless)
+      const res = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, message: msg })
+      });
+
+      const out = await res.json().catch(()=>({}));
+      if(!res.ok || !out.ok){
+        console.error(out);
+        showToast('فشل إرسال واتساب','err');
+        return;
+      }
+
+      showToast('تم إرسال واتساب ✅','ok');
+
+      // 2) فتح الشات في Popup (شبه مودال) على نفس contact_id
+      try{
+        const openRes = await fetch(`/api/whatsapp/open-chat?phone=${encodeURIComponent(phone)}`);
+        const openOut = await openRes.json().catch(()=>({}));
+        if(openRes.ok && openOut.ok && openOut.chat_url){
+          if(!chatUrl){ showToast('open-chat رجع بدون رابط','err'); if(popWin && !popWin.closed) popWin.close(); return; }
+        if(popWin) popWin.location.href = chatUrl; else openMersalPopup(chatUrl);
+        }else{
+          console.error(openOut);
+          // fallback: افتح شاشة الشات العامة
+          if(popWin) popWin.location.href = 'https://w-mersal.com/chat'; else openMersalPopup('https://w-mersal.com/chat');
+        }
+      }catch(e){
+        if(popWin) popWin.location.href = 'https://w-mersal.com/chat'; else openMersalPopup('https://w-mersal.com/chat');
+      }
+
+      // سجل نشاط (اختياري) — الأدمن يقدر يشوفه
+      try{
+        await addDoc(collection(db,'leads', leadId, 'activity'), {
+          type:'whatsapp',
+          text:'تم إرسال رسالة واتساب عبر مرسال',
+          byUid: auth.currentUser.uid,
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
+          at: serverTimestamp(),
+        });
+        await updateDoc(doc(db,'leads', leadId), { lastActivityAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      }catch(e){}
+
+    }catch(err){
+      console.error(err);
+      showToast('خطأ في الاتصال بالسيرفر','err');
     }
-  }catch(e){
-    console.error(e);
-    showToast('تعذر فتح واتساب','err');
   }
-}
-window.sendWhatsApp = sendWhatsApp;
-
 
 
 
@@ -833,7 +862,7 @@ window.sendWhatsApp = sendWhatsApp;
 
   async function loadUsersMap(){
     try{
-      const snap = await getDocs(collection(db,'users'));
+      const snap = await getDocs(collection(db,'user'));
       const m = {};
       snap.forEach(d=>{ m[d.id] = d.data() || {}; });
       usersMap = m;
@@ -842,7 +871,7 @@ window.sendWhatsApp = sendWhatsApp;
     }
   }
 
-  function detachLeadsRealtime(){ if(unsubLeads){unsubLeads();unsubLeads=null;} leadsCache=[]; window.leadsCache = leadsCache; renderLeads(); updateGlobalFollowupBar();
+  function detachLeadsRealtime(){ if(unsubLeads){unsubLeads();unsubLeads=null;} leadsCache=[]; renderLeads(); updateGlobalFollowupBar();
       syncStatusFilter2();
       renderLeads2(); updateGlobalFollowupBar();
       updateDashboard(); }
@@ -886,9 +915,7 @@ window.sendWhatsApp = sendWhatsApp;
         const snap = await getDocs(leadsQ);
         connDot.className='dot ok'; connText.textContent='متصل ✅';
         leadsCache = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-        
-      window.leadsCache = leadsCache;
-refreshStatusFilter();
+        refreshStatusFilter();
         renderLeads(); updateGlobalFollowupBar();
         syncStatusFilter2();
         renderLeads2(); updateGlobalFollowupBar();
@@ -903,9 +930,7 @@ refreshStatusFilter();
     unsubLeads = onSnapshot(leadsQ, (snap)=>{
       connDot.className='dot ok'; connText.textContent='متصل ✅';
       leadsCache = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-      
-      window.leadsCache = leadsCache;
-refreshStatusFilter();
+      refreshStatusFilter();
       renderLeads(); updateGlobalFollowupBar();
     }, (err)=>{
       console.error(err);
@@ -1053,7 +1078,7 @@ refreshStatusFilter();
           <td>${(()=>{const n=clean(l.lastNote||""); if(!n) return "—"; const t=fmtTS(l.lastNoteAt||l.lastActivityAt||l.updatedAt||l.createdAt); return `<div style="font-weight:800">${escHtml(n)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${t}</div>`;})()}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
-            <button class="btn btn-ghost" style="margin-top:6px" onclick="sendWhatsApp('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+            <button class="btn btn-ghost" style="margin-top:6px" onclick="openWAModal('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
           </td>
           
         </tr>
@@ -1117,9 +1142,7 @@ function applyRoleUI(){
       const snap = await getDocs(leadsQ);
       connDot.className='dot ok'; connText.textContent='متصل ✅';
       leadsCache = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-      
-      window.leadsCache = leadsCache;
-refreshStatusFilter();
+      refreshStatusFilter();
       renderLeads(); updateGlobalFollowupBar();
       syncStatusFilter2();
       renderLeads2(); updateGlobalFollowupBar();
@@ -1208,7 +1231,7 @@ refreshStatusFilter();
           <td>${(()=>{const n=clean(l.lastNote||""); if(!n) return "—"; const t=fmtTS(l.lastNoteAt||l.lastActivityAt||l.updatedAt||l.createdAt); return `<div style="font-weight:800">${escHtml(n)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${t}</div>`;})()}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="window.openLead('${l.id}')"><i class="fa-regular fa-eye"></i> فتح</button>
-            <button class="btn btn-ghost" style="margin-top:6px" onclick="sendWhatsApp('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+            <button class="btn btn-ghost" style="margin-top:6px" onclick="openWAModal('${l.id}')"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
           </td>
           
         </tr>
@@ -1361,7 +1384,7 @@ refreshStatusFilter();
           created++;
           await addDoc(collection(db,'leads', leadId, 'activity'), {
             type:'import', action:'append', byUid: auth.currentUser.uid,
-          byName: clean(currentUserName||'') || clean((usersMap[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
           });
         } else if(importMode==='update'){
           if(!existing.exists()){ skipped++; continue; }
@@ -1375,14 +1398,14 @@ refreshStatusFilter();
           updated++;
           await addDoc(collection(db,'leads', leadId, 'activity'), {
             type:'import', action:'update', byUid: auth.currentUser.uid,
-          byName: clean(currentUserName||'') || clean((usersMap[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
           });
         } else if(importMode==='replace'){
           await setDoc(ref, payload, { merge:true });
           if(existing.exists()) updated++; else created++;
           await addDoc(collection(db,'leads', leadId, 'activity'), {
             type:'import', action:'replace', byUid: auth.currentUser.uid,
-          byName: clean(currentUserName||'') || clean((usersMap[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
           });
         }
       }
@@ -1408,7 +1431,7 @@ refreshStatusFilter();
       let uids = [];
 
       {
-        const usersSnap = await getDocs(collection(db,'users'));
+        const usersSnap = await getDocs(collection(db,'user'));
         uids = usersSnap.docs
           .filter(d=>{
             const u=d.data()||{};
@@ -1436,7 +1459,7 @@ refreshStatusFilter();
         const uid = targets[i % targets.length];
         await addDoc(collection(db,'leads', lead.id, 'activity'), {
           type:'assigned', toUid: uid, byUid: auth.currentUser.uid,
-          byName: clean(currentUserName||'') || clean((usersMap[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
         });
       }
 
@@ -1684,7 +1707,7 @@ refreshStatusFilter();
           type:'update',
           text:`تحديث: الحالة=${payload.status} | التواصل=${payload.contact} | البلد=${payload.country} | المدينة=${payload.city}`,
           byUid: auth.currentUser.uid,
-          byName: clean(currentUserName||'') || clean((usersMap[auth.currentUser.uid]||{}).name||'') || '',
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '',
           at: serverTimestamp(),
         });
       }catch(e){}
@@ -1821,7 +1844,7 @@ if(fuStatus){
     try{
       await addDoc(collection(db,'leads', currentLeadId, 'activity'), {
         type:'note', text, byUid: auth.currentUser.uid,
-          byName: clean(currentUserName||'') || clean((usersMap[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
+          byName: clean(currentUserName||'') || clean((userCache[auth.currentUser.uid]||{}).name||'') || '', at: serverTimestamp(),
       });
       await updateDoc(doc(db,'leads', currentLeadId), { lastNote: text, lastNoteAt: serverTimestamp(), lastActivityAt: serverTimestamp(), updatedAt: serverTimestamp() });
       try{
@@ -1920,54 +1943,7 @@ document.addEventListener("click", function(e){
   window.sendWhatsApp = sendWhatsApp;
 
 // ===== WhatsApp Chat Modal (Mersal API) =====
-let __waPhone
-let __waInFlight = false;
-let __waAbort = null;
-let __waPollActive = false;
-
-function waCacheKey(phone){ return `wa_cache_${phone}`; }
-function waPendingKey(phone){ return `wa_pending_${phone}`; }
-
-function loadWACache(phone){
-  try{
-    const raw = localStorage.getItem(waCacheKey(phone));
-    if(!raw) return null;
-    const obj = JSON.parse(raw);
-    // expire after 6 hours
-    if(!obj || !obj.ts || (Date.now()-obj.ts) > 6*60*60*1000) return null;
-    return obj.messages || null;
-  }catch(e){ return null; }
-}
-
-function saveWACache(phone, messages){
-  try{
-    localStorage.setItem(waCacheKey(phone), JSON.stringify({ ts: Date.now(), messages }));
-  }catch(e){}
-}
-
-function loadWAPending(phone){
-  try{
-    const raw = localStorage.getItem(waPendingKey(phone));
-    return raw ? (JSON.parse(raw) || []) : [];
-  }catch(e){ return []; }
-}
-function saveWAPending(phone, arr){
-  try{ localStorage.setItem(waPendingKey(phone), JSON.stringify(arr.slice(-50))); }catch(e){}
-}
-
-function removePendingOut(phone, id){
-  const arr = loadWAPending(phone).filter(x=>x.id!==id);
-  saveWAPending(phone, arr);
-}
-
-function addPendingOut(phone, text){
-  const item = { id: `local_${Date.now()}`, text, time: new Date().toISOString(), from_me: true, direction: 'out', _local:true };
-  const arr = loadWAPending(phone);
-  arr.push(item);
-  saveWAPending(phone, arr);
-  return item;
-}
- = null;
+let __waPhone = null;
 let __waContactId = null;
 let __waPollTimer = null;
 let __waLastKey = null;
@@ -2009,66 +1985,16 @@ function openWAModal(phone){
 
   document.getElementById('waModal').setAttribute('aria-hidden','false');
 
-  // Render cached messages instantly (if available)
-  const cached = __waPhone ? loadWACache(__waPhone) : null;
-  if(cached && cached.length){
-    try{
-      renderWAMessages(cached);
-      showWAMsgHint('');
-    }catch(e){}
-  }
-
-  startWAPoll(true);
+  loadWAMessages(true);
+  if(__waPollTimer) clearInterval(__waPollTimer);
+  __waPollTimer = setInterval(()=>loadWAMessages(false), 3000);
 }
 
 function closeWAModal(){
   document.getElementById('waModal').setAttribute('aria-hidden','true');
-  stopWAPoll();
-}
-
-
-function stopWAPoll(){
-  __waPollActive = false;
-  if(__waPollTimer) clearTimeout(__waPollTimer);
+  if(__waPollTimer) clearInterval(__waPollTimer);
   __waPollTimer = null;
-  __waInFlight = false;
-  if(__waAbort){
-    try{ __waAbort.abort(); }catch(e){}
-  }
-  __waAbort = null;
 }
-
-function startWAPoll(firstLoad){
-  stopWAPoll();
-  __waPollActive = true;
-
-  const tick = async (isFirst)=>{
-    if(!__waPollActive) return;
-
-    // Prevent overlapping requests (reduces hangs)
-    if(__waInFlight){
-      __waPollTimer = setTimeout(()=>tick(false), 1200);
-      return;
-    }
-
-    __waInFlight = true;
-    if(__waAbort){
-      try{ __waAbort.abort(); }catch(e){}
-    }
-    __waAbort = new AbortController();
-
-    try{
-      await loadWAMessages(!!isFirst);
-    }catch(e){}
-    __waInFlight = false;
-
-    // Faster while modal open: 1200ms, can be increased if needed
-    __waPollTimer = setTimeout(()=>tick(false), 1200);
-  };
-
-  tick(!!firstLoad);
-}
-
 
 function insertQuickMsg(){
   const ta = document.getElementById('waMessageInput');
@@ -2132,7 +2058,6 @@ function renderWAMessages(messages){
     main.className = 'wa-text';
     let txt = (m.text || m.message || '').toString();
     txt = __waNormalizeDisplayText(txt).trim();
-    if(txt === 'المدير') return; // hide internal marker
     main.textContent = txt || '⛔ لا يوجد نص (قد تكون رسالة غير نصية أو المابنج غير مضبوط)';
     bubble.appendChild(main);
 
@@ -2164,7 +2089,7 @@ async function loadWAMessages(firstLoad){
       return;
     }
 
-    const r2 = await fetch(`/api/whatsapp/get-messages?contact_id=${encodeURIComponent(__waContactId)}&limit=20&_=${Date.now()}`, { cache: 'no-store', signal: __waAbort?.signal });
+    const r2 = await fetch(`/api/whatsapp/get-messages?contact_id=${encodeURIComponent(__waContactId)}/api/whatsapp/get-messages?contact_id=${encodeURIComponent(__waContactId)}limit=60/api/whatsapp/get-messages?contact_id=${encodeURIComponent(__waContactId)}timeout_ms=12000`);
     const j2 = await r2.json().catch(()=>null);
 
     if(!j2 || !j2.ok){
@@ -2175,45 +2100,12 @@ async function loadWAMessages(firstLoad){
     const msgs = j2.messages || [];
     showWAMsgHint('');
 
-    // Merge with locally-sent pending messages so they don't "disappear"
-    let pending = (__waPhone ? loadWAPending(__waPhone) : []) || [];
-
-    // Remove pending items that are already confirmed by server (same text + from_me)
-    if(pending.length){
-      const serverOutTexts = new Set(msgs.filter(m=>m && (m.from_me===true || m.direction==='out')).map(m=>String(m.text||'').trim()).filter(Boolean));
-      pending = pending.filter(p=>!serverOutTexts.has(String(p.text||'').trim()));
-      saveWAPending(__waPhone, pending);
-    }
-
-    // Build merged array
-    let merged = msgs.slice();
-    if(pending.length){
-      const sig = new Set(merged.map(m => (m.id||'') + '|' + (m.time||'')));
-      for(const p of pending){
-        const k = (p.id||'') + '|' + (p.time||'');
-        if(!sig.has(k)) merged.push(p);
-      }
-    }
-
-    // Sort oldest -> newest (stable)
-    merged.sort((a,b)=>{
-      const ta = Date.parse(a.time||a.created_at||a.timestamp||'') || 0;
-      const tb = Date.parse(b.time||b.created_at||b.timestamp||'') || 0;
-      if(ta !== tb) return ta - tb;
-      const ia = Number(String(a.id||'').replace(/\D/g,'')) || 0;
-      const ib = Number(String(b.id||'').replace(/\D/g,'')) || 0;
-      return ia - ib;
-    });
-
-    const last = merged[merged.length-1];
+    const last = msgs[msgs.length-1];
     const key = last ? (last.id || last.message_id || last.message_wamid || (last.text||last.message||'') + '|' + (last.time||last.created_at||'')) : null;
     if(key && key === __waLastKey && !firstLoad) return;
     __waLastKey = key;
 
-    // Cache for instant open next time
-    if(__waPhone) saveWACache(__waPhone, merged);
-
-    renderWAMessages(merged);
+    renderWAMessages(msgs);
   }catch(e){
     if(firstLoad) showWAMsgHint('تعذر تحميل الرسائل.');
   }
@@ -2224,17 +2116,7 @@ async function confirmSendWA(){
   const msg = ta.value.trim();
   if(!msg) return alert('اكتب الرسالة أولاً');
 
-  // Optimistic: show instantly on the right + keep in cache/pending (so it won't disappear)
   ta.value = '';
-  const pendingItem = (__waPhone ? addPendingOut(__waPhone, msg) : null);
-
-  if(pendingItem && __waPhone){
-    const cached = loadWACache(__waPhone) || [];
-    const merged = cached.concat([pendingItem]).slice(-200);
-    saveWACache(__waPhone, merged);
-    renderWAMessages(merged);
-  }
-
   showWAMsgHint('جاري الإرسال...');
 
   try{
@@ -2247,17 +2129,14 @@ async function confirmSendWA(){
 
     if(!j || !j.ok){
       showWAMsgHint('فشل الإرسال. قد يحتاج واتساب Template لو أول تواصل/أكثر من 24 ساعة.');
-      if(pendingItem && __waPhone) removePendingOut(__waPhone, pendingItem.id);
       ta.value = msg;
       return;
     }
 
     showWAMsgHint('');
-    // quick refresh (without blocking UI) — polling will also catch it
-    loadWAMessages(false);
+    await loadWAMessages(true);
   }catch(e){
     showWAMsgHint('خطأ اتصال أثناء الإرسال.');
-    if(pendingItem && __waPhone) removePendingOut(__waPhone, pendingItem.id);
     ta.value = msg;
   }
 }
@@ -2265,6 +2144,20 @@ async function confirmSendWA(){
 window.openWAModal = openWAModal;
 
 
+// ===== OVERRIDE: WhatsApp button opens in-CRM modal only (no external dashboard) =====
+function sendWhatsApp(phone){
+  try { openWAModal(phone); } catch(e){ alert('تعذر فتح مودال واتساب'); }
+}
+window.sendWhatsApp = sendWhatsApp;
+
+
+// ===== OVERRIDE: block any external popup open-chat behavior =====
+function openMersalChat(){ return false; }
+function openWhatsAppChat(){ return false; }
+function openChat(){ return false; }
+window.openMersalChat = openMersalChat;
+window.openWhatsAppChat = openWhatsAppChat;
+window.openChat = openChat;
 
 </script>
 
