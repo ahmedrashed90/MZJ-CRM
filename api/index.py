@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey, Text, func
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey, func, text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session, relationship
 from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
@@ -46,13 +46,12 @@ def clean_db_url(raw: str) -> str:
 
 
 DATABASE_URL = clean_db_url(os.getenv("DATABASE_URL"))
-
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # ====== Auth ======
-SECRET_KEY = os.getenv("JWT_SECRET", "CHANGE_ME_NOW")  # set in Vercel env
+SECRET_KEY = os.getenv("JWT_SECRET", "CHANGE_ME_NOW")  # MUST set in Vercel env
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24h
 
@@ -121,15 +120,9 @@ class CalculatorSnapshot(Base):
     installment_plus_commitments = Column(Integer, nullable=True)
 
     approved_bool = Column(Boolean, default=False)
-
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     lead = relationship("Lead", back_populates="snapshots")
-
-# ====== Create tables (MVP) ======
-@app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
 
 # ====== Helpers ======
 def verify_password(plain_password, hashed_password):
@@ -145,30 +138,66 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-    credentials_exception = HTTPException(
+    cred_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid authentication",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str | None = payload.get("sub")
-        if username is None:
-            raise credentials_exception
+        username = payload.get("sub")
+        if not username:
+            raise cred_exc
     except JWTError:
-        raise credentials_exception
+        raise cred_exc
 
     user = db.query(User).filter(User.username == username).first()
     if not user or not user.is_active:
-        raise credentials_exception
+        raise cred_exc
     return user
 
 def require_role(*roles):
-    def _role_guard(user: User = Depends(get_current_user)):
+    def _guard(user: User = Depends(get_current_user)):
         if user.role not in roles:
             raise HTTPException(status_code=403, detail="Forbidden")
         return user
-    return _role_guard
+    return _guard
+
+def seed_admin_if_empty(db: Session):
+    """Create admin user ONCE if users table is empty and env vars provided."""
+    users_count = db.query(User).count()
+    if users_count > 0:
+        return
+
+    admin_username = (os.getenv("ADMIN_USERNAME") or "admin").strip().lower()
+    admin_password = os.getenv("ADMIN_PASSWORD") or ""
+
+    # لو الباسورد مش موجود، منعملش admin (عشان الأمان)
+    if not admin_password:
+        return
+
+    admin = User(
+        username=admin_username,
+        full_name="System Admin",
+        role="admin",
+        password_hash=get_password_hash(admin_password),
+        is_active=True,
+    )
+    db.add(admin)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+
+# ====== Startup ======
+@app.on_event("startup")
+def on_startup():
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        seed_admin_if_empty(db)
+    finally:
+        db.close()
 
 # ====== Routes ======
 @app.get("/")
@@ -177,22 +206,23 @@ def root():
 
 @app.get("/test-db")
 def test_db():
-    from sqlalchemy import text
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
     return {"ok": True, "db_status": "connected"}
 
-# --- Auth ---
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form_data.username).first()
+    user = db.query(User).filter(User.username == form_data.username.strip().lower()).first()
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
 
     token = create_access_token({"sub": user.username, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "role": user.role, "username": user.username}
 
-# --- Admin creates users ---
+@app.get("/me")
+def me(user: User = Depends(get_current_user)):
+    return {"id": user.id, "username": user.username, "full_name": user.full_name, "role": user.role}
+
 @app.post("/admin/users")
 def admin_create_user(
     username: str,
@@ -219,7 +249,6 @@ def admin_create_user(
         raise HTTPException(status_code=409, detail="Username already exists")
     return {"ok": True, "user_id": u.id, "username": u.username, "role": u.role}
 
-# --- Lead list for logged-in user (agents see own only; admin/manager see all) ---
 @app.get("/leads")
 def list_leads(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     q = db.query(Lead)
