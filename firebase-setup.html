@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MZJ CRM — Firebase Setup</title>
+
+  <style>
+    :root{
+      --bg:#0f1115;
+      --card:#151922;
+      --stroke:rgba(255,255,255,.10);
+      --text:#f4f6fb;
+      --muted:rgba(244,246,251,.72);
+      --accent:#C07A4A;
+      --ok:#31c26a;
+      --bad:#ff4d4d;
+      --shadow: 0 18px 45px rgba(0,0,0,.45);
+      --radius:16px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: system-ui, -apple-system, "Segoe UI", Tahoma, Arial;
+    }
+
+    body{
+      margin:0;
+      background: radial-gradient(1200px 600px at 70% 0%, rgba(192,122,74,.18), transparent 50%),
+                  radial-gradient(900px 500px at 10% 20%, rgba(49,194,106,.14), transparent 45%),
+                  var(--bg);
+      color:var(--text);
+      font-family: var(--sans);
+    }
+    .wrap{max-width:1200px;margin:0 auto;padding:22px 14px;}
+    .top{
+      display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;
+      margin-bottom:16px;
+    }
+    h1{margin:0;font-size:22px;letter-spacing:.2px}
+    .sub{color:var(--muted);font-size:13px;margin-top:6px;line-height:1.6}
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:14px;
+    }
+    @media (max-width:980px){ .grid{grid-template-columns:1fr;} }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding:16px;
+      overflow:hidden;
+    }
+    .card h2{margin:0 0 10px;font-size:16px}
+    .row{display:grid;grid-template-columns: 160px 1fr;gap:10px;align-items:center;margin:10px 0;}
+    @media (max-width:520px){ .row{grid-template-columns:1fr;} }
+    label{color:var(--muted);font-size:13px}
+    input, select{
+      width:100%;
+      background:#0c0f14;
+      color:var(--text);
+      border:1px solid var(--stroke);
+      border-radius:12px;
+      padding:10px 12px;
+      outline:none;
+    }
+    input:focus, select:focus{border-color: rgba(192,122,74,.55)}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    button{
+      background: rgba(192,122,74,.15);
+      color: var(--text);
+      border: 1px solid rgba(192,122,74,.35);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      transition: .15s ease;
+      font-weight:700;
+    }
+    button:hover{transform: translateY(-1px);background: rgba(192,122,74,.22)}
+    button.secondary{
+      background: rgba(255,255,255,.06);
+      border-color: rgba(255,255,255,.14);
+    }
+    button.danger{
+      background: rgba(255,77,77,.14);
+      border-color: rgba(255,77,77,.32);
+    }
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:7px 10px;border-radius:999px;border:1px solid var(--stroke);
+      background: rgba(255,255,255,.04);
+      font-size:12px;color:var(--muted);
+    }
+    .dot{width:8px;height:8px;border-radius:50%}
+    .dot.ok{background: var(--ok)}
+    .dot.bad{background: var(--bad)}
+    .mono{font-family: var(--mono);font-size:12px}
+    .log{
+      background:#0b0e13;
+      border:1px solid var(--stroke);
+      border-radius:12px;
+      padding:12px;
+      height:180px;
+      overflow:auto;
+      white-space:pre-wrap;
+      font-family: var(--mono);
+      font-size:12px;
+      color: rgba(244,246,251,.88);
+      line-height:1.5;
+    }
+    .split{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:14px;
+      margin-top:14px;
+    }
+    @media (max-width:980px){ .split{grid-template-columns:1fr;} }
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th, td{border-bottom:1px solid var(--stroke);padding:10px 8px;text-align:right}
+    th{color:var(--muted);font-weight:700}
+    .badge{
+      display:inline-block;padding:3px 8px;border-radius:999px;
+      background: rgba(49,194,106,.12);border:1px solid rgba(49,194,106,.28);
+      color: rgba(49,194,106,1);font-size:12px;font-weight:800;
+    }
+    .badge.gray{
+      background: rgba(255,255,255,.06);border-color: rgba(255,255,255,.12);
+      color: rgba(244,246,251,.82);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>لوحة تهيئة Firebase — MZJ CRM</h1>
+        <div class="sub">
+          صفحة واحدة لتجهيز الكوليكشن + إعداد الـRound Robin + إضافة مستخدمين + اختبار الـLeads Realtime.
+        </div>
+      </div>
+
+      <div class="pill" id="authPill">
+        <span class="dot bad" id="authDot"></span>
+        <span id="authText">غير مسجل دخول</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Auth Card -->
+      <div class="card">
+        <h2>1) تسجيل الدخول (Firebase Auth)</h2>
+
+        <div class="row">
+          <label>الإيميل</label>
+          <input id="email" type="email" placeholder="admin@company.com" />
+        </div>
+        <div class="row">
+          <label>الباسورد</label>
+          <input id="password" type="password" placeholder="••••••••" />
+        </div>
+
+        <div class="btns">
+          <button id="btnLogin">دخول</button>
+          <button class="secondary" id="btnLogout">خروج</button>
+          <button class="secondary" id="btnWhoAmI">أنا مين؟</button>
+        </div>
+
+        <div class="sub" style="margin-top:10px">
+          ⚠️ لازم تضيف الدومين في Firebase → Auth → Settings → Authorized domains (مثلاً localhost أو vercel).
+        </div>
+      </div>
+
+      <!-- Setup Card -->
+      <div class="card">
+        <h2>2) تهيئة الكوليكشن (Setup)</h2>
+        <div class="sub">
+          الزر ده هيعمل/يجهز المستندات الأساسية:
+          <span class="mono">settings/round_robin</span> + <span class="mono">settings/pipeline</span> + مثال Lead واحد.
+        </div>
+
+        <div class="btns">
+          <button id="btnSetup">تشغيل التهيئة الأساسية</button>
+          <button class="secondary" id="btnSeedPipeline">تجهيز مراحل البيع</button>
+          <button class="danger" id="btnDangerClearDemo">مسح بيانات الديمو فقط</button>
+        </div>
+
+        <div class="sub" style="margin-top:10px">
+          ملاحظة: Firestore بيعمل Collections تلقائيًا أول ما تكتب أول Document.
+        </div>
+      </div>
+    </div>
+
+    <div class="split">
+      <!-- Users -->
+      <div class="card">
+        <h2>3) إضافة/تعديل مستخدمين داخل Firestore (users)</h2>
+        <div class="sub">
+          ده غير Auth. لازم يكون المستخدم موجود في Auth (Email/Password) + هنا نحط Role.
+        </div>
+
+        <div class="row">
+          <label>UID</label>
+          <input id="uid" placeholder="UID من Firebase Auth" />
+        </div>
+        <div class="row">
+          <label>الاسم</label>
+          <input id="fullName" placeholder="اسم المندوب" />
+        </div>
+        <div class="row">
+          <label>الدور</label>
+          <select id="role">
+            <option value="admin">admin</option>
+            <option value="manager">manager</option>
+            <option value="agent" selected>agent</option>
+          </select>
+        </div>
+
+        <div class="btns">
+          <button id="btnUpsertUser">حفظ المستخدم في users</button>
+          <button class="secondary" id="btnLoadMyUID">جيب UID بتاعي</button>
+        </div>
+      </div>
+
+      <!-- Round Robin -->
+      <div class="card">
+        <h2>4) إعداد Round Robin (توزيع العملاء)</h2>
+        <div class="sub">
+          اكتب UIDs للمندوبين مفصولة بسطر جديد.
+        </div>
+
+        <div class="row">
+          <label>Agents UIDs</label>
+          <textarea id="agents" style="width:100%;min-height:120px;background:#0c0f14;color:#fff;border:1px solid var(--stroke);border-radius:12px;padding:10px 12px;outline:none"></textarea>
+        </div>
+
+        <div class="btns">
+          <button id="btnSaveRR">حفظ Round Robin</button>
+          <button class="secondary" id="btnLoadRR">عرض Round Robin</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="split">
+      <!-- Demo Lead -->
+      <div class="card">
+        <h2>5) إضافة Lead تجريبي + Snapshot</h2>
+        <div class="row">
+          <label>رقم جوال</label>
+          <input id="demoPhone" placeholder="+9665XXXXXXXX" value="+966508821819" />
+        </div>
+        <div class="row">
+          <label>اسم</label>
+          <input id="demoName" placeholder="Ahmed" value="Demo Lead" />
+        </div>
+        <div class="row">
+          <label>اسم السيارة</label>
+          <input id="demoCar" value="هيونداي توسان 2026 كومفورت" />
+        </div>
+        <div class="row">
+          <label>سعر</label>
+          <input id="demoPrice" value="105000" />
+        </div>
+
+        <div class="btns">
+          <button id="btnAddDemoLead">إضافة/تحديث Lead + Snapshot</button>
+        </div>
+
+        <div class="sub" style="margin-top:10px">
+          سياسة التكرار: نفس الرقم = نفس Lead (docId=digits) + Snapshot جديد.
+        </div>
+      </div>
+
+      <!-- Inbox -->
+      <div class="card">
+        <h2>6) Inbox Realtime (عرض Leads)</h2>
+        <div class="btns">
+          <button class="secondary" id="btnStartInbox">تشغيل الريل تايم</button>
+          <button class="secondary" id="btnStopInbox">إيقاف</button>
+        </div>
+
+        <div style="margin-top:10px;max-height:260px;overflow:auto;border:1px solid var(--stroke);border-radius:12px">
+          <table>
+            <thead>
+              <tr>
+                <th>العميل</th>
+                <th>المرحلة</th>
+                <th>المندوب</th>
+                <th>آخر نشاط</th>
+              </tr>
+            </thead>
+            <tbody id="inboxBody">
+              <tr><td colspan="4" style="color:rgba(244,246,251,.6)">لسه مش شغال</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>Log</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc,
+      collection, addDoc, serverTimestamp, query, orderBy, onSnapshot
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import {
+      getAuth, onAuthStateChanged,
+      signInWithEmailAndPassword, signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    // ====== YOUR CONFIG (as provided) ======
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // ====== UI Helpers ======
+    const $ = (id) => document.getElementById(id);
+    const logEl = $("log");
+
+    function log(msg, type="info"){
+      const ts = new Date().toLocaleString("ar-SA");
+      const line = `[${ts}] ${msg}\n`;
+      logEl.textContent += line;
+      logEl.scrollTop = logEl.scrollHeight;
+      console[type==="error" ? "error" : "log"](msg);
+    }
+
+    function setAuthPill(isAuthed, text){
+      $("authDot").className = "dot " + (isAuthed ? "ok" : "bad");
+      $("authText").textContent = text;
+    }
+
+    // ====== Phone normalize (KSA) ======
+    function normalizePhone(input){
+      let s = (input || "").trim();
+      s = s.replace(/[^\d+]/g, "");
+
+      // if starts with 00 -> +
+      if (s.startsWith("00")) s = "+" + s.slice(2);
+
+      // If already +966...
+      if (s.startsWith("+966")) {
+        const digits = s.replace(/\D/g, "");
+        return { e164: "+" + digits, digits };
+      }
+
+      // If starts with 966...
+      if (s.startsWith("966")) {
+        const digits = s.replace(/\D/g, "");
+        return { e164: "+" + digits, digits };
+      }
+
+      // If starts with 05...
+      if (s.startsWith("05")) {
+        const rest = s.slice(1); // remove leading 0
+        const digits = ("966" + rest).replace(/\D/g, "");
+        return { e164: "+" + digits, digits };
+      }
+
+      // If starts with 5 and length 9 (mobile)
+      const onlyDigits = s.replace(/\D/g, "");
+      if (onlyDigits.length === 9 && onlyDigits.startsWith("5")) {
+        const digits = "966" + onlyDigits;
+        return { e164: "+" + digits, digits };
+      }
+
+      // fallback digits only
+      return { e164: s.startsWith("+") ? s : ("+" + onlyDigits), digits: onlyDigits };
+    }
+
+    // ====== Auth ======
+    onAuthStateChanged(auth, (user) => {
+      if (user){
+        setAuthPill(true, `مسجل دخول: ${user.email}`);
+        log(`Auth: logged in as ${user.email} | uid=${user.uid}`);
+      } else {
+        setAuthPill(false, `غير مسجل دخول`);
+        log("Auth: logged out");
+      }
+    });
+
+    $("btnLogin").addEventListener("click", async () => {
+      try{
+        const email = $("email").value.trim();
+        const password = $("password").value;
+        await signInWithEmailAndPassword(auth, email, password);
+        log("تم تسجيل الدخول ✅");
+      }catch(e){
+        log("خطأ دخول: " + (e?.message || e), "error");
+        alert(e?.message || e);
+      }
+    });
+
+    $("btnLogout").addEventListener("click", async () => {
+      try{
+        await signOut(auth);
+        log("تم تسجيل الخروج ✅");
+      }catch(e){
+        log("خطأ خروج: " + (e?.message || e), "error");
+      }
+    });
+
+    $("btnWhoAmI").addEventListener("click", async () => {
+      const u = auth.currentUser;
+      if (!u) return alert("مش مسجل دخول");
+      alert(`email: ${u.email}\nuid: ${u.uid}`);
+    });
+
+    $("btnLoadMyUID").addEventListener("click", async () => {
+      const u = auth.currentUser;
+      if (!u) return alert("سجل دخول الأول");
+      $("uid").value = u.uid;
+      log("تم وضع UID الحالي في الحقل ✅");
+    });
+
+    // ====== Setup ======
+    async function ensureSetupDocs(){
+      if (!auth.currentUser) throw new Error("سجل دخول الأول");
+
+      // settings/round_robin
+      await setDoc(doc(db, "settings", "round_robin"), {
+        agents: [],
+        lastIndex: -1,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      // settings/pipeline
+      await setDoc(doc(db, "settings", "pipeline"), {
+        stages: [
+          "Lead جديد",
+          "تم التواصل",
+          "مهتم",
+          "متابعة",
+          "تم رفع الطلب",
+          "تفاوض",
+          "تم البيع",
+          "غير مهتم",
+          "غير مؤهل"
+        ],
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      // create a tiny demo lead to make collections visible
+      const demo = normalizePhone("+966500000000");
+      await setDoc(doc(db, "leads", demo.digits), {
+        phone_digits: demo.digits,
+        phone_e164: demo.e164,
+        name: "Demo Seeder",
+        source: "Setup",
+        stage: "Lead جديد",
+        ownerId: null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastActivityAt: serverTimestamp()
+      }, { merge: true });
+
+      await addDoc(collection(db, "leads", demo.digits, "snapshots"), {
+        from: "setup",
+        createdAt: serverTimestamp(),
+        car_name: "—",
+        car_price: 0,
+        approved: false
+      });
+
+      log("Setup: تم تجهيز settings + demo lead ✅");
+    }
+
+    $("btnSetup").addEventListener("click", async () => {
+      try{
+        await ensureSetupDocs();
+        alert("تم تجهيز النظام ✅");
+      }catch(e){
+        log("Setup error: " + (e?.message || e), "error");
+        alert(e?.message || e);
+      }
+    });
+
+    $("btnSeedPipeline").addEventListener("click", async () => {
+      try{
+        if (!auth.currentUser) throw new Error("سجل دخول الأول");
+        await setDoc(doc(db, "settings", "pipeline"), {
+          stages: [
+            "Lead جديد",
+            "تم التواصل",
+            "مهتم",
+            "متابعة",
+            "تم رفع الطلب",
+            "تفاوض",
+            "تم البيع",
+            "غير مهتم",
+            "غير مؤهل"
+          ],
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        log("Pipeline stages saved ✅");
+        alert("تم تجهيز مراحل البيع ✅");
+      }catch(e){
+        log("Pipeline error: " + (e?.message || e), "error");
+        alert(e?.message || e);
+      }
+    });
+
+    $("btnDangerClearDemo").addEventListener("click", async () => {
+      try{
+        if (!confirm("مسح بيانات الديمو فقط؟")) return;
+        const demo = normalizePhone("+966500000000");
+        await deleteDoc(doc(db, "leads", demo.digits));
+        await deleteDoc(doc(db, "settings", "round_robin"));
+        await deleteDoc(doc(db, "settings", "pipeline"));
+        log("Demo cleared ✅");
+        alert("تم المسح ✅");
+      }catch(e){
+        log("Clear demo error: " + (e?.message || e), "error");
+        alert(e?.message || e);
+      }
+    });
+
+    // ====== Users upsert ======
+    $("btnUpsertUser").addEventListener("click", async () => {
+      try{
+        if (!auth.currentUser) throw new Error("سجل دخول الأول");
+        const uid = $("uid").value.trim();
+        const name = $("fullName").value.trim();
+        const role = $("role").value;
+
+        if (!uid) throw new Error("اكتب UID");
+
+        await setDoc(doc(db, "users", uid), {
+          uid,
+          name,
+          role,
+          active: true,
+          updatedAt: serverTimestamp(),
+          createdAt: serverTimestamp()
+        }, { merge: true });
+
+        log(`User upserted: ${uid} role=${role} ✅`);
+        alert("تم حفظ المستخدم في users ✅");
+      }catch(e){
+        log("User upsert error: " + (e?.message || e), "error");
+        alert(e?.message || e);
+      }
+    });
+
+    // ====== Round Robin save/load ======
+    $("btnSaveRR").addEventListener("click", async () => {
+      try{
+        if (!auth.currentUser) throw new Error("سجل دخول الأول");
+        const agents = $("agents").value.split("\n").map(s=>s.trim()).filter(Boolean);
+        await setDoc(doc(db, "settings", "round_robin"), {
+          agents,
+          lastIndex: -1,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        log(`Round robin saved agents=${agents.length} ✅`);
+        alert("تم حفظ Round Robin ✅");
+      }catch(e){
+        log("RR save error: " + (e?.message || e), "error");
+        alert(e?.message || e);
+      }
+    });
+
+    $("btnLoadRR").addEventListener("click", async () => {
+      try{
+        if (!auth.currentUser) throw new Error("سجل دخول الأول");
+        const snap = await getDoc(doc(db, "settings", "round_robin"));
+        if (!snap.exists()) return alert("مش موجود");
+        const data = snap.data();
+        $("agents").value = (data.agents || []).join("\n");
+        log("Round robin loaded ✅");
+      }catch(e){
+        log("RR load error: " + (e?.message || e), "error");
+        alert(e?.message || e);
+      }
+    });
+
+    // ====== Upsert Lead + Snapshot (demo) ======
+    async function upsertLeadAndSnapshot(){
+      if (!auth.currentUser) throw new Error("سجل دخول الأول");
+
+      const phoneInput = $("demoPhone").value;
+      const nm = $("demoName").value.trim();
+      const car = $("demoCar").value.trim();
+      const price = Number($("demoPrice").value || 0);
+
+      const p = normalizePhone(phoneInput);
+      if (!p.digits) throw new Error("رقم الجوال غير صحيح");
+
+      const leadRef = doc(db, "leads", p.digits);
+      const leadSnap = await getDoc(leadRef);
+
+      if (!leadSnap.exists()){
+        await setDoc(leadRef, {
+          phone_digits: p.digits,
+          phone_e164: p.e164,
+          name: nm,
+          source: "Calculator",
+          stage: "Lead جديد",
+          ownerId: null,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastActivityAt: serverTimestamp()
+        });
+        log(`Lead created: ${p.digits} ✅`);
+      } else {
+        await updateDoc(leadRef, {
+          name: nm,
+          updatedAt: serverTimestamp(),
+          lastActivityAt: serverTimestamp(),
+          stage: "متابعة"
+        });
+        log(`Lead updated (follow-up): ${p.digits} ✅`);
+      }
+
+      await addDoc(collection(db, "leads", p.digits, "snapshots"), {
+        ts: new Date().toISOString(),
+        car_name: car,
+        car_price: price,
+        approved: true,
+        createdAt: serverTimestamp()
+      });
+
+      log(`Snapshot added: lead=${p.digits} car=${car} ✅`);
+    }
+
+    $("btnAddDemoLead").addEventListener("click", async () => {
+      try{
+        await upsertLeadAndSnapshot();
+        alert("تم ✅");
+      }catch(e){
+        log("Demo lead error: " + (e?.message || e), "error");
+        alert(e?.message || e);
+      }
+    });
+
+    // ====== Inbox realtime ======
+    let unsub = null;
+
+    function renderInbox(leads){
+      const tb = $("inboxBody");
+      tb.innerHTML = "";
+      if (!leads.length){
+        tb.innerHTML = `<tr><td colspan="4" style="color:rgba(244,246,251,.6)">لا يوجد Leads</td></tr>`;
+        return;
+      }
+      for (const l of leads){
+        const name = (l.name || "—");
+        const stage = (l.stage || "—");
+        const owner = (l.ownerId || "—");
+        const last = l.lastActivityAt?.toDate ? l.lastActivityAt.toDate().toLocaleString("ar-SA") : "—";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><div style="font-weight:800">${name}</div><div class="mono" style="opacity:.75">${l.phone_e164 || ""}</div></td>
+          <td><span class="badge ${stage === 'غير مؤهل' ? 'gray' : ''}">${stage}</span></td>
+          <td class="mono">${owner}</td>
+          <td class="mono">${last}</td>
+        `;
+        tb.appendChild(tr);
+      }
+    }
+
+    $("btnStartInbox").addEventListener("click", async () => {
+      try{
+        if (!auth.currentUser) throw new Error("سجل دخول الأول");
+        if (unsub) unsub();
+
+        const q = query(collection(db, "leads"), orderBy("lastActivityAt", "desc"));
+        unsub = onSnapshot(q, (snap) => {
+          const leads = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          renderInbox(leads);
+        });
+
+        log("Inbox realtime started ✅");
+      }catch(e){
+        log("Inbox start error: " + (e?.message || e), "error");
+        alert(e?.message || e);
+      }
+    });
+
+    $("btnStopInbox").addEventListener("click", () => {
+      if (unsub) unsub();
+      unsub = null;
+      log("Inbox realtime stopped");
+      $("inboxBody").innerHTML = `<tr><td colspan="4" style="color:rgba(244,246,251,.6)">موقوف</td></tr>`;
+    });
+
+    log("Ready ✅ افتح Auth وسجل دخول وابدأ Setup");
+  </script>
+</body>
+</html>
