@@ -3,13 +3,19 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey, func, text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session, relationship
 from sqlalchemy.exc import IntegrityError
-from jose import jwt, JWTError
 import os
 from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
 
-import hashlib, hmac, secrets, base64
+import hashlib
+import hmac
+import secrets
+import base64
+import jwt  # PyJWT
+
 
 app = FastAPI()
+
 
 # ====== DB URL CLEANER ======
 def clean_db_url(raw: str) -> str:
@@ -17,40 +23,49 @@ def clean_db_url(raw: str) -> str:
     if not db_url:
         raise ValueError("DATABASE_URL not set")
 
+    # remove 'psql' prefix if pasted
     if db_url.lower().startswith("psql"):
         db_url = db_url[4:].strip()
 
+    # strip surrounding quotes repeatedly
     while db_url and db_url[0] in ["'", '"']:
         db_url = db_url[1:]
     while db_url and db_url[-1] in ["'", '"']:
         db_url = db_url[:-1]
     db_url = db_url.strip()
 
+    # psycopg3 scheme
     if db_url.startswith("postgresql://"):
         db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
     elif db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
 
+    # remove channel_binding
     db_url = db_url.replace("&channel_binding=require", "")
     db_url = db_url.replace("?channel_binding=require", "")
 
+    # ensure sslmode=require
     if "sslmode=" not in db_url:
         joiner = "&" if "?" in db_url else "?"
-        db_url = db_url + f"{joiner}sslmode=require"
+        db_url = db_url + (joiner + "sslmode=require")
 
     return db_url
 
 
-DATABASE_URL = clean_db_url(os.getenv("DATABASE_URL"))
+DATABASE_URL = clean_db_url(os.getenv("DATABASE_URL", ""))
+
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# ====== Auth ======
-SECRET_KEY = os.getenv("JWT_SECRET", "CHANGE_ME_NOW")  # set in Vercel env
+
+# ====== JWT Auth ======
+SECRET_KEY = os.getenv("JWT_SECRET", "CHANGE_ME_NOW")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24h
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+
 
 def get_db():
     db = SessionLocal()
@@ -59,7 +74,8 @@ def get_db():
     finally:
         db.close()
 
-# ====== Password Hash (PBKDF2) ======
+
+# ====== Password Hash (PBKDF2, pure python) ======
 # format: pbkdf2_sha256$<iterations>$<salt_b64>$<hash_b64>
 def hash_password(password: str, iterations: int = 200_000) -> str:
     salt = secrets.token_bytes(16)
@@ -69,6 +85,7 @@ def hash_password(password: str, iterations: int = 200_000) -> str:
         base64.urlsafe_b64encode(salt).decode("utf-8").rstrip("="),
         base64.urlsafe_b64encode(dk).decode("utf-8").rstrip("="),
     )
+
 
 def verify_password(password: str, stored: str) -> bool:
     try:
@@ -85,37 +102,25 @@ def verify_password(password: str, stored: str) -> bool:
     except Exception:
         return False
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+
+def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    to_encode = dict(data)
+    expire = datetime.utcnow() + (expires_delta if expires_delta else timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    cred_exc = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Not authenticated",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+
+def decode_token(token: str) -> Dict[str, Any]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if not username:
-            raise cred_exc
-    except JWTError:
-        raise cred_exc
+        return payload
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    user = db.query(User).filter(User.username == username).first()
-    if not user or not user.is_active:
-        raise cred_exc
-    return user
-
-def require_role(*roles):
-    def _guard(user=Depends(get_current_user)):
-        if user.role not in roles:
-            raise HTTPException(status_code=403, detail="Forbidden")
-        return user
-    return _guard
 
 # ====== Models ======
 class User(Base):
@@ -127,6 +132,7 @@ class User(Base):
     password_hash = Column(String(512), nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
 class Lead(Base):
     __tablename__ = "leads"
@@ -143,6 +149,7 @@ class Lead(Base):
 
     owner = relationship("User")
     snapshots = relationship("CalculatorSnapshot", back_populates="lead")
+
 
 class CalculatorSnapshot(Base):
     __tablename__ = "calculator_snapshots"
@@ -176,9 +183,32 @@ class CalculatorSnapshot(Base):
 
     lead = relationship("Lead", back_populates="snapshots")
 
-def seed_admin_if_empty(db: Session):
+
+# ====== Auth helpers ======
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+    payload = decode_token(token)
+    username = payload.get("sub")
+    if not username:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user = db.query(User).filter(User.username == username).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
+
+
+def require_role(*roles):
+    def _guard(user: User = Depends(get_current_user)) -> User:
+        if user.role not in roles:
+            raise HTTPException(status_code=403, detail="Forbidden")
+        return user
+    return _guard
+
+
+def seed_admin_if_empty(db: Session) -> None:
     if db.query(User).count() > 0:
         return
+
     admin_username = (os.getenv("ADMIN_USERNAME") or "admin").strip().lower()
     admin_password = os.getenv("ADMIN_PASSWORD") or ""
     if not admin_password:
@@ -197,6 +227,8 @@ def seed_admin_if_empty(db: Session):
     except IntegrityError:
         db.rollback()
 
+
+# ====== Startup ======
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
@@ -206,10 +238,12 @@ def on_startup():
     finally:
         db.close()
 
+
 # ====== Routes ======
 @app.get("/")
 def root():
     return {"status": "CRM API Running"}
+
 
 @app.get("/test-db")
 def test_db():
@@ -217,27 +251,61 @@ def test_db():
         conn.execute(text("SELECT 1"))
     return {"ok": True, "db_status": "connected"}
 
+
+@app.get("/__debug")
+def __debug():
+    return {
+        "ok": True,
+        "has_db": bool(os.getenv("DATABASE_URL")),
+        "has_jwt_secret": bool(os.getenv("JWT_SECRET")),
+        "has_admin_user": bool(os.getenv("ADMIN_USERNAME")),
+        "has_admin_pass": bool(os.getenv("ADMIN_PASSWORD")),
+    }
+
+
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    username = form_data.username.strip().lower()
+    username = (form_data.username or "").strip().lower()
+    password = form_data.password or ""
+
     user = db.query(User).filter(User.username == username).first()
-    if not user or not verify_password(form_data.password, user.password_hash):
+    if not user or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
 
     token = create_access_token({"sub": user.username, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "role": user.role, "username": user.username}
 
+
 @app.get("/me")
-def me(user=Depends(get_current_user)):
+def me(user: User = Depends(get_current_user)):
     return {"id": user.id, "username": user.username, "full_name": user.full_name, "role": user.role}
+
+
+@app.get("/leads")
+def list_leads(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    q = db.query(Lead)
+    if user.role == "agent":
+        q = q.filter(Lead.owner_id == user.id)
+
+    leads = q.order_by(Lead.last_activity_at.desc()).limit(200).all()
+    return [{
+        "id": l.id,
+        "phone": l.phone_e164,
+        "name": l.name,
+        "stage": l.stage,
+        "owner_id": l.owner_id,
+        "last_activity_at": l.last_activity_at,
+        "created_at": l.created_at
+    } for l in leads]
+
 
 @app.post("/admin/users")
 def admin_create_user(
     username: str,
     password: str,
-    full_name: str | None = None,
+    full_name: Optional[str] = None,
     role: str = "agent",
-    admin=Depends(require_role("admin")),
+    admin: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
     if role not in ["admin", "manager", "agent"]:
@@ -255,4 +323,5 @@ def admin_create_user(
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Username already exists")
+
     return {"ok": True, "user_id": u.id, "username": u.username, "role": u.role}
