@@ -1,16 +1,16 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, func, text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from sqlalchemy.exc import IntegrityError
 import os
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-import jwt  # PyJWT
-
-import hashlib, hmac, secrets, base64
 from pydantic import BaseModel
+import jwt  # PyJWT
+import hashlib, hmac, secrets, base64
 
 app = FastAPI()
+Base = declarative_base()
 
 # ====== DB URL CLEANER ======
 def clean_db_url(raw: str) -> str:
@@ -41,10 +41,36 @@ def clean_db_url(raw: str) -> str:
 
     return db_url
 
-DATABASE_URL = clean_db_url(os.getenv("DATABASE_URL", ""))
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+# ====== Lazy DB (NO CRASH) ======
+ENGINE = None
+SessionLocal = None
+
+def init_db_if_possible():
+    global ENGINE, SessionLocal
+    if ENGINE is not None:
+        return
+
+    raw = os.getenv("DATABASE_URL", "")
+    if not raw:
+        return
+
+    try:
+        url = clean_db_url(raw)
+        ENGINE = create_engine(url, pool_pre_ping=True)
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=ENGINE)
+    except Exception:
+        ENGINE = None
+        SessionLocal = None
+
+def get_db():
+    init_db_if_possible()
+    if SessionLocal is None:
+        raise HTTPException(status_code=500, detail="DB not configured (DATABASE_URL missing/invalid)")
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # ====== JWT ======
 JWT_SECRET = os.getenv("JWT_SECRET", "CHANGE_ME_NOW")
@@ -85,20 +111,13 @@ def verify_password(password: str, stored: str) -> bool:
     except Exception:
         return False
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 # ====== Models ======
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
     username = Column(String(64), unique=True, index=True, nullable=False)
     full_name = Column(String(128), nullable=True)
-    role = Column(String(32), nullable=False, default="agent")  # admin/manager/agent
+    role = Column(String(32), nullable=False, default="agent")
     password_hash = Column(String(512), nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -107,7 +126,6 @@ class User(Base):
 def seed_admin_if_empty(db: Session) -> None:
     if db.query(User).count() > 0:
         return
-
     admin_username = (os.getenv("ADMIN_USERNAME") or "admin").strip().lower()
     admin_password = os.getenv("ADMIN_PASSWORD") or ""
     if not admin_password:
@@ -128,7 +146,10 @@ def seed_admin_if_empty(db: Session) -> None:
 
 @app.on_event("startup")
 def on_startup():
-    Base.metadata.create_all(bind=engine)
+    init_db_if_possible()
+    if ENGINE is None:
+        return
+    Base.metadata.create_all(bind=ENGINE)
     db = SessionLocal()
     try:
         seed_admin_if_empty(db)
@@ -142,19 +163,15 @@ class LoginBody(BaseModel):
 
 # ====== Auth dep ======
 def get_current_user(authorization: Optional[str] = None, db: Session = Depends(get_db)) -> User:
-    # Expect header: Authorization: Bearer <token>
     if not authorization:
         raise HTTPException(status_code=401, detail="Not authenticated")
-
     parts = authorization.split(" ")
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise HTTPException(status_code=401, detail="Not authenticated")
-
     payload = decode_token(parts[1])
     username = payload.get("sub")
     if not username:
         raise HTTPException(status_code=401, detail="Not authenticated")
-
     user = db.query(User).filter(User.username == username).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -165,9 +182,25 @@ def get_current_user(authorization: Optional[str] = None, db: Session = Depends(
 def root():
     return {"status": "CRM API Running"}
 
+@app.get("/__debug")
+def debug():
+    raw = os.getenv("DATABASE_URL", "")
+    return {
+        "ok": True,
+        "has_DATABASE_URL": bool(raw),
+        "DATABASE_URL_starts": raw[:12],
+        "has_JWT_SECRET": bool(os.getenv("JWT_SECRET")),
+        "has_ADMIN_USERNAME": bool(os.getenv("ADMIN_USERNAME")),
+        "has_ADMIN_PASSWORD": bool(os.getenv("ADMIN_PASSWORD")),
+        "db_inited": ENGINE is not None,
+    }
+
 @app.get("/test-db")
 def test_db():
-    with engine.connect() as conn:
+    init_db_if_possible()
+    if ENGINE is None:
+        raise HTTPException(status_code=500, detail="DATABASE_URL missing/invalid on this deployment")
+    with ENGINE.connect() as conn:
         conn.execute(text("SELECT 1"))
     return {"ok": True, "db_status": "connected"}
 
@@ -177,7 +210,6 @@ def login_json(body: LoginBody, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == username).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
-
     token = create_token({"sub": user.username, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "role": user.role, "username": user.username}
 
