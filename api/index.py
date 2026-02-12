@@ -1,118 +1,98 @@
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import FastAPI, HTTPException
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from passlib.context import CryptContext
-from jose import jwt
 import os
+import jwt
 from datetime import datetime, timedelta
+from typing import Optional
 
 app = FastAPI()
 
-# =========================
-# DB URL CLEANER
-# =========================
-def clean_db_url(raw: str) -> str:
-    if not raw:
-        raise ValueError("DATABASE_URL not set")
+JWT_SECRET = os.getenv("JWT_SECRET", "CHANGE_ME_NOW")
+JWT_ALG = "HS256"
+JWT_EXPIRE_MIN = 60 * 24
 
-    db_url = raw.strip()
+def clean_db_url(raw: str) -> str:
+    db_url = (raw or "").strip()
+    if not db_url:
+        raise ValueError("DATABASE_URL not set")
 
     if db_url.lower().startswith("psql"):
         db_url = db_url[4:].strip()
 
-    db_url = db_url.strip("'").strip('"')
+    # remove quotes
+    db_url = db_url.strip().strip("'").strip('"')
 
+    # psycopg3 scheme
     if db_url.startswith("postgresql://"):
         db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    elif db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
 
+    # remove channel_binding
     db_url = db_url.replace("&channel_binding=require", "")
+    db_url = db_url.replace("?channel_binding=require", "")
 
+    # ensure sslmode=require
     if "sslmode=" not in db_url:
         joiner = "&" if "?" in db_url else "?"
         db_url += f"{joiner}sslmode=require"
 
     return db_url
 
+def make_engine():
+    url = clean_db_url(os.getenv("DATABASE_URL", ""))
+    return create_engine(url, pool_pre_ping=True)
 
-def get_engine():
-    db_url = clean_db_url(os.getenv("DATABASE_URL"))
-    return create_engine(db_url, pool_pre_ping=True)
-
-
-def get_db():
-    engine = get_engine()
-    SessionLocal = sessionmaker(bind=engine)
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# =========================
-# AUTH
-# =========================
-SECRET_KEY = os.getenv("JWT_SECRET", "CHANGE_ME")
-ALGORITHM = "HS256"
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
-
-# =========================
-# ROOT
-# =========================
 @app.get("/")
 def root():
-    return {"ok": True, "msg": "Hello from Vercel FastAPI"}
+    return {"ok": True, "status": "CRM API Running v1"}
 
+@app.get("/__debug")
+def debug():
+    raw = os.getenv("DATABASE_URL", "")
+    return {
+        "ok": True,
+        "has_DATABASE_URL": bool(raw),
+        "db_url_starts": raw[:18],
+        "has_JWT_SECRET": bool(os.getenv("JWT_SECRET")),
+        "has_ADMIN_USERNAME": bool(os.getenv("ADMIN_USERNAME")),
+        "has_ADMIN_PASSWORD": bool(os.getenv("ADMIN_PASSWORD")),
+    }
 
-# =========================
-# TEST DB
-# =========================
 @app.get("/test-db")
 def test_db():
     try:
-        engine = get_engine()
+        engine = make_engine()
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        return {"ok": True, "db": "connected"}
+        return {"ok": True, "db_status": "connected"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
-
-# =========================
-# LOGIN JSON (أسهل من form)
-# =========================
 @app.post("/login-json")
-def login_json(data: dict):
-    username = data.get("username")
-    password = data.get("password")
+def login_json(body: dict):
+    u = (body.get("username") or "").strip()
+    p = body.get("password") or ""
 
-    if username != os.getenv("ADMIN_USERNAME"):
+    if u != (os.getenv("ADMIN_USERNAME") or ""):
         raise HTTPException(status_code=401, detail="Invalid username")
-
-    if password != os.getenv("ADMIN_PASSWORD"):
+    if p != (os.getenv("ADMIN_PASSWORD") or ""):
         raise HTTPException(status_code=401, detail="Invalid password")
 
-    expire = datetime.utcnow() + timedelta(hours=24)
-    token = jwt.encode(
-        {"sub": username, "exp": expire},
-        SECRET_KEY,
-        algorithm=ALGORITHM,
-    )
-
+    exp = datetime.utcnow() + timedelta(minutes=JWT_EXPIRE_MIN)
+    token = jwt.encode({"sub": u, "exp": exp}, JWT_SECRET, algorithm=JWT_ALG)
     return {"access_token": token, "token_type": "bearer"}
 
-
-# =========================
-# PROTECTED ROUTE
-# =========================
 @app.get("/me")
-def me(token: str = Depends(oauth2_scheme)):
+def me(authorization: Optional[str] = None):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    parts = authorization.split(" ")
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid Authorization header")
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return {"user": payload["sub"]}
-    except:
+        payload = jwt.decode(parts[1], JWT_SECRET, algorithms=[JWT_ALG])
+        return {"ok": True, "user": payload.get("sub")}
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
