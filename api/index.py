@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 import os
-from urllib.parse import urlparse
 from sqlalchemy import create_engine, text
 
 app = FastAPI()
@@ -18,19 +17,27 @@ def test_db():
     if not raw:
         return {"ok": False, "error": "DATABASE_URL not set"}
 
-    # تنظيف الرابط من psql أو quotes
-    db_url = raw.strip().strip('"').strip("'")
+    db_url = raw.strip()
 
-    if db_url.startswith("psql"):
-        db_url = db_url.replace("psql", "").strip()
+    # إزالة كلمة psql لو موجودة
+    if db_url.lower().startswith("psql"):
+        db_url = db_url[4:].strip()
 
-    # تحويل scheme للـ psycopg3
+    # إزالة أي اقتباسات في البداية أو النهاية
+    while db_url and db_url[0] in ["'", '"']:
+        db_url = db_url[1:]
+    while db_url and db_url[-1] in ["'", '"']:
+        db_url = db_url[:-1]
+
+    db_url = db_url.strip()
+
+    # تحويل للـ psycopg3
     if db_url.startswith("postgresql://"):
         db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
     elif db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
 
-    # إزالة channel_binding لو موجود
+    # إزالة channel_binding
     db_url = db_url.replace("&channel_binding=require", "")
     db_url = db_url.replace("?channel_binding=require", "")
 
@@ -50,5 +57,6 @@ def test_db():
     except Exception as e:
         return {
             "ok": False,
-            "error": str(e)
+            "error": str(e),
+            "cleaned_url_preview": db_url[:80]
         }
