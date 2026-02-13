@@ -944,11 +944,93 @@
       top: 64px !important; /* just below the settings topbar */
     }
 
+
+    /* ===== Auth Overlay ===== */
+    .authOverlay{
+      position:fixed; inset:0;
+      background:rgba(25,18,16,.55);
+      display:flex; align-items:center; justify-content:center;
+      z-index:200000;
+      backdrop-filter:saturate(110%) blur(8px);
+    }
+    .authOverlay.hide{ display:none; }
+    .authCard{
+      width:min(520px, 92vw);
+      background:rgba(255,255,255,.92);
+      border:1px solid rgba(43,26,23,.12);
+      border-radius:20px;
+      box-shadow:0 18px 60px rgba(0,0,0,.18);
+      padding:18px;
+    }
+    .authBrand{ display:flex; gap:12px; align-items:center; margin-bottom:14px; }
+    .authBrand b{ display:block; font-size:16px; color:var(--text); }
+    .authBrand span{ display:block; font-size:12px; color:var(--muted); margin-top:2px; }
+    .authGrid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .authField label{ display:block; font-size:12px; color:var(--muted); margin:0 0 6px; }
+    .authField input{
+      width:100%;
+      height:44px;
+      border-radius:14px;
+      border:1px solid rgba(43,26,23,.16);
+      background:#fff;
+      padding:0 12px;
+      outline:none;
+      font-family:inherit;
+    }
+    .authField input:focus{ border-color:rgba(192,122,74,.55); box-shadow:0 0 0 4px rgba(192,122,74,.14); }
+    .authActions{ display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
+    .authNote{
+      margin-top:10px;
+      font-size:12px;
+      color:rgba(28,28,28,.75);
+      line-height:1.7;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(247,245,242,.9);
+      border:1px solid rgba(43,26,23,.10);
+    }
+    @media (max-width:560px){
+      .authGrid{ grid-template-columns:1fr; }
+      .authActions{ flex-direction:column; }
+    }
+
 </style>
 </head>
 
 <body>
-  <div class="app">
+
+  <!-- ===== Auth Overlay (Login) ===== -->
+  <div class="authOverlay" id="authOverlay">
+    <div class="authCard">
+      <div class="authBrand">
+        <div class="logoMark" aria-hidden="true"></div>
+        <div style="min-width:0">
+          <b>تسجيل الدخول</b>
+          <span>ادخل بيانات حسابك للوصول للنظام</span>
+        </div>
+      </div>
+
+      <div class="authGrid">
+        <div class="authField">
+          <label>البريد الإلكتروني</label>
+          <input id="loginEmail" type="email" placeholder="name@company.com" autocomplete="username" />
+        </div>
+        <div class="authField">
+          <label>كلمة المرور</label>
+          <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+      </div>
+
+      <div class="authActions">
+        <button class="btn btnPrimary" id="btnLogin">دخول</button>
+        <button class="btn" id="btnLoginHelp">مساعدة</button>
+      </div>
+
+      <div class="authNote" id="authNote">—</div>
+    </div>
+  </div>
+
+<div class="app">
 
     <!-- Sidebar -->
     <aside class="side">
@@ -1562,1193 +1644,8 @@
     <button id="toastClose">إغلاق</button>
   </div>
 
-  <script type="module">
-
-    // ===== Firebase (Web SDK) =====
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-    import {
-      getFirestore, collection, addDoc, doc, getDoc, setDoc, updateDoc,
-      query, orderBy, limit, onSnapshot, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    // Firebase configuration (provided)
-    const firebaseConfig = {
-      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
-      authDomain: "mzj-lead.firebaseapp.com",
-      projectId: "mzj-lead",
-      storageBucket: "mzj-lead.firebasestorage.app",
-      messagingSenderId: "470098288857",
-      appId: "1:470098288857:web:613125cfc1623b08abdec8",
-      measurementId: "G-981Z1T6Z91"
-    };
-
-    const fbApp = initializeApp(firebaseConfig);
-    // Analytics may fail on file://; we ignore safely.
-    try { getAnalytics(fbApp); } catch (e) {}
-
-    const db = getFirestore(fbApp);
-
-    // UI: show connected badge
-    const envBadge = document.getElementById("envBadge");
-    if (envBadge) {
-      envBadge.textContent = "متصل بـ Firebase";
-      envBadge.classList.remove("neutral");
-      envBadge.classList.add("ok");
-    }
-
-
-
-    // ===== Live preload (Leads + caches) =====
-    // نحمّل البيانات الأساسية فور الاتصال لكي تظهر القائمة والفلترة بدون تسجيل دخول.
-    try{
-      loadBranches();
-      loadStages();
-      loadSources();
-      loadAgents();
-      loadLeadsAll();
-    }catch(e){ console.error(e); }
-
-// ===== Tabs routing =====
-    const nav = document.getElementById('nav');
-    const panels = {
-      inbox: document.getElementById('panel-inbox'),
-      leads: document.getElementById('panel-leads'),
-      pipeline: document.getElementById('panel-pipeline'),
-      tasks: document.getElementById('panel-tasks'),
-      retarget: document.getElementById('panel-retarget'),
-      automation: document.getElementById('panel-automation'),
-      settings: document.getElementById('panel-settings'),
-    };
-
-    const titles = {
-      inbox: ["صندوق الوارد", "تاب واحد للرد على كل الرسائل والتعليقات — مع تسجيل كل تفاعل وإشعارات فورية."],
-      leads: ["العملاء المحتملون", "إدارة العملاء المحتملين: بحث، فلترة، توزيع، وتاريخ التفاعلات."],
-      pipeline: ["مراحل البيع", "تحكم كامل في مراحل البيع وإدارة انتقال العملاء بين المراحل."],
-      tasks: ["المتابعات", "مهام متابعة تلقائية + متأخر + تصعيد مدير الفرع."],
-      retarget: ["إعادة الاستهداف", "قوائم وحملات لإعادة تفعيل العملاء غير النشطين."],
-      automation: ["الأوتوميشن", "قواعد تشغيل تلقائي: توزيع، رسائل، مهام متابعة، وإشعارات."],
-      settings: ["الإعدادات", "الفروع، المستخدمين، الصلاحيات، وربط المنصات."],
-    };
-
-    const pageTitle = document.getElementById('pageTitle');
-    const pageDesc  = document.getElementById('pageDesc');
-    const activeTabChip = document.getElementById('activeTabChip');
-
-    function setTab(tab){
-      [...nav.querySelectorAll('.navItem')].forEach(x => x.classList.toggle('active', x.dataset.tab === tab));
-      Object.entries(panels).forEach(([k, el]) => el.classList.toggle('active', k === tab));
-      pageTitle.textContent = titles[tab][0];
-      pageDesc.textContent  = titles[tab][1];
-      activeTabChip.textContent = titles[tab][0];
-    }
-
-    nav.addEventListener('click', (e)=>{
-      const item = e.target.closest('.navItem');
-      if(!item) return;
-      setTab(item.dataset.tab);
-    });
-
-    // ===== Inbox demo interactions =====
-    const convList = document.getElementById('convList');
-    const chatName = document.getElementById('chatName');
-    const chatMeta = document.getElementById('chatMeta');
-    const chatBody = document.getElementById('chatBody');
-
-    convList.addEventListener('click', (e)=>{
-      const conv = e.target.closest('.conv');
-      if(!conv) return;
-      [...convList.querySelectorAll('.conv')].forEach(x => x.classList.remove('active'));
-      conv.classList.add('active');
-
-      const name = conv.querySelector('.convText b')?.textContent || "عميل";
-      chatName.textContent = name;
-
-      const pill = conv.querySelector('.pill')?.textContent?.trim() || "منصة";
-      const branch = "فرع الرياض";
-      const stage = "جديد";
-      chatMeta.textContent = `${pill} • ${branch} • مرحلة: ${stage}`;
-
-      chatBody.innerHTML = `
-        <div class="msgRow in"><div class="msg">مرحبا.. عندي استفسار سريع<small>وارد • الآن</small></div></div>
-        <div class="msgRow out"><div class="msg">أهلاً وسهلاً 👋 تفضل، كيف أقدر أساعدك؟ <small>صادر • الآن</small></div></div>
-      `;
-      chatBody.scrollTop = chatBody.scrollHeight;
-    });
-
-    // Send message demo
-    const composer = document.getElementById('composer');
-    document.getElementById('btnSend').addEventListener('click', ()=>{
-      const text = (composer.value || "").trim();
-      if(!text) return;
-
-      const row = document.createElement('div');
-      row.className = 'msgRow out';
-      row.innerHTML = `<div class="msg">${escapeHtml(text)}<small>صادر • الآن</small></div>`;
-      chatBody.appendChild(row);
-      chatBody.scrollTop = chatBody.scrollHeight;
-      composer.value = "";
-
-      toastShow("تم الإرسال (تجريبي)", "هنا لاحقًا هننادي Worker لإرسال الرسالة حسب المنصة وتسجيلها في Firebase.", "✓");
-    });
-
-    composer.addEventListener('keydown', (e)=>{
-      if(e.key === "Enter" && !e.shiftKey){
-        e.preventDefault();
-        document.getElementById('btnSend').click();
-      }
-    });
-
-    function escapeHtml(s){
-      return s.replace(/[&<>"']/g, (c)=>({
-        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-      }[c]));
-    }
-
-    // ===== Notifications modal =====
-    const overlay = document.getElementById('overlay');
-    const btnBell = document.getElementById('btnBell');
-    const closeOverlay = document.getElementById('closeOverlay');
-
-    btnBell.addEventListener('click', ()=> overlay.classList.add('show'));
-    closeOverlay.addEventListener('click', ()=> overlay.classList.remove('show'));
-    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) overlay.classList.remove('show'); });
-
-    // ===== Toast =====
-    const toast = document.getElementById('toast');
-    const toastTitle = document.getElementById('toastTitle');
-    const toastBody = document.getElementById('toastBody');
-    const toastIcon = document.getElementById('toastIcon');
-    const toastClose = document.getElementById('toastClose');
-    let toastTimer = null;
-
-    function toastShow(title, body, icon="✓"){
-      toastTitle.textContent = title;
-      toastBody.textContent = body;
-      toastIcon.textContent = icon;
-      toast.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(()=> toast.classList.remove('show'), 3800);
-    }
-    toastClose.addEventListener('click', ()=> toast.classList.remove('show'));
-
-    // ===== Misc buttons (placeholders) =====
-    document.getElementById('btnSync').addEventListener('click', ()=>{
-      toastShow("تحديث", "ده مكان المزامنة مع Firebase/Workers (سحب آخر المحادثات والمهام).", "⟳");
-    });
-
-    document.getElementById('btnMarkAllRead').addEventListener('click', ()=>{
-      document.getElementById('navUnread').textContent = "0";
-      document.getElementById('bellCount').textContent = "0";
-      toastShow("تم", "تم تصفير غير المقروء (تجريبي).", "✓");
-    });
-
-    document.getElementById('btnOpenUnassigned').addEventListener('click', ()=>{
-      toastShow("غير موزعة", "هنا هنفلتر المحادثات/العملاء غير المسندين لأي مندوب.", "!");
-    });
-
-    document.getElementById('btnNewLead').addEventListener('click', ()=>{
-      toastShow("عميل محتمل", "هنا هنفتح نافذة إضافة عميل محتمل يدويًا.", "+");
-    });
-
-    document.getElementById('btnQuickAssign').addEventListener('click', ()=>{
-      toastShow("توزيع سريع", "هنا هنشغل التوزيع التلقائي (Round Robin) للغير موزع.", "⚡");
-    });
-
-    document.getElementById('btnCreateLead').addEventListener('click', ()=>{
-      toastShow("تحويل", "هنا هنحوّل المحادثة إلى عميل محتمل + نحدد فرع/مرحلة.", "✓");
-    });
-
-    document.getElementById('btnAssign').addEventListener('click', ()=>{
-      toastShow("توزيع", "هنا هنفتح اختيار الفرع/المندوب أو توزيع تلقائي.", "⚡");
-    });
-
-    document.getElementById('btnTemplate').addEventListener('click', ()=>{
-      toastShow("قوالب", "هنا هنفتح قوالب ردود سريعة عربية (واتساب/منصات).", "✦");
-    });
-
-    // ===== Clock =====
-    const clock = document.getElementById('clock');
-    function tick(){
-      const d = new Date();
-      const hh = String(d.getHours()).padStart(2,'0');
-      const mm = String(d.getMinutes()).padStart(2,'0');
-      clock.textContent = `${hh}:${mm}`;
-    }
-    tick();
-    setInterval(tick, 15000);
-
-    // ===== Filters (demo) =====
-    const fChannel = document.getElementById('fChannel');
-    const fSearch = document.getElementById('fSearch');
-
-    function applyConvFilters(){
-      const ch = fChannel.value;
-      const q = (fSearch.value || "").trim().toLowerCase();
-
-      [...convList.querySelectorAll('.conv')].forEach(el=>{
-        const elCh = el.dataset.channel || "";
-        const text = el.textContent.toLowerCase();
-        const okCh = !ch || elCh === ch;
-        const okQ  = !q || text.includes(q);
-        el.style.display = (okCh && okQ) ? "" : "none";
-      });
-    }
-    fChannel.addEventListener('change', applyConvFilters);
-    fSearch.addEventListener('input', applyConvFilters);
-
-    // Global search (demo)
-    const globalSearch = document.getElementById('globalSearch');
-    globalSearch.addEventListener('input', ()=>{
-      // TODO: later - query Firestore (leads/conversations)
-    });
   
-    // ===== Settings (Firestore CRUD) =====
-    const SETTINGS = {
-      branches: { title:"الفروع", desc:"إضافة/تعديل/تعطيل الفروع التي يتم التوزيع عليها.", col:"settings_branches" },
-      stages:   { title:"الحالات/المراحل", desc:"إدارة مراحل البيع والحالات (إضافة/تعديل/ترتيب/تعطيل).", col:"settings_stages" },
-      sources:  { title:"مصادر العملاء", desc:"إدارة مصادر العملاء (تشغيل/إيقاف + إعدادات الربط).", col:"settings_sources" },
-      assign:   { title:"قواعد التوزيع", desc:"سياسات التوزيع التلقائي (قريبًا).", col:null },
-      automation:{title:"الأوتوميشن", desc:"قواعد المتابعة والإشعارات (قريبًا).", col:null },
-      agents:  { title:"المناديب", desc:"إضافة/تعديل/تعطيل المناديب وربطهم بالفروع.", col:"settings_agents" },
-      roles:   { title:"الصلاحيات", desc:"إدارة الأدوار والصلاحيات للأعضاء.", col:"settings_roles" },
-    };
 
-    const setSide = document.querySelectorAll("#settingsTopbar .mzj-setItem");
-    const setPanes = {
-      branches: document.getElementById("set-branches"),
-      stages: document.getElementById("set-stages"),
-      sources: document.getElementById("set-sources"),
-      assign: document.getElementById("set-assign"),
-      automation: document.getElementById("set-automation"),
-      agents: document.getElementById("set-agents"),
-      roles: document.getElementById("set-roles"),
-    };
-    let activeSetTab = "branches";
-
-    const setTitle = document.getElementById("setTitle");
-    const setDesc = document.getElementById("setDesc");
-    const btnAddSettings = document.getElementById("btnAddSettings");
-    const btnRefreshSettings = document.getElementById("btnRefreshSettings");
-
-    function setSettingsTab(tab){
-      activeSetTab = tab;
-      setSide.forEach(b => b.classList.toggle("active", b.dataset.settab === tab));
-      Object.entries(setPanes).forEach(([k, el]) => el.classList.toggle("active", k === tab));
-      setTitle.textContent = SETTINGS[tab].title;
-      setDesc.textContent  = SETTINGS[tab].desc;
-
-      // add button enabled only for CRUD tabs
-      const canAdd = ["branches","stages","sources","agents","roles"].includes(tab);
-      btnAddSettings.disabled = !canAdd;
-      btnAddSettings.style.opacity = canAdd ? "1" : ".55";
-
-      // load data
-      if (tab === "branches") loadBranches();
-      if (tab === "stages") loadStages();
-      if (tab === "sources") loadSources();
-      if (tab === "agents") loadAgents();
-      if (tab === "roles") loadRoles();
-    }
-
-    setSide.forEach(btn => btn.addEventListener("click", ()=> setSettingsTab(btn.dataset.settab)));
-
-    // Modal helpers
-    const setModal = document.getElementById("setModal");
-    const setModalTitle = document.getElementById("setModalTitle");
-    const setModalClose = document.getElementById("setModalClose");
-    const setModalCancel = document.getElementById("setModalCancel");
-    const setModalSave = document.getElementById("setModalSave");
-    const setForm = document.getElementById("setForm");
-
-    let modalMode = "create"; // create | edit
-    let modalDocId = null;
-
-    function openModal(title){
-      setModalTitle.textContent = title;
-      setModal.classList.add("show");
-    }
-    function closeModal(){
-      setModal.classList.remove("show");
-      setForm.innerHTML = "";
-      modalMode = "create";
-      modalDocId = null;
-    }
-    setModalClose.addEventListener("click", closeModal);
-    setModalCancel.addEventListener("click", closeModal);
-    setModal.addEventListener("click", (e)=>{ if(e.target === setModal) closeModal(); });
-
-    // Render fields
-    function fieldHTML({name,label,type="text",placeholder="",options=null,full=false}){
-      const cls = "mzjField" + (full ? " full" : "");
-      if(type === "select"){
-        const opts = (options||[]).map(o=> `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("");
-        return `<div class="${cls}">
-          <label>${escapeHtml(label)}</label>
-          <select name="${escapeHtml(name)}">${opts}</select>
-        </div>`;
-      }
-      return `<div class="${cls}">
-        <label>${escapeHtml(label)}</label>
-        <input name="${escapeHtml(name)}" type="${escapeHtml(type)}" placeholder="${escapeHtml(placeholder)}" />
-      </div>`;
-    }
-    function getFormData(){
-      const fd = new FormData(setForm);
-      const obj = {};
-      for(const [k,v] of fd.entries()) obj[k] = (v||"").toString().trim();
-      return obj;
-    }
-    function fillForm(values){
-      Object.entries(values||{}).forEach(([k,v])=>{
-        const el = setForm.querySelector(`[name="${CSS.escape(k)}"]`);
-        if(el) el.value = v ?? "";
-      });
-    }
-
-    // Tables
-    const tblBranches = document.getElementById("tblBranches");
-    const tblStages = document.getElementById("tblStages");
-    const tblSources = document.getElementById("tblSources");
-    const tblAgents = document.getElementById("tblAgents");
-    const tblRoles = document.getElementById("tblRoles");
-
-    // Default source (calculator) bootstrap
-    const CALC_TSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7FLPA5pEhG5dfYNwKO9PMNKECBc6FFC-xEMJqlNU7g_HKCOnBZYqi5Y_vZR5fUcdDSR5L9PMtxm_o/pub?output=tsv";
-
-    async function ensureDefaultSource(){
-      const dref = doc(db, "settings_sources", "installment_calculator");
-      const snap = await getDoc(dref);
-      if(!snap.exists()){
-        await setDoc(dref, {
-          name: "حاسبة التقسيط",
-          type: "google_sheet_tsv",
-          isActive: true,
-          tsvUrl: CALC_TSV_URL,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-    }
-
-    // Loaders with realtime subscriptions
-    let unsubBranches = null, unsubStages = null, unsubSources = null;
-
-    function renderEmptyRow(tbody, cols, text){
-      tbody.innerHTML = `<tr><td colspan="${cols}" class="mzj-empty">${escapeHtml(text)}</td></tr>`;
-    }
-
-    function renderBranches(docs){
-      if(!docs.length) return renderEmptyRow(tblBranches, 4, "لا توجد فروع بعد.");
-      tblBranches.innerHTML = docs.map(d=>{
-        const x = d.data();
-        const active = (x.isActive ?? true);
-        return `<tr>
-          <td>${escapeHtml(x.name || "")}</td>
-          <td>${escapeHtml(x.city || "")}</td>
-          <td>${active ? `<span class="mzj-pill ok">نشط</span>` : `<span class="mzj-pill off">متوقف</span>`}</td>
-          <td>
-            <div class="mzj-actions">
-              <button class="mzj-miniBtn" data-act="edit-branch" data-id="${d.id}">تعديل</button>
-              <button class="mzj-miniBtn ${active ? "" : "primary"}" data-act="toggle-branch" data-id="${d.id}">${active ? "تعطيل" : "تفعيل"}</button>
-              <button class="mzj-miniBtn danger" data-act="delete-branch" data-id="${d.id}">حذف</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join("");
-    }
-
-    function renderStages(docs){
-      if(!docs.length) return renderEmptyRow(tblStages, 5, "لا توجد مراحل بعد.");
-      tblStages.innerHTML = docs.map(d=>{
-        const x = d.data();
-        const active = (x.isActive ?? true);
-        const color = x.color || "#C07A4A";
-        return `<tr>
-          <td>${escapeHtml(x.name || "")}</td>
-          <td>${escapeHtml(String(x.order ?? ""))}</td>
-          <td><span class="mzj-colorDot" style="background:${escapeHtml(color)}"></span>${escapeHtml(color)}</td>
-          <td>${active ? `<span class="mzj-pill ok">نشط</span>` : `<span class="mzj-pill off">متوقف</span>`}</td>
-          <td>
-            <div class="mzj-actions">
-              <button class="mzj-miniBtn" data-act="edit-stage" data-id="${d.id}">تعديل</button>
-              <button class="mzj-miniBtn ${active ? "" : "primary"}" data-act="toggle-stage" data-id="${d.id}">${active ? "تعطيل" : "تفعيل"}</button>
-              <button class="mzj-miniBtn danger" data-act="delete-stage" data-id="${d.id}">حذف</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join("");
-    }
-
-    function renderSources(docs){
-      if(!docs.length) return renderEmptyRow(tblSources, 5, "لا توجد مصادر بعد.");
-      tblSources.innerHTML = docs.map(d=>{
-        const x = d.data();
-        const active = (x.isActive ?? true);
-        const settings = x.type === "google_sheet_tsv"
-          ? `TSV: ${escapeHtml((x.tsvUrl||"").slice(0, 60))}${(x.tsvUrl||"").length>60?"…":""}`
-          : "—";
-        return `<tr>
-          <td>${escapeHtml(x.name || d.id)}</td>
-          <td>${escapeHtml(x.type || "")}</td>
-          <td>${active ? `<span class="mzj-pill ok">On</span>` : `<span class="mzj-pill off">Off</span>`}</td>
-          <td style="white-space:normal;max-width:420px">${settings}</td>
-          <td>
-            <div class="mzj-actions">
-              <button class="mzj-miniBtn" data-act="edit-source" data-id="${d.id}">تعديل</button>
-              <button class="mzj-miniBtn ${active ? "" : "primary"}" data-act="toggle-source" data-id="${d.id}">${active ? "إيقاف" : "تشغيل"}</button>
-              <button class="mzj-miniBtn danger" data-act="delete-source" data-id="${d.id}">حذف</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join("");
-    }
-
-    async function loadBranches(){
-      if(unsubBranches) unsubBranches();
-      try{
-        const q1 = query(collection(db, "settings_branches"), orderBy("createdAt", "desc"), limit(200));
-        unsubBranches = onSnapshot(q1, (snap)=>{
-        const docs = snap.docs.filter(d=>!(d.data().isDeleted));
-        branchesCache = new Map(docs.map(d=>[d.id, d.data()]));
-        renderBranches(docs);
-      }, (err)=>{
-          console.error(err);
-          toastShow("خطأ", "لا يمكن تحميل الفروع. تأكد من صلاحيات Firestore.", "✕");
-        });
-      }catch(e){ console.error(e); }
-    }
-
-    async function loadStages(){
-      if(unsubStages) unsubStages();
-      try{
-        const q1 = query(collection(db, "settings_stages"), orderBy("order", "asc"), limit(200));
-        unsubStages = onSnapshot(q1, (snap)=>{ 
-        const docs = snap.docs.filter(d=>!(d.data().isDeleted));
-        stagesCache = new Map(docs.map(d=>[d.id, d.data()]));
-        renderStages(docs);
-      }, (err)=>{
-          console.error(err);
-          toastShow("خطأ", "لا يمكن تحميل المراحل. تأكد من صلاحيات Firestore.", "✕");
-        });
-      }catch(e){ console.error(e); }
-    }
-
-    async function loadSources(){
-      if(unsubSources) unsubSources();
-      await ensureDefaultSource();
-      try{
-        const q1 = query(collection(db, "settings_sources"), orderBy("createdAt", "desc"), limit(200));
-        unsubSources = onSnapshot(q1, (snap)=>{
-        const docs = snap.docs.filter(d=>!(d.data().isDeleted));
-        sourcesCache = new Map(docs.map(d=>[d.id, d.data()]));
-        renderSources(docs);
-      }, (err)=>{
-          console.error(err);
-          toastShow("خطأ", "لا يمكن تحميل المصادر. تأكد من صلاحيات Firestore.", "✕");
-        });
-      }catch(e){ console.error(e); }
-    }
-
-    
-    // ===== Agents & Roles =====
-    function renderAgents(docs, branchesMap, rolesMap){
-      if(!docs.length) return renderEmptyRow(tblAgents, 6, "لا يوجد مناديب بعد.");
-      tblAgents.innerHTML = docs.map(d=>{
-        const x = d.data();
-        const active = (x.isActive ?? true);
-        const branchName = branchesMap.get(x.branchId||"") || "—";
-        const roleName = rolesMap.get(x.roleId||"") || "—";
-        return `<tr>
-          <td>${escapeHtml(x.name || "")}</td>
-          <td>${escapeHtml(x.phone || "")}</td>
-          <td>${escapeHtml(branchName)}</td>
-          <td>${escapeHtml(roleName)}</td>
-          <td>${active ? `<span class="mzj-pill ok">نشط</span>` : `<span class="mzj-pill off">متوقف</span>`}</td>
-          <td>
-            <div class="mzj-actions">
-              <button class="mzj-miniBtn" data-act="edit-agent" data-id="${d.id}">تعديل</button>
-              <button class="mzj-miniBtn ${active ? "" : "primary"}" data-act="toggle-agent" data-id="${d.id}">${active ? "تعطيل" : "تفعيل"}</button>
-              <button class="mzj-miniBtn danger" data-act="delete-agent" data-id="${d.id}">حذف</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join("");
-    }
-
-    function renderRoles(docs){
-      if(!docs.length) return renderEmptyRow(tblRoles, 4, "لا توجد أدوار بعد.");
-      tblRoles.innerHTML = docs.map(d=>{
-        const x = d.data();
-        const active = (x.isActive ?? true);
-        const perms = Array.isArray(x.permissions) ? x.permissions : [];
-        const preview = perms.length ? perms.slice(0,4).join("، ") + (perms.length>4 ? "…" : "") : "—";
-        return `<tr>
-          <td>${escapeHtml(x.name || "")}</td>
-          <td style="white-space:normal;max-width:520px">${escapeHtml(preview)}</td>
-          <td>${active ? `<span class="mzj-pill ok">نشط</span>` : `<span class="mzj-pill off">متوقف</span>`}</td>
-          <td>
-            <div class="mzj-actions">
-              <button class="mzj-miniBtn" data-act="edit-role" data-id="${d.id}">تعديل</button>
-              <button class="mzj-miniBtn ${active ? "" : "primary"}" data-act="toggle-role" data-id="${d.id}">${active ? "تعطيل" : "تفعيل"}</button>
-              <button class="mzj-miniBtn danger" data-act="delete-role" data-id="${d.id}">حذف</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join("");
-    }
-
-    let branchesCache = new Map();
-    let rolesCache = new Map();
-    let agentsCache = new Map();
-    let stagesCache = new Map();
-    let sourcesCache = new Map();
-
-    // ===== Leads (All) =====
-    let unsubLeads = null;
-    let leadsDocs = []; // firestore docs
-    const leadsState = { branch:"", agent:"", stage:"", q:"" };
-
-    function leadField(obj, keys, fallback=""){
-      for(const k of keys){
-        if(obj && obj[k] != null && String(obj[k]).trim() !== "") return obj[k];
-      }
-      return fallback;
-    }
-
-    function normPhone(v){
-      if(v == null) return "";
-      return String(v).replace(/\s+/g,"").replace(/^\+/, "");
-    }
-
-    function formatWhen(v){
-      try{
-        if(!v) return "—";
-        // Firestore Timestamp
-        if(typeof v === "object" && v.seconds) return new Date(v.seconds*1000).toLocaleString("ar-SA");
-        const d = new Date(v);
-        if(!isNaN(d.getTime())) return d.toLocaleString("ar-SA");
-      }catch(e){}
-      return "—";
-    }
-
-    function getLeadVM(d){
-      const x = (typeof d.data === "function") ? d.data() : d;
-      const id = d.id || x.id || "";
-      const phone = normPhone(
-        leadField(x, ["phone","clientNumber","mobile","wa_id","waId","رقم الجوال","رقم_الجوال","الجوال","الهاتف"], "")
-      );
-      const name = leadField(x, ["name","clientName","الاسم","اسم العميل","fullName"], phone ? ("عميل — " + phone) : "عميل");
-      const stage = leadField(x, ["stageName","stage","status","الحالة","المرحلة"], "جديد");
-      const stageId = leadField(x, ["stageId","stage_id"], "");
-      const assignedTo = leadField(x, ["assignedTo","agentId","ownerId","assigned_to"], "");
-      const branchId = leadField(x, ["branchId","branch_id"], "");
-      const source = leadField(x, ["sourceName","source","sourceId","المصدر","مصدر"], "حاسبة التقسيط");
-      const car = leadField(x, ["carName","اسم السيارة","السيارة"], "");
-      const createdAt = leadField(x, ["createdAt","created_at","timestamp","وقت"], "");
-      return { id, phone, name, stage, stageId, assignedTo, branchId, source, car, createdAt };
-    }
-
-    function rebuildLeadsFilters(panel){
-      const card = panel.querySelector(".card");
-      const selects = card.querySelectorAll("select");
-      const [selBranch, selAgent, selStage] = selects;
-
-      // branches
-      const branches = Array.from(branchesCache.entries()).map(([id, b])=>({id, name:b.name||"—"}))
-        .filter(x=>x.name && x.name!=="—")
-        .sort((a,b)=>a.name.localeCompare(b.name, "ar"));
-      selBranch.innerHTML = `<option value="">كل الفروع</option>` + branches.map(b=>`<option value="${b.id}">${escapeHtml(b.name)}</option>`).join("");
-      selBranch.value = leadsState.branch;
-
-      // agents
-      const agents = Array.from(agentsCache.entries()).map(([id, a])=>({id, name:a.name||"—"}))
-        .filter(x=>x.name && x.name!=="—")
-        .sort((a,b)=>a.name.localeCompare(b.name, "ar"));
-      selAgent.innerHTML = `<option value="">كل المندوبين</option><option value="__unassigned__">غير موزّع</option>` +
-        agents.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
-      selAgent.value = leadsState.agent;
-
-      // stages: from stagesCache if available, else from leads
-      let stages = Array.from(stagesCache.entries()).map(([id, s])=>({id, name:s.name||""})).filter(x=>x.name);
-      if(!stages.length){
-        const uniq = new Map();
-        leadsDocs.forEach(doc=>{
-          const vm = getLeadVM(doc);
-          if(vm.stage) uniq.set(vm.stage, {id: vm.stage, name: vm.stage});
-        });
-        stages = Array.from(uniq.values());
-      }
-      stages.sort((a,b)=>a.name.localeCompare(b.name, "ar"));
-      selStage.innerHTML = `<option value="">كل المراحل</option>` + stages.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
-      selStage.value = leadsState.stage;
-    }
-
-    function applyLeadsFilter(vm){
-      // branch
-      if(leadsState.branch){
-        if(vm.branchId !== leadsState.branch) return false;
-      }
-      // agent
-      if(leadsState.agent){
-        if(leadsState.agent === "__unassigned__"){
-          if(vm.assignedTo) return false;
-        }else{
-          if(vm.assignedTo !== leadsState.agent) return false;
-        }
-      }
-      // stage
-      if(leadsState.stage){
-        // allow matching by stageId or by stage name
-        if(vm.stageId){
-          if(vm.stageId !== leadsState.stage) return false;
-        }else{
-          if(vm.stage !== leadsState.stage) return false;
-        }
-      }
-      // search
-      if(leadsState.q){
-        const q = leadsState.q.trim();
-        const hay = (vm.name + " " + vm.phone + " " + vm.car).toLowerCase();
-        if(!hay.includes(q.toLowerCase())) return false;
-      }
-      return true;
-    }
-
-    function renderLeads(panel){
-      const stats = panel.querySelectorAll(".stat strong");
-      const card = panel.querySelector(".card");
-      const list = card.querySelector(".list");
-      const filtered = leadsDocs.map(getLeadVM).filter(applyLeadsFilter);
-
-      // stats (approx)
-      const total = leadsDocs.length;
-      const unassigned = leadsDocs.map(getLeadVM).filter(x=>!x.assignedTo).length;
-      const active = leadsDocs.map(getLeadVM).filter(x=>!["تم البيع","غير مهتم","غير مؤهل","مغلق","مغلق (ربح)"].includes(x.stage)).length;
-      const won = leadsDocs.map(getLeadVM).filter(x=>["تم البيع","مغلق (ربح)"].includes(x.stage)).length;
-
-      if(stats[0]) stats[0].textContent = total ? total.toLocaleString("ar-SA") : "—";
-      if(stats[1]) stats[1].textContent = total ? unassigned.toLocaleString("ar-SA") : "—";
-      if(stats[2]) stats[2].textContent = total ? active.toLocaleString("ar-SA") : "—";
-      if(stats[3]) stats[3].textContent = total ? won.toLocaleString("ar-SA") : "—";
-
-      if(!filtered.length){
-        list.innerHTML = `<div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
-          لا توجد نتائج مطابقة للفلاتر الحالية.
-        </div>`;
-        return;
-      }
-
-      list.innerHTML = filtered.slice(0,200).map(vm=>{
-        const agentName = vm.assignedTo ? (agentsCache.get(vm.assignedTo)?.name || "مندوب") : "غير موزّع";
-        const branchName = vm.branchId ? (branchesCache.get(vm.branchId)?.name || "—") : "—";
-        const stageName = vm.stageId ? (stagesCache.get(vm.stageId)?.name || vm.stage) : vm.stage;
-        const when = formatWhen(vm.createdAt);
-        const sub = [
-          vm.source ? `المصدر: ${escapeHtml(String(vm.source))}` : "",
-          vm.car ? `السيارة: ${escapeHtml(String(vm.car))}` : "",
-          branchName !== "—" ? `الفرع: ${escapeHtml(String(branchName))}` : "",
-          when !== "—" ? `منذ: ${escapeHtml(String(when))}` : ""
-        ].filter(Boolean).join(" • ");
-
-        const waLink = vm.phone ? `https://wa.me/${encodeURIComponent(vm.phone)}` : "#";
-        return `<div class="row">
-          <div class="meta">
-            <b>${escapeHtml(vm.name)}${vm.phone ? ` — ${escapeHtml(vm.phone)}` : ""}</b>
-            <span>${sub || "—"}</span>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <span class="tag ok">${escapeHtml(stageName || "جديد")}</span>
-            <span class="tag">${escapeHtml(agentName)}</span>
-            <a class="btn sm" href="${waLink}" target="_blank" rel="noopener" style="padding:8px 10px">واتساب</a>
-          </div>
-        </div>`;
-      }).join("");
-    }
-
-    function wireLeadsUI(){
-      const panel = document.getElementById("panel-leads");
-      if(!panel) return;
-      const card = panel.querySelector(".card");
-      const selects = card.querySelectorAll("select");
-      const [selBranch, selAgent, selStage] = selects;
-      const search = card.querySelector("input.miniInput");
-
-      const rerender = ()=>{
-        rebuildLeadsFilters(panel);
-        renderLeads(panel);
-      };
-
-      selBranch.addEventListener("change", ()=>{ leadsState.branch = selBranch.value; renderLeads(panel); });
-      selAgent.addEventListener("change", ()=>{ leadsState.agent = selAgent.value; renderLeads(panel); });
-      selStage.addEventListener("change", ()=>{ leadsState.stage = selStage.value; renderLeads(panel); });
-      search.addEventListener("input", ()=>{ leadsState.q = search.value || ""; renderLeads(panel); });
-
-      // initial
-      rerender();
-    }
-
-    async function loadLeadsAll(){
-      if(unsubLeads) unsubLeads();
-      const q1 = query(collection(db, "leads"), orderBy("createdAt","desc"), limit(500));
-      unsubLeads = onSnapshot(q1, (snap)=>{
-        leadsDocs = snap.docs.filter(d=>!(d.data().isDeleted));
-        wireLeadsUI();
-        const panel = document.getElementById("panel-leads");
-        if(panel){
-          rebuildLeadsFilters(panel);
-          renderLeads(panel);
-        }
-      }, (err)=>{
-        console.error(err);
-        toastShow("خطأ", "لا يمكن تحميل العملاء المحتملين. تأكد من صلاحيات Firestore.", "✕");
-      });
-    }
-
-    let unsubAgents = null, unsubRoles = null;
-
-    async function refreshBranchesCache(){
-      // one-time snapshot (not realtime) for dropdown names
-      return new Promise((resolve)=>{
-        const q1 = query(collection(db, "settings_branches"), limit(500));
-        const unsub = onSnapshot(q1, (snap)=>{
-          branchesCache = new Map(snap.docs.filter(d=>!(d.data().isDeleted)).map(d=>[d.id, d.data().name||d.id]));
-          unsub();
-          resolve();
-        }, ()=>{ resolve(); });
-      });
-    }
-
-    async function refreshRolesCache(){
-      return new Promise((resolve)=>{
-        const q1 = query(collection(db, "settings_roles"), limit(500));
-        const unsub = onSnapshot(q1, (snap)=>{
-          rolesCache = new Map(snap.docs.filter(d=>!(d.data().isDeleted)).map(d=>[d.id, d.data().name||d.id]));
-          unsub();
-          resolve();
-        }, ()=>{ resolve(); });
-      });
-    }
-
-    async function ensureDefaultRoles(){
-      const ref = doc(db, "settings_roles", "admin");
-      const snap = await getDoc(ref);
-      if(!snap.exists()){
-        await setDoc(ref, {
-          name: "مدير النظام",
-          isActive: true,
-          permissions: ["full_access"],
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-      const ref2 = doc(db, "settings_roles", "agent");
-      const snap2 = await getDoc(ref2);
-      if(!snap2.exists()){
-        await setDoc(ref2, {
-          name: "مندوب",
-          isActive: true,
-          permissions: ["view_assigned_only","reply_messages","update_stage","create_followups"],
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-    }
-
-    async function loadAgents(){
-      if(unsubAgents) unsubAgents();
-      await ensureDefaultRoles();
-      await refreshBranchesCache();
-      await refreshRolesCache();
-      const q1 = query(collection(db, "settings_agents"), orderBy("createdAt","desc"), limit(500));
-      unsubAgents = onSnapshot(q1, (snap)=>{
-        const docs = snap.docs.filter(d=>!(d.data().isDeleted));
-        agentsCache = new Map(docs.map(d=>[d.id, d.data()]));
-        renderAgents(docs, branchesCache, rolesCache);
-      }, (err)=>{
-        console.error(err);
-        toastShow("خطأ", "لا يمكن تحميل المناديب. تأكد من صلاحيات Firestore.", "✕");
-      });
-    }
-
-    async function loadRoles(){
-      if(unsubRoles) unsubRoles();
-      await ensureDefaultRoles();
-      const q1 = query(collection(db, "settings_roles"), orderBy("createdAt","desc"), limit(500));
-      unsubRoles = onSnapshot(q1, (snap)=>{
-        const docs = snap.docs.filter(d=>!(d.data().isDeleted));
-        renderRoles(docs);
-      }, (err)=>{
-        console.error(err);
-        toastShow("خطأ", "لا يمكن تحميل الصلاحيات. تأكد من صلاحيات Firestore.", "✕");
-      });
-    }
-
-    // Modal builders: Agent / Role
-    function openAgentCreate(){
-      modalMode = "create"; modalDocId = null;
-      const branchOpts = [...branchesCache.entries()].map(([id,name])=>({value:id,label:name}));
-      const roleOpts = [...rolesCache.entries()].map(([id,name])=>({value:id,label:name}));
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم المندوب", placeholder:"مثال: أحمد", full:true}),
-        fieldHTML({name:"phone", label:"رقم الجوال", placeholder:"9665xxxxxxxx"}),
-        fieldHTML({name:"branchId", label:"الفرع", type:"select", options: branchOpts.length?branchOpts:[{value:"",label:"—"}]}),
-        fieldHTML({name:"roleId", label:"الدور", type:"select", options: roleOpts.length?roleOpts:[{value:"agent",label:"مندوب"}]}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      openModal("إضافة مندوب");
-    }
-    async function openAgentEdit(id){
-      await refreshBranchesCache(); await refreshRolesCache();
-      const ref = doc(db, "settings_agents", id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      modalMode = "edit"; modalDocId = id;
-      const branchOpts = [...branchesCache.entries()].map(([id,name])=>({value:id,label:name}));
-      const roleOpts = [...rolesCache.entries()].map(([id,name])=>({value:id,label:name}));
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم المندوب", full:true}),
-        fieldHTML({name:"phone", label:"رقم الجوال"}),
-        fieldHTML({name:"branchId", label:"الفرع", type:"select", options: branchOpts.length?branchOpts:[{value:"",label:"—"}]}),
-        fieldHTML({name:"roleId", label:"الدور", type:"select", options: roleOpts.length?roleOpts:[{value:"agent",label:"مندوب"}]}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      const d = snap.data();
-      fillForm({ name:d.name||"", phone:d.phone||"", branchId:d.branchId||"", roleId:d.roleId||"agent", isActive:String(d.isActive ?? true) });
-      openModal("تعديل مندوب");
-    }
-
-    const PERMISSIONS = [
-      {id:"full_access", label:"وصول كامل"},
-      {id:"view_all_leads", label:"عرض كل العملاء"},
-      {id:"view_assigned_only", label:"عرض العملاء المسندين فقط"},
-      {id:"reply_messages", label:"الرد على الرسائل"},
-      {id:"assign_leads", label:"توزيع العملاء"},
-      {id:"update_stage", label:"تعديل المرحلة/الحالة"},
-      {id:"create_followups", label:"إنشاء متابعات"},
-      {id:"manage_settings", label:"إدارة الإعدادات"},
-      {id:"manage_sources", label:"إدارة المصادر"},
-    ];
-
-    function permsFieldHTML(selected=[]){
-      const chips = PERMISSIONS.map(p=>{
-        const on = selected.includes(p.id);
-        return `<label style="display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px 10px;background:rgba(247,245,242,.55);cursor:pointer">
-          <input type="checkbox" name="permissions" value="${escapeHtml(p.id)}" ${on?"checked":""} style="width:16px;height:16px" />
-          <span style="font-weight:900">${escapeHtml(p.label)}</span>
-        </label>`;
-      }).join("");
-      return `<div class="mzjField full">
-        <label>الصلاحيات</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${chips}</div>
-      </div>`;
-    }
-
-    function openRoleCreate(){
-      modalMode = "create"; modalDocId = null;
-      setForm.innerHTML = [
-        fieldHTML({name:"id", label:"معرف الدور (ID)", placeholder:"مثال: branch_manager", full:true}),
-        fieldHTML({name:"name", label:"اسم الدور", placeholder:"مثال: مدير الفرع", full:true}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-        permsFieldHTML([]),
-      ].join("");
-      openModal("إضافة دور");
-    }
-    async function openRoleEdit(id){
-      const ref = doc(db, "settings_roles", id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      modalMode = "edit"; modalDocId = id;
-      const d = snap.data();
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم الدور", full:true}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-        permsFieldHTML(Array.isArray(d.permissions)?d.permissions:[]),
-      ].join("");
-      fillForm({ name:d.name||"", isActive:String(d.isActive ?? true) });
-      openModal("تعديل دور");
-    }
-
-
-// Actions handlers \(event delegation\)
-    document.addEventListener("click", async (e)=>{
-      const btn = e.target.closest("[data-act]");
-      if(!btn) return;
-      const act = btn.dataset.act;
-      const id = btn.dataset.id;
-
-      try{
-        if(act === "edit-branch") return openBranchEdit(id);
-        if(act === "toggle-branch") return toggleDoc("settings_branches", id);
-        if(act === "delete-branch") return deleteDocSoft("settings_branches", id);
-
-        if(act === "edit-stage") return openStageEdit(id);
-        if(act === "toggle-stage") return toggleDoc("settings_stages", id);
-        if(act === "delete-stage") return deleteDocSoft("settings_stages", id);
-
-        if(act === "edit-source") return openSourceEdit(id);
-        if(act === "edit-agent") return openAgentEdit(id);
-        if(act === "toggle-agent") return toggleDoc("settings_agents", id);
-        if(act === "delete-agent") return deleteDocSoft("settings_agents", id);
-
-        if(act === "edit-role") return openRoleEdit(id);
-        if(act === "toggle-role") return toggleDoc("settings_roles", id);
-        if(act === "delete-role") return deleteDocSoft("settings_roles", id);
-        if(act === "toggle-source") return toggleDoc("settings_sources", id);
-        if(act === "delete-source") return deleteDocSoft("settings_sources", id);
-      }catch(err){
-        console.error(err);
-        toastShow("خطأ", "حصل خطأ أثناء تنفيذ العملية.", "✕");
-      }
-    });
-
-    async function toggleDoc(colName, id){
-      const ref = doc(db, colName, id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      const cur = snap.data().isActive ?? true;
-      await updateDoc(ref, { isActive: !cur, updatedAt: serverTimestamp() });
-      toastShow("تم", (!cur) ? "تم التفعيل." : "تم التعطيل.", "✓");
-    }
-
-    async function deleteDocSoft(colName, id){
-      if(!confirm("متأكد من الحذف؟ الأفضل عادة تعطيل بدل حذف.")) return;
-      const ref = doc(db, colName, id);
-      await updateDoc(ref, { isDeleted: true, isActive: false, updatedAt: serverTimestamp() });
-      // We keep docs; filters can ignore isDeleted later. For now it will still show unless filtered—so we hard delete visually by reload.
-      toastShow("تم", "تم حذف/تعطيل العنصر.", "✓");
-    }
-
-    // Modal builders per tab
-    function openBranchCreate(){
-      modalMode = "create"; modalDocId = null;
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم الفرع", placeholder:"مثال: فرع الرياض", full:true}),
-        fieldHTML({name:"city", label:"المدينة", placeholder:"الرياض"}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      openModal("إضافة فرع");
-    }
-    async function openBranchEdit(id){
-      const ref = doc(db, "settings_branches", id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      modalMode = "edit"; modalDocId = id;
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم الفرع", full:true}),
-        fieldHTML({name:"city", label:"المدينة"}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      const d = snap.data();
-      fillForm({ name:d.name||"", city:d.city||"", isActive:String(d.isActive ?? true) });
-      openModal("تعديل فرع");
-    }
-
-    function openStageCreate(){
-      modalMode = "create"; modalDocId = null;
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم الحالة/المرحلة", placeholder:"مثال: جديد", full:true}),
-        fieldHTML({name:"order", label:"الترتيب", type:"number", placeholder:"1"}),
-        fieldHTML({name:"color", label:"اللون (Hex)", placeholder:"#C07A4A"}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      openModal("إضافة مرحلة");
-    }
-    async function openStageEdit(id){
-      const ref = doc(db, "settings_stages", id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      modalMode = "edit"; modalDocId = id;
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم الحالة/المرحلة", full:true}),
-        fieldHTML({name:"order", label:"الترتيب", type:"number"}),
-        fieldHTML({name:"color", label:"اللون (Hex)"}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      const d = snap.data();
-      fillForm({ name:d.name||"", order:String(d.order ?? ""), color:d.color||"#C07A4A", isActive:String(d.isActive ?? true) });
-      openModal("تعديل مرحلة");
-    }
-
-    function openSourceCreate(){
-      modalMode = "create"; modalDocId = null;
-      setForm.innerHTML = [
-        fieldHTML({name:"id", label:"معرف المصدر (ID)", placeholder:"مثال: website_calculator", full:true}),
-        fieldHTML({name:"name", label:"اسم المصدر", placeholder:"مثال: حاسبة التقسيط", full:true}),
-        fieldHTML({name:"type", label:"النوع", type:"select", options:[
-          {value:"google_sheet_tsv",label:"Google Sheet (TSV)"},
-          {value:"whatsapp",label:"WhatsApp"},
-          {value:"instagram",label:"Instagram"},
-          {value:"messenger",label:"Messenger"},
-          {value:"website_form",label:"Website Form"},
-        ]}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"On"},{value:"false",label:"Off"}]}),
-        fieldHTML({name:"tsvUrl", label:"TSV URL (لو النوع TSV)", placeholder:CALC_TSV_URL, full:true}),
-      ].join("");
-      openModal("إضافة مصدر");
-    }
-    async function openSourceEdit(id){
-      const ref = doc(db, "settings_sources", id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      modalMode = "edit"; modalDocId = id;
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم المصدر", full:true}),
-        fieldHTML({name:"type", label:"النوع", type:"select", options:[
-          {value:"google_sheet_tsv",label:"Google Sheet (TSV)"},
-          {value:"whatsapp",label:"WhatsApp"},
-          {value:"instagram",label:"Instagram"},
-          {value:"messenger",label:"Messenger"},
-          {value:"website_form",label:"Website Form"},
-        ]}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"On"},{value:"false",label:"Off"}]}),
-        fieldHTML({name:"tsvUrl", label:"TSV URL (لو النوع TSV)", full:true}),
-      ].join("");
-      const d = snap.data();
-      fillForm({ name:d.name||"", type:d.type||"", isActive:String(d.isActive ?? true), tsvUrl:d.tsvUrl||"" });
-      openModal("تعديل مصدر");
-    }
-
-    // Add button behavior depends on active settings tab
-    btnAddSettings.addEventListener("click", ()=>{
-      if(activeSetTab === "branches") return openBranchCreate();
-      if(activeSetTab === "stages") return openStageCreate();
-      if(activeSetTab === "sources") return openSourceCreate();
-      if(activeSetTab === "agents") return openAgentCreate();
-      if(activeSetTab === "roles") return openRoleCreate();
-    });
-
-    btnRefreshSettings.addEventListener("click", ()=>{
-      if(activeSetTab === "branches") loadBranches();
-      if(activeSetTab === "stages") loadStages();
-      if(activeSetTab === "sources") loadSources();
-      if(activeSetTab === "agents") loadAgents();
-      if(activeSetTab === "roles") loadRoles();
-      toastShow("تم", "تم التحديث.", "⟳");
-    });
-
-    // Save behavior
-    setModalSave.addEventListener("click", async ()=>{
-      try{
-        const data = getFormData();
-        if(activeSetTab === "branches"){
-          const payload = {
-            name: data.name || "",
-            city: data.city || "",
-            isActive: (data.isActive !== "false"),
-            updatedAt: serverTimestamp(),
-          };
-          if(!payload.name) return toastShow("تنبيه", "اسم الفرع مطلوب.", "!");
-          if(modalMode === "create"){
-            await addDoc(collection(db, "settings_branches"), { ...payload, createdAt: serverTimestamp() });
-          }else{
-            await updateDoc(doc(db, "settings_branches", modalDocId), payload);
-          }
-          toastShow("تم", "تم حفظ الفرع.", "✓");
-          return closeModal();
-        }
-
-        if(activeSetTab === "stages"){
-          const orderNum = Number(data.order || 0);
-          const payload = {
-            name: data.name || "",
-            order: Number.isFinite(orderNum) ? orderNum : 0,
-            color: data.color || "#C07A4A",
-            isActive: (data.isActive !== "false"),
-            updatedAt: serverTimestamp(),
-          };
-          if(!payload.name) return toastShow("تنبيه", "اسم المرحلة مطلوب.", "!");
-          if(modalMode === "create"){
-            await addDoc(collection(db, "settings_stages"), { ...payload, createdAt: serverTimestamp() });
-          }else{
-            await updateDoc(doc(db, "settings_stages", modalDocId), payload);
-          }
-          toastShow("تم", "تم حفظ المرحلة.", "✓");
-          return closeModal();
-        }
-
-        if(activeSetTab === "sources"){
-          const payload = {
-            name: data.name || "",
-            type: data.type || "",
-            isActive: (data.isActive !== "false"),
-            tsvUrl: data.tsvUrl || "",
-            updatedAt: serverTimestamp(),
-          };
-          if(modalMode === "create"){
-            const sid = (data.id||"").trim();
-            if(!sid) return toastShow("تنبيه", "معرف المصدر (ID) مطلوب.", "!");
-            await setDoc(doc(db, "settings_sources", sid), { ...payload, createdAt: serverTimestamp() });
-          }else{
-            await updateDoc(doc(db, "settings_sources", modalDocId), payload);
-          }
-          toastShow("تم", "تم حفظ المصدر.", "✓");
-          return closeModal();
-        }
-
-        if(activeSetTab === "agents"){
-          const payload = {
-            name: data.name || "",
-            phone: data.phone || "",
-            branchId: data.branchId || "",
-            roleId: data.roleId || "agent",
-            isActive: (data.isActive !== "false"),
-            updatedAt: serverTimestamp(),
-          };
-          if(!payload.name) return toastShow("تنبيه", "اسم المندوب مطلوب.", "!");
-          if(modalMode === "create"){
-            await addDoc(collection(db, "settings_agents"), { ...payload, createdAt: serverTimestamp() });
-          }else{
-            await updateDoc(doc(db, "settings_agents", modalDocId), payload);
-          }
-          toastShow("تم", "تم حفظ بيانات المندوب.", "✓");
-          return closeModal();
-        }
-
-        if(activeSetTab === "roles"){
-          // permissions are multiple checkboxes
-          const perms = Array.from(setForm.querySelectorAll('input[name="permissions"]:checked')).map(x=>x.value);
-          const payload = {
-            name: data.name || "",
-            isActive: (data.isActive !== "false"),
-            permissions: perms,
-            updatedAt: serverTimestamp(),
-          };
-          if(!payload.name) return toastShow("تنبيه", "اسم الدور مطلوب.", "!");
-          if(modalMode === "create"){
-            const rid = (data.id||"").trim();
-            if(!rid) return toastShow("تنبيه", "معرف الدور (ID) مطلوب.", "!");
-            await setDoc(doc(db, "settings_roles", rid), { ...payload, createdAt: serverTimestamp() });
-          }else{
-            await updateDoc(doc(db, "settings_roles", modalDocId), payload);
-          }
-          toastShow("تم", "تم حفظ الدور.", "✓");
-          return closeModal();
-        }
-
-      }catch(err){
-        console.error(err);
-        toastShow("خطأ", "تعذر الحفظ. تأكد من صلاحيات Firestore.", "✕");
-      }
-    });
-
-    // When entering Settings tab from sidebar, auto-load branches once
-    // (We hook into the existing setTab by observing chip text change is overkill; simple lazy load)
-    // We'll load on first time the settings panel becomes visible.
-    let settingsLoadedOnce = false;
-    const panelSettings = document.getElementById("panel-settings");
-    const observer = new MutationObserver(()=>{
-      if(panelSettings.classList.contains("active") && !settingsLoadedOnce){
-        settingsLoadedOnce = true;
-        setSettingsTab("branches");
-      }
-    });
-    observer.observe(panelSettings, { attributes:true, attributeFilter:["class"] });
-
-    // Also initialize default tab state
-    setSettingsTab("branches");
-
-</script>
 
   <!-- Settings CRUD Modal -->
   <div class="mzjModalOverlay" id="setModal">
@@ -2768,6 +1665,419 @@
       </div>
     </div>
   </div>
+
+
+  <!-- Firebase (Compat) — works on file:// and hosting -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+  <script>
+  (function(){
+    "use strict";
+
+    // ===== Helpers =====
+    function qs(sel, root){ return (root||document).querySelector(sel); }
+    function qsa(sel, root){ return Array.from((root||document).querySelectorAll(sel)); }
+    function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+    // ===== Tabs (always works, even if Firebase fails) =====
+    const navItems = qsa(".navItem[data-tab]");
+    const panels = {
+      inbox: qs("#panel-inbox"),
+      leads: qs("#panel-leads"),
+      pipeline: qs("#panel-pipeline"),
+      tasks: qs("#panel-tasks"),
+      retarget: qs("#panel-retarget"),
+      automation: qs("#panel-automation"),
+      settings: qs("#panel-settings"),
+    };
+
+    function setActiveTab(tab){
+      navItems.forEach(b=> b.classList.toggle("active", b.dataset.tab === tab));
+      Object.entries(panels).forEach(([k,el])=>{
+        if(!el) return;
+        el.style.display = (k===tab) ? "" : "none";
+      });
+    }
+
+    // default active tab
+    setActiveTab("leads");
+
+    navItems.forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        setActiveTab(btn.dataset.tab);
+        // If settings, ensure topbar visible without scroll
+        if(btn.dataset.tab === "settings"){
+          const topbar = qs("#settingsTopbar");
+          if(topbar) topbar.scrollIntoView({block:"nearest"});
+        }
+      });
+    });
+
+    // ===== Toast =====
+    const toast = qs("#toast");
+    const toastTitle = qs("#toastTitle");
+    const toastBody = qs("#toastBody");
+    const toastIcon = qs("#toastIcon");
+    const toastClose = qs("#toastClose");
+    let toastTimer = null;
+
+    function toastShow(title, body, icon){
+      if(!toast) return;
+      toastTitle.textContent = title || "تم";
+      toastBody.textContent = body || "";
+      toastIcon.textContent = icon || "✓";
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=> toast.classList.remove("show"), 3800);
+    }
+    if(toastClose) toastClose.addEventListener("click", ()=> toast.classList.remove("show"));
+
+    // ===== Basic UI buttons (safe) =====
+    const btnMarkAllRead = qs("#btnMarkAllRead");
+    if(btnMarkAllRead){
+      btnMarkAllRead.addEventListener("click", ()=>{
+        const navUnread = qs("#navUnread"); if(navUnread) navUnread.textContent = "0";
+        const bellCount = qs("#bellCount"); if(bellCount) bellCount.textContent = "0";
+        toastShow("تم", "تم تصفير غير المقروء.", "✓");
+      });
+    }
+    const btnOpenUnassigned = qs("#btnOpenUnassigned");
+    if(btnOpenUnassigned){
+      btnOpenUnassigned.addEventListener("click", ()=>{
+        toastShow("غير موزعة", "هنفلتر الليدات غير المسندة.", "!");
+        setActiveTab("leads");
+        // if filter exists, set to unassigned (handled later)
+      });
+    }
+
+    // ===== Auth Overlay =====
+    const authOverlay = qs("#authOverlay");
+    const authNote = qs("#authNote");
+    const loginEmail = qs("#loginEmail");
+    const loginPass = qs("#loginPass");
+    const btnLogin = qs("#btnLogin");
+    const btnLoginHelp = qs("#btnLoginHelp");
+
+    function authMsg(msg){
+      if(authNote) authNote.textContent = msg || "—";
+    }
+    function showAuth(){ if(authOverlay) authOverlay.classList.remove("hide"); }
+    function hideAuth(){ if(authOverlay) authOverlay.classList.add("hide"); }
+
+    // ===== Firebase Init =====
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    let app=null, auth=null, db=null, currentUser=null, currentProfile=null;
+
+    function initFirebase(){
+      try{
+        if(!window.firebase || !window.firebase.initializeApp){
+          authMsg("تعذر تحميل Firebase. تأكد من الاتصال بالإنترنت.");
+          showAuth();
+          return false;
+        }
+        app = firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.firestore();
+        return true;
+      }catch(err){
+        console.error(err);
+        authMsg("خطأ في تهيئة Firebase: " + (err && err.message ? err.message : err));
+        showAuth();
+        return false;
+      }
+    }
+
+    initFirebase();
+
+    // ===== Profile / Roles =====
+    const ROLE_LABELS = {
+      system_admin: "مدير النظام",
+      branch_manager: "مدير الفرع",
+      marketing_manager: "مدير التسويق",
+      sales_agent: "مندوب المبيعات"
+    };
+
+    async function ensureProfile(user){
+      const ref = db.collection("settings_agents").doc(user.uid);
+      const snap = await ref.get();
+      if(snap.exists){
+        return snap.data();
+      }
+      // create minimal profile
+      const data = {
+        uid: user.uid,
+        name: user.email || "مستخدم",
+        email: user.email || "",
+        branchId: "",
+        roleId: "sales_agent",
+        isActive: true,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      await ref.set(data, { merge:true });
+      return data;
+    }
+
+    function applyRoleUI(profile){
+      // Update top-left user chip if exists
+      const userNameEl = qs("#userName");
+      const userRoleEl = qs("#userRole");
+      if(userNameEl) userNameEl.textContent = profile.name || (currentUser && currentUser.email) || "مستخدم";
+      if(userRoleEl){
+        const r = profile.roleId || "sales_agent";
+        userRoleEl.textContent = ROLE_LABELS[r] || r;
+      }
+
+      // Marketing same as admin (full access)
+      const canAdmin = (profile.roleId === "system_admin" || profile.roleId === "marketing_manager");
+      // If not admin, hide settings tab for now (optional)
+      const navSettings = qs('.navItem[data-tab="settings"]');
+      if(navSettings) navSettings.style.display = canAdmin ? "" : "";
+    }
+
+    // ===== Login / Logout =====
+    async function doLogin(){
+      const email = (loginEmail && loginEmail.value || "").trim();
+      const pass  = (loginPass && loginPass.value || "").trim();
+      if(!email || !pass){
+        authMsg("اكتب البريد وكلمة المرور.");
+        return;
+      }
+      authMsg("جاري تسجيل الدخول…");
+      try{
+        await auth.signInWithEmailAndPassword(email, pass);
+      }catch(err){
+        console.error(err);
+        authMsg("فشل تسجيل الدخول: " + (err && err.message ? err.message : err));
+      }
+    }
+
+    if(btnLogin) btnLogin.addEventListener("click", doLogin);
+    if(loginPass) loginPass.addEventListener("keydown", (e)=>{ if(e.key==="Enter") doLogin(); });
+
+    if(btnLoginHelp){
+      btnLoginHelp.addEventListener("click", ()=>{
+        toastShow("ملاحظة", "لو أول مرة: اعمل المستخدم من Firebase Authentication (Email/Password) ثم ادخل هنا.", "ℹ");
+      });
+    }
+
+    // Logout button if present
+    const btnLogout = qs("#btnLogout");
+    if(btnLogout){
+      btnLogout.addEventListener("click", async ()=>{
+        try{ await auth.signOut(); }catch(e){}
+      });
+    }
+
+    // ===== Leads UI =====
+    const leadsList = (function(){
+      // first list inside leads card
+      const el = qs("#panel-leads .card .list");
+      return el;
+    })();
+
+    const leadStats = {
+      total: qs("#panel-leads .stat:nth-child(1) strong"),
+      unassigned: qs("#panel-leads .stat:nth-child(2) strong"),
+      active: qs("#panel-leads .stat:nth-child(3) strong"),
+      won: qs("#panel-leads .stat:nth-child(4) strong"),
+    };
+
+    // Filter controls (the selects are demo — we'll replace their options dynamically if we can)
+    const leadsFilterBranch = qs("#panel-leads .filters select:nth-child(1)");
+    const leadsFilterAgent  = qs("#panel-leads .filters select:nth-child(2)");
+    const leadsFilterStage  = qs("#panel-leads .filters select:nth-child(3)");
+    const leadsFilterSearch = qs("#panel-leads .filters input");
+
+    let cacheBranches = [];
+    let cacheAgents = [];
+    let cacheStages = [];
+    let cacheLeads = [];
+
+    function setSelectOptions(sel, options, placeholder){
+      if(!sel) return;
+      sel.innerHTML = "";
+      const ph = document.createElement("option");
+      ph.value = "";
+      ph.textContent = placeholder;
+      sel.appendChild(ph);
+      options.forEach(o=>{
+        const op = document.createElement("option");
+        op.value = o.value;
+        op.textContent = o.label;
+        sel.appendChild(op);
+      });
+    }
+
+    function renderLeads(){
+      if(!leadsList) return;
+
+      const branchId = leadsFilterBranch ? leadsFilterBranch.value : "";
+      const agentId  = leadsFilterAgent ? leadsFilterAgent.value : "";
+      const stageId  = leadsFilterStage ? leadsFilterStage.value : "";
+      const q = (leadsFilterSearch ? leadsFilterSearch.value : "").trim().toLowerCase();
+
+      const filtered = cacheLeads.filter(l=>{
+        const okB = !branchId || (l.branchId||"") === branchId;
+        const okA = !agentId  || (l.assignedTo||"") === agentId;
+        const okS = !stageId  || (l.stageId||l.stage||"") === stageId;
+        const text = (""+(l.name||"")+" "+(l.phone||l.clientNumber||l.clientPhone||"")+" "+(l.carName||"")+" "+(l.source||l.sourceId||"")).toLowerCase();
+        const okQ = !q || text.includes(q);
+        return okB && okA && okS && okQ;
+      });
+
+      leadsList.innerHTML = "";
+      if(!filtered.length){
+        leadsList.innerHTML = '<div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">لا توجد بيانات مطابقة.</div>';
+        return;
+      }
+
+      filtered.slice(0, 200).forEach(l=>{
+        const row = document.createElement("div");
+        row.className = "row";
+        const phone = l.phone || l.clientNumber || l.clientPhone || "—";
+        const name = l.name || "بدون اسم";
+        const source = l.sourceName || l.source || l.sourceId || "—";
+        const stage = (function(){
+          const id = l.stageId || l.stage || "";
+          const found = cacheStages.find(s=>s.id===id);
+          return found ? found.name : (id || "جديد");
+        })();
+        const agentName = (function(){
+          const id = l.assignedTo || "";
+          const found = cacheAgents.find(a=>a.uid===id || a.id===id);
+          return found ? found.name : (id ? "مندوب" : "غير موزّع");
+        })();
+
+        row.innerHTML = `
+          <div class="meta">
+            <b>${esc(name)} — <span style="font-weight:700">${esc(phone)}</span></b>
+            <span>${esc(source)} • ${esc(stage)} • ${esc(agentName)}</span>
+          </div>
+          <span class="tag ${l.assignedTo ? "ok" : "warn"}">${l.assignedTo ? "مُسند" : "غير موزّع"}</span>
+        `;
+        leadsList.appendChild(row);
+      });
+    }
+
+    if(leadsFilterBranch) leadsFilterBranch.addEventListener("change", renderLeads);
+    if(leadsFilterAgent) leadsFilterAgent.addEventListener("change", renderLeads);
+    if(leadsFilterStage) leadsFilterStage.addEventListener("change", renderLeads);
+    if(leadsFilterSearch) leadsFilterSearch.addEventListener("input", renderLeads);
+
+    // ===== Data loaders =====
+    async function loadSettingsCollections(){
+      // branches
+      try{
+        const bSnap = await db.collection("settings_branches").where("isActive","==",true).get();
+        cacheBranches = bSnap.docs.map(d=>({ id:d.id, ...d.data() }));
+      }catch(e){ cacheBranches = []; }
+
+      // agents
+      try{
+        const aSnap = await db.collection("settings_agents").where("isActive","==",true).get();
+        cacheAgents = aSnap.docs.map(d=>({ id:d.id, uid:d.id, ...d.data() }));
+      }catch(e){ cacheAgents = []; }
+
+      // stages
+      try{
+        const sSnap = await db.collection("settings_stages").get();
+        cacheStages = sSnap.docs.map(d=>({ id:d.id, ...d.data() }));
+      }catch(e){ cacheStages = []; }
+
+      setSelectOptions(
+        leadsFilterBranch,
+        cacheBranches.map(b=>({value:b.id, label:(b.name||b.title||b.city||b.id)})),
+        "كل الفروع"
+      );
+      setSelectOptions(
+        leadsFilterAgent,
+        cacheAgents.map(a=>({value:(a.uid||a.id), label:(a.name||a.title||a.email||a.uid)})),
+        "كل المندوبين"
+      );
+      setSelectOptions(
+        leadsFilterStage,
+        cacheStages.map(s=>({value:s.id, label:(s.name||s.title||s.id)})),
+        "كل المراحل"
+      );
+    }
+
+    async function loadLeads(){
+      // read last 200 leads
+      try{
+        const snap = await db.collection("leads").orderBy("createdAt","desc").limit(200).get();
+        cacheLeads = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      }catch(err){
+        console.error(err);
+        cacheLeads = [];
+        if(leadsList){
+          leadsList.innerHTML = '<div style="padding:12px 2px;color:#b94a48;font-size:13px;line-height:1.8">تعذر قراءة الليدات من Firebase. تأكد من Rules والصلاحيات.</div>';
+        }
+      }
+
+      // stats
+      try{
+        const total = cacheLeads.length;
+        const unassigned = cacheLeads.filter(l=>!l.assignedTo).length;
+        const active = cacheLeads.filter(l=>{
+          const st = (l.stageId||l.stage||"");
+          return !["won","lost","closed","تم البيع","غير مهتم","غير مؤهل"].includes(st);
+        }).length;
+
+        if(leadStats.total) leadStats.total.textContent = total ? total.toLocaleString("en-US") : "—";
+        if(leadStats.unassigned) leadStats.unassigned.textContent = unassigned ? String(unassigned) : "—";
+        if(leadStats.active) leadStats.active.textContent = active ? String(active) : "—";
+        if(leadStats.won) leadStats.won.textContent = "—";
+      }catch(e){}
+
+      renderLeads();
+    }
+
+    // ===== Auth state =====
+    if(auth){
+      auth.onAuthStateChanged(async (user)=>{
+        currentUser = user || null;
+        if(!user){
+          showAuth();
+          authMsg("من فضلك سجّل الدخول.");
+          return;
+        }
+        // logged in
+        try{
+          hideAuth();
+          authMsg("—");
+          currentProfile = await ensureProfile(user);
+          applyRoleUI(currentProfile);
+
+          // load data
+          await loadSettingsCollections();
+          await loadLeads();
+
+          toastShow("تم", "تم تسجيل الدخول بنجاح.", "✓");
+        }catch(err){
+          console.error(err);
+          showAuth();
+          authMsg("تم تسجيل الدخول لكن حدث خطأ أثناء تحميل البيانات: " + (err.message||err));
+        }
+      });
+    }else{
+      showAuth();
+      authMsg("Firebase Auth غير متاح.");
+    }
+
+  })();
+  </script>
 
 </body>
 </html>
