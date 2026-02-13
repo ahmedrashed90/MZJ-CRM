@@ -1562,94 +1562,7 @@
     <button id="toastClose">إغلاق</button>
   </div>
 
-  <script>
-(function(){
-  function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-  ready(function(){
-    // ===== Main Tabs fallback (works even if Firebase module fails) =====
-    const nav = document.getElementById('nav');
-    const panelIds = ['inbox','leads','pipeline','tasks','retarget','automation','settings'];
-    const panels = {};
-    panelIds.forEach(k=>{
-      const el = document.getElementById('panel-' + k);
-      if(el) panels[k]=el;
-    });
-
-    function setTab(tab){
-      // activate nav
-      document.querySelectorAll('.navItem').forEach(x=>{
-        x.classList.toggle('active', x.dataset && x.dataset.tab === tab);
-      });
-      // show panel
-      Object.entries(panels).forEach(([k, el])=>{
-        el.classList.toggle('active', k === tab);
-      });
-      // update header if exists
-      const titles = {
-        inbox: ['صندوق الوارد الموحد','الرد على كل المنصات'],
-        leads: ['العملاء المحتملون','إدارة العملاء المحتملين: بحث، فلترة، توزيع'],
-        pipeline: ['مراحل البيع','تحريك العملاء بين مراحل البيع'],
-        tasks: ['المتابعات','مهام اليوم والغد'],
-        retarget: ['إعادة الاستهداف','قوائم + حملات'],
-        automation: ['الأوتوميشن','قواعد تشغيل/إيقاف'],
-        settings: ['الإعدادات','الفروع، المستخدمين، الصلاحيات، وربط المنصات.']
-      };
-      const pageTitle = document.getElementById('pageTitle');
-      const pageDesc  = document.getElementById('pageDesc');
-      const chip      = document.getElementById('activeTabChip');
-      if(titles[tab]){
-        if(pageTitle) pageTitle.textContent = titles[tab][0];
-        if(pageDesc)  pageDesc.textContent  = titles[tab][1];
-        if(chip)      chip.textContent      = titles[tab][0];
-      }
-    }
-
-    if(nav){
-      nav.addEventListener('click', function(e){
-        const item = e.target.closest('.navItem');
-        if(!item) return;
-        const tab = item.dataset.tab;
-        if(!tab) return;
-        setTab(tab);
-      });
-    }
-
-    // default tab: keep existing active or fallback to inbox
-    const activeNav = document.querySelector('.navItem.active');
-    setTab((activeNav && activeNav.dataset.tab) || 'inbox');
-
-    // ===== Settings sub-tabs fallback =====
-    const settingsTopbar = document.getElementById('settingsTopbar');
-    if(settingsTopbar){
-      const setPanels = {};
-      ['branches','stages','sources','assign','automation','agents','roles'].forEach(k=>{
-        const el = document.getElementById('set-' + k);
-        if(el) setPanels[k]=el;
-      });
-
-      function setSettingsTab(k){
-        settingsTopbar.querySelectorAll('.mzj-setItem').forEach(b=>{
-          b.classList.toggle('active', b.dataset.settab === k);
-        });
-        Object.entries(setPanels).forEach(([kk, el])=>{
-          el.classList.toggle('active', kk === k);
-        });
-      }
-
-      settingsTopbar.addEventListener('click', function(e){
-        const b = e.target.closest('.mzj-setItem');
-        if(!b) return;
-        setSettingsTab(b.dataset.settab);
-      });
-
-      // keep default
-      const activeBtn = settingsTopbar.querySelector('.mzj-setItem.active');
-      setSettingsTab((activeBtn && activeBtn.dataset.settab) || 'branches');
-    }
-  });
-})();
-</script>
-<script type="module">
+  <script type="module">
 
     // ===== Firebase (Web SDK) =====
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -1683,6 +1596,18 @@
       envBadge.classList.remove("neutral");
       envBadge.classList.add("ok");
     }
+
+
+
+    // ===== Live preload (Leads + caches) =====
+    // نحمّل البيانات الأساسية فور الاتصال لكي تظهر القائمة والفلترة بدون تسجيل دخول.
+    try{
+      loadBranches();
+      loadStages();
+      loadSources();
+      loadAgents();
+      loadLeadsAll();
+    }catch(e){ console.error(e); }
 
 // ===== Tabs routing =====
     const nav = document.getElementById('nav');
@@ -2083,7 +2008,11 @@
       if(unsubBranches) unsubBranches();
       try{
         const q1 = query(collection(db, "settings_branches"), orderBy("createdAt", "desc"), limit(200));
-        unsubBranches = onSnapshot(q1, (snap)=> renderBranches(snap.docs), (err)=>{
+        unsubBranches = onSnapshot(q1, (snap)=>{
+        const docs = snap.docs.filter(d=>!(d.data().isDeleted));
+        branchesCache = new Map(docs.map(d=>[d.id, d.data()]));
+        renderBranches(docs);
+      }, (err)=>{
           console.error(err);
           toastShow("خطأ", "لا يمكن تحميل الفروع. تأكد من صلاحيات Firestore.", "✕");
         });
@@ -2094,7 +2023,11 @@
       if(unsubStages) unsubStages();
       try{
         const q1 = query(collection(db, "settings_stages"), orderBy("order", "asc"), limit(200));
-        unsubStages = onSnapshot(q1, (snap)=> renderStages(snap.docs), (err)=>{
+        unsubStages = onSnapshot(q1, (snap)=>{ 
+        const docs = snap.docs.filter(d=>!(d.data().isDeleted));
+        stagesCache = new Map(docs.map(d=>[d.id, d.data()]));
+        renderStages(docs);
+      }, (err)=>{
           console.error(err);
           toastShow("خطأ", "لا يمكن تحميل المراحل. تأكد من صلاحيات Firestore.", "✕");
         });
@@ -2106,7 +2039,11 @@
       await ensureDefaultSource();
       try{
         const q1 = query(collection(db, "settings_sources"), orderBy("createdAt", "desc"), limit(200));
-        unsubSources = onSnapshot(q1, (snap)=> renderSources(snap.docs), (err)=>{
+        unsubSources = onSnapshot(q1, (snap)=>{
+        const docs = snap.docs.filter(d=>!(d.data().isDeleted));
+        sourcesCache = new Map(docs.map(d=>[d.id, d.data()]));
+        renderSources(docs);
+      }, (err)=>{
           console.error(err);
           toastShow("خطأ", "لا يمكن تحميل المصادر. تأكد من صلاحيات Firestore.", "✕");
         });
@@ -2163,6 +2100,211 @@
 
     let branchesCache = new Map();
     let rolesCache = new Map();
+    let agentsCache = new Map();
+    let stagesCache = new Map();
+    let sourcesCache = new Map();
+
+    // ===== Leads (All) =====
+    let unsubLeads = null;
+    let leadsDocs = []; // firestore docs
+    const leadsState = { branch:"", agent:"", stage:"", q:"" };
+
+    function leadField(obj, keys, fallback=""){
+      for(const k of keys){
+        if(obj && obj[k] != null && String(obj[k]).trim() !== "") return obj[k];
+      }
+      return fallback;
+    }
+
+    function normPhone(v){
+      if(v == null) return "";
+      return String(v).replace(/\s+/g,"").replace(/^\+/, "");
+    }
+
+    function formatWhen(v){
+      try{
+        if(!v) return "—";
+        // Firestore Timestamp
+        if(typeof v === "object" && v.seconds) return new Date(v.seconds*1000).toLocaleString("ar-SA");
+        const d = new Date(v);
+        if(!isNaN(d.getTime())) return d.toLocaleString("ar-SA");
+      }catch(e){}
+      return "—";
+    }
+
+    function getLeadVM(d){
+      const x = (typeof d.data === "function") ? d.data() : d;
+      const id = d.id || x.id || "";
+      const phone = normPhone(
+        leadField(x, ["phone","clientNumber","mobile","wa_id","waId","رقم الجوال","رقم_الجوال","الجوال","الهاتف"], "")
+      );
+      const name = leadField(x, ["name","clientName","الاسم","اسم العميل","fullName"], phone ? ("عميل — " + phone) : "عميل");
+      const stage = leadField(x, ["stageName","stage","status","الحالة","المرحلة"], "جديد");
+      const stageId = leadField(x, ["stageId","stage_id"], "");
+      const assignedTo = leadField(x, ["assignedTo","agentId","ownerId","assigned_to"], "");
+      const branchId = leadField(x, ["branchId","branch_id"], "");
+      const source = leadField(x, ["sourceName","source","sourceId","المصدر","مصدر"], "حاسبة التقسيط");
+      const car = leadField(x, ["carName","اسم السيارة","السيارة"], "");
+      const createdAt = leadField(x, ["createdAt","created_at","timestamp","وقت"], "");
+      return { id, phone, name, stage, stageId, assignedTo, branchId, source, car, createdAt };
+    }
+
+    function rebuildLeadsFilters(panel){
+      const card = panel.querySelector(".card");
+      const selects = card.querySelectorAll("select");
+      const [selBranch, selAgent, selStage] = selects;
+
+      // branches
+      const branches = Array.from(branchesCache.entries()).map(([id, b])=>({id, name:b.name||"—"}))
+        .filter(x=>x.name && x.name!=="—")
+        .sort((a,b)=>a.name.localeCompare(b.name, "ar"));
+      selBranch.innerHTML = `<option value="">كل الفروع</option>` + branches.map(b=>`<option value="${b.id}">${escapeHtml(b.name)}</option>`).join("");
+      selBranch.value = leadsState.branch;
+
+      // agents
+      const agents = Array.from(agentsCache.entries()).map(([id, a])=>({id, name:a.name||"—"}))
+        .filter(x=>x.name && x.name!=="—")
+        .sort((a,b)=>a.name.localeCompare(b.name, "ar"));
+      selAgent.innerHTML = `<option value="">كل المندوبين</option><option value="__unassigned__">غير موزّع</option>` +
+        agents.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
+      selAgent.value = leadsState.agent;
+
+      // stages: from stagesCache if available, else from leads
+      let stages = Array.from(stagesCache.entries()).map(([id, s])=>({id, name:s.name||""})).filter(x=>x.name);
+      if(!stages.length){
+        const uniq = new Map();
+        leadsDocs.forEach(doc=>{
+          const vm = getLeadVM(doc);
+          if(vm.stage) uniq.set(vm.stage, {id: vm.stage, name: vm.stage});
+        });
+        stages = Array.from(uniq.values());
+      }
+      stages.sort((a,b)=>a.name.localeCompare(b.name, "ar"));
+      selStage.innerHTML = `<option value="">كل المراحل</option>` + stages.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+      selStage.value = leadsState.stage;
+    }
+
+    function applyLeadsFilter(vm){
+      // branch
+      if(leadsState.branch){
+        if(vm.branchId !== leadsState.branch) return false;
+      }
+      // agent
+      if(leadsState.agent){
+        if(leadsState.agent === "__unassigned__"){
+          if(vm.assignedTo) return false;
+        }else{
+          if(vm.assignedTo !== leadsState.agent) return false;
+        }
+      }
+      // stage
+      if(leadsState.stage){
+        // allow matching by stageId or by stage name
+        if(vm.stageId){
+          if(vm.stageId !== leadsState.stage) return false;
+        }else{
+          if(vm.stage !== leadsState.stage) return false;
+        }
+      }
+      // search
+      if(leadsState.q){
+        const q = leadsState.q.trim();
+        const hay = (vm.name + " " + vm.phone + " " + vm.car).toLowerCase();
+        if(!hay.includes(q.toLowerCase())) return false;
+      }
+      return true;
+    }
+
+    function renderLeads(panel){
+      const stats = panel.querySelectorAll(".stat strong");
+      const card = panel.querySelector(".card");
+      const list = card.querySelector(".list");
+      const filtered = leadsDocs.map(getLeadVM).filter(applyLeadsFilter);
+
+      // stats (approx)
+      const total = leadsDocs.length;
+      const unassigned = leadsDocs.map(getLeadVM).filter(x=>!x.assignedTo).length;
+      const active = leadsDocs.map(getLeadVM).filter(x=>!["تم البيع","غير مهتم","غير مؤهل","مغلق","مغلق (ربح)"].includes(x.stage)).length;
+      const won = leadsDocs.map(getLeadVM).filter(x=>["تم البيع","مغلق (ربح)"].includes(x.stage)).length;
+
+      if(stats[0]) stats[0].textContent = total ? total.toLocaleString("ar-SA") : "—";
+      if(stats[1]) stats[1].textContent = total ? unassigned.toLocaleString("ar-SA") : "—";
+      if(stats[2]) stats[2].textContent = total ? active.toLocaleString("ar-SA") : "—";
+      if(stats[3]) stats[3].textContent = total ? won.toLocaleString("ar-SA") : "—";
+
+      if(!filtered.length){
+        list.innerHTML = `<div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+          لا توجد نتائج مطابقة للفلاتر الحالية.
+        </div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.slice(0,200).map(vm=>{
+        const agentName = vm.assignedTo ? (agentsCache.get(vm.assignedTo)?.name || "مندوب") : "غير موزّع";
+        const branchName = vm.branchId ? (branchesCache.get(vm.branchId)?.name || "—") : "—";
+        const stageName = vm.stageId ? (stagesCache.get(vm.stageId)?.name || vm.stage) : vm.stage;
+        const when = formatWhen(vm.createdAt);
+        const sub = [
+          vm.source ? `المصدر: ${escapeHtml(String(vm.source))}` : "",
+          vm.car ? `السيارة: ${escapeHtml(String(vm.car))}` : "",
+          branchName !== "—" ? `الفرع: ${escapeHtml(String(branchName))}` : "",
+          when !== "—" ? `منذ: ${escapeHtml(String(when))}` : ""
+        ].filter(Boolean).join(" • ");
+
+        const waLink = vm.phone ? `https://wa.me/${encodeURIComponent(vm.phone)}` : "#";
+        return `<div class="row">
+          <div class="meta">
+            <b>${escapeHtml(vm.name)}${vm.phone ? ` — ${escapeHtml(vm.phone)}` : ""}</b>
+            <span>${sub || "—"}</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="tag ok">${escapeHtml(stageName || "جديد")}</span>
+            <span class="tag">${escapeHtml(agentName)}</span>
+            <a class="btn sm" href="${waLink}" target="_blank" rel="noopener" style="padding:8px 10px">واتساب</a>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function wireLeadsUI(){
+      const panel = document.getElementById("panel-leads");
+      if(!panel) return;
+      const card = panel.querySelector(".card");
+      const selects = card.querySelectorAll("select");
+      const [selBranch, selAgent, selStage] = selects;
+      const search = card.querySelector("input.miniInput");
+
+      const rerender = ()=>{
+        rebuildLeadsFilters(panel);
+        renderLeads(panel);
+      };
+
+      selBranch.addEventListener("change", ()=>{ leadsState.branch = selBranch.value; renderLeads(panel); });
+      selAgent.addEventListener("change", ()=>{ leadsState.agent = selAgent.value; renderLeads(panel); });
+      selStage.addEventListener("change", ()=>{ leadsState.stage = selStage.value; renderLeads(panel); });
+      search.addEventListener("input", ()=>{ leadsState.q = search.value || ""; renderLeads(panel); });
+
+      // initial
+      rerender();
+    }
+
+    async function loadLeadsAll(){
+      if(unsubLeads) unsubLeads();
+      const q1 = query(collection(db, "leads"), orderBy("createdAt","desc"), limit(500));
+      unsubLeads = onSnapshot(q1, (snap)=>{
+        leadsDocs = snap.docs.filter(d=>!(d.data().isDeleted));
+        wireLeadsUI();
+        const panel = document.getElementById("panel-leads");
+        if(panel){
+          rebuildLeadsFilters(panel);
+          renderLeads(panel);
+        }
+      }, (err)=>{
+        console.error(err);
+        toastShow("خطأ", "لا يمكن تحميل العملاء المحتملين. تأكد من صلاحيات Firestore.", "✕");
+      });
+    }
+
     let unsubAgents = null, unsubRoles = null;
 
     async function refreshBranchesCache(){
@@ -2221,6 +2363,7 @@
       const q1 = query(collection(db, "settings_agents"), orderBy("createdAt","desc"), limit(500));
       unsubAgents = onSnapshot(q1, (snap)=>{
         const docs = snap.docs.filter(d=>!(d.data().isDeleted));
+        agentsCache = new Map(docs.map(d=>[d.id, d.data()]));
         renderAgents(docs, branchesCache, rolesCache);
       }, (err)=>{
         console.error(err);
