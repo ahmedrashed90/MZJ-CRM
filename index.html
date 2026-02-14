@@ -1,6 +1,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1260,9 +1261,7 @@
                     </div>
                     <div class="chatTools">
                       <button class="toolBtn" id="btnCreateLead">تحويل لعميل محتمل</button>
-                      <button class="toolBtn" id="btnAssign">توزيع</button>
-                      <button class="toolBtn primary" id="btnTemplate">قوالب</button>
-                    </div>
+</div>
                   </div>
 
                   <div class="chatBody" id="chatBody">
@@ -1700,7 +1699,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit, getDocs, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+  import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, getDocs, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
   import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
   // ===== Firebase Config =====
@@ -2287,6 +2286,111 @@ function refreshSettingsTables(){
   let inboxCache = []; // [{id,data}]
   let activeConvId = null;
 
+  let activeConvData = null; // current conversation data cache
+  const _assigningConvs = new Set();
+
+  function canSeeAllChats(){
+    const roleId = currentProfile?.roleId || "";
+    return roleId === "admin" || roleId === "branch_manager" || roleId === "marketing_admin";
+  }
+
+  function pickRandomAgent(){
+    const all = Array.from(agentsMap.values()).filter(a=>a.isActive);
+    // exclude managers/admins from random distribution
+    const eligible = all.filter(a=>{
+      const r = a.roleId || "";
+      return !(r === "admin" || r === "branch_manager" || r === "marketing_admin");
+    });
+    const pool = eligible.length ? eligible : all;
+    if(!pool.length) return null;
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+
+  async function autoAssignIfNeeded(convId, convData){
+    if(!canSeeAllChats()) return;
+    if(!convData || convData.assignedTo) return;
+    if(_assigningConvs.has(convId)) return;
+    const agent = pickRandomAgent();
+    if(!agent) return;
+    _assigningConvs.add(convId);
+    try{
+      await updateDoc(doc(db,"wa_conversations", convId), {
+        assignedTo: agent.uid || agent.id || "",
+        assignedName: agent.name || "",
+        assignedBranchId: agent.branchId || "",
+        assignedAt: serverTimestamp(),
+        updatedAt: new Date().toISOString()
+      });
+    }catch(e){
+      console.warn("auto assign failed", e);
+    }finally{
+      _assigningConvs.delete(convId);
+    }
+  }
+
+  async function convertActiveConversationToLead(){
+    if(!activeConvId || !activeConvData){
+      toast("اختر محادثة أولاً", "warn");
+      return;
+    }
+    const phone = String(activeConvData.waId || "").trim();
+    const name  = String(activeConvData.displayName || "—").trim();
+    if(!phone){
+      toast("لا يوجد رقم للعميل", "warn");
+      return;
+    }
+
+    // check existing lead by phoneNormalized
+    try{
+      const existQ = query(
+        collection(db,"leads"),
+        where("phoneNormalized","==", phone),
+        limit(1)
+      );
+      const existSnap = await getDocs(existQ);
+      if(!existSnap.empty){
+        const existId = existSnap.docs[0].id;
+        toast("العميل المحتمل موجود بالفعل: " + existId);
+        // link conversation to existing lead
+        await updateDoc(doc(db,"wa_conversations", activeConvId), { leadId: existId, updatedAt: new Date().toISOString() });
+        return;
+      }
+    }catch(e){
+      console.warn("lead lookup failed", e);
+      // continue to create if lookup failed
+    }
+
+    const nowISO = new Date().toISOString();
+    const stageId = (Array.from(stagesMap.keys())[0]) || "new";
+    const branchId = activeConvData.branchId || activeConvData.assignedBranchId || currentProfile?.branchId || "";
+
+    const leadRef = doc(collection(db,"leads"));
+    const leadDoc = {
+      name,
+      phone,
+      phoneNormalized: phone,
+      stageId,
+      sourceId: "whatsapp",
+      branchId,
+      assignedTo: activeConvData.assignedTo || "",
+      channel: "whatsapp",
+      conversationId: activeConvId,
+      createdAt: nowISO,
+      updatedAt: nowISO
+    };
+
+    try{
+      await setDoc(leadRef, leadDoc);
+      await updateDoc(doc(db,"wa_conversations", activeConvId), {
+        leadId: leadRef.id,
+        updatedAt: nowISO
+      });
+      toast("تم تحويله لعميل محتمل: " + leadRef.id);
+    }catch(e){
+      toast("خطأ التحويل: " + (e?.message||e), "warn");
+    }
+  }
+
   function fsToMs(v){
     if(!v) return 0;
     // Firestore Timestamp (from SDK)
@@ -2456,6 +2560,7 @@ function refreshSettingsTables(){
     applyInboxFilters();
 
     const convObj = inboxCache.find(x=>x.id===convId)?.data || null;
+    activeConvData = convObj;
     setChatHeader(convObj);
 
     // mark read if needed
@@ -2512,16 +2617,18 @@ function refreshSettingsTables(){
       return;
     }
 
-    const convQ = query(
-      collection(db,"wa_conversations"),
-      orderBy("lastMessageAt","desc"),
-      limit(200)
-    );
-
-    listEl.innerHTML = `<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل المحادثات…</div>`;
+const baseRef = collection(db,"wa_conversations");
+const convQ = canSeeAllChats()
+  ? query(baseRef, orderBy("lastMessageAt","desc"), limit(200))
+  : query(baseRef, where("assignedTo","==", currentUser.uid), orderBy("lastMessageAt","desc"), limit(200));
+listEl.innerHTML = `<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل المحادثات…</div>`;
 
     unsubInbox = onSnapshot(convQ, (snap)=>{
       inboxCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+      // auto-assign new/unassigned conversations (managers only)
+      if(canSeeAllChats()){
+        inboxCache.forEach(x=>{ autoAssignIfNeeded(x.id, x.data); });
+      }
       applyInboxFilters();
       setBadgeConnected(true);
 
@@ -2555,6 +2662,15 @@ function refreshSettingsTables(){
     ["fBranch","fChannel","fStatus"].forEach(id=>{
       $("#"+id)?.addEventListener("change", applyInboxFilters);
     });
+
+    // role guards (Inbox only)
+    const unassignedBtn = $("#btnOpenUnassigned");
+    if(unassignedBtn){
+      unassignedBtn.style.display = canSeeAllChats() ? "" : "none";
+    }
+
+    // convert to lead
+    $("#btnCreateLead")?.addEventListener("click", ()=>convertActiveConversationToLead());
 
     // mark all read
     $("#btnMarkAllRead")?.addEventListener("click", async ()=>{
