@@ -3,6 +3,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -11,7 +12,7 @@
   <title>لوحة CRM — صندوق وارد موحّد</title>
 
   <!-- Arabic font (web-safe) -->
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 
   <style>
     :root{
@@ -35,7 +36,7 @@
     html,body{height:100%}
     body{
       margin:0;
-      font-family:"Cairo",system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      font-family:"Tajawal","Cairo",system-ui,-apple-system,Segoe UI,Roboto,Arial;
       background:var(--bg);
       color:var(--text);
     }
@@ -1215,6 +1216,269 @@
       .calcTable table{ min-width: 420px; }
     }
 
+
+    /* ===== Kanban (Pipeline) ===== */
+    .kanbanTop{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    .kanbanFilters{
+      display:flex;
+      align-items:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-start;
+    }
+    .kanbanFilters .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width:180px;
+    }
+    .kanbanFilters label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+    }
+    .kanbanFilters input,
+    .kanbanFilters select{
+      border:1px solid var(--line);
+      background:#fff;
+      border-radius:14px;
+      padding:10px 12px;
+      font-weight:700;
+      outline:none;
+      min-height:40px;
+    }
+    .kanbanWrap{
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:linear-gradient(180deg, rgba(43,26,23,.02), rgba(192,122,74,.03));
+      padding:10px;
+      overflow:hidden;
+    }
+    .kanbanBoard{
+      display:flex;
+      gap:12px;
+      overflow:auto;
+      padding:4px;
+      scroll-snap-type:x proximity;
+      -webkit-overflow-scrolling:touch;
+      overscroll-behavior-x:contain;
+      touch-action:pan-x;
+      cursor:grab;
+      scroll-behavior:smooth;
+    }
+
+    .kanbanBoard.is-grabbing{ cursor:grabbing; }
+
+    .kCol{
+      flex:0 0 320px;
+      min-width:320px;
+      background:rgba(255,255,255,.86);
+      border:1px solid rgba(43,26,23,.10);
+      border-radius:16px;
+      box-shadow: 0 12px 26px rgba(0,0,0,.05);
+      scroll-snap-align:start;
+      display:flex;
+      flex-direction:column;
+      max-height: 68vh;
+    }
+    .kColHead{
+      padding:12px 12px 10px;
+      border-bottom:1px solid rgba(43,26,23,.10);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      background:linear-gradient(180deg, rgba(192,122,74,.10), transparent);
+      border-radius:16px 16px 0 0;
+    }
+    .kColHead b{ font-size:13.5px; }
+    .kCount{
+      background: rgba(43,26,23,.06);
+      border:1px solid rgba(43,26,23,.10);
+      color: var(--b);
+      padding:3px 10px;
+      border-radius:999px;
+      font-weight:900;
+      font-size:12px;
+    }
+    .kColBody{
+      padding:10px;
+      overflow:auto;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height: 120px;
+    }
+    .kColBody.dragOver{
+      outline: 2px dashed rgba(192,122,74,.65);
+      outline-offset: -6px;
+      background: rgba(192,122,74,.06);
+    }
+    .kCard{
+      border:1px solid rgba(43,26,23,.12);
+      background:#fff;
+      border-radius:14px;
+      padding:10px 10px 9px;
+      cursor:grab;
+      transition: transform .08s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+    .kCard:active{ cursor:grabbing; transform: scale(.99); }
+    .kCard:hover{
+      border-color: rgba(192,122,74,.45);
+      box-shadow: 0 14px 26px rgba(0,0,0,.06);
+    }
+    .kCard[draggable="false"]{
+      cursor:default;
+      opacity:.85;
+    }
+    .kTitleRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+    }
+    .kName{
+      font-weight:900;
+      font-size:13.5px;
+      line-height:1.2;
+      max-width: 220px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .kNameBtn{
+      appearance:none;
+      border:none;
+      background:transparent;
+      padding:0;
+      text-align:right;
+      cursor:pointer;
+    }
+    .kNameBtn:hover{ text-decoration:underline; }
+
+    .kMeta{
+      margin-top:6px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:700;
+    }
+    .kChip{
+      background: rgba(192,122,74,.10);
+      border:1px solid rgba(192,122,74,.24);
+      color: var(--b);
+      padding:3px 8px;
+      border-radius:999px;
+      max-width: 100%;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .kMini{
+      background: rgba(43,26,23,.06);
+      border:1px solid rgba(43,26,23,.10);
+      color: var(--b);
+      padding:3px 8px;
+      border-radius:999px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width:100%;
+    }
+    .kanbanHint{
+      margin:10px 0 0;
+      color:var(--muted);
+      font-size:12.5px;
+      line-height:1.8;
+    }
+
+    /* تفاصيل العميل داخل مراحل البيع */
+    .kLeadPanel{
+      margin-top:14px;
+      border:1px solid rgba(43,26,23,.12);
+      background:rgba(255,255,255,.92);
+      border-radius:18px;
+      box-shadow: 0 14px 34px rgba(0,0,0,.06);
+      overflow:hidden;
+    }
+    .kLeadPanelTop{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      padding:14px 14px;
+      border-bottom:1px solid rgba(43,26,23,.10);
+    }
+    .kLeadPanelTitle{font-weight:900;font-size:15px}
+    .kLeadPanelSub{color:var(--muted);font-size:12.5px;margin-top:2px}
+    .kLeadPanelBody{
+      display:grid;
+      grid-template-columns: 1fr 1.25fr;
+      gap:12px;
+      padding:14px;
+    }
+    @media (max-width:920px){
+      .kLeadPanelBody{grid-template-columns:1fr}
+    }
+    .kLeadPanelForm .field{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+    .kLeadPanelForm label{font-size:12px;color:var(--muted);font-weight:800}
+    .kLeadPanelForm textarea,
+    .kLeadPanelForm input{
+      border:1px solid var(--line);
+      background:#fff;
+      border-radius:14px;
+      padding:10px 12px;
+      font-weight:700;
+      outline:none;
+    }
+    .kLeadPanelActions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-top:6px;
+    }
+    .btnPrimary{
+      border:none;
+      background:linear-gradient(135deg, var(--brown), var(--bronze));
+      color:#fff;
+      padding:10px 14px;
+      border-radius:14px;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow: 0 12px 22px rgba(43,26,23,.18);
+    }
+    .btnPrimary:active{transform:translateY(1px)}
+    .kLeadPanelMsg{color:var(--muted);font-size:12.5px;font-weight:800}
+    .kLeadPanelSectionTitle{font-weight:900;margin-bottom:8px}
+    .activityList{display:flex;flex-direction:column;gap:10px}
+    .activityItem{
+      border:1px solid rgba(43,26,23,.12);
+      background:#fff;
+      border-radius:14px;
+      padding:10px 12px;
+    }
+    .activityItemTop{
+      display:flex;justify-content:space-between;gap:10px;align-items:flex-start;
+      font-weight:900;
+    }
+    .activityItemTime{color:var(--muted);font-weight:800;font-size:12px;white-space:nowrap}
+    .activityItemDesc{color:var(--muted);font-weight:700;font-size:12.5px;line-height:1.7;margin-top:4px}
+
+
+    @media (max-width: 980px){
+      .kCol{ flex-basis: 280px; min-width:280px; }
+      .kanbanFilters .field{ min-width: 160px; }
+    }
 </style>
 </head>
 
@@ -1561,28 +1825,92 @@
             </div>
           </div>
 
-
           <!-- Panel: Pipeline -->
           <div class="panel" id="panel-pipeline">
             <div class="grid">
               <div class="card" style="grid-column: span 12;">
-                <h3>مراحل البيع (تصميم كانبان — Placeholder)</h3>
-                <p style="margin:0;color:var(--muted);line-height:1.8;font-size:13px">
-                  هنا هنحط كانبان عربي: <b>جديد → تم التواصل → مهتم → تم إرسال عرض → تفاوض → حجز → بيع/خسارة</b>.
-                  في النسخة القادمة نربطه ببيانات Firestore والسحب والإفلات.
-                </p>
-                <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
-                  <span class="tag warn">جديد: 36</span>
-                  <span class="tag">تم التواصل: 92</span>
-                  <span class="tag ok">مهتم: 54</span>
-                  <span class="tag">عرض: 27</span>
-                  <span class="tag warn">تفاوض: 14</span>
-                  <span class="tag ok">حجز: 9</span>
-                  <span class="tag bad">خسارة: 18</span>
+                <div class="kanbanTop">
+                  <div>
+                    <h3 style="margin:0 0 4px">مراحل البيع — كانبان عربي</h3>
+                    <p style="margin:0;color:var(--muted);font-size:13px;line-height:1.7">
+                      الأعمدة مبنية على <b>حالات العملاء</b> (نفس الحالات داخل Tab العملاء المحتملون).
+                    </p>
+                  </div>
+
+                  <div class="kanbanFilters">
+                    <div class="field">
+                      <label>بحث</label>
+                      <input id="pipeSearch" type="text" placeholder="اسم / جوال / سيارة..." />
+                    </div>
+
+                    <div class="field">
+                      <label>اسم السيارة</label>
+                      <select id="pipeCar">
+                        <option value="">كل السيارات</option>
+                      </select>
+                    </div>
+
+                    <div class="field">
+                      <label>الدفع</label>
+                      <select id="pipePay">
+                        <option value="">كاش + تمويل</option>
+                        <option value="كاش">كاش</option>
+                        <option value="تمويل">تمويل</option>
+                      </select>
+                    </div>
+
+                    <button class="toolBtn" id="pipeReset">تصفير الفلاتر</button>
+                  </div>
                 </div>
+
+                <div class="kanbanWrap">
+                  <div class="kanbanBoard" id="pipelineBoard">
+                    <div class="mzj-empty" style="padding:18px">جاري تحميل البيانات...</div>
+                  </div>
+                </div>
+
+
+                <!-- تفاصيل العميل داخل مراحل البيع (بدون Popups) -->
+                <div class="kLeadPanel" id="pipeLeadPanel" hidden>
+                  <div class="kLeadPanelTop">
+                    <div>
+                      <div class="kLeadPanelTitle" id="pipeLeadTitle">تفاصيل العميل</div>
+                      <div class="kLeadPanelSub" id="pipeLeadSub">اختر عميلًا من الكانبان لعرض سجل النشاط وإضافة ملاحظة/متابعة.</div>
+                    </div>
+                    <button class="toolBtn" id="pipeLeadClose" type="button">إغلاق</button>
+                  </div>
+
+                  <div class="kLeadPanelBody">
+                    <div class="kLeadPanelForm">
+                      <div class="field">
+                        <label>ملاحظة جديدة</label>
+                        <textarea id="pipeLeadNote" rows="3" placeholder="اكتب ملحوظة بخصوص العميل..."></textarea>
+                      </div>
+                      <div class="field">
+                        <label>تاريخ المتابعة</label>
+                        <input id="pipeLeadFollow" type="date" />
+                      </div>
+                      <div class="kLeadPanelActions">
+                        <button class="btnPrimary" id="pipeLeadSave" type="button">حفظ</button>
+                        <span class="kLeadPanelMsg" id="pipeLeadMsg"></span>
+                      </div>
+                    </div>
+
+                    <div class="kLeadPanelActivity">
+                      <div class="kLeadPanelSectionTitle">سجل النشاط</div>
+                      <div class="activityList" id="pipeLeadActivity"></div>
+                    </div>
+                  </div>
+                </div>
+
+
+                <p class="kanbanHint">
+                  * اسحب العميل بين الأعمدة لتغيير حالته (حسب الصلاحيات). أي عميل جديد يظهر تلقائيًا هنا وفي جدول العملاء المحتملون.
+                </p>
               </div>
             </div>
           </div>
+
 
           <!-- Panel: Tasks -->
           <div class="panel" id="panel-tasks">
@@ -1899,7 +2227,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, getDocs, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+  import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, getDocs, serverTimestamp, writeBatch, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
   import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
   // ===== Firebase Config =====
@@ -2023,6 +2351,10 @@
 
     if(tabId === "inbox") ensureInboxLive();
     if(tabId === "leads") ensureLeadsLive();
+    if(tabId === "pipeline"){ 
+      ensureLeadsLive(); 
+      try{ renderPipeline(); }catch(e){} 
+    }
     if(tabId === "settings") refreshSettingsTables();
   }
 
@@ -2731,7 +3063,7 @@ function refreshSettingsTables(){
 
   const _autoAssignSeen = new Set();
   async function autoAssignUnassignedConversations(){
-    const agents = Array.from(agentsMap.values()).filter(a=>a && a.isActive);
+    const agents = Array.from(agentsMap.values()).filter(a=>a && a.isActive && !["admin","branch_manager","marketing_admin"].includes(a.roleId||"") && !EXCLUDED_ASSIGN_EMAILS.includes(String(a.email||a.id||"").toLowerCase()));
     if(!agents.length) return;
     const updates = [];
     for(const x of inboxCache){
@@ -3355,10 +3687,412 @@ function refreshSettingsTables(){
     if(prevPay) paySel.value = prevPay;
   }
 
+  // ===== Pipeline (Kanban) — نفس حالات العملاء =====
+  const PIPE_NONE = "__none__";
+  const pipeState = { q:"", car:"", pay:"" };
+
+  function refreshPipelineCarFilter(){
+    const carSel = $("#pipeCar");
+    if(!carSel) return;
+    const prev = carSel.value || "";
+    const cars = new Map();
+    leadsCache.forEach(({data})=>{
+      const c = getLeadCarName(data);
+      if(c && c !== "—") cars.set(c,c);
+    });
+    const first = carSel.querySelector("option");
+    carSel.innerHTML = "";
+    if(first) carSel.appendChild(first);
+    Array.from(cars.keys()).sort((a,b)=> String(a).localeCompare(String(b),"ar")).forEach(c=>{
+      const opt=document.createElement("option");
+      opt.value=c; opt.textContent=c;
+      carSel.appendChild(opt);
+    });
+    if(prev && cars.has(prev)) carSel.value = prev;
+  }
+
+  function getPipelineStatuses(){
+    // الأعمدة: (بدون حالة) + الحالات النشطة بالترتيب الأبجدي العربي
+    const act = Array.from(leadStatusesMap.values()).filter(s=>s.isActive !== false);
+    act.sort((a,b)=> String(a.name).localeCompare(String(b.name),"ar"));
+    return [{id:PIPE_NONE, name:"بدون حالة"}].concat(act);
+  }
+
+  function filterPipelineLeads(){
+    const q = (pipeState.q||"").trim().toLowerCase();
+    const car = pipeState.car || "";
+    const pay = pipeState.pay || "";
+
+    return leadsCache.filter(({data})=>{
+      if(car){
+        const c = getLeadCarName(data);
+        if(c !== car) return false;
+      }
+      if(pay){
+        const p = getLeadPayType(data);
+        if(p !== pay) return false;
+      }
+      if(q){
+        const n = String(data.name||"").toLowerCase();
+        const ph = String(data.phone||"").toLowerCase();
+        const pn = String(data.phoneNormalized||"").toLowerCase();
+        const c = String(getLeadCarName(data)||"").toLowerCase();
+        const p = String(getLeadPayType(data)||"").toLowerCase();
+        if(!n.includes(q) && !ph.includes(q) && !pn.includes(q) && !c.includes(q) && !p.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderPipeline(){
+    const board = $("#pipelineBoard");
+    if(!board) return;
+
+    if(!currentUser){
+      board.innerHTML = `<div class="mzj-empty" style="padding:18px">سجّل الدخول لعرض مراحل البيع.</div>`;
+      return;
+    }
+
+    refreshPipelineCarFilter();
+
+    const statuses = getPipelineStatuses();
+    const list = filterPipelineLeads();
+
+    // group leads by leadStatusId (or none)
+    const groups = new Map();
+    statuses.forEach(s=>groups.set(s.id, []));
+    list.forEach(x=>{
+      const sid = (x.data.leadStatusId || "").trim() || PIPE_NONE;
+      if(!groups.has(sid)) groups.set(sid, []);
+      groups.get(sid).push(x);
+    });
+
+    const colsHtml = statuses.map(st=>{
+      const arr = groups.get(st.id) || [];
+      // sort by updatedAt desc (string iso)
+      arr.sort((a,b)=> String(b.data.updatedAt||"").localeCompare(String(a.data.updatedAt||"")));
+      return `
+        <div class="kCol" data-kcol="${esc(st.id)}">
+          <div class="kColHead">
+            <b>${esc(st.name)}</b>
+            <span class="kCount">${arr.length}</span>
+          </div>
+          <div class="kColBody" data-dropstatus="${esc(st.id)}">
+            ${arr.length ? arr.map(x=>renderPipelineCard(x.id, x.data)).join("") : `<div class="mzj-empty" style="padding:8px 6px">لا يوجد عملاء هنا.</div>`}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    board.innerHTML = colsHtml;
+    bindPipelineDnD();
+  }
+
+  function renderPipelineCard(id, lead){
+    const d = getLeadDisplay(lead);
+    const carName = getLeadCarName(lead);
+    const payType = getLeadPayType(lead);
+    const canMove = canEditLeadStatus(lead); // نفس صلاحيات تعديل الحالة
+    const assigned = d.assignedName || "—";
+
+    return `
+      <div class="kCard" draggable="${canMove ? "true":"false"}" data-leadcard="${esc(id)}" data-openlead="${esc(id)}" role="button" tabindex="0" aria-label="فتح العميل ${esc(d.name)}">
+        <div class="kTitleRow">
+          <div class="kName kNameTxt" title="${esc(d.name)}">${esc(d.name)}</div>
+        </div>
+        <div class="kMeta">
+          <span class="kChip" title="${esc(d.phone)}">📱 ${esc(d.phone)}</span>
+          <span class="kChip" title="${esc(carName)}">🚗 ${esc(carName)}</span>
+          <span class="kChip">💳 ${esc(payType)}</span>
+          <span class="kMini" title="${esc(assigned)}">👤 ${esc(assigned)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindPipelineUI(){
+    $("#pipeSearch")?.addEventListener("input", (e)=>{ pipeState.q = e.target.value || ""; renderPipeline(); });
+    $("#pipeCar")?.addEventListener("change", (e)=>{ pipeState.car = e.target.value || ""; renderPipeline(); });
+    $("#pipePay")?.addEventListener("change", (e)=>{ pipeState.pay = e.target.value || ""; renderPipeline(); });
+    $("#pipeReset")?.addEventListener("click", ()=>{
+      pipeState.q=""; pipeState.car=""; pipeState.pay="";
+      $("#pipeSearch") && ($("#pipeSearch").value="");
+      $("#pipeCar") && ($("#pipeCar").value="");
+      $("#pipePay") && ($("#pipePay").value="");
+      renderPipeline();
+    });
+    bindPipeLeadPanelUI();
+  }
+
+  function bindPipelineDnD(){
+    const board = $("#pipelineBoard");
+    if(!board) return;
+
+    enableKanbanDragScroll(board);
+
+    // Auto horizontal scroll while dragging cards (helps moving from first to last column)
+    enableKanbanAutoScroll(board);
+    // فتح لوحة تفاصيل العميل عند الضغط على الكارت (بدون الحاجة للضغط على الاسم)
+    board.querySelectorAll("[data-openlead]").forEach(el=>{
+      const open = ()=>{
+        const id = el.dataset.openlead;
+        if(!id) return;
+        openPipeLeadPanel(id);
+      };
+      el.addEventListener("click", (e)=>{
+        // لو المستخدم ساحب (drag) ما نفتحش
+        if(board.classList.contains("is-dragging-card")) return;
+        open();
+      });
+      el.addEventListener("keydown", (e)=>{
+        if(e.key === "Enter" || e.key === " "){
+          e.preventDefault();
+          open();
+        }
+      });
+    });
+
+    // drag start
+
+    board.querySelectorAll("[data-leadcard]").forEach(card=>{
+      card.addEventListener("dragstart", (e)=>{
+        const id = card.dataset.leadcard;
+        if(card.getAttribute("draggable") !== "true"){ e.preventDefault(); return; }
+        board.classList.add("is-dragging-card");
+        e.dataTransfer.setData("text/plain", id);
+        e.dataTransfer.effectAllowed = "move";
+      });
+      card.addEventListener("dragend", ()=>{ board.classList.remove("is-dragging-card"); });
+    });
+
+    // drop zones
+    board.querySelectorAll("[data-dropstatus]").forEach(zone=>{
+      zone.addEventListener("dragover", (e)=>{
+        e.preventDefault();
+        zone.classList.add("dragOver");
+        e.dataTransfer.dropEffect = "move";
+      });
+      zone.addEventListener("dragleave", ()=> zone.classList.remove("dragOver"));
+      zone.addEventListener("drop", async (e)=>{
+        e.preventDefault();
+        zone.classList.remove("dragOver");
+
+        const leadId = e.dataTransfer.getData("text/plain");
+        if(!leadId) return;
+
+        const toStatusId = zone.dataset.dropstatus || PIPE_NONE;
+        const found = leadsCache.find(x=>x.id===leadId);
+        if(!found) return;
+
+        if(!canEditLeadStatus(found.data)){
+          toast("ليس لديك صلاحية نقل العميل", "warn");
+          return;
+        }
+
+        const newId = (toStatusId === PIPE_NONE) ? "" : toStatusId;
+        const newName = newId ? (leadStatusesMap.get(newId)?.name || "") : "";
+
+        try{
+          await updateDoc(doc(db,"leads", leadId), {
+            leadStatusId: newId,
+            leadStatusName: newName,
+            updatedAt: new Date().toISOString()
+          });
+          toast("تم تحديث الحالة");
+          // سجل النشاط
+          try{
+            await addDoc(collection(db,"leads", leadId, "activity"), {
+              type:"status",
+              title:"تغيير الحالة",
+              desc:`من: ${(found.data.leadStatusName||"بدون حالة")} → إلى: ${newName || "بدون حالة"}`,
+              createdAt: serverTimestamp(),
+              createdBy: currentUser?.uid || "",
+              createdByName: currentProfile?.name || currentUser?.email || ""
+            });
+          }catch(_e){}
+
+        }catch(err){
+          console.warn(err);
+          toast("تعذر نقل العميل", "warn");
+        }
+      });
+    });
+  }
+
+  // ===== Pipeline: لوحة تفاصيل + سجل نشاط + ملاحظة/متابعة =====
+  let currentPipeLeadId = "";
 
   
-  async function loadLeadActivity(leadId, lead){
-    const holder = $("#leadActivity");
+  function enableKanbanAutoScroll(board){
+    // scroll board left/right when pointer is near edges during drag
+    let raf = 0;
+    let lastX = null;
+
+    const step = ()=>{
+      raf = 0;
+      if(lastX === null) return;
+      const rect = board.getBoundingClientRect();
+      const edge = 80;              // px
+      const maxSpeed = 26;          // px per frame
+
+      let dx = 0;
+      if(lastX < rect.left + edge){
+        const t = (rect.left + edge - lastX) / edge; // 0..1
+        dx = -Math.min(maxSpeed, Math.ceil(maxSpeed * t));
+      }else if(lastX > rect.right - edge){
+        const t = (lastX - (rect.right - edge)) / edge;
+        dx = Math.min(maxSpeed, Math.ceil(maxSpeed * t));
+      }
+
+      if(dx){
+        board.scrollLeft += dx;
+        raf = requestAnimationFrame(step);
+      }
+    };
+
+    const onDragOver = (e)=>{
+      // only when dragging something
+      if(!board.classList.contains("is-dragging-card")) return;
+      lastX = e.clientX;
+      if(!raf) raf = requestAnimationFrame(step);
+    };
+
+    const stop = ()=>{
+      lastX = null;
+      if(raf){ cancelAnimationFrame(raf); raf = 0; }
+    };
+
+    board.addEventListener("dragover", onDragOver);
+    board.addEventListener("drop", stop);
+    board.addEventListener("dragleave", stop);
+    board.addEventListener("dragend", stop);
+  }
+
+function enableKanbanDragScroll(board){
+    if(!board || board.dataset.dragScroll==="1") return;
+    board.dataset.dragScroll = "1";
+
+    // Drag-scroll on empty space (mouse)
+    let isDown=false, startX=0, startLeft=0;
+    const down = (e)=>{
+      if(e.button !== 0) return;
+      if(e.target.closest(".kCard")) return; // لا نمنع سحب الكروت
+      isDown=true;
+      startX = e.pageX;
+      startLeft = board.scrollLeft;
+      board.classList.add("is-grabbing");
+    };
+    const move = (e)=>{
+      if(!isDown) return;
+      e.preventDefault();
+      const dx = e.pageX - startX;
+      board.scrollLeft = startLeft - dx;
+    };
+    const up = ()=>{
+      isDown=false;
+      board.classList.remove("is-grabbing");
+    };
+    board.addEventListener("mousedown", down);
+    board.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+
+    // Auto-scroll while dragging cards near edges
+    board.addEventListener("dragover", (e)=>{
+      const r = board.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const edge = 90;
+      const step = 24;
+      if(x < edge) board.scrollLeft -= step;
+      else if(x > (r.width - edge)) board.scrollLeft += step;
+    }, {passive:true});
+  }
+
+  function closePipeLeadPanel(){
+    const p = $("#pipeLeadPanel");
+    if(!p) return;
+    p.hidden = true;
+    currentPipeLeadId = "";
+  }
+
+  async function openPipeLeadPanel(leadId){
+    const p = $("#pipeLeadPanel");
+    if(!p) return;
+    const found = leadsCache.find(x=>x.id===leadId);
+    if(!found) return;
+
+    currentPipeLeadId = leadId;
+    p.hidden = false;
+
+    $("#pipeLeadTitle").textContent = `العميل: ${found.data?.name || "—"}`;
+    $("#pipeLeadSub").textContent = `سجل النشاط يظهر لمدير النظام/مدير الفرع/مدير التسويق فقط.`;
+
+    $("#pipeLeadNote").value = "";
+    $("#pipeLeadFollow").value = "";
+    $("#pipeLeadMsg").textContent = "";
+
+    await loadLeadActivityGeneric(leadId, found.data, "#pipeLeadActivity");
+  }
+
+  async function savePipeNote(){
+    const leadId = currentPipeLeadId;
+    if(!leadId) return;
+
+    const found = leadsCache.find(x=>x.id===leadId);
+    if(!found) return;
+
+    if(!canSeeAllInbox()){
+      $("#pipeLeadMsg").textContent = "غير مصرح.";
+      return;
+    }
+
+    const note = ($("#pipeLeadNote").value || "").trim();
+    const follow = ($("#pipeLeadFollow").value || "").trim(); // YYYY-MM-DD
+    if(!note && !follow){
+      $("#pipeLeadMsg").textContent = "اكتب ملاحظة أو اختر تاريخ متابعة.";
+      return;
+    }
+
+    $("#pipeLeadSave").disabled = true;
+    $("#pipeLeadMsg").textContent = "جارٍ الحفظ...";
+
+    try{
+      // سجل النشاط
+      await addDoc(collection(db,"leads", leadId, "activity"), {
+        type: "note",
+        note: note || "",
+        followUpDate: follow || "",
+        createdAt: serverTimestamp(),
+        createdBy: currentUser?.uid || "",
+        createdByName: currentProfile?.name || currentUser?.email || ""
+      });
+
+      // تحديث بيانات العميل (اختياري)
+      const upd = { updatedAt: new Date().toISOString() };
+      if(follow) upd.followUpDate = follow;
+      await updateDoc(doc(db,"leads", leadId), upd);
+
+      $("#pipeLeadMsg").textContent = "تم الحفظ.";
+      $("#pipeLeadNote").value = "";
+      $("#pipeLeadFollow").value = "";
+
+      await loadLeadActivityGeneric(leadId, found.data, "#pipeLeadActivity");
+      toast("تم حفظ الملاحظة/المتابعة");
+    }catch(err){
+      console.warn(err);
+      $("#pipeLeadMsg").textContent = "تعذر الحفظ.";
+      toast("تعذر الحفظ", "warn");
+    }finally{
+      $("#pipeLeadSave").disabled = false;
+    }
+  }
+
+  function bindPipeLeadPanelUI(){
+    $("#pipeLeadClose")?.addEventListener("click", closePipeLeadPanel);
+    $("#pipeLeadSave")?.addEventListener("click", savePipeNote);
+  }
+
+  async function loadLeadActivityGeneric(leadId, lead, holderSel){
+    const holder = (typeof holderSel === "string") ? document.querySelector(holderSel) : holderSel;
     if(!holder) return;
 
     if(!canSeeAllInbox()){
@@ -3375,64 +4109,65 @@ function refreshSettingsTables(){
     if(carName && carName !== "—") events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تحديد السيارة", desc:`السيارة: ${carName}` });
 
     const payType = getLeadPayType(lead);
-    if(payType && payType !== "—") events.push({ t: lead.updatedAt || lead.timestamp || created, title:"طريقة الدفع", desc:`${payType}` });
+    if(payType && payType !== "—") events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تحديد طريقة الدفع", desc:`الدفع: ${payType}` });
 
     if(lead.assignedTo){
-      const an = agentsMap.get(lead.assignedTo)?.name || lead.assignedTo;
-      events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تم التوزيع", desc:`المسؤول: ${an}` });
+      const a = agentsMap.get(lead.assignedTo);
+      const an = a?.name || lead.assignedTo;
+      events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تم التوزيع", desc:`تم التوزيع على: ${an}` });
     }
 
-    if(lead.stageId){
-      const sn = stagesMap.get(lead.stageId)?.name || lead.stageId;
-      events.push({ t: lead.updatedAt || lead.timestamp || created, title:"مرحلة البيع", desc:`${sn}` });
+    // حالات
+    if(lead.leadStatusName || lead.leadStatusId){
+      events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تحديث الحالة", desc:`الحالة الحالية: ${(lead.leadStatusName||"—")}` });
     }
 
-    if(lead.leadStatusId){
-      const st = leadStatusesMap.get(lead.leadStatusId)?.name || lead.leadStatusId;
-      events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تحديث الحالة", desc:`${st}` });
+    // أحداث مخصصة من Firestore (ملاحظات/متابعات..)
+    try{
+      const qy = query(collection(db,"leads", leadId, "activity"), orderBy("createdAt","desc"), limit(200));
+      const snap = await getDocs(qy);
+      snap.forEach(d=>{
+        const x = d.data() || {};
+        const when = x.createdAt || x.t || x.time || x.created || null;
+        const who = x.createdByName || x.createdBy || "";
+        const follow = x.followUpDate ? ` | متابعة: ${x.followUpDate}` : "";
+        const note = (x.note || x.desc || "").trim();
+        const title = (x.type === "note") ? "ملاحظة / متابعة" : (x.title || "حدث");
+        const desc = `${note}${follow}${who ? ` | بواسطة: ${who}` : ""}`.trim();
+        events.push({ t: when, title, desc });
+      });
+    }catch(err){
+      // ignore
     }
 
-    // WhatsApp activity (لو مربوط بمحادثة)
-    const convId = lead.convId || lead.conversationId || lead.waConversationId || "";
-    if(convId){
+    // sort desc
+    const toMs = (t)=>{
       try{
-        const msgRef = query(collection(db,"wa_conversations", convId, "messages"), orderBy("createdAt","asc"), limit(60));
-        const snap = await getDocs(msgRef);
-        snap.docs.forEach(d=>{
-          const m = d.data() || {};
-          const dir = (m.direction || m.type || "").toLowerCase();
-          const isOut = dir.includes("out") || dir.includes("sent") || m.fromMe === true;
-          const title = isOut ? "رسالة صادرة" : "رسالة واردة";
-          const text = (m.text || m.body || m.message || "").toString().trim();
-          events.push({ t: m.createdAt || m.timestamp, title, desc: text ? text.slice(0, 180) : "رسالة (بدون نص)" });
-        });
-      }catch(e){
-        console.warn("wa activity load", e);
-        events.push({ t: Date.now(), title:"واتساب", desc:"تعذر تحميل رسائل واتساب لهذا العميل." });
-      }
-    }
+        if(!t) return 0;
+        if(typeof t === "string") return +new Date(t);
+        if(typeof t?.toDate === "function") return +t.toDate();
+        return +new Date(t);
+      }catch(_){ return 0; }
+    };
+    events.sort((a,b)=> toMs(b.t)-toMs(a.t));
 
-    const sorted = events
-      .map(ev=>({ ...ev, ms: fsToMs(ev.t) || (typeof ev.t==="number"? ev.t : 0) }))
-      .sort((a,b)=> (a.ms||0) - (b.ms||0));
-
-    if(!sorted.length){
-      holder.innerHTML = `<div class="mzj-empty">لا يوجد نشاط مسجل حتى الآن.</div>`;
-      return;
-    }
-
-    holder.innerHTML = sorted.map(ev=>`
-      <div class="mzj-activityItem">
-        <div class="mzj-activityDot"></div>
-        <div class="mzj-activityContent">
-          <div class="mzj-activityTop">
-            <b>${esc(ev.title||"")}</b>
-            <span>${esc(fsToHuman(ev.t))}</span>
+    holder.innerHTML = events.length ? events.map(ev=>{
+      const time = ev.t ? fsToHuman(ev.t) : "—";
+      return `
+        <div class="activityItem">
+          <div class="activityItemTop">
+            <div>${esc(ev.title||"—")}</div>
+            <div class="activityItemTime">${esc(time)}</div>
           </div>
-          <div class="mzj-activityDesc">${esc(ev.desc||"")}</div>
+          ${ev.desc ? `<div class="activityItemDesc">${esc(ev.desc)}</div>` : ""}
         </div>
-      </div>
-    `).join("");
+      `;
+    }).join("") : `<div class="mzj-empty">لا يوجد نشاط بعد.</div>`;
+  }
+
+  async function loadLeadActivity(leadId, lead){
+    // تفاصيل العملاء المحتملون: نعرض سجل النشاط فقط
+    await loadLeadActivityGeneric(leadId, lead, "#leadActivity");
   }
 
 function applyLeadFilters(){
@@ -3510,6 +4245,7 @@ function applyLeadFilters(){
     unsubLeads = onSnapshot(qRef, (snap)=>{
       leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
       applyLeadFilters();
+      try{ renderPipeline(); }catch(e){}
       setBadgeConnected(true);
     }, async (err)=>{
       console.warn("leads snapshot error", err);
@@ -3517,6 +4253,7 @@ function applyLeadFilters(){
         const snap = await getDocs(query(collection(db,"leads"), limit(300)));
         leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
         applyLeadFilters();
+        try{ renderPipeline(); }catch(e){}
         setBadgeConnected(true);
       }catch(e){
         setBadgeConnected(false);
@@ -3585,7 +4322,7 @@ function applyLeadFilters(){
       toast("ليس لديك صلاحية التوزيع", "warn");
       return;
     }
-    const agents = Array.from(agentsMap.values()).filter(a=>a.isActive);
+    const agents = Array.from(agentsMap.values()).filter(a=>a.isActive && !["admin","branch_manager","marketing_admin"].includes(a.roleId||"") && !EXCLUDED_ASSIGN_EMAILS.includes(String(a.email||a.id||"").toLowerCase()));
     if(!agents.length){
       toast("أضف مناديب من الإعدادات أولاً", "warn");
       return;
@@ -3617,6 +4354,8 @@ function applyLeadFilters(){
 
       // re-render table labels (status column) if leads already loaded
       applyLeadFilters();
+      // refresh kanban
+      try{ renderPipeline(); }catch(e){}
     }, (err)=>{
       console.warn("lead statuses snapshot error", err);
     });
@@ -3778,6 +4517,7 @@ function applyLeadFilters(){
   bindSettingsRealtime();
   bindLeadStatusesRealtime();
   bindLeadStatusesAdminUI();
+  bindPipelineUI();
 
   // ابدأ بحالة تحقق + تايمر حماية (حتى لا يظل "جار التحقق…" للأبد)
   try{ setAuthChecking(); }catch{}
@@ -3859,4 +4599,5 @@ function applyLeadFilters(){
   </div>
 
 </body>
-</html>
+</html>  const EXCLUDED_ASSIGN_EMAILS = ["mr.ahmed_rashed@outlook.sa"];
+
