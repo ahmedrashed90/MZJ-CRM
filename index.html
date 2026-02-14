@@ -1,4 +1,5 @@
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1462,7 +1463,20 @@
                   </div>
                 </div>
 
-                <!-- Content panes -->
+                
+                <!-- Inline editor (no popups) -->
+                <div class="mzj-inlineEditor" id="settingsInlineEditor" style="display:none">
+                  <div class="mzj-inlineEditorTop">
+                    <div class="mzj-inlineEditorTitle" id="editorTitle">إضافة</div>
+                    <button class="toolBtn" id="editorCancel" type="button">إلغاء</button>
+                  </div>
+                  <div class="mzj-inlineEditorBody" id="editorFields"></div>
+                  <div class="mzj-inlineEditorActions">
+                    <button class="toolBtn primary" id="editorSave" type="button">حفظ</button>
+                  </div>
+                </div>
+
+<!-- Content panes -->
                 <div class="mzj-setPane active" id="set-branches">
                   <div class="mzj-tableWrap">
                     <table class="mzj-table">
@@ -1823,525 +1837,225 @@
       sourcesMap = new Map();
       snap.forEach(d=>{
         const v=d.data()||{};
-        sourcesMap.set(d.id, { id:d.id, name:v.name||d.id });
-      });
-      const srcItems = Array.from(sourcesMap.values()).map(s=>({value:s.id,label:s.name}));
-      fillSelect($("#fPlatform"), srcItems);
-      refreshSettingsTables();
-    });
+        sourcesMap.set(d.id, { id:d.i
+      // ===== Settings UI (tabs + CRUD inline: no popups) =====
+      let activeSettingsType = "branches";
 
-    onSnapshot(collection(db,"settings_assignment"), (snap)=>{
-      stagesMap = new Map();
-      snap.forEach(d=>{
-        const v=d.data()||{};
-        stagesMap.set(d.id, { id:d.id, name:v.name||v.label||d.id });
-      });
-      const stageItems = Array.from(stagesMap.values()).map(s=>({value:s.id,label:s.name}));
-      fillSelect($("#fStage"), stageItems);
-      fillSelect($("#leadsFilterStage"), stageItems);
-      refreshSettingsTables();
-    });
-  }
+      const editorEl = () => $("#settingsInlineEditor");
+      const editorTitleEl = () => $("#editorTitle");
+      const editorFieldsEl = () => $("#editorFields");
+      const editorSaveBtn = () => $("#editorSave");
+      const editorCancelBtn = () => $("#editorCancel");
 
-  // ===== Settings UI (tabs + CRUD via prompts) =====
-  function showSettingsPane(type){
-    activeSettingsType = type;
-    $$(".mzj-setTab").forEach(t=>t.classList.toggle("active", t.dataset.type === type));
-    $$(".mzj-setPane").forEach(p=>p.classList.toggle("active", p.id === "set-" + type));
-  }
+      let editorState = { type:null, docId:null };
 
-  function bindSettingsUI(){
-    $$(".mzj-setTab").forEach(t=>{
-      t.addEventListener("click", ()=>showSettingsPane(t.dataset.type));
-    });
-
-    $("#btnRefreshSettings")?.addEventListener("click", ()=>refreshSettingsTables());
-
-    $("#btnAddSettings")?.addEventListener("click", async ()=>{
-      if(!canSeeSettings()) return toast("ليس لديك صلاحية", "warn");
-
-      if(activeSettingsType === "branches"){
-        const id = (prompt("معرّف الفرع (branchId):") || "").trim();
-        const name = (prompt("اسم الفرع:") || "").trim();
-        const city = (prompt("المدينة (اختياري):") || "").trim();
-        if(!id || !name) return;
-        await setDoc(doc(db,"settings_branches", id), { name, city, isActive:true, updatedAt: serverTimestamp() }, { merge:true });
-        toast("تم إضافة الفرع");
+      function hideInlineEditor(){
+        const el = editorEl();
+        if(!el) return;
+        el.style.display = "none";
+        editorState = { type:null, docId:null };
+        if(editorFieldsEl()) editorFieldsEl().innerHTML = "";
       }
 
-      if(activeSettingsType === "agents"){
-        const uid = (prompt("UID (من Firebase Auth):") || "").trim();
-        const name = (prompt("اسم المستخدم:") || "").trim();
-        const roleId = (prompt("roleId (admin / marketing_admin / branch_manager / sales):") || "").trim();
-        const branchId = (prompt("branchId (اختياري):") || "").trim();
-        if(!uid || !name || !roleId) return;
-        await setDoc(doc(db,"settings_agents", uid), { uid, name, roleId, branchId, isActive:true, updatedAt: serverTimestamp() }, { merge:true });
-        toast("تم إضافة المستخدم");
+      function field(label, id, value="", placeholder="", disabled=false){
+        return `
+          <label class="mzj-field">
+            <span>${label}</span>
+            <input id="${id}" type="text" value="${escapeHtml(value||"")}" placeholder="${escapeHtml(placeholder||"")}" ${disabled?"disabled":""}/>
+          </label>`;
+      }
+      function fieldArea(label, id, value="", placeholder=""){
+        return `
+          <label class="mzj-field">
+            <span>${label}</span>
+            <textarea id="${id}" placeholder="${escapeHtml(placeholder||"")}">${escapeHtml(value||"")}</textarea>
+          </label>`;
       }
 
-      if(activeSettingsType === "stages"){
-        const id = (prompt("معرّف الحالة (stageId):") || "").trim();
-        const name = (prompt("اسم الحالة:") || "").trim();
-        if(!id || !name) return;
-        await setDoc(doc(db,"settings_assignment", id), { name, updatedAt: serverTimestamp() }, { merge:true });
-        toast("تم إضافة الحالة");
-      }
+      function showInlineEditor(type, docId=null, preset={}){
+        editorState = { type, docId };
+        const el = editorEl(); if(!el) return;
+        const isEdit = !!docId;
 
-      if(activeSettingsType === "sources"){
-        const id = (prompt("معرّف المنصة (sourceId):") || "").trim();
-        const name = (prompt("اسم المنصة:") || "").trim();
-        if(!id || !name) return;
-        await setDoc(doc(db,"settings_sources", id), { name, updatedAt: serverTimestamp() }, { merge:true });
-        toast("تم إضافة المنصة");
-      }
+        const titles = {
+          branches:"🏢 الفروع",
+          stages:"🧩 الحالات/المراحل",
+          sources:"🔗 مصادر العملاء",
+          assign:"⚡ قواعد التوزيع",
+          automation:"🤖 الأوتوميشن",
+          agents:"🧑‍💼 المناديب",
+          roles:"🔐 الصلاحيات"
+        };
+        if(editorTitleEl()) editorTitleEl().textContent = (isEdit ? "تعديل: " : "إضافة: ") + (titles[type]||type);
 
-      if(activeSettingsType === "roles"){
-        toast("الأدوار يتم تجهيزها مسبقاً (roles) — عدّلها من Firestore مباشرة إذا احتجت.", "warn");
-      }
-    });
-
-    // Delegated actions
-    $("#panel-settings")?.addEventListener("click", async (e)=>{
-      const btn = e.target.closest("button[data-act]");
-      if(!btn) return;
-      if(!canSeeSettings()) return toast("ليس لديك صلاحية", "warn");
-
-      const act = btn.dataset.act;
-      const id = btn.dataset.id;
-
-      try{
-        if(act==="branchEdit"){
-          const b = branchesMap.get(id);
-          const name = (prompt("اسم الفرع:", b?.name || "") || "").trim();
-          const city = (prompt("المدينة:", b?.city || "") || "").trim();
-          if(!name) return;
-          await setDoc(doc(db,"settings_branches", id), { name, city, updatedAt: serverTimestamp() }, { merge:true });
-          toast("تم التحديث");
+        let html = "";
+        if(type==="branches"){
+          html += field("Branch ID", "ed_id", docId || "", "مثال: riyadh", isEdit);
+          html += field("اسم الفرع", "ed_name", preset.name||"", "فرع الرياض");
+        }else if(type==="stages"){
+          html += field("Stage ID", "ed_id", docId || "", "new / contacted", isEdit);
+          html += field("اسم المرحلة", "ed_name", preset.name||"", "جديد / تم التواصل");
+          html += field("ترتيب", "ed_order", (preset.order??"")+"", "1");
+        }else if(type==="sources"){
+          html += field("Source ID", "ed_id", docId || "", "whatsapp / ads", isEdit);
+          html += field("اسم المصدر", "ed_name", preset.name||"", "واتساب / اعلان");
+        }else if(type==="assign"){
+          html += field("Rule ID", "ed_id", docId || "", "rule_riyadh", isEdit);
+          html += field("اسم القاعدة", "ed_name", preset.name||"", "توزيع فرع الرياض");
+          html += field("branchId", "ed_branchId", preset.branchId||"", "branch id");
+          html += field("agentIds (uid1,uid2)", "ed_agentIds", (preset.agentIds||[]).join(","), "uid1,uid2");
+          html += field("type", "ed_type", preset.type||"round_robin", "round_robin / fixed");
+        }else if(type==="automation"){
+          html += field("Automation ID", "ed_id", docId || "", "sla10", isEdit);
+          html += field("اسم", "ed_name", preset.name||"", "SLA 10 دقائق");
+          html += field("نوع", "ed_type", preset.type||"sla", "sla / notify / tag");
+          html += field("قيمة", "ed_value", preset.value||"", "10");
+        }else if(type==="agents"){
+          html += field("UID", "ed_id", docId || "", "Firebase Auth UID", isEdit);
+          html += field("اسم المندوب", "ed_name", preset.name||"", "محمد");
+          html += field("Email", "ed_email", preset.email||"", "user@email.com");
+          html += field("branchId", "ed_branchId", preset.branchId||"", "branch id");
+          html += field("roleId", "ed_roleId", preset.roleId||"", "admin/branch_manager/marketing/sales");
+        }else if(type==="roles"){
+          html += field("roleId", "ed_id", docId || preset.id || "", "admin", isEdit);
+          html += field("الاسم", "ed_name", preset.name||"", "مدير النظام");
+          html += fieldArea("الصلاحيات JSON", "ed_perms", JSON.stringify(preset.perms||{},null,0), "{\"settings.write\":true}");
         }
-        if(act==="branchToggle"){
-          const b = branchesMap.get(id);
-          await setDoc(doc(db,"settings_branches", id), { isActive: !(b?.isActive), updatedAt: serverTimestamp() }, { merge:true });
-          toast("تم تغيير الحالة");
-        }
-        if(act==="branchDelete"){
-          if(!confirm("حذف الفرع؟")) return;
-          await deleteDoc(doc(db,"settings_branches", id));
-          toast("تم الحذف");
-        }
+        if(editorFieldsEl()) editorFieldsEl().innerHTML = html;
 
-        if(act==="agentEdit"){
-          const a = agentsMap.get(id);
-          const name = (prompt("اسم المستخدم:", a?.name || "") || "").trim();
-          const roleId = (prompt("roleId:", a?.roleId || "") || "").trim();
-          const branchId = (prompt("branchId:", a?.branchId || "") || "").trim();
-          if(!name || !roleId) return;
-          await setDoc(doc(db,"settings_agents", id), { name, roleId, branchId, updatedAt: serverTimestamp() }, { merge:true });
-          toast("تم التحديث");
-        }
-        if(act==="agentToggle"){
-          const a = agentsMap.get(id);
-          await setDoc(doc(db,"settings_agents", id), { isActive: !(a?.isActive), updatedAt: serverTimestamp() }, { merge:true });
-          toast("تم تغيير الحالة");
-        }
-
-        if(act==="stageEdit"){
-          const s = stagesMap.get(id);
-          const name = (prompt("اسم الحالة:", s?.name || "") || "").trim();
-          if(!name) return;
-          await setDoc(doc(db,"settings_assignment", id), { name, updatedAt: serverTimestamp() }, { merge:true });
-          toast("تم التحديث");
-        }
-        if(act==="stageDelete"){
-          if(!confirm("حذف الحالة؟")) return;
-          await deleteDoc(doc(db,"settings_assignment", id));
-          toast("تم الحذف");
-        }
-
-        if(act==="sourceEdit"){
-          const s = sourcesMap.get(id);
-          const name = (prompt("اسم المنصة:", s?.name || "") || "").trim();
-          if(!name) return;
-          await setDoc(doc(db,"settings_sources", id), { name, updatedAt: serverTimestamp() }, { merge:true });
-          toast("تم التحديث");
-        }
-        if(act==="sourceDelete"){
-          if(!confirm("حذف المنصة؟")) return;
-          await deleteDoc(doc(db,"settings_sources", id));
-          toast("تم الحذف");
-        }
-      }catch(err){
-        toast("خطأ: " + (err?.message||err), "warn");
-      }
-    });
-  }
-
-  function refreshSettingsTables(){
-    if(!$("#panel-settings")?.classList.contains("active")) return;
-
-    // Branches
-    const tbB = $("#tblBranches");
-    if(tbB){
-      tbB.innerHTML = Array.from(branchesMap.values()).map(b=>`
-        <tr>
-          <td>${esc(b.name)}</td>
-          <td>${esc(b.city || "—")}</td>
-          <td>${b.isActive ? '<span class="pill ok">نشط</span>' : '<span class="pill">موقوف</span>'}</td>
-          <td>
-            <button class="miniBtn" data-act="branchEdit" data-id="${esc(b.id)}">تعديل</button>
-            <button class="miniBtn" data-act="branchToggle" data-id="${esc(b.id)}">${b.isActive ? "إيقاف" : "تفعيل"}</button>
-            <button class="miniBtn danger" data-act="branchDelete" data-id="${esc(b.id)}">حذف</button>
-          </td>
-        </tr>
-      `).join("") || `<tr><td colspan="4" class="muted">لا توجد فروع</td></tr>`;
-    }
-
-    // Agents
-    const tbA = $("#tblAgents");
-    if(tbA){
-      tbA.innerHTML = Array.from(agentsMap.values()).map(a=>`
-        <tr>
-          <td>${esc(a.name)}</td>
-          <td>${esc(rolesMap.get(a.roleId) || a.roleId || "—")}</td>
-          <td>${esc(branchesMap.get(a.branchId)?.name || "—")}</td>
-          <td>${a.isActive ? '<span class="pill ok">نشط</span>' : '<span class="pill">موقوف</span>'}</td>
-          <td>
-            <button class="miniBtn" data-act="agentEdit" data-id="${esc(a.uid)}">تعديل</button>
-            <button class="miniBtn" data-act="agentToggle" data-id="${esc(a.uid)}">${a.isActive ? "إيقاف" : "تفعيل"}</button>
-          </td>
-        </tr>
-      `).join("") || `<tr><td colspan="5" class="muted">لا يوجد مستخدمين</td></tr>`;
-    }
-
-    // Stages
-    const tbS = $("#tblStages");
-    if(tbS){
-      tbS.innerHTML = Array.from(stagesMap.values()).map(s=>`
-        <tr>
-          <td>${esc(s.name)}</td>
-          <td><code>${esc(s.id)}</code></td>
-          <td>
-            <button class="miniBtn" data-act="stageEdit" data-id="${esc(s.id)}">تعديل</button>
-            <button class="miniBtn danger" data-act="stageDelete" data-id="${esc(s.id)}">حذف</button>
-          </td>
-        </tr>
-      `).join("") || `<tr><td colspan="3" class="muted">لا توجد حالات</td></tr>`;
-    }
-
-    // Sources
-    const tbSrc = $("#tblSources");
-    if(tbSrc){
-      tbSrc.innerHTML = Array.from(sourcesMap.values()).map(s=>`
-        <tr>
-          <td>${esc(s.name)}</td>
-          <td><code>${esc(s.id)}</code></td>
-          <td>
-            <button class="miniBtn" data-act="sourceEdit" data-id="${esc(s.id)}">تعديل</button>
-            <button class="miniBtn danger" data-act="sourceDelete" data-id="${esc(s.id)}">حذف</button>
-          </td>
-        </tr>
-      `).join("") || `<tr><td colspan="3" class="muted">لا توجد منصات</td></tr>`;
-    }
-
-    // Roles (read only)
-    const tbR = $("#tblRoles");
-    if(tbR){
-      tbR.innerHTML = Array.from(rolesMap.entries()).map(([id,name])=>`
-        <tr>
-          <td>${esc(name)}</td>
-          <td><code>${esc(id)}</code></td>
-        </tr>
-      `).join("") || `<tr><td colspan="2" class="muted">لا توجد أدوار</td></tr>`;
-    }
-  }
-
-  // ===== Leads =====
-  let unsubLeads = null;
-  let leadsCache = [];
-
-  function getLeadDisplay(lead){
-    const name = lead.name && lead.name !== "-" ? lead.name : "—";
-    const phone = lead.phone || lead.phoneNormalized || "—";
-    const stage = stagesMap.get(lead.stageId)?.name || lead.stageId || "—";
-    const assignedName = lead.assignedTo ? (agentsMap.get(lead.assignedTo)?.name || lead.assignedTo) : "غير موزع";
-    return { name, phone, stage, assignedName };
-  }
-
-  function renderLeadRow(id, lead){
-    const d = getLeadDisplay(lead);
-    return `
-      <div class="row leadRow" data-id="${esc(id)}">
-        <div class="rowMain">
-          <b>${esc(d.name)}</b>
-          <span>${esc(d.phone)} • ${esc(d.stage)} • ${esc(d.assignedName)}</span>
-        </div>
-        <div class="rowMeta">
-          <span class="pill">${esc(lead.source || "—")}</span>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderLeadDetails(id, lead){
-    const d = getLeadDisplay(lead);
-    const fields = [
-      ["الاسم", d.name],
-      ["الجوال", lead.phone || "—"],
-      ["مصدر", lead.source || "—"],
-      ["المرحلة", d.stage],
-      ["المسؤول", d.assignedName],
-      ["آخر تحديث", lead.updatedAt || lead.timestamp || "—"],
-    ];
-    const extra = lead.calculator || lead.payload || null;
-
-    return `
-      <div class="detailHead">
-        <div>
-          <h3>${esc(d.name)}</h3>
-          <p>${esc(d.phone)} • ${esc(d.stage)}</p>
-        </div>
-        <div class="detailActions">
-          <button class="btn" id="btnAssignLead" type="button">توزيع</button>
-        </div>
-      </div>
-      <div class="detailBody">
-        <div class="kv">
-          ${fields.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}
-        </div>
-        ${extra ? `<pre class="jsonBox">${esc(JSON.stringify(extra, null, 2))}</pre>` : ""}
-      </div>
-    `;
-  }
-
-  function applyLeadFilters(){
-    const listEl = $("#leadsList");
-    if(!listEl) return;
-
-    const qText = ($("#leadsSearch")?.value || "").trim().toLowerCase();
-    const fb = $("#leadsFilterBranch")?.value || "";
-    const fa = $("#leadsFilterAgent")?.value || "";
-    const fs = $("#leadsFilterStage")?.value || "";
-
-    const filtered = leadsCache.filter(({id,data})=>{
-      if(fa && data.assignedTo !== fa) return false;
-      if(fs && data.stageId !== fs) return false;
-
-      if(fb){
-        const agentBranch = data.assignedTo ? (agentsMap.get(data.assignedTo)?.branchId || "") : "";
-        if(agentBranch !== fb) return false;
+        el.style.display = "block";
+        el.scrollIntoView({behavior:"smooth", block:"start"});
       }
 
-      if(qText){
-        const n = String(data.name||"").toLowerCase();
-        const p = String(data.phone||"").toLowerCase();
-        const pn = String(data.phoneNormalized||"").toLowerCase();
-        if(!n.includes(qText) && !p.includes(qText) && !pn.includes(qText)) return false;
+      async function saveInlineEditor(){
+        const {type, docId} = editorState;
+        if(!type) return;
+
+        const id = docId || $("#ed_id")?.value?.trim() || "";
+        if(!id) return toast("اكتب الـ ID", "warn");
+
+        const name = $("#ed_name")?.value?.trim() || "";
+        const now = new Date().toISOString();
+
+        if(type==="branches"){
+          if(!name) return toast("اكتب اسم الفرع", "warn");
+          await setDoc(doc(db,"settings_branches",id), {name, updatedAt: now, ...(docId?{}:{createdAt:now})}, {merge:true});
+        }else if(type==="stages"){
+          if(!name) return toast("اكتب اسم المرحلة", "warn");
+          const order = Number($("#ed_order")?.value||0);
+          await setDoc(doc(db,"settings_stages",id), {name, order, updatedAt: now, ...(docId?{}:{createdAt:now})}, {merge:true});
+        }else if(type==="sources"){
+          if(!name) return toast("اكتب اسم المصدر", "warn");
+          await setDoc(doc(db,"settings_sources",id), {name, updatedAt: now, ...(docId?{}:{createdAt:now})}, {merge:true});
+        }else if(type==="assign"){
+          if(!name) return toast("اكتب اسم القاعدة", "warn");
+          const branchId = $("#ed_branchId")?.value?.trim()||"";
+          const agentIds = ($("#ed_agentIds")?.value||"").split(",").map(s=>s.trim()).filter(Boolean);
+          const ruleType = $("#ed_type")?.value?.trim()||"round_robin";
+          await setDoc(doc(db,"settings_assignment",id), {name, branchId, agentIds, type: ruleType, updatedAt: now, ...(docId?{}:{createdAt:now})}, {merge:true});
+        }else if(type==="automation"){
+          if(!name) return toast("اكتب اسم الأوتوميشن", "warn");
+          const atype = $("#ed_type")?.value?.trim()||"sla";
+          const value = $("#ed_value")?.value?.trim()||"";
+          await setDoc(doc(db,"settings_automation",id), {name, type: atype, value, updatedAt: now, ...(docId?{}:{createdAt:now})}, {merge:true});
+        }else if(type==="agents"){
+          if(!name) return toast("اكتب اسم المندوب", "warn");
+          const email = $("#ed_email")?.value?.trim()||"";
+          const branchId = $("#ed_branchId")?.value?.trim()||"";
+          const roleId = $("#ed_roleId")?.value?.trim()||"sales";
+          await setDoc(doc(db,"settings_agents",id), {name, email, branchId, roleId, isActive:true, updatedAt: now, ...(docId?{}:{createdAt:now})}, {merge:true});
+        }else if(type==="roles"){
+          if(!name) return toast("اكتب اسم الصلاحية", "warn");
+          let perms = {};
+          try{ perms = JSON.parse($("#ed_perms")?.value||"{}"); }catch(e){ return toast("JSON غير صحيح", "warn"); }
+          await setDoc(doc(db,"settings_roles",id), {id, name, perms, updatedAt: now, ...(docId?{}:{createdAt:now})}, {merge:true});
+        }
+
+        toast("تم الحفظ","ok");
+        hideInlineEditor();
+        await loadSettings();
+        showSettingsPane(type);
       }
-      return true;
-    });
 
-    const total = leadsCache.length;
-    const unassigned = leadsCache.filter(x=>!x.data.assignedTo).length;
-
-    $("#statLeadsTotal") && ($("#statLeadsTotal").textContent = String(total));
-    $("#statLeadsUnassigned") && ($("#statLeadsUnassigned").textContent = String(unassigned));
-    $("#statLeadsActive") && ($("#statLeadsActive").textContent = String(filtered.length));
-    $("#statLeadsClosed") && ($("#statLeadsClosed").textContent = "0");
-
-    listEl.innerHTML = filtered.map(x=>renderLeadRow(x.id, x.data)).join("") ||
-      `<div class="empty">لا توجد نتائج مطابقة للفلاتر الحالية.</div>`;
-  }
-
-  async function ensureLeadsLive(){
-    if(unsubLeads) return;
-
-    const listEl = $("#leadsList");
-    const detEl = $("#leadDetails");
-    if(!listEl || !detEl) return;
-
-    const qRef = query(collection(db,"leads"), orderBy("updatedAt","desc"), limit(200));
-
-    unsubLeads = onSnapshot(qRef, (snap)=>{
-      leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
-      applyLeadFilters();
-      setBadgeConnected(true);
-    }, async (err)=>{
-      console.warn("leads snapshot error", err);
-      try{
-        const snap = await getDocs(query(collection(db,"leads"), limit(200)));
-        leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
-        applyLeadFilters();
-        setBadgeConnected(true);
-      }catch(e){
-        setBadgeConnected(false);
-        listEl.innerHTML = `<div class="empty">السبب: ${esc(err?.message || err)}</div>`;
+      const pendingDelete = new Map();
+      function armDelete(btn, key){
+        const now = Date.now();
+        const last = pendingDelete.get(key) || 0;
+        if(now - last < 6000){
+          pendingDelete.delete(key);
+          btn.textContent = "حذف";
+          return true;
+        }
+        pendingDelete.set(key, now);
+        const old = btn.textContent;
+        btn.textContent = "تأكيد الحذف";
+        setTimeout(()=>{ if(pendingDelete.get(key)===now){ pendingDelete.delete(key); btn.textContent = old; } }, 6500);
+        return false;
       }
-    });
 
-    listEl.addEventListener("click", (e)=>{
-      const row = e.target.closest(".leadRow");
-      if(!row) return;
-      const id = row.dataset.id;
-      const found = leadsCache.find(x=>x.id===id);
-      if(!found) return;
-      detEl.innerHTML = renderLeadDetails(id, found.data);
-      $("#btnAssignLead")?.addEventListener("click", ()=>openAssignPrompt(id, found.data));
-    });
-
-    ["leadsSearch","leadsFilterBranch","leadsFilterAgent","leadsFilterStage"].forEach(id=>{
-      $("#"+id)?.addEventListener("input", applyLeadFilters);
-      $("#"+id)?.addEventListener("change", applyLeadFilters);
-    });
-
-    listEl.innerHTML = `<div class="empty">جاري تحميل العملاء المحتملين من Firebase...</div>`;
-  }
-
-  function openAssignPrompt(leadId, leadData){
-    const roleId = currentProfile?.roleId || "";
-    const canAssign = canSeeSettings() || roleId === "branch_manager";
-    if(!canAssign){
-      toast("ليس لديك صلاحية التوزيع", "warn");
-      return;
-    }
-    const agents = Array.from(agentsMap.values()).filter(a=>a.isActive);
-    if(!agents.length){
-      toast("أضف مناديب من الإعدادات أولاً", "warn");
-      return;
-    }
-    const pick = prompt("اكتب UID المندوب للتوزيع:\n" + agents.map(a=>`${a.uid} — ${a.name}`).join("\n"));
-    if(!pick) return;
-    updateDoc(doc(db,"leads", leadId), { assignedTo: pick, updatedAt: new Date().toISOString() })
-      .then(()=>toast("تم التوزيع"))
-      .catch(e=>toast("خطأ: " + (e?.message||e), "warn"));
-  }
-
-  // ===== Auth UI =====
-  function bindAuthUI(){
-    $("#btnLogin")?.addEventListener("click", openAuthModal);
-    $("#authClose")?.addEventListener("click", closeAuthModal);
-    $("#authModal")?.addEventListener("click", (e)=>{ if(e.target.id==="authModal") closeAuthModal(); });
-
-    $("#authSubmit")?.addEventListener("click", async ()=>{
-      const email = ($("#authEmail")?.value || "").trim();
-      const pass = ($("#authPass")?.value || "").trim();
-      if(!email || !pass){
-        $("#authMsg").textContent = "اكتب البريد وكلمة المرور";
-        $("#authMsg").style.display = "block";
-        return;
+      function showSettingsPane(key){
+        if(!key) key = "branches";
+        activeSettingsType = key;
+        $$(".mzj-setItem").forEach(t=>t.classList.toggle("active", t.dataset.settab===key));
+        $$(".mzj-setPane").forEach(p=>p.classList.remove("active"));
+        const pane = $("#set-"+key);
+        if(pane) pane.classList.add("active");
+        hideInlineEditor();
       }
-      try{
-        await signInWithEmailAndPassword(auth, email, pass);
-        closeAuthModal();
-        toast("تم تسجيل الدخول");
-      }catch(e){
-        $("#authMsg").textContent = e?.message || String(e);
-        $("#authMsg").style.display = "block";
+
+      function bindSettingsUI(){
+        // tabs
+        $$(".mzj-setItem").forEach(btn=>{
+          btn.addEventListener("click", ()=> showSettingsPane(btn.dataset.settab));
+        });
+
+        $("#btnAddSettings")?.addEventListener("click", ()=>{
+          showInlineEditor(activeSettingsType || "branches");
+        });
+
+        $("#btnRefreshSettings")?.addEventListener("click", async ()=>{
+          await loadSettings();
+          toast("تم تحديث الإعدادات","ok");
+        });
+
+        editorCancelBtn()?.addEventListener("click", hideInlineEditor);
+        editorSaveBtn()?.addEventListener("click", saveInlineEditor);
+
+        // actions inside settings panes (no popups)
+        $("#settings")?.addEventListener("click", async (e)=>{
+          const btn = e.target.closest("button,[data-act]");
+          if(!btn) return;
+          const act = btn.dataset.act;
+
+          // edits
+          if(act==="branchEdit"){ showInlineEditor("branches", btn.dataset.id, BRANCHES[btn.dataset.id]||{}); }
+          if(act==="stageEdit"){ showInlineEditor("stages", btn.dataset.id, STAGES[btn.dataset.id]||{}); }
+          if(act==="sourceEdit"){ showInlineEditor("sources", btn.dataset.id, SOURCES[btn.dataset.id]||{}); }
+          if(act==="ruleEdit"){ showInlineEditor("assign", btn.dataset.id, RULES[btn.dataset.id]||{}); }
+          if(act==="autoEdit"){ showInlineEditor("automation", btn.dataset.id, AUTOS[btn.dataset.id]||{}); }
+          if(act==="agentEdit"){ showInlineEditor("agents", btn.dataset.id, AGENTS[btn.dataset.id]||{}); }
+          if(act==="roleEdit"){ showInlineEditor("roles", btn.dataset.id, ROLES[btn.dataset.id]||{}); }
+
+          // deletes (2-step)
+          const delMap = {
+            branchDel: ["branches","settings_branches"],
+            stageDel: ["stages","settings_stages"],
+            sourceDel:["sources","settings_sources"],
+            ruleDel:  ["assign","settings_assignment"],
+            autoDel:  ["automation","settings_automation"],
+            agentDel: ["agents","settings_agents"],
+            roleDel:  ["roles","settings_roles"]
+          };
+          if(delMap[act]){
+            const [type, col] = delMap[act];
+            const id = btn.dataset.id;
+            if(!armDelete(btn, `${type}:${id}`)) return;
+            await deleteDoc(doc(db,col,id));
+            toast("تم الحذف","ok");
+            await loadSettings();
+            showSettingsPane(type);
+          }
+        });
       }
-    });
-
-    $("#btnLogout")?.addEventListener("click", async ()=>{
-      try{
-        await signOut(auth);
-        toast("تم تسجيل الخروج");
-        showTab("inbox");
-      }catch(e){
-        toast("خطأ: "+(e?.message||e), "warn");
-      }
-    });
-  }
-
-  async function loadProfileForUser(user){
-    if(!user) return null;
-    const uid = user.uid;
-
-    let prof = null;
-    try{
-      const aSnap = await getDoc(doc(db,"settings_agents", uid));
-      if(aSnap.exists()) prof = aSnap.data();
-    }catch(e){ console.warn("settings_agents read", e); }
-
-    if(!prof){
-      try{
-        const uSnap = await getDoc(doc(db,"users", uid));
-        if(uSnap.exists()) prof = uSnap.data();
-      }catch(e){ console.warn("users read", e); }
-    }
-
-    prof = prof || {};
-    return {
-      uid,
-      email: user.email || prof.email || "",
-      name: prof.name || user.displayName || (user.email ? user.email.split("@")[0] : "مستخدم"),
-      roleId: prof.roleId || "sales",
-      branchId: prof.branchId || "",
-      isActive: prof.isActive !== false
-    };
-  }
-
-  // ===== Boot =====
-  bindTabs();
-  bindAuthUI();
-  bindSettingsUI();
-  bindSettingsRealtime();
-  showSettingsPane("branches");
-  showTab("inbox");
-
-  onAuthStateChanged(auth, async (user)=>{
-    currentUser = user;
-    if(!user){
-      currentProfile = null;
-      setAuthHeader(null);
-      applyRoleGuards();
-      setBadgeConnected(false);
-      return;
-    }
-
-    currentProfile = await loadProfileForUser(user);
-    setAuthHeader(currentProfile);
-    applyRoleGuards();
-    setBadgeConnected(true);
-
-    // Create minimal profile doc for the real logged-in user (not demo)
-    try{
-      const ref = doc(db,"settings_agents", user.uid);
-      const snap = await getDoc(ref);
-      if(!snap.exists()){
-        await setDoc(ref, {
-          uid: user.uid,
-          email: user.email || "",
-          name: currentProfile.name,
-          roleId: currentProfile.roleId,
-          branchId: currentProfile.branchId || "",
-          isActive: true,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        }, { merge:true });
-      }
-    }catch(e){
-      console.warn("ensure agent doc", e);
-    }
-  });
-</script>
 
 
-
-  <!-- Settings CRUD Modal -->
-  <div class="mzjModalOverlay" id="setModal">
-    <div class="mzjModal" role="dialog" aria-modal="true" aria-label="إدارة الإعدادات">
-      <div class="mzjModalHead">
-        <b id="setModalTitle">إضافة</b>
-        <button class="closeX" id="setModalClose">✕</button>
-      </div>
-      <div class="mzjModalBody">
-        <form id="setForm" class="mzjForm">
-          <!-- Dynamic fields -->
-        </form>
-      </div>
-      <div class="mzjModalActions">
-        <button class="mzj-miniBtn" id="setModalCancel" type="button">إلغاء</button>
-        <button class="mzj-miniBtn primary" id="setModalSave" type="button">حفظ</button>
-      </div>
-    </div>
-  </div>
-
-</body>
-</html>
