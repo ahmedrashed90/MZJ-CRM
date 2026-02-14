@@ -495,27 +495,37 @@
       overflow:auto;
       flex:1 1 auto;
       background: linear-gradient(180deg, rgba(43,26,23,.02), transparent);
+      direction:ltr; /* force visual left/right */
     }
-    .msgRow{ display:flex; margin:10px 0; }
+    .msgRow{ display:flex; margin:5px 0; }
     .msg{
-      max-width: 78%;
-      padding:10px 12px;
-      border-radius:16px;
+      max-width: 35%;
+      padding:6px 8px;
+      border-radius:12px;
       border:1px solid var(--line);
       background:#fff;
-      box-shadow: 0 10px 20px rgba(0,0,0,.04);
+      box-shadow: 0 6px 14px rgba(0,0,0,.035);
       white-space:pre-wrap;
       word-break:break-word;
+      line-height:1.45;
+      font-size:12px;
+      direction:rtl; /* keep Arabic text direction */
     }
-    .msg small{ display:block; margin-top:6px; color:var(--muted); font-size:11.5px; }
-    .in  { justify-content:flex-end; }
-    .out { justify-content:flex-start; }
-    .out .msg{
+    .msg small{ display:block; margin-top:3px; color:var(--muted); font-size:9px; }
+    /* Customer (incoming) LEFT | CRM (outgoing) RIGHT */
+    .msgRow.in  { justify-content:flex-start; }
+    .msgRow.out { justify-content:flex-end; }
+    .msgRow.out .msg{
       background: rgba(192,122,74,.10);
       border-color: rgba(192,122,74,.22);
     }
 
-    .chatComposer{
+    
+    /* Bubble sizing tweaks (mobile readability) */
+    @media (max-width: 520px){
+      .msg{ max-width: 78%; }
+    }
+.chatComposer{
       border-top:1px solid var(--line);
       padding:12px;
       display:flex;
@@ -1262,7 +1272,15 @@
                 </div>
 
                   <div class="chatComposer">
-                    <textarea id="composer" placeholder="اكتب ردك هنا… (سيتم الإرسال حسب المنصة)"></textarea>
+                    <select id="templateSelect" class="miniSelect" style="width:170px;flex:0 0 auto">
+                      <option value="">القوالب</option>
+                      <option value="welcome">قالب رسالة ترحيبية</option>
+                      <option value="replied">قالب رسالة تم الرد</option>
+                      <option value="no_reply">قالب رسالة لم يتم الرد</option>
+                      <option value="approved">قالب نتيجة الموافقة</option>
+                      <option value="rejected">قالب نتيجة عدم الموافقة</option>
+                    </select>
+                    <textarea id="composer" placeholder="اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)"></textarea>
                     <button class="toolBtn primary" id="btnSend">إرسال</button>
                   </div>
                 </div>
@@ -2663,6 +2681,44 @@ function refreshSettingsTables(){
         if(btn){ btn.disabled = false; btn.textContent = "إرسال"; }
       }
     }
+
+
+    // templates (quick replies) - local only (Firestore version later)
+    const QUICK_TEMPLATES = {
+      welcome: `مرحباً بك في مجموعة محمد ذعار العجمي للسيارات
+تم استلام طلبك بنجاح`,
+      replied: `تم استلام طلبك بخصوص :
+السيارة:
+العمر:
+البنك:
+الراتب:
+الالتزام:
+وجاري العمل على الطلب`,
+      no_reply: `تم التواصل معك بخصوص طلبك المقدم ونرجو الإفادة بالتالي:
+نوع السيارة:
+العمر:
+جهة تمويل الراتب:
+الراتب:
+هل يوجد إلتزام؟ وكم ان وجد؟:`,
+      approved: `تمت الموافقة على طلبك.`,
+      rejected: `تعذر رفع الطلب الى جهة التمويل`
+    };
+
+    $("#templateSelect")?.addEventListener("change", (e)=>{
+      const key = e.target?.value || "";
+      if(!key) return;
+      const tpl = QUICK_TEMPLATES[key] || "";
+      const ta = $("#composer");
+      if(ta){
+        ta.value = tpl;
+        // trigger auto-grow
+        ta.dispatchEvent(new Event("input", { bubbles:true }));
+        ta.focus();
+        // move cursor to end
+        try{ ta.setSelectionRange(ta.value.length, ta.value.length); }catch{}
+      }
+      e.target.value = "";
+    });
 
     // send button
     $("#btnSend")?.addEventListener("click", ()=>{
