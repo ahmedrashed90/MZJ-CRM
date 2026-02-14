@@ -5,6 +5,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -2950,7 +2951,7 @@ function refreshSettingsTables(){
     const filtered = inboxCache.filter(({id,data})=>{
       // Role guard: agents only see assigned chats
       if(currentUser && !canSeeAllInbox()){
-        if((data?.assignedTo || "") !== currentUser.uid) return false;
+        if((data?.assigneeTo || data?.assignedTo || "") !== currentUser.uid) return false;
       }
       const c = data || {};
       // channel filter
@@ -3100,7 +3101,7 @@ function refreshSettingsTables(){
     const updates = [];
     for(const x of inboxCache){
       const c = x.data || {};
-      if(c.assignedTo) continue;
+      if(c.assigneeTo || c.assignedTo) continue;
       // don't re-process same conv within this session
       if(_autoAssignSeen.has(x.id)) continue;
       _autoAssignSeen.add(x.id);
@@ -3110,6 +3111,7 @@ function refreshSettingsTables(){
       if(!pickId) continue;
 
       updates.push(updateDoc(doc(db,"wa_conversations", x.id), {
+        assigneeTo: pickId,
         assignedTo: pickId,
         assignedAt: new Date().toISOString(),
         assignedBy: "auto",
@@ -3151,7 +3153,7 @@ function refreshSettingsTables(){
       convQ = query(baseCol, orderBy("lastMessageAt","desc"), limit(200));
     }else{
       // Agents see only their assigned conversations
-      convQ = query(baseCol, where("assignedTo","==", currentUser.uid), orderBy("lastMessageAt","desc"), limit(200));
+      convQ = query(baseCol, where("assigneeTo","==", currentUser.uid), orderBy("lastMessageAt","desc"), limit(200));
     }
 
     listEl.innerHTML = `<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل المحادثات…</div>`;
@@ -3222,7 +3224,7 @@ function refreshSettingsTables(){
         const leadRef = doc(collection(db,"leads"));
         const leadId = leadRef.id;
 
-        const assignedTo = conv.assignedTo || currentUser?.uid || "";
+        const assignedTo = conv.assigneeTo || conv.assignedTo || currentUser?.uid || "";
         const source = channelToSourceLabel(conv.channel);
 
         // choose first stage as default (if available)
