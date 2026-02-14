@@ -4,6 +4,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -18,6 +19,8 @@
     :root{
       --b:#2B1A17;        /* dark brown */
       --a:#C07A4A;        /* bronze */
+      --brown:var(--b);
+      --bronze:var(--a);
       --bg:#F7F5F2;       /* light background */
       --card:#FFFFFF;
       --text:#1C1C1C;
@@ -1635,7 +1638,7 @@
             <p id="pageDesc">تاب واحد للرد على كل الرسائل والتعليقات — مع تسجيل كل تفاعل وإشعارات فورية.</p>
           </div>
 
-          <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-start">
+          <div id="inboxHeaderTools" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-start">
             <button class="toolBtn primary" id="btnOpenUnassigned">غير موزعة</button>
             <button class="toolBtn" id="btnMarkAllRead">تصفير غير المقروء</button>
           </div>
@@ -1889,6 +1892,10 @@
                       <div class="field">
                         <label>تاريخ المتابعة</label>
                         <input id="pipeLeadFollow" type="date" />
+                      </div>
+                      <div class="field">
+                        <label>اسم السيارة</label>
+                        <input id="pipeLeadCarName" type="text" placeholder="اكتب اسم السيارة..." />
                       </div>
                       <div class="kLeadPanelActions">
                         <button class="btnPrimary" id="pipeLeadSave" type="button">حفظ</button>
@@ -2348,6 +2355,31 @@
   function showTab(tabId){
     $$(".navItem").forEach(n=>n.classList.toggle("active", n.dataset.tab === tabId));
     $$(".panel").forEach(p=>p.classList.toggle("active", p.id === "panel-" + tabId));
+
+    // تحديث عنوان/وصف الصفحة حسب التاب (علشان مايفضلش صندوق الوارد ظاهر)
+    const tabMeta = {
+      inbox:     { title:"صندوق الوارد",       desc:"تاب واحد للرد على كل الرسائل والتعليقات — مع تسجيل كل تفاعل وإشعارات فورية." },
+      leads:     { title:"العملاء المحتملون",   desc:"استعراض وفرز العملاء المحتملين وتحديث بياناتهم بسرعة." },
+      pipeline:  { title:"مراحل البيع",        desc:"كانبان لمتابعة مراحل البيع — اضغط على عميل لعرض التفاصيل والتحديث." },
+      tasks:     { title:"المتابعات",          desc:"مهام اليوم والتأخير — راقب المتابعة القادمة لكل عميل." },
+      retarget:  { title:"إعادة الاستهداف",    desc:"قوائم وحملات — تجهيز الجمهور والمتابعات." },
+      automation:{ title:"الأوتوميشن",         desc:"قواعد وتنبيهات وتشغيل/إيقاف الأتمتة." },
+      settings:  { title:"الإعدادات",          desc:"فروع + مناديب + صلاحيات." }
+    };
+    const meta = tabMeta[tabId] || {title:"", desc:""};
+    const tEl = $("#pageTitle");
+    const dEl = $("#pageDesc");
+    const chip = $("#activeTabChip");
+    if(tEl) tEl.textContent = meta.title || "";
+    if(chip) chip.textContent = meta.title || "";
+    if(dEl){
+      dEl.textContent = meta.desc || "";
+      dEl.style.display = meta.desc ? "" : "none";
+    }
+
+    // Inbox-only header tools (prevent appearing in other tabs)
+    const ih = $("#inboxHeaderTools");
+    if(ih) ih.style.display = (tabId === "inbox") ? "flex" : "none";
 
     if(tabId === "inbox") ensureInboxLive();
     if(tabId === "leads") ensureLeadsLive();
@@ -3207,6 +3239,8 @@ function refreshSettingsTables(){
           assignedTo: assignedTo,
           branchId: branchId,
           convId: activeConvId,
+          leadStatusId: getDefaultLeadStatus().id,
+          leadStatusName: getDefaultLeadStatus().name,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
@@ -3444,7 +3478,7 @@ function refreshSettingsTables(){
     const phone = lead.phone || lead.phoneNormalized || "—";
     const stage = stagesMap.get(lead.stageId)?.name || lead.stageId || "—";
     const assignedName = lead.assignedTo ? (agentsMap.get(lead.assignedTo)?.name || lead.assignedTo) : "غير موزع";
-    const statusName = lead.leadStatusId ? (leadStatusesMap.get(lead.leadStatusId)?.name || "—") : (lead.leadStatusName || "—");
+    const statusName = getEffectiveLeadStatusName(lead);
     return { name, phone, stage, assignedName, statusName };
   }
 
@@ -3690,6 +3724,25 @@ function refreshSettingsTables(){
   // ===== Pipeline (Kanban) — نفس حالات العملاء =====
   const PIPE_NONE = "__none__";
   const pipeState = { q:"", car:"", pay:"" };
+  function getDefaultLeadStatus(){
+    const act = Array.from(leadStatusesMap.values()).filter(s=>s.isActive !== false);
+    // prefer status named "جديد"
+    const byName = act.find(s=>String(s.name||"").trim() === "جديد");
+    return byName || act[0] || { id:"__default_new__", name:"جديد", isActive:true };
+  }
+  function getEffectiveLeadStatusId(lead){
+    const sid = String(lead?.leadStatusId || "").trim();
+    if(sid) return sid;
+    const d = getDefaultLeadStatus();
+    return d.id || ""; // if no statuses configured, keep empty id but display name "جديد"
+  }
+  function getEffectiveLeadStatusName(lead){
+    const sid = String(lead?.leadStatusId || "").trim();
+    if(sid) return (leadStatusesMap.get(sid)?.name || lead?.leadStatusName || "—");
+    const d = getDefaultLeadStatus();
+    return d.name || "جديد";
+  }
+
 
   function refreshPipelineCarFilter(){
     const carSel = $("#pipeCar");
@@ -3712,10 +3765,10 @@ function refreshSettingsTables(){
   }
 
   function getPipelineStatuses(){
-    // الأعمدة: (بدون حالة) + الحالات النشطة بالترتيب الأبجدي العربي
+    // الأعمدة: الحالات النشطة بالترتيب الأبجدي العربي (بدون "بدون حالة")
     const act = Array.from(leadStatusesMap.values()).filter(s=>s.isActive !== false);
     act.sort((a,b)=> String(a.name).localeCompare(String(b.name),"ar"));
-    return [{id:PIPE_NONE, name:"بدون حالة"}].concat(act);
+    return act.length ? act : [getDefaultLeadStatus()];
   }
 
   function filterPipelineLeads(){
@@ -3762,7 +3815,7 @@ function refreshSettingsTables(){
     const groups = new Map();
     statuses.forEach(s=>groups.set(s.id, []));
     list.forEach(x=>{
-      const sid = (x.data.leadStatusId || "").trim() || PIPE_NONE;
+      const sid = getEffectiveLeadStatusId(x.data);
       if(!groups.has(sid)) groups.set(sid, []);
       groups.get(sid).push(x);
     });
@@ -3880,7 +3933,7 @@ function refreshSettingsTables(){
         const leadId = e.dataTransfer.getData("text/plain");
         if(!leadId) return;
 
-        const toStatusId = zone.dataset.dropstatus || PIPE_NONE;
+        const toStatusId = zone.dataset.dropstatus || getDefaultLeadStatus().id;
         const found = leadsCache.find(x=>x.id===leadId);
         if(!found) return;
 
@@ -3889,7 +3942,7 @@ function refreshSettingsTables(){
           return;
         }
 
-        const newId = (toStatusId === PIPE_NONE) ? "" : toStatusId;
+        const newId = String(toStatusId || "").trim();
         const newName = newId ? (leadStatusesMap.get(newId)?.name || "") : "";
 
         try{
@@ -3904,7 +3957,7 @@ function refreshSettingsTables(){
             await addDoc(collection(db,"leads", leadId, "activity"), {
               type:"status",
               title:"تغيير الحالة",
-              desc:`من: ${(found.data.leadStatusName||"بدون حالة")} → إلى: ${newName || "بدون حالة"}`,
+              desc:`من: ${getEffectiveLeadStatusName(found.data)} → إلى: ${newName || getDefaultLeadStatus().name}`,
               createdAt: serverTimestamp(),
               createdBy: currentUser?.uid || "",
               createdByName: currentProfile?.name || currentUser?.email || ""
@@ -4027,7 +4080,8 @@ function enableKanbanDragScroll(board){
     $("#pipeLeadSub").textContent = `سجل النشاط يظهر لمدير النظام/مدير الفرع/مدير التسويق فقط.`;
 
     $("#pipeLeadNote").value = "";
-    $("#pipeLeadFollow").value = "";
+    $("#pipeLeadFollow").value = (found.data?.followUpDate || "").slice(0,10);
+    $("#pipeLeadCarName").value = (found.data?.carName || found.data?.calculator?.carName || found.data?.payload?.carName || found.data?.calculator?.car || found.data?.payload?.car || "");
     $("#pipeLeadMsg").textContent = "";
 
     await loadLeadActivityGeneric(leadId, found.data, "#pipeLeadActivity");
@@ -4047,8 +4101,9 @@ function enableKanbanDragScroll(board){
 
     const note = ($("#pipeLeadNote").value || "").trim();
     const follow = ($("#pipeLeadFollow").value || "").trim(); // YYYY-MM-DD
-    if(!note && !follow){
-      $("#pipeLeadMsg").textContent = "اكتب ملاحظة أو اختر تاريخ متابعة.";
+    const carName = ($("#pipeLeadCarName").value || "").trim();
+    if(!note && !follow && !carName){
+      $("#pipeLeadMsg").textContent = "اكتب ملاحظة أو اختر تاريخ متابعة أو اكتب اسم السيارة.";
       return;
     }
 
@@ -4069,6 +4124,8 @@ function enableKanbanDragScroll(board){
       // تحديث بيانات العميل (اختياري)
       const upd = { updatedAt: new Date().toISOString() };
       if(follow) upd.followUpDate = follow;
+      // حفظ اسم السيارة (يظهر في جدول العملاء المحتملون)
+      upd.carName = carName;
       await updateDoc(doc(db,"leads", leadId), upd);
 
       $("#pipeLeadMsg").textContent = "تم الحفظ.";
@@ -4287,13 +4344,14 @@ function applyLeadFilters(){
 
       $("#btnSaveLeadStatus")?.addEventListener("click", async ()=>{
         const sel = $("#leadStatusSelect");
-        const statusId = sel?.value || "";
+        const rawStatusId = sel?.value || "";
+        const statusId = rawStatusId ? rawStatusId : getDefaultLeadStatus().id;
         if(!canEditLeadStatus(found.data)){
           toast("ليس لديك صلاحية تعديل الحالة", "warn");
           return;
         }
         try{
-          const statusName = statusId ? (leadStatusesMap.get(statusId)?.name || "") : "";
+          const statusName = getEffectiveLeadStatusName({ leadStatusId: statusId });
           await updateDoc(doc(db,"leads", id), {
             leadStatusId: statusId,
             leadStatusName: statusName,
