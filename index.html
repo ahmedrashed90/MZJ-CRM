@@ -1,5 +1,6 @@
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -507,8 +508,8 @@
       word-break:break-word;
     }
     .msg small{ display:block; margin-top:6px; color:var(--muted); font-size:11.5px; }
-    .in  { justify-content:flex-start; }
-    .out { justify-content:flex-end; }
+    .in  { justify-content:flex-end; }
+    .out { justify-content:flex-start; }
     .out .msg{
       background: rgba(192,122,74,.10);
       border-color: rgba(192,122,74,.22);
@@ -1681,7 +1682,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+  import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit, getDocs, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
   import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
   // ===== Firebase Config =====
@@ -1775,6 +1776,7 @@
     $$(".navItem").forEach(n=>n.classList.toggle("active", n.dataset.tab === tabId));
     $$(".panel").forEach(p=>p.classList.toggle("active", p.id === "panel-" + tabId));
 
+    if(tabId === "inbox") ensureInboxLive();
     if(tabId === "leads") ensureLeadsLive();
     if(tabId === "settings") refreshSettingsTables();
   }
@@ -2260,6 +2262,431 @@ function refreshSettingsTables(){
 
 }
 
+
+  // ===== Inbox (WhatsApp via wa_conversations) =====
+  let unsubInbox = null;
+  let unsubMsgs = null;
+  let inboxCache = []; // [{id,data}]
+  let activeConvId = null;
+
+  function fsToMs(v){
+    if(!v) return 0;
+    // Firestore Timestamp (from SDK)
+    if(typeof v.toDate === "function") return v.toDate().getTime();
+    // ISO string
+    if(typeof v === "string") {
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+    // number
+    if(typeof v === "number") return v;
+    return 0;
+  }
+
+  function fmtTime(ms){
+    if(!ms) return "—";
+    const d = new Date(ms);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    if(sameDay){
+      return d.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+    }
+    return d.toLocaleDateString("ar-SA", { day:"2-digit", month:"2-digit" });
+  }
+
+  function convChannelPill(ch){
+    // stored channel = "whatsapp" for now
+    if(ch === "whatsapp" || ch === "wa") return `<span class="pill wa">واتساب</span>`;
+    if(ch === "instagram" || ch === "ig") return `<span class="pill ig">انستجرام</span>`;
+    if(ch === "facebook" || ch === "fb") return `<span class="pill fb">فيسبوك</span>`;
+    return `<span class="pill">قناة</span>`;
+  }
+
+  function renderConvItem(id, c){
+    const name = c.displayName || c.waId || "—";
+    const last = c.lastMessageText || "";
+    const tms = fsToMs(c.lastMessageAt);
+    const u = Number(c.unreadCount || 0);
+    const isActive = (id === activeConvId);
+
+    return `
+      <div class="conv ${isActive ? "active" : ""}" data-id="${esc(id)}">
+        <div class="convMain">
+          <div class="avatar" style="width:40px;height:40px;border-radius:16px;flex:0 0 auto">
+            ${(name.trim()[0] || "؟").toUpperCase()}
+          </div>
+          <div class="convText" style="min-width:0">
+            <b title="${esc(name)}">${esc(name)}</b>
+            <p title="${esc(last)}">${esc(last)}</p>
+            ${convChannelPill(c.channel)}
+          </div>
+        </div>
+        <div class="convMeta">
+          <div class="time">${esc(fmtTime(tms))}</div>
+          ${u > 0 ? `<div class="uBadge">${u}</div>` : ``}
+        </div>
+      </div>
+    `;
+  }
+
+  function applyInboxFilters(){
+    const listEl = $("#convList");
+    if(!listEl) return;
+
+    const qText = ($("#fSearch")?.value || "").trim().toLowerCase();
+    const fChannel = ($("#fChannel")?.value || "").trim(); // wa/ig/fb
+    const fStatus = ($("#fStatus")?.value || "").trim();
+    const fBranch = ($("#fBranch")?.value || "").trim();
+
+    const filtered = inboxCache.filter(({id,data})=>{
+      const c = data || {};
+      // channel filter
+      if(fChannel){
+        const ch = (c.channel || "").toLowerCase();
+        if(fChannel === "wa" && ch !== "whatsapp" && ch !== "wa") return false;
+        if(fChannel === "ig" && ch !== "instagram" && ch !== "ig") return false;
+        if(fChannel === "fb" && ch !== "facebook" && ch !== "fb") return false;
+      }
+      // status filter (UI: مفتوحة/مؤجلة/مغلقة)
+      if(fStatus){
+        const s = (c.status || "open");
+        const map = { "مفتوحة":"open", "مؤجلة":"snoozed", "مغلقة":"closed" };
+        if(map[fStatus] && s !== map[fStatus]) return false;
+      }
+      // branch filter (optional field)
+      if(fBranch && (c.branchId || "") !== fBranch) return false;
+
+      if(qText){
+        const name = String(c.displayName || "").toLowerCase();
+        const waId = String(c.waId || "").toLowerCase();
+        const last = String(c.lastMessageText || "").toLowerCase();
+        if(!name.includes(qText) && !waId.includes(qText) && !last.includes(qText)) return false;
+      }
+      return true;
+    });
+
+    // render
+    if(!filtered.length){
+      listEl.innerHTML = `
+        <div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+          لا توجد محادثات مطابقة للفلاتر الحالية.
+        </div>
+      `;
+    }else{
+      listEl.innerHTML = filtered.map(x=>renderConvItem(x.id, x.data)).join("");
+    }
+
+    // nav unread + bell
+    const totalUnread = inboxCache.reduce((sum,x)=> sum + Number(x.data?.unreadCount||0), 0);
+    $("#navUnread") && ($("#navUnread").textContent = String(totalUnread || 0));
+    $("#bellCount") && ($("#bellCount").textContent = String(totalUnread || 0));
+  }
+
+  function setChatHeader(conv){
+    const name = conv?.displayName || conv?.waId || "—";
+    $("#chatName") && ($("#chatName").textContent = name);
+    $("#chatMeta") && ($("#chatMeta").textContent = conv?.waId ? `WhatsApp • ${conv.waId}` : "—");
+  }
+
+  function renderMessages(msgs){
+    const body = $("#chatBody");
+    if(!body) return;
+
+    if(!activeConvId){
+      body.innerHTML = `
+        <div style="padding:12px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+          اختر محادثة من القائمة لعرض الرسائل.
+        </div>
+      `;
+      return;
+    }
+
+    if(!msgs.length){
+      body.innerHTML = `
+        <div style="padding:12px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+          لا توجد رسائل بعد.
+        </div>
+      `;
+      return;
+    }
+
+    body.innerHTML = msgs.map(m=>{
+      const d = m.data || {};
+      const dir = (d.direction === "out") ? "out" : "in";
+      const text = d.text || "";
+      const tms = fsToMs(d.sentAt) || fsToMs(d.receivedAt);
+      return `
+        <div class="msgRow ${dir}">
+          <div class="msg">
+            ${esc(text)}
+            <small>${esc(fmtTime(tms))}</small>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    // autoscroll
+    requestAnimationFrame(()=>{
+      body.scrollTop = body.scrollHeight + 9999;
+    });
+  }
+
+  async function openConversation(convId){
+    activeConvId = convId;
+
+    // highlight list immediately
+    applyInboxFilters();
+
+    const convObj = inboxCache.find(x=>x.id===convId)?.data || null;
+    setChatHeader(convObj);
+
+    // mark read if needed
+    if(convObj && Number(convObj.unreadCount || 0) > 0){
+      try{
+        await updateDoc(doc(db,"wa_conversations", convId), {
+          unreadCount: 0,
+          updatedAt: new Date().toISOString()
+        });
+      }catch(e){
+        console.warn("mark read failed", e);
+      }
+    }
+
+    // messages listener
+    if(unsubMsgs) { try{unsubMsgs();}catch{} unsubMsgs=null; }
+
+    const msgsQ = query(
+      collection(db,"wa_conversations", convId, "messages"),
+      orderBy("sentAt","asc"),
+      limit(400)
+    );
+
+    const body = $("#chatBody");
+    if(body){
+      body.innerHTML = `<div style="padding:12px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل الرسائل…</div>`;
+    }
+
+    unsubMsgs = onSnapshot(msgsQ, (snap)=>{
+      const msgs = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+      renderMessages(msgs);
+      setBadgeConnected(true);
+    }, (err)=>{
+      console.warn("messages snapshot error", err);
+      setBadgeConnected(false);
+      if(body){
+        body.innerHTML = `<div style="padding:12px;color:#9b0000;font-weight:800;line-height:1.8">تعذر تحميل الرسائل: ${esc(err?.message||err)}</div>`;
+      }
+    });
+  }
+
+  function ensureInboxLive(){
+    if(unsubInbox) return;
+
+    const listEl = $("#convList");
+    if(!listEl) return;
+
+    if(!currentUser){
+      listEl.innerHTML = `
+        <div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+          سجّل الدخول لعرض صندوق الوارد.
+        </div>
+      `;
+      return;
+    }
+
+    const convQ = query(
+      collection(db,"wa_conversations"),
+      orderBy("lastMessageAt","desc"),
+      limit(200)
+    );
+
+    listEl.innerHTML = `<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل المحادثات…</div>`;
+
+    unsubInbox = onSnapshot(convQ, (snap)=>{
+      inboxCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+      applyInboxFilters();
+      setBadgeConnected(true);
+
+      // auto-open first conversation if none selected
+      if(!activeConvId && inboxCache.length){
+        openConversation(inboxCache[0].id);
+      }
+    }, (err)=>{
+      console.warn("inbox snapshot error", err);
+      setBadgeConnected(false);
+      listEl.innerHTML = `
+        <div style="padding:16px;color:#9b0000;font-weight:800;line-height:1.8">
+          تعذر تحميل المحادثات: ${esc(err?.message||err)}
+        </div>
+      `;
+    });
+
+    // click handler (delegate)
+    listEl.addEventListener("click", (e)=>{
+      const item = e.target.closest(".conv");
+      if(!item) return;
+      const id = item.dataset.id;
+      if(!id) return;
+      openConversation(id);
+    });
+
+    // filters
+    ["fSearch"].forEach(id=>{
+      $("#"+id)?.addEventListener("input", applyInboxFilters);
+    });
+    ["fBranch","fChannel","fStatus"].forEach(id=>{
+      $("#"+id)?.addEventListener("change", applyInboxFilters);
+    });
+
+    // mark all read
+    $("#btnMarkAllRead")?.addEventListener("click", async ()=>{
+      try{
+        const batch = writeBatch(db);
+        let n = 0;
+        inboxCache.forEach(x=>{
+          const u = Number(x.data?.unreadCount || 0);
+          if(u > 0){
+            batch.update(doc(db,"wa_conversations", x.id), { unreadCount: 0, updatedAt: new Date().toISOString() });
+            n++;
+          }
+        });
+        if(n){
+          await batch.commit();
+          toast("تم تصفير غير المقروء");
+        }else{
+          toast("لا يوجد غير مقروء");
+        }
+      }catch(e){
+        console.warn(e);
+        toast("تعذر التصفير: " + (e?.message||e), "warn");
+      }
+    });
+
+    // ===== Outbound send (Inbox only) =====
+    // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال (لو عندك Worker إرسال منفصل)
+    // مثال: https://YOUR-SEND-WORKER.workers.dev/send
+    const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://send.next-erp-mzj.workers.dev"; // ضع رابط Worker الإرسال هنا أو عبر window.MERSAL_SEND_ENDPOINT 
+
+    async function sendOutboundMessage(text){
+      const composer = $("#composer");
+      const btn = $("#btnSend");
+      const clean = (text || "").trim();
+      if(!clean) return;
+
+      if(!activeConvId){
+        toast("اختر محادثة أولاً", "warn");
+        return;
+      }
+
+      // اقرأ بيانات المحادثة لمعرفة رقم العميل
+      const convRef = doc(db, "wa_conversations", activeConvId);
+      const convSnap = await getDoc(convRef);
+      if(!convSnap.exists()){
+        toast("المحادثة غير موجودة", "err");
+        return;
+      }
+      const conv = convSnap.data();
+      const waId = conv.waId;
+      if(!waId){
+        toast("رقم العميل غير موجود", "err");
+        return;
+      }
+
+      // اكتب الرسالة في Firestore فوراً (Optimistic UI)
+      const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
+      const localMsgId = msgRef.id;
+
+      await setDoc(msgRef, {
+        direction: "out",
+        type: "text",
+        text: clean,
+        from: "crm",
+        to: `wa:${waId}`,
+        provider: "mersal",
+        providerMessageId: "",
+        sentAt: serverTimestamp(),
+        receivedAt: serverTimestamp(),
+        status: "pending"
+      });
+
+      await updateDoc(convRef, {
+        lastMessageText: clean.slice(0, 280),
+        lastMessageAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // clear UI
+      if(composer) composer.value = "";
+      if(composer){ composer.style.height="auto"; composer.style.height = Math.min(composer.scrollHeight, 130) + "px"; }
+      if(btn){ btn.disabled = true; btn.textContent = "جارٍ الإرسال..."; }
+
+      // إرسال فعلي عبر Worker (إن وُجد)
+      if(!MERSAL_SEND_ENDPOINT){
+        // رجّع الزرار وخلّي الرسالة Pending لحد ما تربط الإرسال
+        if(btn){ btn.disabled = false; btn.textContent = "إرسال"; }
+        toast("حدد رابط إرسال مرسال داخل المتغير MERSAL_SEND_ENDPOINT", "warn");
+        return;
+      }
+
+      try{
+        const resp = await fetch(MERSAL_SEND_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({
+            phone: waId,
+            message: clean,
+            ref_doctype: "",
+            ref_name: "",
+            agent: (window.__currentUserName || window.currentUserName || (auth?.currentUser?.displayName || auth?.currentUser?.email || ""))
+          })
+        });
+
+        const data = await resp.json().catch(()=> ({}));
+
+        if(!resp.ok || data.ok === false){
+          throw new Error(data.error || ("HTTP " + resp.status));
+        }
+
+        // نجاح: حدّث حالة الرسالة
+        await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+          status: "sent",
+          providerMessageId: data.providerMessageId || data.id || ""
+        });
+
+        toast("تم الإرسال", "ok");
+      }catch(err){
+        await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+          status: "failed"
+        });
+        toast("فشل الإرسال — راجع إعدادات مرسال", "err");
+      }finally{
+        if(btn){ btn.disabled = false; btn.textContent = "إرسال"; }
+      }
+    }
+
+    // send button
+    $("#btnSend")?.addEventListener("click", ()=>{
+      const txt = ($("#composer")?.value || "");
+      sendOutboundMessage(txt);
+    });
+
+    // Enter to send (Shift+Enter = سطر جديد)
+    // auto-grow textarea
+    $("#composer")?.addEventListener("input", ()=>{
+      const el = $("#composer");
+      if(!el) return;
+      el.style.height = "auto";
+      el.style.height = Math.min(el.scrollHeight, 130) + "px";
+    });
+
+    $("#composer")?.addEventListener("keydown", (e)=>{
+      if(e.key === "Enter" && !e.shiftKey){
+        e.preventDefault();
+        sendOutboundMessage($("#composer")?.value || "");
+      }
+    });
+  }
+
   // ===== Leads =====
   let unsubLeads = null;
   let leadsCache = [];
@@ -2499,6 +2926,13 @@ function refreshSettingsTables(){
       setAuthHeader(null);
       applyRoleGuards();
       setBadgeConnected(false);
+      // stop inbox listeners
+      try{ if(unsubInbox){unsubInbox();} }catch{} unsubInbox=null;
+      try{ if(unsubMsgs){unsubMsgs();} }catch{} unsubMsgs=null;
+      activeConvId=null;
+      inboxCache=[];
+      applyInboxFilters?.();
+      renderMessages?.([]);
       return;
     }
 
@@ -2506,6 +2940,9 @@ function refreshSettingsTables(){
     setAuthHeader(currentProfile);
     applyRoleGuards();
     setBadgeConnected(true);
+
+    // start inbox listeners if inbox tab is open
+    try{ if($("#panel-inbox")?.classList.contains("active")) ensureInboxLive(); }catch{}
 
     // Create minimal profile doc for the real logged-in user (not demo)
     try{
