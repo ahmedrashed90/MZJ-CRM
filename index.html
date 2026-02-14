@@ -2,6 +2,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -871,7 +872,83 @@
     .mzj-pill.off{ border-color: rgba(194,58,47,.22); background: rgba(194,58,47,.10); color: var(--bad); }
     .mzj-colorDot{ width:12px; height:12px; border-radius:50%; border:1px solid var(--line); display:inline-block; vertical-align:middle; margin-left:8px; }
 
-    .mzj-hintBox{
+    
+    .kvRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .kvPill{
+      flex: 1 1 180px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:10px 10px;
+      background: rgba(247,245,242,.45);
+      min-width:0;
+    }
+    .kvPill span{ display:block; font-size:12px; color:var(--muted); }
+    .kvPill b{ display:block; margin-top:4px; font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .mzj-activityCard{
+      margin-top:12px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:12px;
+      background:#fff;
+    }
+    .mzj-activityHead{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:10px;
+      padding-bottom:10px;
+      border-bottom:1px solid var(--line);
+      margin-bottom:10px;
+    }
+    .mzj-activityHead b{ font-size:14px; }
+    .mzj-activityList{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .mzj-activityItem{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+    }
+    .mzj-activityDot{
+      width:10px;height:10px;border-radius:999px;
+      background: var(--a);
+      margin-top:6px;
+      flex:0 0 auto;
+      box-shadow:0 0 0 4px rgba(192,122,74,.14);
+    }
+    .mzj-activityContent{
+      flex:1 1 auto;
+      border:1px solid rgba(43,26,23,.10);
+      background: rgba(247,245,242,.55);
+      border-radius:14px;
+      padding:10px;
+      min-width:0;
+    }
+    .mzj-activityTop{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+    }
+    .mzj-activityTop b{ font-size:13px; }
+    .mzj-activityTop span{ font-size:12px; color:var(--muted); white-space:nowrap; }
+    .mzj-activityDesc{
+      margin-top:6px;
+      font-size:13px;
+      color:rgba(28,28,28,.92);
+      line-height:1.6;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+.mzj-hintBox{
       margin-top:12px;
       border:1px solid var(--line);
       border-radius:16px;
@@ -1042,6 +1119,102 @@
     .mzj-setEditorActions{justify-content:stretch}
     .mzj-setEditorActions .toolBtn{width:100%}
   }
+
+    /* ===== Leads Table Enhancements ===== */
+    .leadNameLink{
+      color: var(--b);
+      font-weight: 900;
+      cursor: pointer;
+      text-decoration: none;
+      border-bottom: 1px dashed rgba(192,122,74,.35);
+    }
+    .leadNameLink:hover{ color: #21110f; border-bottom-color: rgba(192,122,74,.7); }
+
+    .leadDetailsWrap{
+      border:1px solid var(--line);
+      border-radius:16px;
+      overflow:hidden;
+      background:#fff;
+    }
+    .leadDetailsHead{
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      background: rgba(247,245,242,.65);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .leadDetailsHead h3{ margin:0; font-size:15px; font-weight:900; }
+    .leadDetailsHead p{ margin:6px 0 0; color:var(--muted); font-size:12.5px; line-height:1.8; }
+    .leadDetailsBody{ padding:14px; }
+
+    .kv{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:10px;
+    }
+    .kv > div{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:10px 10px;
+      background: rgba(247,245,242,.45);
+      min-width:0;
+    }
+    .kv span{ display:block; font-size:12px; color:var(--muted); }
+    .kv b{ display:block; margin-top:4px; font-size:13px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .calcTable{
+      margin-top:12px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      overflow:hidden;
+    }
+    .calcTable table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      min-width: 520px;
+    }
+    .calcTable th, .calcTable td{
+      padding:10px 12px;
+      border-bottom:1px solid var(--line);
+      font-size:13px;
+      vertical-align:top;
+    }
+    .calcTable th{
+      width: 220px;
+      background: rgba(247,245,242,.78);
+      color: var(--muted);
+      font-weight:900;
+      text-align:right;
+      white-space:nowrap;
+    }
+    .calcTable td{ font-weight:800; }
+    .calcTable tr:last-child th, .calcTable tr:last-child td{ border-bottom:0; }
+
+    .leadInlineRow{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+    .leadInlineRow label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+    }
+    .leadInlineRow select{
+      min-width: 220px;
+    }
+
+    @media (max-width: 900px){
+      .kv{ grid-template-columns: 1fr; }
+      .calcTable table{ min-width: 420px; }
+    }
+
 </style>
 </head>
 
@@ -1286,80 +1459,108 @@
             </div>
           </div>
 
+          
           <!-- Panel: Leads -->
           <div class="panel" id="panel-leads">
             <div class="grid">
               <div class="stat">
                 <b>إجمالي العملاء المحتملين</b>
-                <strong id="statLeadsClosed">0</strong>
+                <strong id="statLeadsTotal">0</strong>
                 <div class="hint">آخر 30 يوم</div>
               </div>
               <div class="stat">
                 <b>غير موزّع</b>
-                <strong id="statLeadsActive">0</strong>
+                <strong id="statLeadsUnassigned">0</strong>
                 <div class="hint">يحتاج توزيع فوري</div>
               </div>
               <div class="stat">
-                <b>نشط</b>
-                <strong id="statLeadsUnassigned">0</strong>
-                <div class="hint">في مراحل البيع</div>
+                <b>نتائج الفلاتر</b>
+                <strong id="statLeadsActive">0</strong>
+                <div class="hint">المعروض الآن</div>
               </div>
               <div class="stat">
                 <b>مغلق (ربح)</b>
-                <strong id="statLeadsTotal">0</strong>
+                <strong id="statLeadsClosed">0</strong>
                 <div class="hint">هذا الشهر</div>
               </div>
 
-              <div class="card">
-                <h3>قائمة سريعة</h3>
+              <!-- Table -->
+              <div class="card" style="grid-column: span 12;">
+                <h3>العملاء المحتملون</h3>
+
                 <div class="filters" style="padding:0 0 10px;border:0">
                   <select id="leadsFilterBranch"><option value="">كل الفروع</option></select>
                   <select id="leadsFilterAgent"><option value="">كل المندوبين</option></select>
                   <select id="leadsFilterStage"><option value="">كل المراحل</option></select>
-                  <input class="miniInput" id="leadsSearch" placeholder="بحث بالاسم/الجوال…" style="grid-column:1/-1" />
+                  <select id="leadsFilterStatus"><option value="">كل الحالات</option></select>
+                  <select id="leadsFilterCar"><option value="">كل السيارات</option></select>
+                  <select id="leadsFilterPay"><option value="">كل طرق الدفع</option></select>
+                  <input class="miniInput" id="leadsSearch" placeholder="بحث بالاسم/الجوال/السيارة…" style="grid-column:1/-1" />
                 </div>
-                <div class="list" id="leadsList">                <div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
-                  لا توجد بيانات بعد. سيتم جلب العملاء المحتملين من Firebase.
-                </div>
-    </div>
+
+                <div class="mzj-tableWrap">
+                  <table class="mzj-table" style="min-width: 1180px;">
+                    <thead>
+                      <tr>
+                        <th>اسم العميل</th>
+                        <th>الجوال</th>
+                        <th>المصدر</th>
+                        <th>اسم السيارة</th>
+                        <th>الدفع</th>
+                        <th>الحالة</th>
+                        <th>المرحلة</th>
+                        <th>المسؤول</th>
+                        <th>آخر تحديث</th>
+                      </tr>
+                    </thead>
+                    <tbody id="leadsTbody">
+                      <tr><td colspan="9" class="mzj-empty">لا توجد بيانات بعد. سيتم جلب العملاء المحتملين من Firebase.</td></tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
-              <div class="card" id="leadDetailCard">
+              <!-- Details -->
+              <div class="card" id="leadDetailCard" style="grid-column: span 12;">
                 <h3>تفاصيل العميل</h3>
                 <div class="emptyState" id="leadDetails" style="min-height:140px;display:flex;align-items:center;justify-content:center;text-align:center;color:rgba(28,28,28,.68);line-height:1.8">
-                  اختر عميل محتمل من القائمة لعرض التفاصيل.
+                  اضغط على <b>اسم العميل</b> من الجدول لعرض التفاصيل.
                 </div>
               </div>
 
-              <div class="card">
-                <h3>توزيع تلقائي (ملخص)</h3>
-                <div class="list">
-                  <div class="row">
-                    <div class="meta">
-                      <b>سياسة التوزيع</b>
-                      <span>فرع → ثم توزيع دوري بين مناديب الفرع</span>
-                    </div>
-                    <span class="tag ok">مفعّل</span>
-                  </div>
-                  <div class="row">
-                    <div class="meta">
-                      <b>الرجوع لنفس المندوب</b>
-                      <span>لو العميل موجود قبل كده، يرجع لنفس المسؤول</span>
-                    </div>
-                    <span class="tag ok">مفعّل</span>
-                  </div>
-                  <div class="row">
-                    <div class="meta">
-                      <b>SLA الاستجابة</b>
-                      <span>تنبيه مدير الفرع إذا لم يتم فتح العميل خلال 10 دقائق</span>
-                    </div>
-                    <span class="tag warn">قيد الضبط</span>
-                  </div>
+              <!-- Admin: Status Manager (inside Leads only) -->
+              <div class="card" id="leadStatusAdminCard" style="grid-column: span 12; display:none;">
+                <h3>إدارة حالات العملاء (للإدمن فقط)</h3>
+                <div class="mzj-hintBox" style="margin-top:0">
+                  <b>ملاحظة</b>
+                  <span>أضف/عدّل حالات العملاء التي يختار منها المندوب داخل تفاصيل العميل (مثال: جديد، تم التواصل، مهتم، تم إرسال عرض، تفاوض، حجز، بيع، خسارة).</span>
+                </div>
+
+                <div class="filters" style="padding:10px 0 0;border:0">
+                  <input class="miniInput" id="newLeadStatusName" placeholder="اسم الحالة (بالعربي)" />
+                  <button class="toolBtn primary" id="btnAddLeadStatus" type="button">+ إضافة حالة</button>
+                </div>
+
+                <div class="mzj-tableWrap" style="margin-top:10px">
+                  <table class="mzj-table" style="min-width: 760px;">
+                    <thead>
+                      <tr>
+                        <th>الاسم</th>
+                        <th>المعرف</th>
+                        <th>الحالة</th>
+                        <th style="width:220px">إجراءات</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tblLeadStatuses">
+                      <tr><td colspan="4" class="mzj-empty">لا توجد حالات بعد.</td></tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
+
             </div>
           </div>
+
 
           <!-- Panel: Pipeline -->
           <div class="panel" id="panel-pipeline">
@@ -1699,7 +1900,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
   import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, getDocs, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
   // ===== Firebase Config =====
   const firebaseConfig = {
@@ -1715,6 +1916,9 @@
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
   const auth = getAuth(app);
+
+  // ثبّت الجلسة (يمنع التعليق على "جار التحقق…" بعد الريفريش)
+  try{ setPersistence(auth, browserLocalPersistence); }catch(e){ console.warn("auth persistence", e); }
 
   // ===== State =====
   let currentUser = null;
@@ -1773,6 +1977,24 @@
 
     $("#btnLogin").style.display = currentUser ? "none" : "inline-flex";
     $("#btnLogout").style.display = currentUser ? "inline-flex" : "none";
+  }
+
+  function setAuthChecking(){
+    $("#userName").textContent = "جار التحقق…";
+    $("#userRole").textContent = "—";
+    $("#userAvatar").textContent = "؟";
+    $("#btnLogin").style.display = "inline-flex";
+    $("#btnLogout").style.display = "none";
+  }
+
+  function startAuthGuardTimer(){
+    clearTimeout(window.__authGuardT);
+    window.__authGuardT = setTimeout(()=>{
+      // لو ما جالناش رد من Firebase Auth لأي سبب، ما نسيبش الهيدر معلق
+      if(!currentUser){
+        setAuthHeader(null);
+      }
+    }, 4500);
   }
 
   function canSeeSettings(){
@@ -2853,76 +3075,391 @@ function refreshSettingsTables(){
     });
   }
 
+  
   // ===== Leads =====
   let unsubLeads = null;
   let leadsCache = [];
+
+  // حالات العملاء (من installment_calculator وغيرها) — إدارة داخل Tab العملاء المحتملون
+  let leadStatusesMap = new Map(); // id -> {id,name,isActive}
+  let unsubLeadStatuses = null;
+
+  function canEditLeadStatus(lead){
+    if(!currentUser) return false;
+    // الإدمن/مدير الفرع يقدر يعدّل
+    if(canSeeAllInbox() || canSeeSettings()) return true;
+    // المندوب يعدّل لو العميل عليه
+    return (lead?.assignedTo || "") === currentUser.uid;
+  }
+
+  function normalizePhone(val){
+    const s = String(val||"").replace(/\s+/g,"").trim();
+    if(!s) return "";
+    // keep digits and +
+    return s.replace(/[^\d+]/g,"");
+  }
+
+  function fsToHuman(v){
+    const ms = fsToMs(v);
+    if(!ms) return "—";
+    try{
+      return new Date(ms).toLocaleString("ar-SA", { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+    }catch{ return String(v||"—"); }
+  }
 
   function getLeadDisplay(lead){
     const name = lead.name && lead.name !== "-" ? lead.name : "—";
     const phone = lead.phone || lead.phoneNormalized || "—";
     const stage = stagesMap.get(lead.stageId)?.name || lead.stageId || "—";
     const assignedName = lead.assignedTo ? (agentsMap.get(lead.assignedTo)?.name || lead.assignedTo) : "غير موزع";
-    return { name, phone, stage, assignedName };
+    const statusName = lead.leadStatusId ? (leadStatusesMap.get(lead.leadStatusId)?.name || "—") : (lead.leadStatusName || "—");
+    return { name, phone, stage, assignedName, statusName };
   }
 
-  function renderLeadRow(id, lead){
+  function getLeadCarName(lead){
+    return (lead?.carName || lead?.calculator?.carName || lead?.payload?.carName || lead?.calculator?.car || lead?.payload?.car || "") || "—";
+  }
+  function getLeadPayType(lead){
+    const v = (lead?.paymentType || lead?.payType || lead?.cashOrFinance || lead?.calculator?.paymentType || lead?.payload?.paymentType || "").toString().trim();
+    if(v){
+      if(/cash|كاش/i.test(v)) return "كاش";
+      if(/finance|تمويل|قسط/i.test(v)) return "تمويل";
+      return v;
+    }
+    // استنتاج بسيط
+    const src = String(lead?.source||"");
+    const p = lead?.calculator || lead?.payload || lead || {};
+    const hasFinance = ("monthlyInstallment" in p) || ("totalFinance" in p) || ("months" in p);
+    if(hasFinance || src === "installment_calculator") return "تمويل";
+    return "كاش";
+  }
+
+  function renderLeadTr(id, lead){
     const d = getLeadDisplay(lead);
+    const carName = getLeadCarName(lead);
+    const payType = getLeadPayType(lead);
     return `
-      <div class="row leadRow" data-id="${esc(id)}">
-        <div class="rowMain">
-          <b>${esc(d.name)}</b>
-          <span>${esc(d.phone)} • ${esc(d.stage)} • ${esc(d.assignedName)}</span>
-        </div>
-        <div class="rowMeta">
-          <span class="pill">${esc(lead.source || "—")}</span>
-        </div>
+      <tr data-id="${esc(id)}" class="leadTr">
+        <td><a class="leadNameLink" data-openlead="${esc(id)}" href="javascript:void(0)">${esc(d.name)}</a></td>
+        <td>${esc(d.phone)}</td>
+        <td>${esc(lead.source || "—")}</td>
+        <td title="${esc(carName)}">${esc(carName)}</td>
+        <td>${esc(payType || "—")}</td>
+        <td>${esc(d.statusName || "—")}</td>
+        <td>${esc(d.stage)}</td>
+        <td>${esc(d.assignedName)}</td>
+        <td>${esc(fsToHuman(lead.updatedAt || lead.timestamp || lead.createdAt))}</td>
+      </tr>
+    `;
+  }
+
+  function arabicCalcLabel(key){
+    const map = {
+      name:"اسم العميل",
+      phone:"الجوال",
+      phoneNormalized:"الجوال (موحّد)",
+      carName:"اسم السيارة",
+      carPrice:"سعر السيارة",
+      downPayment:"الدفعة الأولى",
+      months:"مدة التمويل (شهر)",
+      monthlyInstallment:"القسط الشهري",
+      installmentPlusObligations:"القسط + الالتزامات",
+      salary:"الراتب",
+      sector:"القطاع",
+      salaryBank:"بنك الراتب",
+      financeEntity:"جهة التمويل",
+      obligations:"الالتزامات",
+      maxDeduction:"أقصى استقطاع",
+      housingSupport:"دعم سكني",
+      adminFees:"رسوم إدارية",
+      totalInsurance:"إجمالي التأمين",
+      totalFinance:"إجمالي التمويل",
+      totalProfit:"إجمالي الربح",
+      lastPayment:"آخر قسط",
+      approved:"الموافقة",
+      status:"الحالة",
+      age:"العمر",
+      nationality:"الجنسية",
+      timestamp:"وقت الإرسال"
+    };
+    return map[key] || key;
+  }
+
+  function fmtMoney(val){
+    const n = Number(val);
+    if(isNaN(n)) return String(val ?? "—");
+    try{
+      return n.toLocaleString("ar-SA");
+    }catch{
+      return String(n);
+    }
+  }
+
+  function formatCalcPayload(extra){
+    if(!extra || typeof extra !== "object") return "";
+    // بعض الـWorkers ممكن يرسل calculator داخل payload أو العكس
+    const obj = extra.calculator && typeof extra.calculator === "object" ? extra.calculator : extra;
+
+    // ترتيب مهم حسب الفائدة
+    const order = [
+      "name","phone","carName","carPrice","downPayment","months","monthlyInstallment","installmentPlusObligations",
+      "salary","sector","salaryBank","financeEntity","obligations","maxDeduction","housingSupport",
+      "adminFees","totalInsurance","totalFinance","totalProfit","lastPayment","approved","status","age","nationality","timestamp"
+    ];
+
+    const rows = [];
+    const used = new Set();
+
+    order.forEach(k=>{
+      if(k in obj){
+        used.add(k);
+        let v = obj[k];
+        if(k === "approved") v = (String(v)==="true" || v===true) ? "نعم" : "لا";
+        if(["carPrice","downPayment","monthlyInstallment","installmentPlusObligations","salary","obligations","maxDeduction","adminFees","totalInsurance","totalFinance","totalProfit","lastPayment"].includes(k)){
+          v = fmtMoney(v);
+        }
+        if(k==="months") v = fmtMoney(v);
+        rows.push([arabicCalcLabel(k), v]);
+      }
+    });
+
+    // أي مفاتيح إضافية (غير معروفة) لكن بالعربي برضو
+    Object.keys(obj).forEach(k=>{
+      if(used.has(k)) return;
+      // تجنب الحقول الكبيرة أو الداخلية
+      if(k.startsWith("_")) return;
+      const v = obj[k];
+      rows.push([arabicCalcLabel(k), (typeof v === "object" ? JSON.stringify(v) : v)]);
+    });
+
+    if(!rows.length) return "";
+
+    return `
+      <div class="calcTable">
+        <table>
+          <tbody>
+            ${rows.map(([k,v])=>`
+              <tr>
+                <th>${esc(k)}</th>
+                <td>${esc(v ?? "—")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
       </div>
     `;
+  }
+
+  function leadStatusOptionsHtml(currentId){
+    const activeStatuses = Array.from(leadStatusesMap.values()).filter(s=>s.isActive !== false);
+    const opts = ['<option value="">— اختر الحالة —</option>']
+      .concat(activeStatuses.map(s=>`<option value="${esc(s.id)}"${s.id===currentId?' selected':''}>${esc(s.name)}</option>`));
+    return opts.join("");
   }
 
   function renderLeadDetails(id, lead){
     const d = getLeadDisplay(lead);
-    const fields = [
-      ["الاسم", d.name],
-      ["الجوال", lead.phone || "—"],
-      ["مصدر", lead.source || "—"],
+    const carName = getLeadCarName(lead);
+    const payType = getLeadPayType(lead);
+    const canEdit = canEditLeadStatus(lead);
+
+    const pills = [
+      ["الجوال", (lead.phone || lead.phoneNormalized || "—")],
+      ["المصدر", (lead.source || "—")],
+      ["اسم السيارة", carName],
+      ["الدفع", payType],
       ["المرحلة", d.stage],
+      ["الحالة", d.statusName || "—"],
       ["المسؤول", d.assignedName],
-      ["آخر تحديث", lead.updatedAt || lead.timestamp || "—"],
+      ["آخر تحديث", fsToHuman(lead.updatedAt || lead.timestamp || lead.createdAt)],
     ];
-    const extra = lead.calculator || lead.payload || null;
+
+    const canSeeActivity = canSeeAllInbox(); // مدير النظام + مدير الفرع + مدير التسويق
 
     return `
-      <div class="detailHead">
-        <div>
-          <h3>${esc(d.name)}</h3>
-          <p>${esc(d.phone)} • ${esc(d.stage)}</p>
+      <div class="leadDetailsWrap">
+        <div class="leadDetailsHead">
+          <div>
+            <h3>${esc(d.name)}</h3>
+            <p>${esc(d.phone)} • ${esc(carName)} • ${esc(payType)}</p>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="toolBtn" id="btnAssignLead" type="button">توزيع</button>
+            <button class="toolBtn" id="btnCopyPhone" type="button">نسخ الجوال</button>
+          </div>
         </div>
-        <div class="detailActions">
-          <button class="btn" id="btnAssignLead" type="button">توزيع</button>
+
+        <div class="leadDetailsBody">
+          <div class="kvRow">
+            ${pills.map(([k,v])=>`<div class="kvPill"><span>${esc(k)}</span><b title="${esc(v)}">${esc(v)}</b></div>`).join("")}
+          </div>
+
+          <div class="leadInlineRow">
+            <label for="leadStatusSelect">تحديد حالة العميل:</label>
+            <select id="leadStatusSelect" ${canEdit ? "" : "disabled"}>
+              ${leadStatusOptionsHtml(lead.leadStatusId || "")}
+            </select>
+            <button class="toolBtn primary" id="btnSaveLeadStatus" type="button" ${canEdit ? "" : "disabled"}>حفظ الحالة</button>
+            ${!canEdit ? `<span class="chip">لا تملك صلاحية تعديل الحالة</span>` : ``}
+          </div>
+
+          <div class="mzj-activityCard">
+            <div class="mzj-activityHead">
+              <b>سجل النشاط</b>
+              <span class="hint">كل ما تم مع العميل منذ دخوله النظام</span>
+            </div>
+
+            ${canSeeActivity ? `
+              <div id="leadActivity" class="mzj-activityList">
+                <div class="mzj-empty" style="padding:10px 0">جارٍ تحميل سجل النشاط…</div>
+              </div>
+            ` : `
+              <div class="mzj-hintBox">
+                <b>غير مصرح</b>
+                <span>سجل النشاط متاح فقط لمدير النظام ومدير الفرع ومدير التسويق.</span>
+              </div>
+            `}
+          </div>
         </div>
-      </div>
-      <div class="detailBody">
-        <div class="kv">
-          ${fields.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}
-        </div>
-        ${extra ? `<pre class="jsonBox">${esc(JSON.stringify(extra, null, 2))}</pre>` : ""}
       </div>
     `;
   }
 
-  function applyLeadFilters(){
-    const listEl = $("#leadsList");
-    if(!listEl) return;
+
+  function refreshLeadCarPayFilters(){
+    const carSel = $("#leadsFilterCar");
+    const paySel = $("#leadsFilterPay");
+    if(!carSel || !paySel) return;
+
+    const prevCar = carSel.value || "";
+    const prevPay = paySel.value || "";
+
+    const cars = new Map();
+    const pays = new Map();
+
+    leadsCache.forEach(({data})=>{
+      const c = getLeadCarName(data);
+      if(c && c !== "—") cars.set(c, c);
+      const p = getLeadPayType(data);
+      if(p && p !== "—") pays.set(p, p);
+    });
+
+    const carItems = Array.from(cars.values()).sort((a,b)=> String(a).localeCompare(String(b), "ar")).map(v=>({value:v, label:v}));
+    const payItems = Array.from(pays.values()).sort((a,b)=> String(a).localeCompare(String(b), "ar")).map(v=>({value:v, label:v}));
+
+    fillSelect(carSel, carItems);
+    fillSelect(paySel, payItems);
+
+    if(prevCar) carSel.value = prevCar;
+    if(prevPay) paySel.value = prevPay;
+  }
+
+
+  
+  async function loadLeadActivity(leadId, lead){
+    const holder = $("#leadActivity");
+    if(!holder) return;
+
+    if(!canSeeAllInbox()){
+      holder.innerHTML = `<div class="mzj-empty">غير مصرح.</div>`;
+      return;
+    }
+
+    const events = [];
+
+    const created = lead.createdAt || lead.timestamp || lead.updatedAt;
+    events.push({ t: created, title:"تم إنشاء العميل", desc:`دخل من مصدر: ${(lead.source||"—")}` });
+
+    const carName = getLeadCarName(lead);
+    if(carName && carName !== "—") events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تحديد السيارة", desc:`السيارة: ${carName}` });
+
+    const payType = getLeadPayType(lead);
+    if(payType && payType !== "—") events.push({ t: lead.updatedAt || lead.timestamp || created, title:"طريقة الدفع", desc:`${payType}` });
+
+    if(lead.assignedTo){
+      const an = agentsMap.get(lead.assignedTo)?.name || lead.assignedTo;
+      events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تم التوزيع", desc:`المسؤول: ${an}` });
+    }
+
+    if(lead.stageId){
+      const sn = stagesMap.get(lead.stageId)?.name || lead.stageId;
+      events.push({ t: lead.updatedAt || lead.timestamp || created, title:"مرحلة البيع", desc:`${sn}` });
+    }
+
+    if(lead.leadStatusId){
+      const st = leadStatusesMap.get(lead.leadStatusId)?.name || lead.leadStatusId;
+      events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تحديث الحالة", desc:`${st}` });
+    }
+
+    // WhatsApp activity (لو مربوط بمحادثة)
+    const convId = lead.convId || lead.conversationId || lead.waConversationId || "";
+    if(convId){
+      try{
+        const msgRef = query(collection(db,"wa_conversations", convId, "messages"), orderBy("createdAt","asc"), limit(60));
+        const snap = await getDocs(msgRef);
+        snap.docs.forEach(d=>{
+          const m = d.data() || {};
+          const dir = (m.direction || m.type || "").toLowerCase();
+          const isOut = dir.includes("out") || dir.includes("sent") || m.fromMe === true;
+          const title = isOut ? "رسالة صادرة" : "رسالة واردة";
+          const text = (m.text || m.body || m.message || "").toString().trim();
+          events.push({ t: m.createdAt || m.timestamp, title, desc: text ? text.slice(0, 180) : "رسالة (بدون نص)" });
+        });
+      }catch(e){
+        console.warn("wa activity load", e);
+        events.push({ t: Date.now(), title:"واتساب", desc:"تعذر تحميل رسائل واتساب لهذا العميل." });
+      }
+    }
+
+    const sorted = events
+      .map(ev=>({ ...ev, ms: fsToMs(ev.t) || (typeof ev.t==="number"? ev.t : 0) }))
+      .sort((a,b)=> (a.ms||0) - (b.ms||0));
+
+    if(!sorted.length){
+      holder.innerHTML = `<div class="mzj-empty">لا يوجد نشاط مسجل حتى الآن.</div>`;
+      return;
+    }
+
+    holder.innerHTML = sorted.map(ev=>`
+      <div class="mzj-activityItem">
+        <div class="mzj-activityDot"></div>
+        <div class="mzj-activityContent">
+          <div class="mzj-activityTop">
+            <b>${esc(ev.title||"")}</b>
+            <span>${esc(fsToHuman(ev.t))}</span>
+          </div>
+          <div class="mzj-activityDesc">${esc(ev.desc||"")}</div>
+        </div>
+      </div>
+    `).join("");
+  }
+
+function applyLeadFilters(){
+    refreshLeadCarPayFilters();
+    const tb = $("#leadsTbody");
+    if(!tb) return;
 
     const qText = ($("#leadsSearch")?.value || "").trim().toLowerCase();
     const fb = $("#leadsFilterBranch")?.value || "";
     const fa = $("#leadsFilterAgent")?.value || "";
     const fs = $("#leadsFilterStage")?.value || "";
+    const fstat = $("#leadsFilterStatus")?.value || "";
+    const fcar = $("#leadsFilterCar")?.value || "";
+    const fpay = $("#leadsFilterPay")?.value || "";
 
     const filtered = leadsCache.filter(({id,data})=>{
       if(fa && data.assignedTo !== fa) return false;
       if(fs && data.stageId !== fs) return false;
+      if(fstat && (data.leadStatusId || "") !== fstat) return false;
+      if(fcar){
+        const carName = getLeadCarName(data);
+        if(carName !== fcar) return false;
+      }
+      if(fpay){
+        const payType = getLeadPayType(data);
+        if(payType !== fpay) return false;
+      }
 
       if(fb){
         const agentBranch = data.assignedTo ? (agentsMap.get(data.assignedTo)?.branchId || "") : "";
@@ -2933,7 +3470,10 @@ function refreshSettingsTables(){
         const n = String(data.name||"").toLowerCase();
         const p = String(data.phone||"").toLowerCase();
         const pn = String(data.phoneNormalized||"").toLowerCase();
-        if(!n.includes(qText) && !p.includes(qText) && !pn.includes(qText)) return false;
+        const src = String(data.source||"").toLowerCase();
+        const car = String(getLeadCarName(data)||"").toLowerCase();
+        const pay = String(getLeadPayType(data)||"").toLowerCase();
+        if(!n.includes(qText) && !p.includes(qText) && !pn.includes(qText) && !src.includes(qText) && !car.includes(qText) && !pay.includes(qText)) return false;
       }
       return true;
     });
@@ -2946,18 +3486,26 @@ function refreshSettingsTables(){
     $("#statLeadsActive") && ($("#statLeadsActive").textContent = String(filtered.length));
     $("#statLeadsClosed") && ($("#statLeadsClosed").textContent = "0");
 
-    listEl.innerHTML = filtered.map(x=>renderLeadRow(x.id, x.data)).join("") ||
-      `<div class="empty">لا توجد نتائج مطابقة للفلاتر الحالية.</div>`;
+    if(!filtered.length){
+      tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+    }else{
+      tb.innerHTML = filtered.map(x=>renderLeadTr(x.id, x.data)).join("");
+    }
   }
 
   async function ensureLeadsLive(){
     if(unsubLeads) return;
 
-    const listEl = $("#leadsList");
+    const tb = $("#leadsTbody");
     const detEl = $("#leadDetails");
-    if(!listEl || !detEl) return;
+    if(!tb || !detEl) return;
 
-    const qRef = query(collection(db,"leads"), orderBy("updatedAt","desc"), limit(200));
+    if(!currentUser){
+      tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">سجّل الدخول لعرض العملاء المحتملين.</td></tr>`;
+      return;
+    }
+
+    const qRef = query(collection(db,"leads"), orderBy("updatedAt","desc"), limit(300));
 
     unsubLeads = onSnapshot(qRef, (snap)=>{
       leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
@@ -2966,32 +3514,68 @@ function refreshSettingsTables(){
     }, async (err)=>{
       console.warn("leads snapshot error", err);
       try{
-        const snap = await getDocs(query(collection(db,"leads"), limit(200)));
+        const snap = await getDocs(query(collection(db,"leads"), limit(300)));
         leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
         applyLeadFilters();
         setBadgeConnected(true);
       }catch(e){
         setBadgeConnected(false);
-        listEl.innerHTML = `<div class="empty">السبب: ${esc(err?.message || err)}</div>`;
+        tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">تعذر تحميل العملاء: ${esc(err?.message || err)}</td></tr>`;
       }
     });
 
-    listEl.addEventListener("click", (e)=>{
-      const row = e.target.closest(".leadRow");
-      if(!row) return;
-      const id = row.dataset.id;
+    // open details by clicking name
+    const tableWrap = tb.closest(".mzj-tableWrap") || tb.parentElement;
+    (tableWrap || document).addEventListener("click", (e)=>{
+      const a = e.target.closest("[data-openlead]");
+      if(!a) return;
+      const id = a.dataset.openlead;
       const found = leadsCache.find(x=>x.id===id);
       if(!found) return;
+
       detEl.innerHTML = renderLeadDetails(id, found.data);
+
+      // سجل النشاط
+      try{ loadLeadActivity(id, found.data); }catch(e){ console.warn("loadLeadActivity", e); }
+
       $("#btnAssignLead")?.addEventListener("click", ()=>openAssignPrompt(id, found.data));
+      $("#btnCopyPhone")?.addEventListener("click", ()=>{
+        const p = normalizePhone(found.data.phone || found.data.phoneNormalized || "");
+        if(p){
+          navigator.clipboard?.writeText(p).then(()=>toast("تم نسخ الجوال")).catch(()=>toast("تعذر النسخ"));
+        }else{
+          toast("رقم غير موجود", "warn");
+        }
+      });
+
+      $("#btnSaveLeadStatus")?.addEventListener("click", async ()=>{
+        const sel = $("#leadStatusSelect");
+        const statusId = sel?.value || "";
+        if(!canEditLeadStatus(found.data)){
+          toast("ليس لديك صلاحية تعديل الحالة", "warn");
+          return;
+        }
+        try{
+          const statusName = statusId ? (leadStatusesMap.get(statusId)?.name || "") : "";
+          await updateDoc(doc(db,"leads", id), {
+            leadStatusId: statusId,
+            leadStatusName: statusName,
+            updatedAt: new Date().toISOString()
+          });
+          toast("تم تحديث الحالة");
+        }catch(err){
+          console.warn(err);
+          toast("تعذر حفظ الحالة", "warn");
+        }
+      });
     });
 
-    ["leadsSearch","leadsFilterBranch","leadsFilterAgent","leadsFilterStage"].forEach(id=>{
+    ["leadsSearch","leadsFilterBranch","leadsFilterAgent","leadsFilterStage","leadsFilterStatus","leadsFilterCar","leadsFilterPay"].forEach(id=>{
       $("#"+id)?.addEventListener("input", applyLeadFilters);
       $("#"+id)?.addEventListener("change", applyLeadFilters);
     });
 
-    listEl.innerHTML = `<div class="empty">جاري تحميل العملاء المحتملين من Firebase...</div>`;
+    tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">جاري تحميل العملاء المحتملين من Firebase...</td></tr>`;
   }
 
   function openAssignPrompt(leadId, leadData){
@@ -3013,6 +3597,116 @@ function refreshSettingsTables(){
       .then(()=>toast("تم التوزيع"))
       .catch(e=>toast("خطأ: " + (e?.message||e), "warn"));
   }
+
+  // ===== Lead Statuses (Realtime + Admin UI inside Leads tab) =====
+  function bindLeadStatusesRealtime(){
+    if(unsubLeadStatuses) return;
+    unsubLeadStatuses = onSnapshot(collection(db,"settings_lead_statuses"), (snap)=>{
+      leadStatusesMap = new Map();
+      snap.forEach(d=>{
+        const v = d.data() || {};
+        leadStatusesMap.set(d.id, { id:d.id, name: v.name || d.id, isActive: v.isActive !== false });
+      });
+
+      // fill filter select
+      const items = Array.from(leadStatusesMap.values()).filter(s=>s.isActive !== false).map(s=>({value:s.id, label:s.name}));
+      fillSelect($("#leadsFilterStatus"), items);
+
+      // refresh admin table
+      renderLeadStatusesAdminTable();
+
+      // re-render table labels (status column) if leads already loaded
+      applyLeadFilters();
+    }, (err)=>{
+      console.warn("lead statuses snapshot error", err);
+    });
+  }
+
+  function renderLeadStatusesAdminTable(){
+    const card = $("#leadStatusAdminCard");
+    if(!card) return;
+
+    // only admin/marketing_admin
+    card.style.display = canSeeSettings() ? "" : "none";
+    const tb = $("#tblLeadStatuses");
+    if(!tb) return;
+
+    const rows = Array.from(leadStatusesMap.values()).sort((a,b)=> String(a.name).localeCompare(String(b.name), "ar"));
+    if(!rows.length){
+      tb.innerHTML = `<tr><td colspan="4" class="mzj-empty">لا توجد حالات بعد.</td></tr>`;
+      return;
+    }
+
+    tb.innerHTML = rows.map(s=>`
+      <tr>
+        <td>${esc(s.name)}</td>
+        <td><code>${esc(s.id)}</code></td>
+        <td>${s.isActive ? '<span class="pill ok">نشط</span>' : '<span class="pill">موقوف</span>'}</td>
+        <td class="mzj-actions">
+          <button class="mzj-miniBtn" data-leadstat-act="toggle" data-id="${esc(s.id)}">${s.isActive ? "إيقاف" : "تفعيل"}</button>
+          <button class="mzj-miniBtn danger" data-leadstat-act="delete" data-id="${esc(s.id)}">حذف</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  function bindLeadStatusesAdminUI(){
+    // add
+    $("#btnAddLeadStatus")?.addEventListener("click", async ()=>{
+      if(!canSeeSettings()){ toast("ليس لديك صلاحية", "warn"); return; }
+      const name = ($("#newLeadStatusName")?.value || "").trim();
+      if(!name){ toast("اكتب اسم الحالة", "warn"); return; }
+
+      // id from name (safe)
+      const id = name
+        .toLowerCase()
+        .replace(/\s+/g,"-")
+        .replace(/[^\u0600-\u06FFa-z0-9\-]/g,"")
+        .slice(0, 36) || ("status-" + Date.now());
+
+      try{
+        await setDoc(doc(db,"settings_lead_statuses", id), {
+          name,
+          isActive: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge:true });
+        $("#newLeadStatusName").value = "";
+        toast("تمت الإضافة");
+      }catch(e){
+        console.warn(e);
+        toast("تعذر الإضافة", "warn");
+      }
+    });
+
+    // delegated actions
+    document.addEventListener("click", async (e)=>{
+      const btn = e.target.closest("[data-leadstat-act]");
+      if(!btn) return;
+      if(!canSeeSettings()){ toast("ليس لديك صلاحية", "warn"); return; }
+
+      const act = btn.dataset.leadstatAct;
+      const id  = btn.dataset.id;
+      if(!id) return;
+
+      try{
+        if(act === "toggle"){
+          const cur = leadStatusesMap.get(id);
+          const newVal = !(cur?.isActive ?? true);
+          await updateDoc(doc(db,"settings_lead_statuses", id), { isActive: newVal, updatedAt: serverTimestamp() });
+          toast(newVal ? "تم التفعيل" : "تم الإيقاف");
+        }
+        if(act === "delete"){
+          await deleteDoc(doc(db,"settings_lead_statuses", id));
+          toast("تم الحذف");
+        }
+      }catch(err){
+        console.warn(err);
+        toast("تعذر التنفيذ", "warn");
+      }
+    });
+  }
+
 
   // ===== Auth UI =====
   function bindAuthUI(){
@@ -3082,10 +3776,20 @@ function refreshSettingsTables(){
   bindAuthUI();
   bindSettingsUI();
   bindSettingsRealtime();
-  showSettingsPane("branches");
-  showTab("inbox");
+  bindLeadStatusesRealtime();
+  bindLeadStatusesAdminUI();
+
+  // ابدأ بحالة تحقق + تايمر حماية (حتى لا يظل "جار التحقق…" للأبد)
+  try{ setAuthChecking(); }catch{}
+  try{ startAuthGuardTimer(); }catch{}
+
+  // لا تجعل أي خطأ UI يوقف auth
+  try{ showSettingsPane("branches"); }catch(e){ console.warn("showSettingsPane", e); }
+  try{ showTab("inbox"); }catch(e){ console.warn("showTab", e); }
 
   onAuthStateChanged(auth, async (user)=>{
+    try{ clearTimeout(window.__authGuardT); }catch{}
+
     currentUser = user;
     if(!user){
       currentProfile = null;
@@ -3105,6 +3809,7 @@ function refreshSettingsTables(){
     currentProfile = await loadProfileForUser(user);
     setAuthHeader(currentProfile);
     applyRoleGuards();
+    renderLeadStatusesAdminTable();
     setBadgeConnected(true);
 
     // start inbox listeners if inbox tab is open
