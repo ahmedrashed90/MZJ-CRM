@@ -1,14 +1,15 @@
 
-<!DOCTYPE html>
-
-<html dir="rtl" lang="ar">
+<!doctype html>
+<html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width,initial-scale=1" name="viewport"/>
-<title>لوحة CRM — صندوق وارد موحّد</title>
-<!-- Arabic font (web-safe) -->
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
-<style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>لوحة CRM — صندوق وارد موحّد</title>
+
+  <!-- Arabic font (web-safe) -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
     :root{
       --b:#2B1A17;        /* dark brown */
       --a:#C07A4A;        /* bronze */
@@ -945,583 +946,630 @@
 
 </style>
 </head>
+
 <body>
-<div class="app">
-<!-- Sidebar -->
-<aside class="side">
-<div class="brand">
-<div class="brandTop">
-<div style="display:flex;align-items:center;gap:10px;min-width:0">
-<div aria-hidden="true" class="logoMark"></div>
-<div style="min-width:0">
-<h1>لوحة إدارة العملاء (CRM)</h1>
-<p>صندوق وارد موحّد + توزيع تلقائي + أوتوميشن + إشعارات</p>
-</div>
-</div>
-<span class="badge neutral" id="envBadge">تجريبي</span>
-</div>
-</div>
-<div class="sideActions">
-<button class="btn btnPrimary" id="btnNewLead">+ عميل محتمل</button>
-<button class="btn" id="btnQuickAssign">توزيع سريع</button>
-</div>
-<nav class="nav" id="nav">
-<div class="navItem active" data-tab="inbox">
-<div class="navLeft">
-<div class="ico">✉</div>
-<div class="navTitle">
-<b>صندوق الوارد</b>
-<span>الرد على كل المنصات</span>
-</div>
-</div>
-<div class="badge" id="navUnread">0</div>
-</div>
-<div class="navItem" data-tab="leads">
-<div class="navLeft">
-<div class="ico">👥</div>
-<div class="navTitle">
-<b>العملاء المحتملون</b>
-<span>بحث + فلترة + توزيع</span>
-</div>
-</div>
-<div class="badge neutral">—</div>
-</div>
-<div class="navItem" data-tab="pipeline">
-<div class="navLeft">
-<div class="ico">⛓</div>
-<div class="navTitle">
-<b>مراحل البيع</b>
-<span>كانبان عربي</span>
-</div>
-</div>
-<div class="badge ok">نشط</div>
-</div>
-<div class="navItem" data-tab="tasks">
-<div class="navLeft">
-<div class="ico">⏱</div>
-<div class="navTitle">
-<b>المتابعات</b>
-<span>مهام اليوم والمتأخر</span>
-</div>
-</div>
-<div class="badge">—</div>
-</div>
-<div class="navItem" data-tab="retarget">
-<div class="navLeft">
-<div class="ico">🎯</div>
-<div class="navTitle">
-<b>إعادة الاستهداف</b>
-<span>قوائم + حملات</span>
-</div>
-</div>
-<div class="badge neutral">—</div>
-</div>
-<div class="navItem" data-tab="automation">
-<div class="navLeft">
-<div class="ico">⚙</div>
-<div class="navTitle">
-<b>الأوتوميشن</b>
-<span>قواعد وتشغيل/إيقاف</span>
-</div>
-</div>
-<div class="badge ok">On</div>
-</div>
-<div class="navItem" data-tab="settings">
-<div class="navLeft">
-<div class="ico">🔒</div>
-<div class="navTitle">
-<b>الإعدادات</b>
-<span>فروع + مناديب + صلاحيات</span>
-</div>
-</div>
-<div class="badge neutral">Admin</div>
-</div>
-</nav>
-<div class="sideFooter">
-<div style="display:flex;align-items:center;gap:10px">
-<span aria-hidden="true" class="dot"></span>
-<span>متصل</span>
-</div>
-<span id="clock">--:--</span>
-</div>
-</aside>
-<!-- Main -->
-<main class="main">
-<!-- Topbar -->
-<header class="topbar">
-<div class="topLeft">
-<div class="search" role="search">
-<span style="font-weight:900;color:var(--b)">🔎</span>
-<input id="globalSearch" placeholder="ابحث: اسم العميل، رقم الجوال، اسم السيارة، مرحلة البيع..." type="text"/>
-<span class="chip" id="activeTabChip">صندوق الوارد</span>
-</div>
-</div>
-<div class="topRight">
-<button class="iconBtn" id="btnBell" title="الإشعارات">
+  <div class="app">
+
+    <!-- Sidebar -->
+    <aside class="side">
+      <div class="brand">
+        <div class="brandTop">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0">
+            <div class="logoMark" aria-hidden="true"></div>
+            <div style="min-width:0">
+              <h1>لوحة إدارة العملاء (CRM)</h1>
+              <p>صندوق وارد موحّد + توزيع تلقائي + أوتوميشن + إشعارات</p>
+            </div>
+          </div>
+          <span class="badge neutral" id="envBadge">—</span>
+        </div>
+      </div>
+
+      <div class="sideActions">
+        <button class="btn btnPrimary" id="btnNewLead">+ عميل محتمل</button>
+        <button class="btn" id="btnQuickAssign">توزيع سريع</button>
+      </div>
+
+      <nav class="nav" id="nav">
+        <div class="navItem active" data-tab="inbox">
+          <div class="navLeft">
+            <div class="ico">✉</div>
+            <div class="navTitle">
+              <b>صندوق الوارد</b>
+              <span>الرد على كل المنصات</span>
+            </div>
+          </div>
+          <div class="badge" id="navUnread">0</div>
+        </div>
+
+        <div class="navItem" data-tab="leads">
+          <div class="navLeft">
+            <div class="ico">👥</div>
+            <div class="navTitle">
+              <b>العملاء المحتملون</b>
+              <span>بحث + فلترة + توزيع</span>
+            </div>
+          </div>
+          <div class="badge neutral">—</div>
+        </div>
+
+        <div class="navItem" data-tab="pipeline">
+          <div class="navLeft">
+            <div class="ico">⛓</div>
+            <div class="navTitle">
+              <b>مراحل البيع</b>
+              <span>كانبان عربي</span>
+            </div>
+          </div>
+          <div class="badge ok">نشط</div>
+        </div>
+
+        <div class="navItem" data-tab="tasks">
+          <div class="navLeft">
+            <div class="ico">⏱</div>
+            <div class="navTitle">
+              <b>المتابعات</b>
+              <span>مهام اليوم والمتأخر</span>
+            </div>
+          </div>
+          <div class="badge">—</div>
+        </div>
+
+        <div class="navItem" data-tab="retarget">
+          <div class="navLeft">
+            <div class="ico">🎯</div>
+            <div class="navTitle">
+              <b>إعادة الاستهداف</b>
+              <span>قوائم + حملات</span>
+            </div>
+          </div>
+          <div class="badge neutral">—</div>
+        </div>
+
+        <div class="navItem" data-tab="automation">
+          <div class="navLeft">
+            <div class="ico">⚙</div>
+            <div class="navTitle">
+              <b>الأوتوميشن</b>
+              <span>قواعد وتشغيل/إيقاف</span>
+            </div>
+          </div>
+          <div class="badge ok">On</div>
+        </div>
+
+        <div class="navItem" data-tab="settings">
+          <div class="navLeft">
+            <div class="ico">🔒</div>
+            <div class="navTitle">
+              <b>الإعدادات</b>
+              <span>فروع + مناديب + صلاحيات</span>
+            </div>
+          </div>
+          <div class="badge neutral">Admin</div>
+        </div>
+      </nav>
+
+      <div class="sideFooter">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="dot" aria-hidden="true"></span>
+          <span>متصل</span>
+        </div>
+        <span id="clock">--:--</span>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+
+      <!-- Topbar -->
+      <header class="topbar">
+        <div class="topLeft">
+          <div class="search" role="search">
+            <span style="font-weight:900;color:var(--b)">🔎</span>
+            <input id="globalSearch" type="text" placeholder="ابحث: اسم العميل، رقم الجوال، اسم السيارة، مرحلة البيع..." />
+            <span class="chip" id="activeTabChip">صندوق الوارد</span>
+          </div>
+        </div>
+
+        <div class="topRight">
+          <button class="iconBtn" id="btnBell" title="الإشعارات">
             🔔
             <span class="miniBadge" id="bellCount">0</span>
-</button>
-<button class="iconBtn" id="btnSync" title="مزامنة/تحديث">
+          </button>
+
+          <button class="iconBtn" id="btnSync" title="مزامنة/تحديث">
             ⟳
           </button>
-<div class="userCard" title="الحساب">
-<div class="avatar" id="uiUserAvatar">م</div>
-<div style="line-height:1.1">
-<b id="uiUserName">محمد</b>
-<span id="uiUserRole">مدير الفرع</span>
-</div>
-</div>
-</div>
-</header>
-<!-- Content -->
-<section class="content">
-<div class="pageHeader">
-<div>
-<h2 id="pageTitle">صندوق الوارد</h2>
-<p id="pageDesc">تاب واحد للرد على كل الرسائل والتعليقات — مع تسجيل كل تفاعل وإشعارات فورية.</p>
-</div>
-<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-start">
-<button class="toolBtn primary" id="btnOpenUnassigned">غير موزعة</button>
-<button class="toolBtn" id="btnMarkAllRead">تصفير غير المقروء</button>
-</div>
-</div>
-<div class="pageBody">
-<!-- Panel: Inbox -->
-<div class="panel active" id="panel-inbox">
-<div class="inbox">
-<!-- Conversations -->
-<div class="col">
-<div class="colHead">
-<b>المحادثات</b>
-<span class="tag warn">آخر 24 ساعة</span>
-</div>
-<div class="filters">
-<select id="fBranch">
-<option value="">كل الفروع</option>
-<option>فرع الرياض</option>
-<option>فرع جدة</option>
-<option>فرع الدمام</option>
-</select>
-<select id="fChannel">
-<option value="">كل المنصات</option>
-<option value="wa">واتساب</option>
-<option value="ig">انستجرام</option>
-<option value="fb">فيسبوك</option>
-</select>
-<select id="fStatus">
-<option value="">كل الحالات</option>
-<option>مفتوحة</option>
-<option>مؤجلة</option>
-<option>مغلقة</option>
-</select>
-<input class="miniInput" id="fSearch" placeholder="بحث داخل المحادثات…"/>
-</div>
-<div class="convList" id="convList">
-<!-- لا توجد محادثات بعد (سيتم تحميلها من Firebase) -->
-<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+
+          <div class="userCard" title="الحساب">
+            <div class="avatar">م</div>
+            <div style="line-height:1.1">
+              <b>محمد</b>
+              <span>مدير الفرع</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <section class="content">
+        <div class="pageHeader">
+          <div>
+            <h2 id="pageTitle">صندوق الوارد</h2>
+            <p id="pageDesc">تاب واحد للرد على كل الرسائل والتعليقات — مع تسجيل كل تفاعل وإشعارات فورية.</p>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-start">
+            <button class="toolBtn primary" id="btnOpenUnassigned">غير موزعة</button>
+            <button class="toolBtn" id="btnMarkAllRead">تصفير غير المقروء</button>
+          </div>
+        </div>
+
+        <div class="pageBody">
+
+          <!-- Panel: Inbox -->
+          <div class="panel active" id="panel-inbox">
+            <div class="inbox">
+              <!-- Conversations -->
+              <div class="col">
+                <div class="colHead">
+                  <b>المحادثات</b>
+                  <span class="tag warn">آخر 24 ساعة</span>
+                </div>
+
+                <div class="filters">
+                  <select id="fBranch">
+                    <option value="">كل الفروع</option>
+                    <option>فرع الرياض</option>
+                    <option>فرع جدة</option>
+                    <option>فرع الدمام</option>
+                  </select>
+                  <select id="fChannel">
+                    <option value="">كل المنصات</option>
+                    <option value="wa">واتساب</option>
+                    <option value="ig">انستجرام</option>
+                    <option value="fb">فيسبوك</option>
+                  </select>
+                  <select id="fStatus">
+                    <option value="">كل الحالات</option>
+                    <option>مفتوحة</option>
+                    <option>مؤجلة</option>
+                    <option>مغلقة</option>
+                  </select>
+                  <input class="miniInput" id="fSearch" placeholder="بحث داخل المحادثات…" />
+                </div>
+
+                <div class="convList" id="convList">
+                  
+                  <!-- لا توجد محادثات بعد (سيتم تحميلها من Firebase) -->
+                  <div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
                     لا توجد محادثات حتى الآن.
-                    <br/>عند وصول أول رسالة من أي منصة، ستظهر هنا تلقائيًا.
+                    <br>عند وصول أول رسالة من أي منصة، ستظهر هنا تلقائيًا.
                   </div>
-</div>
-</div>
-<!-- Chat -->
-<div class="col">
-<div class="chatWrap">
-<div class="chatTop">
-<div class="who">
-<div class="avatar" style="width:40px;height:40px;border-radius:16px">أ</div>
-<div class="whoInfo">
-<b id="chatName">—</b>
-<span id="chatMeta">—</span>
-</div>
-</div>
-<div class="chatTools">
-<button class="toolBtn" id="btnCreateLead">تحويل لعميل محتمل</button>
-<button class="toolBtn" id="btnAssign">توزيع</button>
-<button class="toolBtn primary" id="btnTemplate">قوالب</button>
-</div>
-</div>
-<div class="chatBody" id="chatBody">
-<div style="padding:12px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+                
+
+                </div>
+              </div>
+
+              <!-- Chat -->
+              <div class="col">
+                <div class="chatWrap">
+                  <div class="chatTop">
+                    <div class="who">
+                      <div class="avatar" style="width:40px;height:40px;border-radius:16px">أ</div>
+                      <div class="whoInfo">
+                        <b id="chatName">—</b>
+                        <span id="chatMeta">—</span>
+                      </div>
+                    </div>
+                    <div class="chatTools">
+                      <button class="toolBtn" id="btnCreateLead">تحويل لعميل محتمل</button>
+                      <button class="toolBtn" id="btnAssign">توزيع</button>
+                      <button class="toolBtn primary" id="btnTemplate">قوالب</button>
+                    </div>
+                  </div>
+
+                  <div class="chatBody" id="chatBody">
+                  <div style="padding:12px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
                     اختر محادثة من القائمة لعرض الرسائل.
                   </div>
-</div>
-<div class="chatComposer">
-<textarea id="composer" placeholder="اكتب ردك هنا… (سيتم الإرسال حسب المنصة)"></textarea>
-<button class="toolBtn primary" id="btnSend">إرسال</button>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Panel: Leads -->
-<div class="panel" id="panel-leads">
-<div class="grid">
-<div class="stat">
-<b>إجمالي العملاء المحتملين</b>
-<strong>—</strong>
-<div class="hint">آخر 30 يوم</div>
-</div>
-<div class="stat">
-<b>غير موزّع</b>
-<strong>—</strong>
-<div class="hint">يحتاج توزيع فوري</div>
-</div>
-<div class="stat">
-<b>نشط</b>
-<strong>—</strong>
-<div class="hint">في مراحل البيع</div>
-</div>
-<div class="stat">
-<b>مغلق (ربح)</b>
-<strong>—</strong>
-<div class="hint">هذا الشهر</div>
-</div>
-<div class="card">
-<h3>قائمة سريعة</h3>
-<div class="filters" style="padding:0 0 10px;border:0">
-<select><option>كل الفروع</option><option>فرع الرياض</option></select>
-<select><option>كل المندوبين</option><option>مندوب 1</option></select>
-<select><option>كل المراحل</option><option>جديد</option><option>تم التواصل</option></select>
-<input class="miniInput" placeholder="بحث بالاسم/الجوال…" style="grid-column:1/-1"/>
-</div>
-<div class="list" id="leadsList"> <div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+                </div>
+
+                  <div class="chatComposer">
+                    <textarea id="composer" placeholder="اكتب ردك هنا… (سيتم الإرسال حسب المنصة)"></textarea>
+                    <button class="toolBtn primary" id="btnSend">إرسال</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel: Leads -->
+          <div class="panel" id="panel-leads">
+            <div class="grid">
+              <div class="stat">
+                <b>إجمالي العملاء المحتملين</b>
+                <strong>—</strong>
+                <div class="hint">آخر 30 يوم</div>
+              </div>
+              <div class="stat">
+                <b>غير موزّع</b>
+                <strong>—</strong>
+                <div class="hint">يحتاج توزيع فوري</div>
+              </div>
+              <div class="stat">
+                <b>نشط</b>
+                <strong>—</strong>
+                <div class="hint">في مراحل البيع</div>
+              </div>
+              <div class="stat">
+                <b>مغلق (ربح)</b>
+                <strong>—</strong>
+                <div class="hint">هذا الشهر</div>
+              </div>
+
+              <div class="card">
+                <h3>قائمة سريعة</h3>
+                <div class="filters" style="padding:0 0 10px;border:0">
+                  <select><option>كل الفروع</option><option>فرع الرياض</option></select>
+                  <select><option>كل المندوبين</option><option>مندوب 1</option></select>
+                  <select><option>كل المراحل</option><option>جديد</option><option>تم التواصل</option></select>
+                  <input class="miniInput" placeholder="بحث بالاسم/الجوال…" style="grid-column:1/-1" />
+                </div>
+                <div class="list">                <div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
                   لا توجد بيانات بعد. سيتم جلب العملاء المحتملين من Firebase.
                 </div>
-</div>
-</div>
-</div>
-<div class="card">
-<h3>توزيع تلقائي (ملخص)</h3>
-<div class="list">
-<div class="row">
-<div class="meta">
-<b>سياسة التوزيع</b>
-<span>فرع → ثم توزيع دوري بين مناديب الفرع</span>
-</div>
-<span class="tag ok">مفعّل</span>
-</div>
-<div class="row">
-<div class="meta">
-<b>الرجوع لنفس المندوب</b>
-<span>لو العميل موجود قبل كده، يرجع لنفس المسؤول</span>
-</div>
-<span class="tag ok">مفعّل</span>
-</div>
-<div class="row">
-<div class="meta">
-<b>SLA الاستجابة</b>
-<span>تنبيه مدير الفرع إذا لم يتم فتح العميل خلال 10 دقائق</span>
-</div>
-<span class="tag warn">قيد الضبط</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Panel: Pipeline -->
-<div class="panel" id="panel-pipeline">
-<div class="grid">
-<div class="card" style="grid-column: span 12;">
-<h3>مراحل البيع (تصميم كانبان — Placeholder)</h3>
-<p style="margin:0;color:var(--muted);line-height:1.8;font-size:13px">
+    </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <h3>توزيع تلقائي (ملخص)</h3>
+                <div class="list">
+                  <div class="row">
+                    <div class="meta">
+                      <b>سياسة التوزيع</b>
+                      <span>فرع → ثم توزيع دوري بين مناديب الفرع</span>
+                    </div>
+                    <span class="tag ok">مفعّل</span>
+                  </div>
+                  <div class="row">
+                    <div class="meta">
+                      <b>الرجوع لنفس المندوب</b>
+                      <span>لو العميل موجود قبل كده، يرجع لنفس المسؤول</span>
+                    </div>
+                    <span class="tag ok">مفعّل</span>
+                  </div>
+                  <div class="row">
+                    <div class="meta">
+                      <b>SLA الاستجابة</b>
+                      <span>تنبيه مدير الفرع إذا لم يتم فتح العميل خلال 10 دقائق</span>
+                    </div>
+                    <span class="tag warn">قيد الضبط</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel: Pipeline -->
+          <div class="panel" id="panel-pipeline">
+            <div class="grid">
+              <div class="card" style="grid-column: span 12;">
+                <h3>مراحل البيع (تصميم كانبان — Placeholder)</h3>
+                <p style="margin:0;color:var(--muted);line-height:1.8;font-size:13px">
                   هنا هنحط كانبان عربي: <b>جديد → تم التواصل → مهتم → تم إرسال عرض → تفاوض → حجز → بيع/خسارة</b>.
                   في النسخة القادمة نربطه ببيانات Firestore والسحب والإفلات.
                 </p>
-<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
-<span class="tag warn">جديد: 36</span>
-<span class="tag">تم التواصل: 92</span>
-<span class="tag ok">مهتم: 54</span>
-<span class="tag">عرض: 27</span>
-<span class="tag warn">تفاوض: 14</span>
-<span class="tag ok">حجز: 9</span>
-<span class="tag bad">خسارة: 18</span>
-</div>
-</div>
-</div>
-</div>
-<!-- Panel: Tasks -->
-<div class="panel" id="panel-tasks">
-<div class="grid">
-<div class="stat">
-<b>متابعات اليوم</b>
-<strong>—</strong>
-<div class="hint">مفتوحة</div>
-</div>
-<div class="stat">
-<b>متأخر</b>
-<strong>—</strong>
-<div class="hint">يحتاج تصعيد</div>
-</div>
-<div class="stat">
-<b>تم إنجازه</b>
-<strong>—</strong>
-<div class="hint">آخر 24 ساعة</div>
-</div>
-<div class="stat">
-<b>موعد قريب</b>
-<strong>—</strong>
-<div class="hint">خلال ساعتين</div>
-</div>
-<div class="card" style="grid-column: span 12;">
-<h3>قائمة المتابعات</h3>
-<div class="list"> <div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+                <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+                  <span class="tag warn">جديد: 36</span>
+                  <span class="tag">تم التواصل: 92</span>
+                  <span class="tag ok">مهتم: 54</span>
+                  <span class="tag">عرض: 27</span>
+                  <span class="tag warn">تفاوض: 14</span>
+                  <span class="tag ok">حجز: 9</span>
+                  <span class="tag bad">خسارة: 18</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel: Tasks -->
+          <div class="panel" id="panel-tasks">
+            <div class="grid">
+              <div class="stat">
+                <b>متابعات اليوم</b>
+                <strong>—</strong>
+                <div class="hint">مفتوحة</div>
+              </div>
+              <div class="stat">
+                <b>متأخر</b>
+                <strong>—</strong>
+                <div class="hint">يحتاج تصعيد</div>
+              </div>
+              <div class="stat">
+                <b>تم إنجازه</b>
+                <strong>—</strong>
+                <div class="hint">آخر 24 ساعة</div>
+              </div>
+              <div class="stat">
+                <b>موعد قريب</b>
+                <strong>—</strong>
+                <div class="hint">خلال ساعتين</div>
+              </div>
+
+              <div class="card" style="grid-column: span 12;">
+                <h3>قائمة المتابعات</h3>
+                <div class="list">                <div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
                   لا توجد مهام متابعة بعد. سيتم إنشاؤها تلقائيًا عبر الأوتوميشن.
                 </div>
-</div>
-</div>
-</div>
-</div>
-</section></main></div>
-<!-- Panel: Retarget -->
-<div class="panel" id="panel-retarget">
-<div class="grid">
-<div class="card" style="grid-column: span 6;">
-<h3>قوائم جاهزة</h3>
-<div class="list"> <div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+    </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel: Retarget -->
+          <div class="panel" id="panel-retarget">
+            <div class="grid">
+              <div class="card" style="grid-column: span 6;">
+                <h3>قوائم جاهزة</h3>
+                <div class="list">                <div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
                   لا توجد قوائم بعد. سيتم توليدها حسب قواعد إعادة الاستهداف.
                 </div>
-</div>
-</div>
-</div>
-<div class="card" style="grid-column: span 6;">
-<h3>حملات</h3>
-<div class="list"> <div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+    </div>
+                </div>
+              </div>
+
+              <div class="card" style="grid-column: span 6;">
+                <h3>حملات</h3>
+                <div class="list">                <div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
                   لا توجد حملات بعد. ستظهر هنا حملات واتساب/DM عند إضافتها.
                 </div>
-</div>
-</div>
-</div>
+    </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
+          <!-- Panel: Automation -->
+          <div class="panel" id="panel-automation">
+            <div class="grid">
+              <div class="card" style="grid-column: span 12;">
+                <h3>قواعد الأوتوميشن (MVP)</h3>
+                <div class="list">
+                  <div class="row">
+                    <div class="meta">
+                      <b>عند وصول تفاعل جديد</b>
+                      <span>تسجيل الحدث + إنشاء/تحديث عميل محتمل + إشعار + توزيع تلقائي</span>
+                    </div>
+                    <span class="tag ok">مفعّل</span>
+                  </div>
+                  <div class="row">
+                    <div class="meta">
+                      <b>ترحيب تلقائي (واتساب)</b>
+                      <span>يرسل مرة واحدة للعميل الجديد + مهمة متابعة بعد 15 دقيقة</span>
+                    </div>
+                    <span class="tag ok">مفعّل</span>
+                  </div>
+                  <div class="row">
+                    <div class="meta">
+                      <b>عدم رد (24/48/7)</b>
+                      <span>24 ساعة تنبيه + 48 ساعة رسالة + 7 أيام نقل لإعادة الاستهداف</span>
+                    </div>
+                    <span class="tag warn">قابل للتعديل</span>
+                  </div>
+                  <div class="row">
+                    <div class="meta">
+                      <b>SLA فتح العميل</b>
+                      <span>تصعيد لمدير الفرع لو لم يتم فتح المحادثة خلال 10 دقائق</span>
+                    </div>
+                    <span class="tag warn">قيد الضبط</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-<!-- Panel: Automation -->
-<div class="panel" id="panel-automation">
-<div class="grid">
-<div class="card" style="grid-column: span 12;">
-<h3>قواعد الأوتوميشن (MVP)</h3>
-<div class="list">
-<div class="row">
-<div class="meta">
-<b>عند وصول تفاعل جديد</b>
-<span>تسجيل الحدث + إنشاء/تحديث عميل محتمل + إشعار + توزيع تلقائي</span>
-</div>
-<span class="tag ok">مفعّل</span>
-</div>
-<div class="row">
-<div class="meta">
-<b>ترحيب تلقائي (واتساب)</b>
-<span>يرسل مرة واحدة للعميل الجديد + مهمة متابعة بعد 15 دقيقة</span>
-</div>
-<span class="tag ok">مفعّل</span>
-</div>
-<div class="row">
-<div class="meta">
-<b>عدم رد (24/48/7)</b>
-<span>24 ساعة تنبيه + 48 ساعة رسالة + 7 أيام نقل لإعادة الاستهداف</span>
-</div>
-<span class="tag warn">قابل للتعديل</span>
-</div>
-<div class="row">
-<div class="meta">
-<b>SLA فتح العميل</b>
-<span>تصعيد لمدير الفرع لو لم يتم فتح المحادثة خلال 10 دقائق</span>
-</div>
-<span class="tag warn">قيد الضبط</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Panel: Settings -->
-<div class="panel" id="panel-settings">
-<div class="mzj-settings">
-<div class="mzj-settings-topbar" id="settingsTopbar">
-<button class="mzj-setItem active" data-settab="branches">🏢 الفروع</button>
-<button class="mzj-setItem" data-settab="stages">🧩 الحالات/المراحل</button>
-<button class="mzj-setItem" data-settab="sources">🔗 مصادر العملاء</button>
-<button class="mzj-setItem" data-settab="assign">⚡ قواعد التوزيع</button>
-<button class="mzj-setItem" data-settab="automation">🤖 الأوتوميشن</button>
-<span class="mzj-setSep"></span>
-<button class="mzj-setItem" data-settab="agents">🧑‍💼 المناديب</button>
-<button class="mzj-setItem" data-settab="roles">🔐 الصلاحيات</button>
-</div>
+          <!-- Panel: Settings -->
+          <div class="panel" id="panel-settings">
+            <div class="mzj-settings">
+              
+              <div class="mzj-settings-topbar" id="settingsTopbar">
+                <button class="mzj-setItem active" data-settab="branches">🏢 الفروع</button>
+                <button class="mzj-setItem" data-settab="stages">🧩 الحالات/المراحل</button>
+                <button class="mzj-setItem" data-settab="sources">🔗 مصادر العملاء</button>
+                <button class="mzj-setItem" data-settab="assign">⚡ قواعد التوزيع</button>
+                <button class="mzj-setItem" data-settab="automation">🤖 الأوتوميشن</button>
+                <span class="mzj-setSep"></span>
+                <button class="mzj-setItem" data-settab="agents">🧑‍💼 المناديب</button>
+                <button class="mzj-setItem" data-settab="roles">🔐 الصلاحيات</button>
+              </div>
 <div class="mzj-settings-main">
-<!-- Header -->
-<div class="mzj-setHead">
-<div>
-<b id="setTitle">الفروع</b>
-<span id="setDesc">إضافة/تعديل/تعطيل الفروع التي يتم التوزيع عليها.</span>
-</div>
-<div class="mzj-setHeadActions">
-<button class="toolBtn" id="btnRefreshSettings">تحديث</button>
-<button class="toolBtn primary" id="btnAddSettings">+ إضافة</button>
-</div>
-</div>
-<!-- Content panes -->
-<div class="mzj-setPane active" id="set-branches">
-<div class="mzj-tableWrap">
-<table class="mzj-table">
-<thead>
-<tr>
-<th>الاسم</th>
-<th>المدينة</th>
-<th>الحالة</th>
-<th style="width:190px">إجراءات</th>
-</tr>
-</thead>
-<tbody id="tblBranches">
-<tr><td class="mzj-empty" colspan="4">لا توجد فروع بعد.</td></tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="mzj-setPane" id="set-stages">
-<div class="mzj-tableWrap">
-<table class="mzj-table">
-<thead>
-<tr>
-<th>الاسم</th>
-<th>الترتيب</th>
-<th>اللون</th>
-<th>الحالة</th>
-<th style="width:190px">إجراءات</th>
-</tr>
-</thead>
-<tbody id="tblStages">
-<tr><td class="mzj-empty" colspan="5">لا توجد مراحل بعد.</td></tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="mzj-setPane" id="set-sources">
-<div class="mzj-tableWrap">
-<table class="mzj-table">
-<thead>
-<tr>
-<th>المصدر</th>
-<th>النوع</th>
-<th>الحالة</th>
-<th>إعدادات</th>
-<th style="width:190px">إجراءات</th>
-</tr>
-</thead>
-<tbody id="tblSources">
-<tr><td class="mzj-empty" colspan="5">لا توجد مصادر بعد.</td></tr>
-</tbody>
-</table>
-</div>
-<div class="mzj-hintBox">
-<b>ملاحظة مهمة</b>
-<span>
+                <!-- Header -->
+                <div class="mzj-setHead">
+                  <div>
+                    <b id="setTitle">الفروع</b>
+                    <span id="setDesc">إضافة/تعديل/تعطيل الفروع التي يتم التوزيع عليها.</span>
+                  </div>
+                  <div class="mzj-setHeadActions">
+                    <button class="toolBtn" id="btnRefreshSettings">تحديث</button>
+                    <button class="toolBtn primary" id="btnAddSettings">+ إضافة</button>
+                  </div>
+                </div>
+
+                <!-- Content panes -->
+                <div class="mzj-setPane active" id="set-branches">
+                  <div class="mzj-tableWrap">
+                    <table class="mzj-table">
+                      <thead>
+                        <tr>
+                          <th>الاسم</th>
+                          <th>المدينة</th>
+                          <th>الحالة</th>
+                          <th style="width:190px">إجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tblBranches">
+                        <tr><td colspan="4" class="mzj-empty">لا توجد فروع بعد.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div class="mzj-setPane" id="set-stages">
+                  <div class="mzj-tableWrap">
+                    <table class="mzj-table">
+                      <thead>
+                        <tr>
+                          <th>الاسم</th>
+                          <th>الترتيب</th>
+                          <th>اللون</th>
+                          <th>الحالة</th>
+                          <th style="width:190px">إجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tblStages">
+                        <tr><td colspan="5" class="mzj-empty">لا توجد مراحل بعد.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div class="mzj-setPane" id="set-sources">
+                  <div class="mzj-tableWrap">
+                    <table class="mzj-table">
+                      <thead>
+                        <tr>
+                          <th>المصدر</th>
+                          <th>النوع</th>
+                          <th>الحالة</th>
+                          <th>إعدادات</th>
+                          <th style="width:190px">إجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tblSources">
+                        <tr><td colspan="5" class="mzj-empty">لا توجد مصادر بعد.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div class="mzj-hintBox">
+                    <b>ملاحظة مهمة</b>
+                    <span>
                       مصدر <b>حاسبة التقسيط</b> سيتم سحبه من Google Sheet (TSV) بواسطة Cloudflare Worker ثم يُكتب في Firestore.
                       من هنا تقدر تشغّل/توقف المصدر وتحدد الرابط.
                     </span>
-</div>
-</div>
-<div class="mzj-setPane" id="set-assign">
-<div class="mzj-hintBox">
-<b>قواعد التوزيع</b>
-<span>هنضيف هنا سياسة التوزيع (Round Robin/حسب الفرع/حسب المصدر) + الرجوع لنفس المندوب.</span>
-</div>
-</div>
-<div class="mzj-setPane" id="set-automation">
-<div class="mzj-hintBox">
-<b>الأوتوميشن</b>
-<span>هنضيف هنا قواعد المتابعة (15 دقيقة/24 ساعة/48 ساعة/7 أيام) وتشغيل/إيقاف.</span>
-</div>
-</div>
-</div>
-</div>
-<div class="mzj-setPane" id="set-agents">
-<div class="mzj-tableWrap">
-<table class="mzj-table">
-<thead>
-<tr>
-<th>الاسم</th>
-<th>الجوال</th>
-<th>الفرع</th>
-<th>الدور</th>
-<th>الحالة</th>
-<th style="width:190px">إجراءات</th>
-</tr>
-</thead>
-<tbody id="tblAgents">
-<tr><td class="mzj-empty" colspan="6">لا يوجد مناديب بعد.</td></tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="mzj-setPane" id="set-roles">
-<div class="mzj-tableWrap">
-<table class="mzj-table">
-<thead>
-<tr>
-<th>الدور</th>
-<th>الصلاحيات</th>
-<th>الحالة</th>
-<th style="width:190px">إجراءات</th>
-</tr>
-</thead>
-<tbody id="tblRoles">
-<tr><td class="mzj-empty" colspan="4">لا توجد أدوار بعد.</td></tr>
-</tbody>
-</table>
-</div>
-<div class="mzj-hintBox">
-<b>ملاحظة</b>
-<span>الصلاحيات هنا هي أساس التحكم في كل أجزاء النظام. لاحقًا هنربطها بـ Firebase Auth وقواعد Firestore.</span>
-</div>
-</div>
-</div>
+                  </div>
+                </div>
 
+                <div class="mzj-setPane" id="set-assign">
+                  <div class="mzj-hintBox">
+                    <b>قواعد التوزيع</b>
+                    <span>هنضيف هنا سياسة التوزيع (Round Robin/حسب الفرع/حسب المصدر) + الرجوع لنفس المندوب.</span>
+                  </div>
+                </div>
 
+                <div class="mzj-setPane" id="set-automation">
+                  <div class="mzj-hintBox">
+                    <b>الأوتوميشن</b>
+                    <span>هنضيف هنا قواعد المتابعة (15 دقيقة/24 ساعة/48 ساعة/7 أيام) وتشغيل/إيقاف.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+                <div class="mzj-setPane" id="set-agents">
+                  <div class="mzj-tableWrap">
+                    <table class="mzj-table">
+                      <thead>
+                        <tr>
+                          <th>الاسم</th>
+                          <th>الجوال</th>
+                          <th>الفرع</th>
+                          <th>الدور</th>
+                          <th>الحالة</th>
+                          <th style="width:190px">إجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tblAgents">
+                        <tr><td colspan="6" class="mzj-empty">لا يوجد مناديب بعد.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
 
+                <div class="mzj-setPane" id="set-roles">
+                  <div class="mzj-tableWrap">
+                    <table class="mzj-table">
+                      <thead>
+                        <tr>
+                          <th>الدور</th>
+                          <th>الصلاحيات</th>
+                          <th>الحالة</th>
+                          <th style="width:190px">إجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tblRoles">
+                        <tr><td colspan="4" class="mzj-empty">لا توجد أدوار بعد.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
 
-<!-- Notifications Modal -->
-<div class="overlay" id="overlay">
-<div aria-label="الإشعارات" aria-modal="true" class="modal" role="dialog">
-<div class="modalHead">
-<b>الإشعارات</b>
-<button class="closeX" id="closeOverlay">✕</button>
-</div>
-<div class="modalBody" id="notifList">
-<div class="note">
-<b>رسالة جديدة — واتساب</b>
-<span>أحمد راشد: “الدفعة 10,000 والقسط قريب 900”</span>
-</div>
-<div class="note">
-<b>متابعة متأخرة</b>
-<span>محمد (Messenger): لم يتم الرد خلال 24 ساعة.</span>
-</div>
-<div class="note">
-<b>عميل غير موزّع</b>
-<span>تعليق جديد على انستجرام يحتاج إسناد لمندوب.</span>
-</div>
-</div>
-</div>
-</div>
-<!-- Toast -->
-<div aria-live="polite" class="toast" id="toast" role="status">
-<div class="ticon" id="toastIcon">✓</div>
-<div style="min-width:0">
-<b id="toastTitle">تم</b>
-<span id="toastBody">تم تنفيذ العملية.</span>
-</div>
-<button id="toastClose">إغلاق</button>
-</div>
-<script type="module">
+                  <div class="mzj-hintBox">
+                    <b>ملاحظة</b>
+                    <span>الصلاحيات هنا هي أساس التحكم في كل أجزاء النظام. لاحقًا هنربطها بـ Firebase Auth وقواعد Firestore.</span>
+                  </div>
+                </div>
 
-    // ===== Firebase (Web SDK) =====
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-    import {
-      getFirestore, collection, addDoc, doc, getDoc, setDoc, updateDoc,
-      query, orderBy, limit, onSnapshot, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+          </div>
+
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Notifications Modal -->
+  <div class="overlay" id="overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="الإشعارات">
+      <div class="modalHead">
+        <b>الإشعارات</b>
+        <button class="closeX" id="closeOverlay">✕</button>
+      </div>
+      <div class="modalBody" id="notifList">
+        <div class="note">
+          <b>رسالة جديدة — واتساب</b>
+          <span>أحمد راشد: “الدفعة 10,000 والقسط قريب 900”</span>
+        </div>
+        <div class="note">
+          <b>متابعة متأخرة</b>
+          <span>محمد (Messenger): لم يتم الرد خلال 24 ساعة.</span>
+        </div>
+        <div class="note">
+          <b>عميل غير موزّع</b>
+          <span>تعليق جديد على انستجرام يحتاج إسناد لمندوب.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <div class="ticon" id="toastIcon">✓</div>
+    <div style="min-width:0">
+      <b id="toastTitle">تم</b>
+      <span id="toastBody">تم تنفيذ العملية.</span>
+    </div>
+    <button id="toastClose">إغلاق</button>
+  </div>
+
+  <script type="module">
+
+   
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, doc, getDoc, setDoc, addDoc, updateDoc, getDocs, query, where, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-    // Firebase configuration (provided)
-    const firebaseConfig = {
+const firebaseConfig = {
       apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
       authDomain: "mzj-lead.firebaseapp.com",
       projectId: "mzj-lead",
@@ -1531,1003 +1579,609 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from
       measurementId: "G-981Z1T6Z91"
     };
 
-    const fbApp = initializeApp(firebaseConfig);
-    // Analytics may fail on file://; we ignore safely.
-    try { getAnalytics(fbApp); } catch (e) {}
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
 
-    const db = getFirestore(fbApp);
+/** ============= Helpers ============= */
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+const safe = (v, fb="—") => (v===undefined || v===null || v==="" ? fb : String(v));
+const escapeHtml = (s) => String(s||"").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const toDateLabel = (v) => {
+  try{
+    if(!v) return "—";
+    const d = typeof v === "string" ? new Date(v) : (v.toDate ? v.toDate() : new Date(v));
+    return d.toLocaleString("ar-SA");
+  }catch(e){ return "—"; }
+};
 
-    // UI: show connected badge
-    const envBadge = document.getElementById("envBadge");
-    if (envBadge) {
-      envBadge.textContent = "متصل بـ Firebase";
-      envBadge.classList.remove("neutral");
-      envBadge.classList.add("ok");
-    }
+/** ============= Tabs ============= */
+const panels = {
+  inbox: $("#panel-inbox"),
+  leads: $("#panel-leads"),
+  pipeline: $("#panel-pipeline"),
+  tasks: $("#panel-tasks"),
+  retarget: $("#panel-retarget"),
+  automations: $("#panel-automations"),
+  settings: $("#panel-settings"),
+};
 
-// ===== Tabs routing =====
-    const nav = document.getElementById('nav');
-    const panels = {
-      inbox: document.getElementById('panel-inbox'),
-      leads: document.getElementById('panel-leads'),
-      pipeline: document.getElementById('panel-pipeline'),
-      tasks: document.getElementById('panel-tasks'),
-      retarget: document.getElementById('panel-retarget'),
-      automation: document.getElementById('panel-automation'),
-      settings: document.getElementById('panel-settings'),
-    };
+function setActiveTab(tab){
+  Object.entries(panels).forEach(([k, el])=>{
+    if(!el) return;
+    el.style.display = (k===tab) ? "" : "none";
+  });
+  $$("[data-tab]").forEach(btn=>{
+    btn.classList.toggle("active", btn.getAttribute("data-tab")===tab);
+  });
+}
 
-    const titles = {
-      inbox: ["صندوق الوارد", "تاب واحد للرد على كل الرسائل والتعليقات — مع تسجيل كل تفاعل وإشعارات فورية."],
-      leads: ["العملاء المحتملون", "إدارة العملاء المحتملين: بحث، فلترة، توزيع، وتاريخ التفاعلات."],
-      pipeline: ["مراحل البيع", "تحكم كامل في مراحل البيع وإدارة انتقال العملاء بين المراحل."],
-      tasks: ["المتابعات", "مهام متابعة تلقائية + متأخر + تصعيد مدير الفرع."],
-      retarget: ["إعادة الاستهداف", "قوائم وحملات لإعادة تفعيل العملاء غير النشطين."],
-      automation: ["الأوتوميشن", "قواعد تشغيل تلقائي: توزيع، رسائل، مهام متابعة، وإشعارات."],
-      settings: ["الإعدادات", "الفروع، المستخدمين، الصلاحيات، وربط المنصات."],
-    };
-
-    const pageTitle = document.getElementById('pageTitle');
-    const pageDesc  = document.getElementById('pageDesc');
-    const activeTabChip = document.getElementById('activeTabChip');
-
-    function setTab(tab){
-      [...nav.querySelectorAll('.navItem')].forEach(x => x.classList.toggle('active', x.dataset.tab === tab));
-      Object.entries(panels).forEach(([k, el]) => el.classList.toggle('active', k === tab));
-      pageTitle.textContent = titles[tab][0];
-      pageDesc.textContent  = titles[tab][1];
-      activeTabChip.textContent = titles[tab][0];
-    }
-
-    nav.addEventListener('click', (e)=>{
-      const item = e.target.closest('.navItem');
-      if(!item) return;
-      setTab(item.dataset.tab);
-    });
-
-    // ===== Inbox demo interactions =====
-    const convList = document.getElementById('convList');
-    const chatName = document.getElementById('chatName');
-    const chatMeta = document.getElementById('chatMeta');
-    const chatBody = document.getElementById('chatBody');
-
-    convList.addEventListener('click', (e)=>{
-      const conv = e.target.closest('.conv');
-      if(!conv) return;
-      [...convList.querySelectorAll('.conv')].forEach(x => x.classList.remove('active'));
-      conv.classList.add('active');
-
-      const name = conv.querySelector('.convText b')?.textContent || "عميل";
-      chatName.textContent = name;
-
-      const pill = conv.querySelector('.pill')?.textContent?.trim() || "منصة";
-      const branch = "فرع الرياض";
-      const stage = "جديد";
-      chatMeta.textContent = `${pill} • ${branch} • مرحلة: ${stage}`;
-
-      chatBody.innerHTML = `
-        <div class="msgRow in"><div class="msg">مرحبا.. عندي استفسار سريع<small>وارد • الآن</small></div></div>
-        <div class="msgRow out"><div class="msg">أهلاً وسهلاً 👋 تفضل، كيف أقدر أساعدك؟ <small>صادر • الآن</small></div></div>
-      `;
-      chatBody.scrollTop = chatBody.scrollHeight;
-    });
-
-    // Send message demo
-    const composer = document.getElementById('composer');
-    document.getElementById('btnSend').addEventListener('click', ()=>{
-      const text = (composer.value || "").trim();
-      if(!text) return;
-
-      const row = document.createElement('div');
-      row.className = 'msgRow out';
-      row.innerHTML = `<div class="msg">${escapeHtml(text)}<small>صادر • الآن</small></div>`;
-      chatBody.appendChild(row);
-      chatBody.scrollTop = chatBody.scrollHeight;
-      composer.value = "";
-
-      toastShow("تم الإرسال (تجريبي)", "هنا لاحقًا هننادي Worker لإرسال الرسالة حسب المنصة وتسجيلها في Firebase.", "✓");
-    });
-
-    composer.addEventListener('keydown', (e)=>{
-      if(e.key === "Enter" && !e.shiftKey){
-        e.preventDefault();
-        document.getElementById('btnSend').click();
+function wireTabs(){
+  $$("[data-tab]").forEach(btn=>{
+    btn.addEventListener("click",(e)=>{
+      e.preventDefault();
+      const tab = btn.getAttribute("data-tab");
+      if(tab && panels[tab]){
+        setActiveTab(tab);
+        if(tab==="leads") refreshLeads();
+        if(tab==="settings") refreshSettings();
       }
     });
+  });
+  setActiveTab("inbox");
+}
 
-    function escapeHtml(s){
-      return s.replace(/[&<>"']/g, (c)=>({
-        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-      }[c]));
+/** ============= Auth UI ============= */
+const authOverlay = $("#authOverlay");
+const authEmail = $("#authEmail");
+const authPass  = $("#authPass");
+const authMsg   = $("#authMsg");
+const btnLogin  = $("#authLoginBtn");
+const btnLogoutTop = $("#btnLogout");
+const btnLogout = $("#authLogoutBtn");
+const authClose = $("#authClose");
+
+function openAuth(){
+  if(!authOverlay) return;
+  authOverlay.style.display="flex";
+  if(authMsg){ authMsg.style.display="none"; authMsg.textContent=""; }
+}
+function closeAuth(){
+  if(!authOverlay) return;
+  authOverlay.style.display="none";
+}
+authClose?.addEventListener("click",(e)=>{ e.preventDefault(); closeAuth(); });
+authOverlay?.addEventListener("click",(e)=>{ if(e.target===authOverlay) closeAuth(); });
+
+btnLogin?.addEventListener("click", async ()=>{
+  try{
+    if(authMsg){ authMsg.style.display="none"; authMsg.textContent=""; }
+    const email = (authEmail?.value||"").trim();
+    const pass  = (authPass?.value||"").trim();
+    if(!email || !pass) throw new Error("اكتب الإيميل والباسورد.");
+    await signInWithEmailAndPassword(auth, email, pass);
+    closeAuth();
+  }catch(err){
+    console.error(err);
+    if(authMsg){ authMsg.textContent = err?.message || "فشل تسجيل الدخول"; authMsg.style.display="block"; }
+  }
+});
+async function doLogout(){ try{ await signOut(auth); }catch(e){ console.error(e); } }
+btnLogoutTop?.addEventListener("click",(e)=>{ e.preventDefault(); doLogout(); openAuth(); });
+btnLogout?.addEventListener("click",(e)=>{ e.preventDefault(); doLogout(); });
+
+/** ============= Session + Roles ============= */
+let session = { uid:null, email:null, roleId:null, name:null, branchId:null };
+
+function roleLabel(roleId){
+  switch(roleId){
+    case "admin": return "مدير النظام";
+    case "marketing_manager": return "مدير التسويق";
+    case "branch_manager": return "مدير الفرع";
+    case "sales_rep": return "مندوب المبيعات";
+    default: return roleId || "—";
+  }
+}
+function canManageSettings(){
+  return session.roleId==="admin" || session.roleId==="marketing_manager";
+}
+
+async function ensureUserDocs(user){
+  const uref = doc(db, "users", user.uid);
+  const snap = await getDoc(uref);
+  if(!snap.exists()){
+    await setDoc(uref, {
+      uid: user.uid,
+      email: user.email || "",
+      name: (user.email||"").split("@")[0] || "مستخدم",
+      roleId: "sales_rep",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge:true });
+  }
+  const u = (await getDoc(uref)).data();
+
+  const aref = doc(db, "settings_agents", user.uid);
+  const asnap = await getDoc(aref);
+  if(!asnap.exists()){
+    await setDoc(aref, {
+      uid: user.uid,
+      name: u?.name || (user.email||"").split("@")[0] || "مستخدم",
+      email: user.email || "",
+      branchId: u?.branchId || "",
+      roleId: u?.roleId || "sales_rep",
+      isActive: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge:true });
+  }
+  return u;
+}
+
+function applyUserToUI(){
+  $("#userName") && ($("#userName").textContent = safe(session.name,"مستخدم"));
+  $("#userRole") && ($("#userRole").textContent = safe(roleLabel(session.roleId),"—"));
+  $("#userAvatar") && ($("#userAvatar").textContent = (safe(session.name,"م")[0] || "م"));
+  const badge = $("[data-env-badge]");
+  if(badge) badge.textContent = "متصل";
+}
+
+/** ============= Settings cache ============= */
+const settings = {
+  branches: new Map(),
+  agents:   new Map(),
+  stages:   new Map(),
+  sources:  new Map(),
+};
+
+function mapToOptions(map, {allLabel="الكل", allValue=""}={}){
+  const opts = [`<option value="${allValue}">${allLabel}</option>`];
+  for(const [id,item] of map.entries()){
+    opts.push(`<option value="${id}">${escapeHtml(item.name || item.title || id)}</option>`);
+  }
+  return opts.join("");
+}
+
+async function loadSettingsOnce(){
+  const cols = [
+    ["branches","settings_branches"],
+    ["agents","settings_agents"],
+    ["stages","settings_stages"],
+    ["sources","settings_sources"],
+  ];
+  for(const [key,colName] of cols){
+    settings[key].clear();
+    try{
+      const qs = await getDocs(query(collection(db,colName), orderBy("createdAt","asc")));
+      qs.forEach(d=>settings[key].set(d.id, {id:d.id, ...d.data()}));
+    }catch(err){
+      console.warn("Settings read failed:", colName, err);
     }
-
-    // ===== Notifications modal =====
-    const overlay = document.getElementById('overlay');
-    const btnBell = document.getElementById('btnBell');
-    const closeOverlay = document.getElementById('closeOverlay');
-
-    btnBell.addEventListener('click', ()=> overlay.classList.add('show'));
-    closeOverlay.addEventListener('click', ()=> overlay.classList.remove('show'));
-    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) overlay.classList.remove('show'); });
-
-    // ===== Toast =====
-    const toast = document.getElementById('toast');
-    const toastTitle = document.getElementById('toastTitle');
-    const toastBody = document.getElementById('toastBody');
-    const toastIcon = document.getElementById('toastIcon');
-    const toastClose = document.getElementById('toastClose');
-    let toastTimer = null;
-
-    function toastShow(title, body, icon="✓"){
-      toastTitle.textContent = title;
-      toastBody.textContent = body;
-      toastIcon.textContent = icon;
-      toast.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(()=> toast.classList.remove('show'), 3800);
-    }
-    toastClose.addEventListener('click', ()=> toast.classList.remove('show'));
-
-    // ===== Misc buttons (placeholders) =====
-    document.getElementById('btnSync').addEventListener('click', ()=>{
-      toastShow("تحديث", "ده مكان المزامنة مع Firebase/Workers (سحب آخر المحادثات والمهام).", "⟳");
-    });
-
-    document.getElementById('btnMarkAllRead').addEventListener('click', ()=>{
-      document.getElementById('navUnread').textContent = "0";
-      document.getElementById('bellCount').textContent = "0";
-      toastShow("تم", "تم تصفير غير المقروء (تجريبي).", "✓");
-    });
-
-    document.getElementById('btnOpenUnassigned').addEventListener('click', ()=>{
-      toastShow("غير موزعة", "هنا هنفلتر المحادثات/العملاء غير المسندين لأي مندوب.", "!");
-    });
-
-    document.getElementById('btnNewLead').addEventListener('click', ()=>{
-      toastShow("عميل محتمل", "هنا هنفتح نافذة إضافة عميل محتمل يدويًا.", "+");
-    });
-
-    document.getElementById('btnQuickAssign').addEventListener('click', ()=>{
-      toastShow("توزيع سريع", "هنا هنشغل التوزيع التلقائي (Round Robin) للغير موزع.", "⚡");
-    });
-
-    document.getElementById('btnCreateLead').addEventListener('click', ()=>{
-      toastShow("تحويل", "هنا هنحوّل المحادثة إلى عميل محتمل + نحدد فرع/مرحلة.", "✓");
-    });
-
-    document.getElementById('btnAssign').addEventListener('click', ()=>{
-      toastShow("توزيع", "هنا هنفتح اختيار الفرع/المندوب أو توزيع تلقائي.", "⚡");
-    });
-
-    document.getElementById('btnTemplate').addEventListener('click', ()=>{
-      toastShow("قوالب", "هنا هنفتح قوالب ردود سريعة عربية (واتساب/منصات).", "✦");
-    });
-
-    // ===== Clock =====
-    const clock = document.getElementById('clock');
-    function tick(){
-      const d = new Date();
-      const hh = String(d.getHours()).padStart(2,'0');
-      const mm = String(d.getMinutes()).padStart(2,'0');
-      clock.textContent = `${hh}:${mm}`;
-    }
-    tick();
-    setInterval(tick, 15000);
-
-    // ===== Filters (demo) =====
-    const fChannel = document.getElementById('fChannel');
-    const fSearch = document.getElementById('fSearch');
-
-    function applyConvFilters(){
-      const ch = fChannel.value;
-      const q = (fSearch.value || "").trim().toLowerCase();
-
-      [...convList.querySelectorAll('.conv')].forEach(el=>{
-        const elCh = el.dataset.channel || "";
-        const text = el.textContent.toLowerCase();
-        const okCh = !ch || elCh === ch;
-        const okQ  = !q || text.includes(q);
-        el.style.display = (okCh && okQ) ? "" : "none";
-      });
-    }
-    fChannel.addEventListener('change', applyConvFilters);
-    fSearch.addEventListener('input', applyConvFilters);
-
-    // Global search (demo)
-    const globalSearch = document.getElementById('globalSearch');
-    globalSearch.addEventListener('input', ()=>{
-      // TODO: later - query Firestore (leads/conversations)
-    });
-  
-    // ===== Settings (Firestore CRUD) =====
-    const SETTINGS = {
-      branches: { title:"الفروع", desc:"إضافة/تعديل/تعطيل الفروع التي يتم التوزيع عليها.", col:"settings_branches" },
-      stages:   { title:"الحالات/المراحل", desc:"إدارة مراحل البيع والحالات (إضافة/تعديل/ترتيب/تعطيل).", col:"settings_stages" },
-      sources:  { title:"مصادر العملاء", desc:"إدارة مصادر العملاء (تشغيل/إيقاف + إعدادات الربط).", col:"settings_sources" },
-      assign:   { title:"قواعد التوزيع", desc:"سياسات التوزيع التلقائي (قريبًا).", col:null },
-      automation:{title:"الأوتوميشن", desc:"قواعد المتابعة والإشعارات (قريبًا).", col:null },
-      agents:  { title:"المناديب", desc:"إضافة/تعديل/تعطيل المناديب وربطهم بالفروع.", col:"settings_agents" },
-      roles:   { title:"الصلاحيات", desc:"إدارة الأدوار والصلاحيات للأعضاء.", col:"settings_roles" },
-    };
-
-    const setSide = document.querySelectorAll("#settingsTopbar .mzj-setItem");
-    const setPanes = {
-      branches: document.getElementById("set-branches"),
-      stages: document.getElementById("set-stages"),
-      sources: document.getElementById("set-sources"),
-      assign: document.getElementById("set-assign"),
-      automation: document.getElementById("set-automation"),
-      agents: document.getElementById("set-agents"),
-      roles: document.getElementById("set-roles"),
-    };
-    let activeSetTab = "branches";
-
-    const setTitle = document.getElementById("setTitle");
-    const setDesc = document.getElementById("setDesc");
-    const btnAddSettings = document.getElementById("btnAddSettings");
-    const btnRefreshSettings = document.getElementById("btnRefreshSettings");
-
-    function setSettingsTab(tab){
-      activeSetTab = tab;
-      setSide.forEach(b => b.classList.toggle("active", b.dataset.settab === tab));
-      Object.entries(setPanes).forEach(([k, el]) => el.classList.toggle("active", k === tab));
-      setTitle.textContent = SETTINGS[tab].title;
-      setDesc.textContent  = SETTINGS[tab].desc;
-
-      // add button enabled only for CRUD tabs
-      const canAdd = ["branches","stages","sources","agents","roles"].includes(tab);
-      btnAddSettings.disabled = !canAdd;
-      btnAddSettings.style.opacity = canAdd ? "1" : ".55";
-
-      // load data
-      if (tab === "branches") loadBranches();
-      if (tab === "stages") loadStages();
-      if (tab === "sources") loadSources();
-      if (tab === "agents") loadAgents();
-      if (tab === "roles") loadRoles();
-    }
-
-    setSide.forEach(btn => btn.addEventListener("click", ()=> setSettingsTab(btn.dataset.settab)));
-
-    // Modal helpers
-    const setModal = document.getElementById("setModal");
-    const setModalTitle = document.getElementById("setModalTitle");
-    const setModalClose = document.getElementById("setModalClose");
-    const setModalCancel = document.getElementById("setModalCancel");
-    const setModalSave = document.getElementById("setModalSave");
-    const setForm = document.getElementById("setForm");
-
-    let modalMode = "create"; // create | edit
-    let modalDocId = null;
-
-    function openModal(title){
-      setModalTitle.textContent = title;
-      setModal.classList.add("show");
-    }
-    function closeModal(){
-      setModal.classList.remove("show");
-      setForm.innerHTML = "";
-      modalMode = "create";
-      modalDocId = null;
-    }
-    setModalClose.addEventListener("click", closeModal);
-    setModalCancel.addEventListener("click", closeModal);
-    setModal.addEventListener("click", (e)=>{ if(e.target === setModal) closeModal(); });
-
-    // Render fields
-    function fieldHTML({name,label,type="text",placeholder="",options=null,full=false}){
-      const cls = "mzjField" + (full ? " full" : "");
-      if(type === "select"){
-        const opts = (options||[]).map(o=> `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("");
-        return `<div class="${cls}">
-          <label>${escapeHtml(label)}</label>
-          <select name="${escapeHtml(name)}">${opts}</select>
-        </div>`;
-      }
-      return `<div class="${cls}">
-        <label>${escapeHtml(label)}</label>
-        <input name="${escapeHtml(name)}" type="${escapeHtml(type)}" placeholder="${escapeHtml(placeholder)}" />
-      </div>`;
-    }
-    function getFormData(){
-      const fd = new FormData(setForm);
-      const obj = {};
-      for(const [k,v] of fd.entries()) obj[k] = (v||"").toString().trim();
-      return obj;
-    }
-    function fillForm(values){
-      Object.entries(values||{}).forEach(([k,v])=>{
-        const el = setForm.querySelector(`[name="${CSS.escape(k)}"]`);
-        if(el) el.value = v ?? "";
-      });
-    }
-
-    // Tables
-    const tblBranches = document.getElementById("tblBranches");
-    const tblStages = document.getElementById("tblStages");
-    const tblSources = document.getElementById("tblSources");
-    const tblAgents = document.getElementById("tblAgents");
-    const tblRoles = document.getElementById("tblRoles");
-
-    // Default source (calculator) bootstrap
-    const CALC_TSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7FLPA5pEhG5dfYNwKO9PMNKECBc6FFC-xEMJqlNU7g_HKCOnBZYqi5Y_vZR5fUcdDSR5L9PMtxm_o/pub?output=tsv";
-
-    async function ensureDefaultSource(){
-      const dref = doc(db, "settings_sources", "installment_calculator");
-      const snap = await getDoc(dref);
-      if(!snap.exists()){
-        await setDoc(dref, {
-          name: "حاسبة التقسيط",
-          type: "google_sheet_tsv",
-          isActive: true,
-          tsvUrl: CALC_TSV_URL,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-    }
-
-    // Loaders with realtime subscriptions
-    let unsubBranches = null, unsubStages = null, unsubSources = null;
-
-    function renderEmptyRow(tbody, cols, text){
-      tbody.innerHTML = `<tr><td colspan="${cols}" class="mzj-empty">${escapeHtml(text)}</td></tr>`;
-    }
-
-    function renderBranches(docs){
-      if(!docs.length) return renderEmptyRow(tblBranches, 4, "لا توجد فروع بعد.");
-      tblBranches.innerHTML = docs.map(d=>{
-        const x = d.data();
-        const active = (x.isActive ?? true);
-        return `<tr>
-          <td>${escapeHtml(x.name || "")}</td>
-          <td>${escapeHtml(x.city || "")}</td>
-          <td>${active ? `<span class="mzj-pill ok">نشط</span>` : `<span class="mzj-pill off">متوقف</span>`}</td>
-          <td>
-            <div class="mzj-actions">
-              <button class="mzj-miniBtn" data-act="edit-branch" data-id="${d.id}">تعديل</button>
-              <button class="mzj-miniBtn ${active ? "" : "primary"}" data-act="toggle-branch" data-id="${d.id}">${active ? "تعطيل" : "تفعيل"}</button>
-              <button class="mzj-miniBtn danger" data-act="delete-branch" data-id="${d.id}">حذف</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join("");
-    }
-
-    function renderStages(docs){
-      if(!docs.length) return renderEmptyRow(tblStages, 5, "لا توجد مراحل بعد.");
-      tblStages.innerHTML = docs.map(d=>{
-        const x = d.data();
-        const active = (x.isActive ?? true);
-        const color = x.color || "#C07A4A";
-        return `<tr>
-          <td>${escapeHtml(x.name || "")}</td>
-          <td>${escapeHtml(String(x.order ?? ""))}</td>
-          <td><span class="mzj-colorDot" style="background:${escapeHtml(color)}"></span>${escapeHtml(color)}</td>
-          <td>${active ? `<span class="mzj-pill ok">نشط</span>` : `<span class="mzj-pill off">متوقف</span>`}</td>
-          <td>
-            <div class="mzj-actions">
-              <button class="mzj-miniBtn" data-act="edit-stage" data-id="${d.id}">تعديل</button>
-              <button class="mzj-miniBtn ${active ? "" : "primary"}" data-act="toggle-stage" data-id="${d.id}">${active ? "تعطيل" : "تفعيل"}</button>
-              <button class="mzj-miniBtn danger" data-act="delete-stage" data-id="${d.id}">حذف</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join("");
-    }
-
-    function renderSources(docs){
-      if(!docs.length) return renderEmptyRow(tblSources, 5, "لا توجد مصادر بعد.");
-      tblSources.innerHTML = docs.map(d=>{
-        const x = d.data();
-        const active = (x.isActive ?? true);
-        const settings = x.type === "google_sheet_tsv"
-          ? `TSV: ${escapeHtml((x.tsvUrl||"").slice(0, 60))}${(x.tsvUrl||"").length>60?"…":""}`
-          : "—";
-        return `<tr>
-          <td>${escapeHtml(x.name || d.id)}</td>
-          <td>${escapeHtml(x.type || "")}</td>
-          <td>${active ? `<span class="mzj-pill ok">On</span>` : `<span class="mzj-pill off">Off</span>`}</td>
-          <td style="white-space:normal;max-width:420px">${settings}</td>
-          <td>
-            <div class="mzj-actions">
-              <button class="mzj-miniBtn" data-act="edit-source" data-id="${d.id}">تعديل</button>
-              <button class="mzj-miniBtn ${active ? "" : "primary"}" data-act="toggle-source" data-id="${d.id}">${active ? "إيقاف" : "تشغيل"}</button>
-              <button class="mzj-miniBtn danger" data-act="delete-source" data-id="${d.id}">حذف</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join("");
-    }
-
-    async function loadBranches(){
-      if(unsubBranches) unsubBranches();
-      try{
-        const q1 = query(collection(db, "settings_branches"), orderBy("createdAt", "desc"), limit(200));
-        unsubBranches = onSnapshot(q1, (snap)=> renderBranches(snap.docs), (err)=>{
-          console.error(err);
-          toastShow("خطأ", "لا يمكن تحميل الفروع. تأكد من صلاحيات Firestore.", "✕");
-        });
-      }catch(e){ console.error(e); }
-    }
-
-    async function loadStages(){
-      if(unsubStages) unsubStages();
-      try{
-        const q1 = query(collection(db, "settings_stages"), orderBy("order", "asc"), limit(200));
-        unsubStages = onSnapshot(q1, (snap)=> renderStages(snap.docs), (err)=>{
-          console.error(err);
-          toastShow("خطأ", "لا يمكن تحميل المراحل. تأكد من صلاحيات Firestore.", "✕");
-        });
-      }catch(e){ console.error(e); }
-    }
-
-    async function loadSources(){
-      if(unsubSources) unsubSources();
-      await ensureDefaultSource();
-      try{
-        const q1 = query(collection(db, "settings_sources"), orderBy("createdAt", "desc"), limit(200));
-        unsubSources = onSnapshot(q1, (snap)=> renderSources(snap.docs), (err)=>{
-          console.error(err);
-          toastShow("خطأ", "لا يمكن تحميل المصادر. تأكد من صلاحيات Firestore.", "✕");
-        });
-      }catch(e){ console.error(e); }
-    }
-
-    
-    // ===== Agents & Roles =====
-    function renderAgents(docs, branchesMap, rolesMap){
-      if(!docs.length) return renderEmptyRow(tblAgents, 6, "لا يوجد مناديب بعد.");
-      tblAgents.innerHTML = docs.map(d=>{
-        const x = d.data();
-        const active = (x.isActive ?? true);
-        const branchName = branchesMap.get(x.branchId||"") || "—";
-        const roleName = rolesMap.get(x.roleId||"") || "—";
-        return `<tr>
-          <td>${escapeHtml(x.name || "")}</td>
-          <td>${escapeHtml(x.phone || "")}</td>
-          <td>${escapeHtml(branchName)}</td>
-          <td>${escapeHtml(roleName)}</td>
-          <td>${active ? `<span class="mzj-pill ok">نشط</span>` : `<span class="mzj-pill off">متوقف</span>`}</td>
-          <td>
-            <div class="mzj-actions">
-              <button class="mzj-miniBtn" data-act="edit-agent" data-id="${d.id}">تعديل</button>
-              <button class="mzj-miniBtn ${active ? "" : "primary"}" data-act="toggle-agent" data-id="${d.id}">${active ? "تعطيل" : "تفعيل"}</button>
-              <button class="mzj-miniBtn danger" data-act="delete-agent" data-id="${d.id}">حذف</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join("");
-    }
-
-    function renderRoles(docs){
-      if(!docs.length) return renderEmptyRow(tblRoles, 4, "لا توجد أدوار بعد.");
-      tblRoles.innerHTML = docs.map(d=>{
-        const x = d.data();
-        const active = (x.isActive ?? true);
-        const perms = Array.isArray(x.permissions) ? x.permissions : [];
-        const preview = perms.length ? perms.slice(0,4).join("، ") + (perms.length>4 ? "…" : "") : "—";
-        return `<tr>
-          <td>${escapeHtml(x.name || "")}</td>
-          <td style="white-space:normal;max-width:520px">${escapeHtml(preview)}</td>
-          <td>${active ? `<span class="mzj-pill ok">نشط</span>` : `<span class="mzj-pill off">متوقف</span>`}</td>
-          <td>
-            <div class="mzj-actions">
-              <button class="mzj-miniBtn" data-act="edit-role" data-id="${d.id}">تعديل</button>
-              <button class="mzj-miniBtn ${active ? "" : "primary"}" data-act="toggle-role" data-id="${d.id}">${active ? "تعطيل" : "تفعيل"}</button>
-              <button class="mzj-miniBtn danger" data-act="delete-role" data-id="${d.id}">حذف</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join("");
-    }
-
-    let branchesCache = new Map();
-    let rolesCache = new Map();
-    let unsubAgents = null, unsubRoles = null;
-
-    async function refreshBranchesCache(){
-      // one-time snapshot (not realtime) for dropdown names
-      return new Promise((resolve)=>{
-        const q1 = query(collection(db, "settings_branches"), limit(500));
-        const unsub = onSnapshot(q1, (snap)=>{
-          branchesCache = new Map(snap.docs.filter(d=>!(d.data().isDeleted)).map(d=>[d.id, d.data().name||d.id]));
-          unsub();
-          resolve();
-        }, ()=>{ resolve(); });
-      });
-    }
-
-    async function refreshRolesCache(){
-      return new Promise((resolve)=>{
-        const q1 = query(collection(db, "settings_roles"), limit(500));
-        const unsub = onSnapshot(q1, (snap)=>{
-          rolesCache = new Map(snap.docs.filter(d=>!(d.data().isDeleted)).map(d=>[d.id, d.data().name||d.id]));
-          unsub();
-          resolve();
-        }, ()=>{ resolve(); });
-      });
-    }
-
-    async function ensureDefaultRoles(){
-      const ref = doc(db, "settings_roles", "admin");
-      const snap = await getDoc(ref);
-      if(!snap.exists()){
-        await setDoc(ref, {
-          name: "مدير النظام",
-          isActive: true,
-          permissions: ["full_access"],
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-      const ref2 = doc(db, "settings_roles", "agent");
-      const snap2 = await getDoc(ref2);
-      if(!snap2.exists()){
-        await setDoc(ref2, {
-          name: "مندوب",
-          isActive: true,
-          permissions: ["view_assigned_only","reply_messages","update_stage","create_followups"],
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-    }
-
-    async function loadAgents(){
-      if(unsubAgents) unsubAgents();
-      await ensureDefaultRoles();
-      await refreshBranchesCache();
-      await refreshRolesCache();
-      const q1 = query(collection(db, "settings_agents"), orderBy("createdAt","desc"), limit(500));
-      unsubAgents = onSnapshot(q1, (snap)=>{
-        const docs = snap.docs.filter(d=>!(d.data().isDeleted));
-        renderAgents(docs, branchesCache, rolesCache);
-      }, (err)=>{
-        console.error(err);
-        toastShow("خطأ", "لا يمكن تحميل المناديب. تأكد من صلاحيات Firestore.", "✕");
-      });
-    }
-
-    async function loadRoles(){
-      if(unsubRoles) unsubRoles();
-      await ensureDefaultRoles();
-      const q1 = query(collection(db, "settings_roles"), orderBy("createdAt","desc"), limit(500));
-      unsubRoles = onSnapshot(q1, (snap)=>{
-        const docs = snap.docs.filter(d=>!(d.data().isDeleted));
-        renderRoles(docs);
-      }, (err)=>{
-        console.error(err);
-        toastShow("خطأ", "لا يمكن تحميل الصلاحيات. تأكد من صلاحيات Firestore.", "✕");
-      });
-    }
-
-    // Modal builders: Agent / Role
-    function openAgentCreate(){
-      modalMode = "create"; modalDocId = null;
-      const branchOpts = [...branchesCache.entries()].map(([id,name])=>({value:id,label:name}));
-      const roleOpts = [...rolesCache.entries()].map(([id,name])=>({value:id,label:name}));
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم المندوب", placeholder:"مثال: أحمد", full:true}),
-        fieldHTML({name:"phone", label:"رقم الجوال", placeholder:"9665xxxxxxxx"}),
-        fieldHTML({name:"branchId", label:"الفرع", type:"select", options: branchOpts.length?branchOpts:[{value:"",label:"—"}]}),
-        fieldHTML({name:"roleId", label:"الدور", type:"select", options: roleOpts.length?roleOpts:[{value:"agent",label:"مندوب"}]}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      openModal("إضافة مندوب");
-    }
-    async function openAgentEdit(id){
-      await refreshBranchesCache(); await refreshRolesCache();
-      const ref = doc(db, "settings_agents", id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      modalMode = "edit"; modalDocId = id;
-      const branchOpts = [...branchesCache.entries()].map(([id,name])=>({value:id,label:name}));
-      const roleOpts = [...rolesCache.entries()].map(([id,name])=>({value:id,label:name}));
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم المندوب", full:true}),
-        fieldHTML({name:"phone", label:"رقم الجوال"}),
-        fieldHTML({name:"branchId", label:"الفرع", type:"select", options: branchOpts.length?branchOpts:[{value:"",label:"—"}]}),
-        fieldHTML({name:"roleId", label:"الدور", type:"select", options: roleOpts.length?roleOpts:[{value:"agent",label:"مندوب"}]}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      const d = snap.data();
-      fillForm({ name:d.name||"", phone:d.phone||"", branchId:d.branchId||"", roleId:d.roleId||"agent", isActive:String(d.isActive ?? true) });
-      openModal("تعديل مندوب");
-    }
-
-    const PERMISSIONS = [
-      {id:"full_access", label:"وصول كامل"},
-      {id:"view_all_leads", label:"عرض كل العملاء"},
-      {id:"view_assigned_only", label:"عرض العملاء المسندين فقط"},
-      {id:"reply_messages", label:"الرد على الرسائل"},
-      {id:"assign_leads", label:"توزيع العملاء"},
-      {id:"update_stage", label:"تعديل المرحلة/الحالة"},
-      {id:"create_followups", label:"إنشاء متابعات"},
-      {id:"manage_settings", label:"إدارة الإعدادات"},
-      {id:"manage_sources", label:"إدارة المصادر"},
-    ];
-
-    function permsFieldHTML(selected=[]){
-      const chips = PERMISSIONS.map(p=>{
-        const on = selected.includes(p.id);
-        return `<label style="display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px 10px;background:rgba(247,245,242,.55);cursor:pointer">
-          <input type="checkbox" name="permissions" value="${escapeHtml(p.id)}" ${on?"checked":""} style="width:16px;height:16px" />
-          <span style="font-weight:900">${escapeHtml(p.label)}</span>
-        </label>`;
-      }).join("");
-      return `<div class="mzjField full">
-        <label>الصلاحيات</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${chips}</div>
-      </div>`;
-    }
-
-    function openRoleCreate(){
-      modalMode = "create"; modalDocId = null;
-      setForm.innerHTML = [
-        fieldHTML({name:"id", label:"معرف الدور (ID)", placeholder:"مثال: branch_manager", full:true}),
-        fieldHTML({name:"name", label:"اسم الدور", placeholder:"مثال: مدير الفرع", full:true}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-        permsFieldHTML([]),
-      ].join("");
-      openModal("إضافة دور");
-    }
-    async function openRoleEdit(id){
-      const ref = doc(db, "settings_roles", id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      modalMode = "edit"; modalDocId = id;
-      const d = snap.data();
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم الدور", full:true}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-        permsFieldHTML(Array.isArray(d.permissions)?d.permissions:[]),
-      ].join("");
-      fillForm({ name:d.name||"", isActive:String(d.isActive ?? true) });
-      openModal("تعديل دور");
-    }
-
-
-// Actions handlers \(event delegation\)
-    document.addEventListener("click", async (e)=>{
-      const btn = e.target.closest("[data-act]");
-      if(!btn) return;
-      const act = btn.dataset.act;
-      const id = btn.dataset.id;
-
-      try{
-        if(act === "edit-branch") return openBranchEdit(id);
-        if(act === "toggle-branch") return toggleDoc("settings_branches", id);
-        if(act === "delete-branch") return deleteDocSoft("settings_branches", id);
-
-        if(act === "edit-stage") return openStageEdit(id);
-        if(act === "toggle-stage") return toggleDoc("settings_stages", id);
-        if(act === "delete-stage") return deleteDocSoft("settings_stages", id);
-
-        if(act === "edit-source") return openSourceEdit(id);
-        if(act === "edit-agent") return openAgentEdit(id);
-        if(act === "toggle-agent") return toggleDoc("settings_agents", id);
-        if(act === "delete-agent") return deleteDocSoft("settings_agents", id);
-
-        if(act === "edit-role") return openRoleEdit(id);
-        if(act === "toggle-role") return toggleDoc("settings_roles", id);
-        if(act === "delete-role") return deleteDocSoft("settings_roles", id);
-        if(act === "toggle-source") return toggleDoc("settings_sources", id);
-        if(act === "delete-source") return deleteDocSoft("settings_sources", id);
-      }catch(err){
-        console.error(err);
-        toastShow("خطأ", "حصل خطأ أثناء تنفيذ العملية.", "✕");
-      }
-    });
-
-    async function toggleDoc(colName, id){
-      const ref = doc(db, colName, id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      const cur = snap.data().isActive ?? true;
-      await updateDoc(ref, { isActive: !cur, updatedAt: serverTimestamp() });
-      toastShow("تم", (!cur) ? "تم التفعيل." : "تم التعطيل.", "✓");
-    }
-
-    async function deleteDocSoft(colName, id){
-      if(!confirm("متأكد من الحذف؟ الأفضل عادة تعطيل بدل حذف.")) return;
-      const ref = doc(db, colName, id);
-      await updateDoc(ref, { isDeleted: true, isActive: false, updatedAt: serverTimestamp() });
-      // We keep docs; filters can ignore isDeleted later. For now it will still show unless filtered—so we hard delete visually by reload.
-      toastShow("تم", "تم حذف/تعطيل العنصر.", "✓");
-    }
-
-    // Modal builders per tab
-    function openBranchCreate(){
-      modalMode = "create"; modalDocId = null;
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم الفرع", placeholder:"مثال: فرع الرياض", full:true}),
-        fieldHTML({name:"city", label:"المدينة", placeholder:"الرياض"}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      openModal("إضافة فرع");
-    }
-    async function openBranchEdit(id){
-      const ref = doc(db, "settings_branches", id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      modalMode = "edit"; modalDocId = id;
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم الفرع", full:true}),
-        fieldHTML({name:"city", label:"المدينة"}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      const d = snap.data();
-      fillForm({ name:d.name||"", city:d.city||"", isActive:String(d.isActive ?? true) });
-      openModal("تعديل فرع");
-    }
-
-    function openStageCreate(){
-      modalMode = "create"; modalDocId = null;
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم الحالة/المرحلة", placeholder:"مثال: جديد", full:true}),
-        fieldHTML({name:"order", label:"الترتيب", type:"number", placeholder:"1"}),
-        fieldHTML({name:"color", label:"اللون (Hex)", placeholder:"#C07A4A"}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      openModal("إضافة مرحلة");
-    }
-    async function openStageEdit(id){
-      const ref = doc(db, "settings_stages", id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      modalMode = "edit"; modalDocId = id;
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم الحالة/المرحلة", full:true}),
-        fieldHTML({name:"order", label:"الترتيب", type:"number"}),
-        fieldHTML({name:"color", label:"اللون (Hex)"}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"نشط"},{value:"false",label:"متوقف"}]}),
-      ].join("");
-      const d = snap.data();
-      fillForm({ name:d.name||"", order:String(d.order ?? ""), color:d.color||"#C07A4A", isActive:String(d.isActive ?? true) });
-      openModal("تعديل مرحلة");
-    }
-
-    function openSourceCreate(){
-      modalMode = "create"; modalDocId = null;
-      setForm.innerHTML = [
-        fieldHTML({name:"id", label:"معرف المصدر (ID)", placeholder:"مثال: website_calculator", full:true}),
-        fieldHTML({name:"name", label:"اسم المصدر", placeholder:"مثال: حاسبة التقسيط", full:true}),
-        fieldHTML({name:"type", label:"النوع", type:"select", options:[
-          {value:"google_sheet_tsv",label:"Google Sheet (TSV)"},
-          {value:"whatsapp",label:"WhatsApp"},
-          {value:"instagram",label:"Instagram"},
-          {value:"messenger",label:"Messenger"},
-          {value:"website_form",label:"Website Form"},
-        ]}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"On"},{value:"false",label:"Off"}]}),
-        fieldHTML({name:"tsvUrl", label:"TSV URL (لو النوع TSV)", placeholder:CALC_TSV_URL, full:true}),
-      ].join("");
-      openModal("إضافة مصدر");
-    }
-    async function openSourceEdit(id){
-      const ref = doc(db, "settings_sources", id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      modalMode = "edit"; modalDocId = id;
-      setForm.innerHTML = [
-        fieldHTML({name:"name", label:"اسم المصدر", full:true}),
-        fieldHTML({name:"type", label:"النوع", type:"select", options:[
-          {value:"google_sheet_tsv",label:"Google Sheet (TSV)"},
-          {value:"whatsapp",label:"WhatsApp"},
-          {value:"instagram",label:"Instagram"},
-          {value:"messenger",label:"Messenger"},
-          {value:"website_form",label:"Website Form"},
-        ]}),
-        fieldHTML({name:"isActive", label:"الحالة", type:"select", options:[{value:"true",label:"On"},{value:"false",label:"Off"}]}),
-        fieldHTML({name:"tsvUrl", label:"TSV URL (لو النوع TSV)", full:true}),
-      ].join("");
-      const d = snap.data();
-      fillForm({ name:d.name||"", type:d.type||"", isActive:String(d.isActive ?? true), tsvUrl:d.tsvUrl||"" });
-      openModal("تعديل مصدر");
-    }
-
-    // Add button behavior depends on active settings tab
-    btnAddSettings.addEventListener("click", ()=>{
-      if(activeSetTab === "branches") return openBranchCreate();
-      if(activeSetTab === "stages") return openStageCreate();
-      if(activeSetTab === "sources") return openSourceCreate();
-      if(activeSetTab === "agents") return openAgentCreate();
-      if(activeSetTab === "roles") return openRoleCreate();
-    });
-
-    btnRefreshSettings.addEventListener("click", ()=>{
-      if(activeSetTab === "branches") loadBranches();
-      if(activeSetTab === "stages") loadStages();
-      if(activeSetTab === "sources") loadSources();
-      if(activeSetTab === "agents") loadAgents();
-      if(activeSetTab === "roles") loadRoles();
-      toastShow("تم", "تم التحديث.", "⟳");
-    });
-
-    // Save behavior
-    setModalSave.addEventListener("click", async ()=>{
-      try{
-        const data = getFormData();
-        if(activeSetTab === "branches"){
-          const payload = {
-            name: data.name || "",
-            city: data.city || "",
-            isActive: (data.isActive !== "false"),
-            updatedAt: serverTimestamp(),
-          };
-          if(!payload.name) return toastShow("تنبيه", "اسم الفرع مطلوب.", "!");
-          if(modalMode === "create"){
-            await addDoc(collection(db, "settings_branches"), { ...payload, createdAt: serverTimestamp() });
-          }else{
-            await updateDoc(doc(db, "settings_branches", modalDocId), payload);
-          }
-          toastShow("تم", "تم حفظ الفرع.", "✓");
-          return closeModal();
-        }
-
-        if(activeSetTab === "stages"){
-          const orderNum = Number(data.order || 0);
-          const payload = {
-            name: data.name || "",
-            order: Number.isFinite(orderNum) ? orderNum : 0,
-            color: data.color || "#C07A4A",
-            isActive: (data.isActive !== "false"),
-            updatedAt: serverTimestamp(),
-          };
-          if(!payload.name) return toastShow("تنبيه", "اسم المرحلة مطلوب.", "!");
-          if(modalMode === "create"){
-            await addDoc(collection(db, "settings_stages"), { ...payload, createdAt: serverTimestamp() });
-          }else{
-            await updateDoc(doc(db, "settings_stages", modalDocId), payload);
-          }
-          toastShow("تم", "تم حفظ المرحلة.", "✓");
-          return closeModal();
-        }
-
-        if(activeSetTab === "sources"){
-          const payload = {
-            name: data.name || "",
-            type: data.type || "",
-            isActive: (data.isActive !== "false"),
-            tsvUrl: data.tsvUrl || "",
-            updatedAt: serverTimestamp(),
-          };
-          if(modalMode === "create"){
-            const sid = (data.id||"").trim();
-            if(!sid) return toastShow("تنبيه", "معرف المصدر (ID) مطلوب.", "!");
-            await setDoc(doc(db, "settings_sources", sid), { ...payload, createdAt: serverTimestamp() });
-          }else{
-            await updateDoc(doc(db, "settings_sources", modalDocId), payload);
-          }
-          toastShow("تم", "تم حفظ المصدر.", "✓");
-          return closeModal();
-        }
-
-        if(activeSetTab === "agents"){
-          const payload = {
-            name: data.name || "",
-            phone: data.phone || "",
-            branchId: data.branchId || "",
-            roleId: data.roleId || "agent",
-            isActive: (data.isActive !== "false"),
-            updatedAt: serverTimestamp(),
-          };
-          if(!payload.name) return toastShow("تنبيه", "اسم المندوب مطلوب.", "!");
-          if(modalMode === "create"){
-            await addDoc(collection(db, "settings_agents"), { ...payload, createdAt: serverTimestamp() });
-          }else{
-            await updateDoc(doc(db, "settings_agents", modalDocId), payload);
-          }
-          toastShow("تم", "تم حفظ بيانات المندوب.", "✓");
-          return closeModal();
-        }
-
-        if(activeSetTab === "roles"){
-          // permissions are multiple checkboxes
-          const perms = Array.from(setForm.querySelectorAll('input[name="permissions"]:checked')).map(x=>x.value);
-          const payload = {
-            name: data.name || "",
-            isActive: (data.isActive !== "false"),
-            permissions: perms,
-            updatedAt: serverTimestamp(),
-          };
-          if(!payload.name) return toastShow("تنبيه", "اسم الدور مطلوب.", "!");
-          if(modalMode === "create"){
-            const rid = (data.id||"").trim();
-            if(!rid) return toastShow("تنبيه", "معرف الدور (ID) مطلوب.", "!");
-            await setDoc(doc(db, "settings_roles", rid), { ...payload, createdAt: serverTimestamp() });
-          }else{
-            await updateDoc(doc(db, "settings_roles", modalDocId), payload);
-          }
-          toastShow("تم", "تم حفظ الدور.", "✓");
-          return closeModal();
-        }
-
-      }catch(err){
-        console.error(err);
-        toastShow("خطأ", "تعذر الحفظ. تأكد من صلاحيات Firestore.", "✕");
-      }
-    });
-
-    // When entering Settings tab from sidebar, auto-load branches once
-    // (We hook into the existing setTab by observing chip text change is overkill; simple lazy load)
-    // We'll load on first time the settings panel becomes visible.
-    let settingsLoadedOnce = false;
-    const panelSettings = document.getElementById("panel-settings");
-    const observer = new MutationObserver(()=>{
-      if(panelSettings.classList.contains("active") && !settingsLoadedOnce){
-        settingsLoadedOnce = true;
-        setSettingsTab("branches");
-      }
-    });
-    observer.observe(panelSettings, { attributes:true, attributeFilter:["class"] });
-
-    // Also initialize default tab state
-    setSettingsTab("branches");
-// Inbox demo interactions
-  const convList = document.getElementById('convList');
-  const chatName = document.getElementById('chatName');
-  const chatMeta = document.getElementById('chatMeta');
-  const chatBody = document.getElementById('chatBody');
-
-  // IMPORTANT: بعض الصفحات/الإصدارات قد لا تحتوي عناصر صندوق الوارد.
-  // لو العناصر غير موجودة، لا نكسر باقي الـ UI (التابات).
-  if (convList && chatName && chatMeta && chatBody) {
-    convList.addEventListener('click', (e)=>{
-      const item = e.target.closest('.convItem');
-      if(!item) return;
-      convList.querySelectorAll('.convItem').forEach(x=>x.classList.remove('active'));
-      item.classList.add('active');
-      chatName.textContent = item.getAttribute('data-name') || '—';
-      chatMeta.textContent = item.getAttribute('data-meta') || '';
-      chatBody.innerHTML = '';
-      const msgs = JSON.parse(item.getAttribute('data-msgs') || '[]');
-      msgs.forEach(m=>{
-        const div = document.createElement('div');
-        div.className = 'msg ' + (m.me ? 'me':'them');
-        div.innerHTML = `<div class="bubble">${escapeHtml(m.text||'')}</div><div class="time">${escapeHtml(m.time||'')}</div>`;
-        chatBody.appendChild(div);
-      });
-      chatBody.scrollTop = chatBody.scrollHeight;
-    });
+  }
+}
+
+function populateFilterDropdowns(){
+  // Leads filters: (branch, agent, stage)
+  const lp = panels.leads;
+  if(lp){
+    const sels = $$("select", lp);
+    if(sels[0]) sels[0].innerHTML = mapToOptions(settings.branches, {allLabel:"كل الفروع"});
+    if(sels[1]) sels[1].innerHTML = mapToOptions(settings.agents,   {allLabel:"كل المندوبين"});
+    if(sels[2]) sels[2].innerHTML = mapToOptions(settings.stages,   {allLabel:"كل المراحل"});
+  }
+  // Inbox filters: (branch, platform, status)
+  const ip = panels.inbox;
+  if(ip){
+    const sels = $$("select", ip);
+    if(sels[0]) sels[0].innerHTML = mapToOptions(settings.branches, {allLabel:"كل الفروع"});
+    if(sels[2]) sels[2].innerHTML = mapToOptions(settings.stages,   {allLabel:"كل الحالات"});
+  }
+}
+
+/** ============= Settings Panel wiring ============= */
+function wireSettingsUI(){
+  const sp = panels.settings;
+  if(!sp) return;
+
+  // optional hint element
+  const lockHint = $("#settingsLockHint", sp);
+  if(lockHint) lockHint.style.display = canManageSettings() ? "none" : "";
+
+  // Branches
+  const brName = $("#branchName", sp);
+  const brAdd  = $("#btnAddBranch", sp);
+  const brUpd  = $("#btnUpdateBranch", sp);
+  let selectedBranchId = null;
+
+  function selectBranch(id){
+    selectedBranchId = id;
+    const item = settings.branches.get(id);
+    if(brName) brName.value = item?.name || "";
   }
 
-</script>
-<!-- Settings CRUD Modal -->
-<div class="mzjModalOverlay" id="setModal">
-<div aria-label="إدارة الإعدادات" aria-modal="true" class="mzjModal" role="dialog">
-<div class="mzjModalHead">
-<b id="setModalTitle">إضافة</b>
-<button class="closeX" id="setModalClose">✕</button>
+  brAdd?.addEventListener("click", async (e)=>{
+    e.preventDefault();
+    if(!canManageSettings()) return alert("صلاحيات غير كافية.");
+    const name = (brName?.value||"").trim();
+    if(!name) return alert("اكتب اسم الفرع");
+    await addDoc(collection(db,"settings_branches"), { name, isActive:true, createdAt:serverTimestamp(), updatedAt:serverTimestamp() });
+    brName.value="";
+  });
+
+  brUpd?.addEventListener("click", async (e)=>{
+    e.preventDefault();
+    if(!canManageSettings()) return alert("صلاحيات غير كافية.");
+    if(!selectedBranchId) return alert("اختر فرع من الجدول");
+    const name = (brName?.value||"").trim();
+    if(!name) return alert("اكتب اسم الفرع");
+    await updateDoc(doc(db,"settings_branches",selectedBranchId), { name, updatedAt:serverTimestamp() });
+  });
+
+  // Agents
+  const agName = $("#agentName", sp);
+  const agEmail= $("#agentEmail", sp);
+  const agRole = $("#agentRole", sp);
+  const agBranch=$("#agentBranch", sp);
+  const agAdd  = $("#btnAddAgent", sp);
+  const agUpd  = $("#btnUpdateAgent", sp);
+  let selectedAgentId = null;
+
+  if(agRole){
+    agRole.innerHTML = `
+      <option value="sales_rep">مندوب المبيعات</option>
+      <option value="branch_manager">مدير الفرع</option>
+      <option value="marketing_manager">مدير التسويق</option>
+      <option value="admin">مدير النظام</option>
+    `;
+  }
+  function fillAgentBranch(){
+    if(!agBranch) return;
+    agBranch.innerHTML = mapToOptions(settings.branches, {allLabel:"اختر الفرع", allValue:""});
+  }
+
+  agAdd?.addEventListener("click", async (e)=>{
+    e.preventDefault();
+    if(!canManageSettings()) return alert("صلاحيات غير كافية.");
+    const name=(agName?.value||"").trim();
+    const email=(agEmail?.value||"").trim();
+    const roleId=(agRole?.value||"sales_rep");
+    const branchId=(agBranch?.value||"");
+    if(!name) return alert("اكتب اسم المندوب");
+    await addDoc(collection(db,"settings_agents"), { name, email, roleId, branchId, isActive:true, createdAt:serverTimestamp(), updatedAt:serverTimestamp() });
+    agName.value=""; agEmail.value="";
+  });
+
+  agUpd?.addEventListener("click", async (e)=>{
+    e.preventDefault();
+    if(!canManageSettings()) return alert("صلاحيات غير كافية.");
+    if(!selectedAgentId) return alert("اختر مندوب من الجدول");
+    const name=(agName?.value||"").trim();
+    const email=(agEmail?.value||"").trim();
+    const roleId=(agRole?.value||"sales_rep");
+    const branchId=(agBranch?.value||"");
+    if(!name) return alert("اكتب اسم المندوب");
+    await updateDoc(doc(db,"settings_agents",selectedAgentId), { name, email, roleId, branchId, updatedAt:serverTimestamp() });
+  });
+
+  // Stages
+  const stName = $("#stageName", sp);
+  const stAdd  = $("#btnAddStage", sp);
+  const stUpd  = $("#btnUpdateStage", sp);
+  let selectedStageId = null;
+
+  stAdd?.addEventListener("click", async (e)=>{
+    e.preventDefault();
+    if(!canManageSettings()) return alert("صلاحيات غير كافية.");
+    const name=(stName?.value||"").trim();
+    if(!name) return alert("اكتب اسم الحالة");
+    await addDoc(collection(db,"settings_stages"), { name, isActive:true, createdAt:serverTimestamp(), updatedAt:serverTimestamp() });
+    stName.value="";
+  });
+
+  stUpd?.addEventListener("click", async (e)=>{
+    e.preventDefault();
+    if(!canManageSettings()) return alert("صلاحيات غير كافية.");
+    if(!selectedStageId) return alert("اختر حالة من الجدول");
+    const name=(stName?.value||"").trim();
+    if(!name) return alert("اكتب اسم الحالة");
+    await updateDoc(doc(db,"settings_stages",selectedStageId), { name, updatedAt:serverTimestamp() });
+  });
+
+  // Sources
+  const soName = $("#sourceName", sp);
+  const soAdd  = $("#btnAddSource", sp);
+  const soUpd  = $("#btnUpdateSource", sp);
+  let selectedSourceId = null;
+
+  soAdd?.addEventListener("click", async (e)=>{
+    e.preventDefault();
+    if(!canManageSettings()) return alert("صلاحيات غير كافية.");
+    const name=(soName?.value||"").trim();
+    if(!name) return alert("اكتب اسم المنصة");
+    await addDoc(collection(db,"settings_sources"), { name, isActive:true, createdAt:serverTimestamp(), updatedAt:serverTimestamp() });
+    soName.value="";
+  });
+
+  soUpd?.addEventListener("click", async (e)=>{
+    e.preventDefault();
+    if(!canManageSettings()) return alert("صلاحيات غير كافية.");
+    if(!selectedSourceId) return alert("اختر منصة من الجدول");
+    const name=(soName?.value||"").trim();
+    if(!name) return alert("اكتب اسم المنصة");
+    await updateDoc(doc(db,"settings_sources",selectedSourceId), { name, updatedAt:serverTimestamp() });
+  });
+
+  function renderTables(){
+    // branches
+    const tbB = $("#tblBranches", sp);
+    if(tbB){
+      tbB.innerHTML="";
+      for(const [id,b] of settings.branches.entries()){
+        const tr=document.createElement("tr");
+        tr.innerHTML=`<td>${escapeHtml(b.name||id)}</td><td>${b.isActive===false?"موقوف":"نشط"}</td>`;
+        tr.style.cursor="pointer";
+        tr.addEventListener("click",()=>selectBranch(id));
+        tbB.appendChild(tr);
+      }
+    }
+    // agents
+    const tbA = $("#tblAgents", sp);
+    if(tbA){
+      tbA.innerHTML="";
+      for(const [id,a] of settings.agents.entries()){
+        const br = settings.branches.get(a.branchId);
+        const tr=document.createElement("tr");
+        tr.innerHTML=`<td>${escapeHtml(a.name||id)}</td><td>${escapeHtml(a.email||"")}</td><td>${escapeHtml(roleLabel(a.roleId))}</td><td>${escapeHtml(br?.name||"")}</td>`;
+        tr.style.cursor="pointer";
+        tr.addEventListener("click",()=>{
+          selectedAgentId=id;
+          agName && (agName.value=a.name||"");
+          agEmail && (agEmail.value=a.email||"");
+          agRole && (agRole.value=a.roleId||"sales_rep");
+          agBranch && (agBranch.value=a.branchId||"");
+        });
+        tbA.appendChild(tr);
+      }
+    }
+    // stages
+    const tbS = $("#tblStages", sp);
+    if(tbS){
+      tbS.innerHTML="";
+      for(const [id,s] of settings.stages.entries()){
+        const tr=document.createElement("tr");
+        tr.innerHTML=`<td>${escapeHtml(s.name||id)}</td><td>${s.isActive===false?"موقوف":"نشط"}</td>`;
+        tr.style.cursor="pointer";
+        tr.addEventListener("click",()=>{
+          selectedStageId=id;
+          stName && (stName.value=s.name||"");
+        });
+        tbS.appendChild(tr);
+      }
+    }
+    // sources
+    const tbSo = $("#tblSources", sp);
+    if(tbSo){
+      tbSo.innerHTML="";
+      for(const [id,s] of settings.sources.entries()){
+        const tr=document.createElement("tr");
+        tr.innerHTML=`<td>${escapeHtml(s.name||id)}</td><td>${s.isActive===false?"موقوف":"نشط"}</td>`;
+        tr.style.cursor="pointer";
+        tr.addEventListener("click",()=>{
+          selectedSourceId=id;
+          soName && (soName.value=s.name||"");
+        });
+        tbSo.appendChild(tr);
+      }
+    }
+    fillAgentBranch();
+  }
+
+  wireSettingsUI.renderTables = renderTables;
+}
+
+/** ============= Leads ============= */
+let leadsUnsub = null;
+
+function leadMatchesFilters(lead, f){
+  if(f.branchId && lead.branchId !== f.branchId) return false;
+  if(f.agentId  && lead.assignedTo !== f.agentId) return false;
+  if(f.stageId  && lead.stageId !== f.stageId) return false;
+  if(f.q){
+    const q = f.q.toLowerCase();
+    const hay = `${lead.name||""} ${lead.phone||""} ${lead.phoneNormalized||""} ${lead.carName||""}`.toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function renderLeadRow(lead){
+  const agent = settings.agents.get(lead.assignedTo);
+  const stage = settings.stages.get(lead.stageId);
+  const branch= settings.branches.get(lead.branchId);
+
+  return `
+  <div class="lead-row" style="display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid rgba(43,26,23,.10);border-radius:14px;background:#fff;margin-bottom:10px">
+    <div style="min-width:0">
+      <div style="font-weight:800;line-height:1.35">${escapeHtml(lead.name || lead.phone || "عميل")}</div>
+      <div style="font-size:12px;opacity:.75;margin-top:3px">
+        <span>${escapeHtml(lead.phone || lead.phoneNormalized || "")}</span>
+        <span style="margin:0 8px;opacity:.35">•</span>
+        <span>${escapeHtml(lead.carName || "")}</span>
+      </div>
+      <div style="font-size:12px;opacity:.72;margin-top:6px;display:flex;flex-wrap:wrap;gap:8px">
+        <span class="pill">${escapeHtml(stage?.name || lead.stageId || "—")}</span>
+        <span class="pill">${escapeHtml(branch?.name || (lead.branchId||""))}</span>
+        <span class="pill">${escapeHtml(agent?.name || (lead.assignedTo||""))}</span>
+        <span class="pill">${escapeHtml(lead.source || "")}</span>
+      </div>
+    </div>
+    <div style="text-align:left;white-space:nowrap;opacity:.8;font-size:12px">
+      <div>آخر تحديث</div>
+      <div style="font-weight:700">${toDateLabel(lead.updatedAt || lead.timestamp)}</div>
+    </div>
+  </div>
+  `;
+}
+
+function refreshLeads(){
+  const panel = panels.leads;
+  if(!panel) return;
+
+  const selects = $$("select", panel);
+  const qInput = panel.querySelector("input[type='search']") || panel.querySelector("input");
+
+  const listWrap = panel.querySelector(".list") || panel.querySelector(".leads-list") || panel;
+  const stats = panel.querySelectorAll(".stat strong");
+  const statTotal = stats[0];
+  const statUnassigned = stats[1];
+  const statActive = stats[2];
+
+  const f = {
+    branchId: selects[0]?.value || "",
+    agentId:  selects[1]?.value || "",
+    stageId:  selects[2]?.value || "",
+    q: (qInput?.value || "").trim(),
+  };
+
+  leadsUnsub?.(); leadsUnsub=null;
+
+  try{
+    const qy = query(collection(db,"leads"), orderBy("updatedAt","desc"), limit(200));
+    leadsUnsub = onSnapshot(qy, (snap)=>{
+      const leads=[];
+      snap.forEach(d=>leads.push({id:d.id, ...d.data()}));
+      const filtered = leads.filter(l=>leadMatchesFilters(l,f));
+
+      statTotal && (statTotal.textContent = String(filtered.length));
+      statUnassigned && (statUnassigned.textContent = String(filtered.filter(l=>!l.assignedTo).length));
+      statActive && (statActive.textContent = String(filtered.filter(l=>l.stageId && l.stageId!=="closed").length));
+
+      listWrap.innerHTML = filtered.length ? filtered.map(renderLeadRow).join("") :
+        `<div style="padding:14px;color:rgba(28,28,28,.65)">لا توجد بيانات مطابقة للفلاتر الحالية.</div>`;
+    }, (err)=>{
+      console.error(err);
+      listWrap.innerHTML = `<div style="padding:14px;color:#b00020">السبب: ${escapeHtml(err.message || "Missing or insufficient permissions.")}</div>`;
+    });
+  }catch(err){
+    console.error(err);
+  }
+
+  // refresh on change
+  selects.forEach(s=>s?.addEventListener("change", ()=>refreshLeads(), {once:true}));
+  qInput?.addEventListener("input", ()=>refreshLeads(), {once:true});
+}
+
+/** ============= Settings Live ============= */
+let settingsUnsubs = [];
+
+async function refreshSettings(){
+  await loadSettingsOnce();
+  populateFilterDropdowns();
+  if(typeof wireSettingsUI.renderTables === "function") wireSettingsUI.renderTables();
+}
+
+function attachSettingsListeners(){
+  const cols = [
+    ["branches","settings_branches"],
+    ["agents","settings_agents"],
+    ["stages","settings_stages"],
+    ["sources","settings_sources"],
+  ];
+  settingsUnsubs.forEach(fn=>fn?.());
+  settingsUnsubs=[];
+
+  cols.forEach(([key,colName])=>{
+    try{
+      const unsub = onSnapshot(query(collection(db,colName), orderBy("createdAt","asc")), (snap)=>{
+        settings[key].clear();
+        snap.forEach(d=>settings[key].set(d.id,{id:d.id,...d.data()}));
+        populateFilterDropdowns();
+        if(typeof wireSettingsUI.renderTables === "function") wireSettingsUI.renderTables();
+      }, (err)=>console.warn(colName, err));
+      settingsUnsubs.push(unsub);
+    }catch(e){ console.warn("Listener failed", colName, e); }
+  });
+}
+
+/** ============= Boot ============= */
+wireTabs();
+wireSettingsUI();
+
+onAuthStateChanged(auth, async (user)=>{
+  if(!user){
+    session = { uid:null, email:null, roleId:null, name:null, branchId:null };
+    $("#userName") && ($("#userName").textContent="غير مسجل");
+    $("#userRole") && ($("#userRole").textContent="—");
+    openAuth();
+    return;
+  }
+  try{
+    const u = await ensureUserDocs(user);
+    session.uid = user.uid;
+    session.email = user.email || "";
+    session.roleId = u?.roleId || "sales_rep";
+    session.name = u?.name || (user.email||"").split("@")[0] || "مستخدم";
+    session.branchId = u?.branchId || "";
+
+    applyUserToUI();
+
+    await loadSettingsOnce();
+    populateFilterDropdowns();
+    attachSettingsListeners();
+
+    refreshLeads();
+  }catch(err){
+    console.error(err);
+    openAuth();
+    if(authMsg){
+      authMsg.textContent = "السبب: " + (err.message || "Missing or insufficient permissions.");
+      authMsg.style.display="block";
+    }
+  }
+});
+ipt>
+
+  <!-- Settings CRUD Modal -->
+  <div class="mzjModalOverlay" id="setModal">
+    <div class="mzjModal" role="dialog" aria-modal="true" aria-label="إدارة الإعدادات">
+      <div class="mzjModalHead">
+        <b id="setModalTitle">إضافة</b>
+        <button class="closeX" id="setModalClose">✕</button>
+      </div>
+      <div class="mzjModalBody">
+        <form id="setForm" class="mzjForm">
+          <!-- Dynamic fields -->
+        </form>
+      </div>
+      <div class="mzjModalActions">
+        <button class="mzj-miniBtn" id="setModalCancel" type="button">إلغاء</button>
+        <button class="mzj-miniBtn primary" id="setModalSave" type="button">حفظ</button>
+      </div>
+    </div>
+  </div>
+
+
+<!-- ===== Auth Overlay (Email/Password) ===== -->
+<div id="authOverlay" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.28);z-index:999999;">
+  <div style="width:min(420px,92vw);background:#fff;border-radius:16px;box-shadow:0 18px 60px rgba(0,0,0,.18);padding:18px 16px;direction:rtl;font-family:inherit">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+      <div style="font-weight:800">تسجيل الدخول</div>
+      <button id="authClose" class="icon-btn" title="إغلاق">✕</button>
+    </div>
+    <div style="font-size:13px;opacity:.7;margin-bottom:12px">ادخل ايميل وكلمة مرور Firebase Authentication.</div>
+    <label style="display:block;font-size:12px;opacity:.8;margin:10px 0 6px">البريد الإلكتروني</label>
+    <input id="authEmail" type="email" autocomplete="username" placeholder="email@example.com"
+      style="width:100%;padding:10px 12px;border:1px solid rgba(0,0,0,.12);border-radius:12px;outline:none"/>
+    <label style="display:block;font-size:12px;opacity:.8;margin:10px 0 6px">كلمة المرور</label>
+    <input id="authPass" type="password" autocomplete="current-password" placeholder="••••••••"
+      style="width:100%;padding:10px 12px;border:1px solid rgba(0,0,0,.12);border-radius:12px;outline:none"/>
+    <div id="authMsg" style="margin-top:10px;font-size:12px;color:#b00020;display:none"></div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button id="authLoginBtn" class="btn primary" style="flex:1">دخول</button>
+      <button id="authLogoutBtn" class="btn" style="flex:1">تسجيل خروج</button>
+    </div>
+  </div>
 </div>
-<div class="mzjModalBody">
-<form class="mzjForm" id="setForm">
-<!-- Dynamic fields -->
-</form>
-</div>
-<div class="mzjModalActions">
-<button class="mzj-miniBtn" id="setModalCancel" type="button">إلغاء</button>
-<button class="mzj-miniBtn primary" id="setModalSave" type="button">حفظ</button>
-</div>
-</div>
-</div>
-<div class="overlay" id="loginOverlay" style="display:none;"><div class="modal" style="max-width:420px">
-<div class="modalHead">
-<div>
-<div class="modalTitle">تسجيل الدخول</div>
-<div class="modalSub">ادخل بريدك وكلمة المرور للدخول للنظام.</div>
-</div>
-</div>
-<div class="modalBody">
-<div class="formGrid">
-<div class="field"><label>البريد الإلكتروني</label><input id="loginEmail" placeholder="email@example.com" type="email"/></div>
-<div class="field"><label>كلمة المرور</label><input id="loginPass" placeholder="••••••••" type="password"/></div>
-<div class="row" style="gap:10px;display:flex;justify-content:flex-start;align-items:center;margin-top:8px;">
-<button class="btn primary" id="loginBtn">دخول</button>
-<span class="muted" id="loginMsg" style="font-size:13px;"></span>
-</div>
-</div>
-</div>
-</div></div></body>
+</body>
 </html>
