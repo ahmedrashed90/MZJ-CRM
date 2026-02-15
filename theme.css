@@ -1,0 +1,50 @@
+/* ==========================================================
+   MZJ CRM — RAMADAN THEME (SAFE OVERRIDES)
+   - ثابت الاسم: theme.css
+   - لا يلمس الـ layout نهائياً
+   - يغيّر الألوان فقط عبر CSS Variables الموجودة في الصفحة
+   ========================================================== */
+
+/* ملاحظة: هذا الملف يفترض أن الـ HTML يستخدم المتغيرات التالية داخل :root
+   --b --a --bg --card --text --muted --line --shadow --radius --radius2 --chip
+   لذلك نحن نغيّرها فقط بدون أي selectors عامة قد تبوّظ الصفحة.
+*/
+
+:root{
+  /* Brand (رمضاني فخم) */
+  --b:#0F1E1B;              /* أخضر داكن (بديل dark brown للرمضان) */
+  --a:#C7A44F;              /* ذهبي/برونزي رمضاني */
+
+  /* Aliases */
+  --brown:var(--b);
+  --bronze:var(--a);
+
+  /* Surfaces */
+  --bg:#0B1715;             /* خلفية عامة */
+  --card:rgba(16, 34, 31, .92); /* كروت / Panels (شفافية بسيطة) */
+
+  /* Text */
+  --text:#F5F2EA;
+  --muted:rgba(245,242,234,.70);
+
+  /* Lines / Borders */
+  --line:rgba(199,164,79,.22);
+
+  /* Effects */
+  --shadow:0 18px 42px rgba(0,0,0,.40);
+
+  /* Radius (نفسه) */
+  --radius:18px;
+  --radius2:14px;
+
+  /* Status (اختياري) */
+  --ok:#1fb56a;
+  --warn:#d0a23f;
+  --bad:#e05245;
+
+  /* Chips / badges background */
+  --chip:rgba(199,164,79,.14);
+}
+
+/* OPTIONAL (آمن): تحسين خفيف لتباين الـ placeholder بدون لمس layout */
+::placeholder{ color: rgba(245,242,234,.45); }
