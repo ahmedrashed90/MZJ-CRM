@@ -8,6 +8,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3460,6 +3461,22 @@ function refreshSettingsTables(){
   let unsubLeads = null;
   let leadsCache = [];
 
+
+  function getAssignedUidFromLead(data){
+    return String((data && (data.assignedTo || data.assigneeTo)) || "");
+  }
+
+  function canViewAllLeads(){
+    if(!currentUser) return false;
+    const roleId = currentProfile?.roleId || "";
+    const roleName = String(rolesMap.get(roleId) || roleId || "").toLowerCase();
+    const email = String(currentUser?.email || "").toLowerCase();
+    // Admins & managers can see all
+    if(roleName.includes("admin") || roleName.includes("مدير") || roleName.includes("مشرف") || roleName.includes("system") || roleName.includes("owner")) return true;
+    if(email.includes("admin")) return true;
+    return false;
+  }
+
   // حالات العملاء (من installment_calculator وغيرها) — إدارة داخل Tab العملاء المحتملون
   let leadStatusesMap = new Map(); // id -> {id,name,isActive}
   let unsubLeadStatuses = null;
@@ -3800,7 +3817,9 @@ function refreshSettingsTables(){
     const car = pipeState.car || "";
     const pay = pipeState.pay || "";
 
-    return leadsCache.filter(({data})=>{
+    const base = canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser?.uid||""));
+
+    return base.filter(({data})=>{
       if(car){
         const c = getLeadCarName(data);
         if(c !== car) return false;
@@ -4264,8 +4283,10 @@ function applyLeadFilters(){
     const fcar = $("#leadsFilterCar")?.value || "";
     const fpay = $("#leadsFilterPay")?.value || "";
 
-    const filtered = leadsCache.filter(({id,data})=>{
-      if(fa && data.assignedTo !== fa) return false;
+    const base = canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser.uid||""));
+
+    const filtered = base.filter(({id,data})=>{
+      if(fa && getAssignedUidFromLead(data) !== fa) return false;
       if(fs && data.stageId !== fs) return false;
       if(fstat && (data.leadStatusId || "") !== fstat) return false;
       if(fcar){
@@ -4294,8 +4315,8 @@ function applyLeadFilters(){
       return true;
     });
 
-    const total = leadsCache.length;
-    const unassigned = leadsCache.filter(x=>!x.data.assignedTo).length;
+    const total = base.length;
+    const unassigned = base.filter(x=>!getAssignedUidFromLead(x.data)).length;
 
     $("#statLeadsTotal") && ($("#statLeadsTotal").textContent = String(total));
     $("#statLeadsUnassigned") && ($("#statLeadsUnassigned").textContent = String(unassigned));
@@ -4890,5 +4911,4 @@ function applyLeadFilters(){
   </div>
 
 </body>
-</html>  const EXCLUDED_ASSIGN_EMAILS = ["mr.ahmed_rashed@outlook.sa"];
-
+</html>
