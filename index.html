@@ -6,6 +6,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -2261,7 +2262,8 @@
   let currentProfile = null; // merged profile
   let rolesMap = new Map();      // roleId -> roleName
   let branchesMap = new Map();   // id -> {name, city, isActive}
-  let agentsMap = new Map();     // uid -> {name, roleId, branchId, isActive}
+  let agentsMap = new Map();     // docId -> {uid,name,roleId,branchId,isActive}
+  let agentsUidMap = new Map();  // uid -> same object (for lookups by assignedTo UID)
   let sourcesMap = new Map();    // id -> {name}
   let stagesMap = new Map();     // id -> {name}
   let activeSettingsType = "branches";
@@ -2443,18 +2445,25 @@
 
     onSnapshot(collection(db,"settings_agents"), (snap)=>{
       agentsMap = new Map();
+      agentsUidMap = new Map();
       snap.forEach(d=>{
         const v=d.data()||{};
-        agentsMap.set(d.id, {
-          uid: d.id,
-          name: v.name || v.email || d.id,
+        const uidKey = v.uid || d.id;
+        const obj = {
+          id: d.id,
+          uid: uidKey,
+          name: v.name || v.email || uidKey,
           email: v.email || "",
           roleId: v.roleId || "",
           branchId: v.branchId || "",
           isActive: v.isActive !== false
-        });
+        };
+        // keep by doc id (for settings table)
+        agentsMap.set(d.id, obj);
+        // also index by uid (for assignment lookups)
+        agentsUidMap.set(uidKey, obj);
       });
-      const activeAgents = Array.from(agentsMap.values()).filter(a=>a.isActive);
+      const activeAgents = Array.from(agentsUidMap.values()).filter(a=>a.isActive);
       fillSelect($("#leadsFilterAgent"), activeAgents.map(a=>({value:a.uid,label:a.name})));
       refreshSettingsTables();
     });
@@ -3099,7 +3108,7 @@ function refreshSettingsTables(){
 
   const _autoAssignSeen = new Set();
   async function autoAssignUnassignedConversations(){
-    const agents = Array.from(agentsMap.values()).filter(a=>a && a.isActive && !["admin","branch_manager","marketing_admin"].includes(a.roleId||"") && !EXCLUDED_ASSIGN_EMAILS.includes(String(a.email||a.id||"").toLowerCase()));
+    const agents = Array.from(agentsMap.values()).filter(a=>a && a.isActive && !["admin","system_manager","branch_manager","marketing_admin","marketing_manager"].includes(a.roleId||"") && !EXCLUDED_ASSIGN_EMAILS.includes(String(a.email||a.id||"").toLowerCase()));
     if(!agents.length) return;
     const updates = [];
     for(const x of inboxCache){
@@ -3231,7 +3240,7 @@ function refreshSettingsTables(){
 
         // choose first stage as default (if available)
         const defaultStageId = Array.from(stagesMap.keys())[0] || "";
-        const branchId = assignedTo ? (agentsMap.get(assignedTo)?.branchId || "") : "";
+        const branchId = assignedTo ? (agentsUidMap.get(assignedTo)?.branchId || "") : "";
 
         await setDoc(leadRef, {
           name: conv.displayName || "-",
@@ -3481,7 +3490,7 @@ function refreshSettingsTables(){
     const name = lead.name && lead.name !== "-" ? lead.name : "—";
     const phone = lead.phone || lead.phoneNormalized || "—";
     const stage = stagesMap.get(lead.stageId)?.name || lead.stageId || "—";
-    const assignedName = lead.assignedTo ? (agentsMap.get(lead.assignedTo)?.name || lead.assignedTo) : "غير موزع";
+    const assignedName = lead.assignedTo ? (lead.assignedName || agentsUidMap.get(lead.assignedTo)?.name || lead.assignedTo) : (lead.assignedName || "غير موزع");
     const statusName = getEffectiveLeadStatusName(lead);
     return { name, phone, stage, assignedName, statusName };
   }
@@ -3511,7 +3520,7 @@ function refreshSettingsTables(){
     return `
       <tr data-id="${esc(id)}" class="leadTr">
         <td><a class="leadNameLink" data-openlead="${esc(id)}" href="javascript:void(0)">${esc(d.name)}</a></td>
-        <td>${esc(d.phone)}</td>
+        <td><a class="leadPhoneLink" data-openinboxphone="${esc(lead.phoneNormalized || lead.phone || lead.waId || "")}" data-openinboxname="${esc(d.name)}" href="javascript:void(0)">${esc(d.phone)}</a></td>
         <td>${esc(lead.source || "—")}</td>
         <td title="${esc(carName)}">${esc(carName)}</td>
         <td>${esc(payType || "—")}</td>
@@ -3656,7 +3665,17 @@ function refreshSettingsTables(){
 
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="toolBtn" id="btnAssignLead" type="button">توزيع</button>
+            <button class="toolBtn warn" id="btnTempRedistributeToggle" type="button">إعادة توزيع (مؤقت)</button>
             <button class="toolBtn" id="btnCopyPhone" type="button">نسخ الجوال</button>
+          </div>
+        </div>
+
+        <div class="mzj-hintBox" id="tempRedistributeBox" style="display:none;margin:10px 0 0">
+          <b>إعادة توزيع (مؤقت)</b>
+          <span>اختر مندوب لإعادة توزيع هذا الليد (سيتم استبعاد الإدمن/مدير النظام/مدير الفرع/مدير التسويق).</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px">
+            <select id="tempRedistributeSelect" style="min-width:240px"></select>
+            <button class="toolBtn primary" id="btnTempRedistributeApply" type="button">تأكيد إعادة التوزيع</button>
           </div>
         </div>
 
@@ -4173,7 +4192,7 @@ function enableKanbanDragScroll(board){
     if(payType && payType !== "—") events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تحديد طريقة الدفع", desc:`الدفع: ${payType}` });
 
     if(lead.assignedTo){
-      const a = agentsMap.get(lead.assignedTo);
+      const a = agentsUidMap.get(lead.assignedTo);
       const an = a?.name || lead.assignedTo;
       events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تم التوزيع", desc:`تم التوزيع على: ${an}` });
     }
@@ -4325,6 +4344,17 @@ function applyLeadFilters(){
     // open details by clicking name
     const tableWrap = tb.closest(".mzj-tableWrap") || tb.parentElement;
     (tableWrap || document).addEventListener("click", (e)=>{
+      const ph = e.target.closest(".leadPhoneLink");
+      if(ph){
+        const p = String(ph.dataset.openinboxphone||"").trim();
+        if(p){
+          openInboxForPhone(p, ph.dataset.openinboxname || "");
+        }else{
+          toast("رقم غير موجود", "warn");
+        }
+        return;
+      }
+
       const a = e.target.closest("[data-openlead]");
       if(!a) return;
       const id = a.dataset.openlead;
@@ -4337,6 +4367,17 @@ function applyLeadFilters(){
       try{ loadLeadActivity(id, found.data); }catch(e){ console.warn("loadLeadActivity", e); }
 
       $("#btnAssignLead")?.addEventListener("click", ()=>openAssignPrompt(id, found.data));
+
+      // TEMP redistribute (Leads tab only)
+      $("#btnTempRedistributeToggle")?.addEventListener("click", ()=>{
+        const box = $("#tempRedistributeBox");
+        if(!box) return;
+        box.style.display = (box.style.display === "none" || !box.style.display) ? "block" : "none";
+        // fill agents list
+        try{ fillTempRedistributeAgents("#tempRedistributeSelect"); }catch(e){ console.warn(e); }
+      });
+
+      $("#btnTempRedistributeApply")?.addEventListener("click", ()=>tempRedistributeLead(id, found.data));
       $("#btnCopyPhone")?.addEventListener("click", ()=>{
         const p = normalizePhone(found.data.phone || found.data.phoneNormalized || "");
         if(p){
@@ -4384,7 +4425,7 @@ function applyLeadFilters(){
       toast("ليس لديك صلاحية التوزيع", "warn");
       return;
     }
-    const agents = Array.from(agentsMap.values()).filter(a=>a.isActive && !["admin","branch_manager","marketing_admin"].includes(a.roleId||"") && !EXCLUDED_ASSIGN_EMAILS.includes(String(a.email||a.id||"").toLowerCase()));
+    const agents = Array.from(agentsUidMap.values()).filter(a=>a.isActive && !["admin","system_manager","branch_manager","marketing_admin","marketing_manager"].includes(a.roleId||"") && !EXCLUDED_ASSIGN_EMAILS.includes(String(a.email||a.id||"").toLowerCase()));
     if(!agents.length){
       toast("أضف مناديب من الإعدادات أولاً", "warn");
       return;
@@ -4392,12 +4433,199 @@ function applyLeadFilters(){
     const pick = (agents[0] && (agents[0].uid || agents[0].id)) || "";
     if(!pick){ toast("لا يوجد مناديب للتوزيع", "warn"); return; }
     toast("تم التوزيع على: " + (agents[0].name||agents[0].uid||pick));
-    updateDoc(doc(db,"leads", leadId), { assignedTo: pick, updatedAt: new Date().toISOString() })
+    updateDoc(doc(db,"leads", leadId), { assignedTo: pick, assignedName: (agentsUidMap.get(pick)?.name || pick), assignedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
       .then(()=>toast("تم التوزيع"))
       .catch(e=>toast("خطأ: " + (e?.message||e), "warn"));
   }
 
-  // ===== Lead Statuses (Realtime + Admin UI inside Leads tab) =====
+  
+  // ===== Lead assignment helpers (Leads tab only) =====
+  function roleNameOf(roleId){
+    return (rolesMap && rolesMap.get(roleId)) || roleId || "";
+  }
+
+  function isExcludedAssignee(agent){
+    if(!agent) return true;
+    const roleId = String(agent.roleId||"").trim();
+    const roleName = String(roleNameOf(roleId)||"").trim();
+    const name = String(agent.name||"").trim();
+    const email = String(agent.email||agent.id||"").toLowerCase();
+
+    const blockedRoleIds = ["admin","system_manager","branch_manager","marketing_admin","marketing_manager"];
+    if(blockedRoleIds.includes(roleId)) return true;
+    if(/admin/i.test(roleName) || /admin/i.test(name)) return true;
+    if(roleName.includes("مدير") || name.includes("مدير")) return true;
+    if(EXCLUDED_ASSIGN_EMAILS && EXCLUDED_ASSIGN_EMAILS.includes(email)) return true;
+    return false;
+  }
+
+  function getEligibleAgents(){
+    return Array.from(agentsUidMap.values())
+      .filter(a=>a && a.isActive && !isExcludedAssignee(a))
+      .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||""), "ar"));
+  }
+
+  function fillTempRedistributeAgents(selectCss){
+    const sel = $(selectCss);
+    if(!sel) return;
+    const agents = getEligibleAgents();
+    sel.innerHTML = "";
+    if(!agents.length){
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "لا يوجد مناديب مؤهلين";
+      sel.appendChild(opt);
+      return;
+    }
+    agents.forEach(a=>{
+      const opt = document.createElement("option");
+      opt.value = a.uid || a.id;
+      opt.textContent = a.name || a.email || (a.uid||a.id);
+      sel.appendChild(opt);
+    });
+  }
+
+  async function tempRedistributeLead(leadId, leadData){
+    const roleId = currentProfile?.roleId || "";
+    const canAssign = canSeeSettings() || roleId === "branch_manager";
+    if(!canAssign){
+      toast("ليس لديك صلاحية إعادة التوزيع", "warn");
+      return;
+    }
+
+    const sel = $("#tempRedistributeSelect");
+    const pick = sel?.value || "";
+    if(!pick){
+      toast("اختر مندوب أولاً", "warn");
+      return;
+    }
+
+    const agent = agentsUidMap.get(pick);
+    const agentName = agent?.name || leadData?.assignedName || pick;
+    const branchId = agent?.branchId || leadData?.branchId || "";
+
+    try{
+      // Update lead
+      await updateDoc(doc(db,"leads", leadId), {
+        assignedTo: pick,
+        assignedName: agentName,
+        assignedAt: new Date().toISOString(),
+        branchId: branchId,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Update linked conversation if possible (so Inbox follows assignment)
+      const convId = leadData?.convId || "";
+      if(convId){
+        await updateDoc(doc(db,"wa_conversations", convId), {
+          assignedTo: pick,
+          assignedName: agentName,
+          branchId: branchId,
+          assignedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }).catch(()=>{});
+      }else{
+        const wa = String(leadData?.phoneNormalized || leadData?.phone || "").trim();
+        if(wa){
+          const q1 = query(collection(db,"wa_conversations"), where("waId","==", wa), limit(1));
+          const s1 = await getDocs(q1).catch(()=>null);
+          const d1 = s1 && !s1.empty ? s1.docs[0] : null;
+          if(d1){
+            await updateDoc(doc(db,"wa_conversations", d1.id), {
+              assignedTo: pick,
+              assignedName: agentName,
+              branchId: branchId,
+              assignedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }).catch(()=>{});
+          }
+        }
+      }
+
+      toast("تمت إعادة التوزيع", "ok");
+      // re-render details (best effort)
+      const found = leadsCache.find(x=>x.id===leadId);
+      if(found){
+        found.data.assignedTo = pick;
+        found.data.assignedName = agentName;
+      }
+      // collapse box
+      const box = $("#tempRedistributeBox"); if(box) box.style.display = "none";
+      applyLeadFilters();
+    }catch(err){
+      console.warn(err);
+      toast("تعذر إعادة التوزيع: " + (err?.message||err), "warn");
+    }
+  }
+
+  function openInboxForPhone(phone, leadName){
+    const p = String(phone||"").trim();
+    if(!p){ toast("رقم غير صالح", "warn"); return; }
+
+    showTab("inbox");
+
+    // wait for inbox DOM + data
+    setTimeout(async ()=>{
+      const s = $("#fSearch");
+      if(s) s.value = p;
+      try{ applyInboxFilters(); }catch(e){}
+
+      const exact = inboxCache.find(x=>String(x.data?.waId||"").trim() === p);
+      const partial = exact ? null : inboxCache.find(x=>String(x.data?.waId||"").includes(p) || String(x.data?.displayName||"").includes(p));
+      const hit = exact || partial;
+
+      if(hit){
+        openConversation(hit.id);
+        return;
+      }
+
+      // لا توجد محادثة: أنشئ محادثة جديدة لبدء التواصل (حتى لو العميل لم يرسل سابقًا)
+      try{
+        const nm = String(leadName||"").trim() || p;
+        const newRef = doc(collection(db,"wa_conversations"));
+        await setDoc(newRef, {
+          waId: p,
+          channel: "whatsapp",
+          displayName: nm,
+          status: "open",
+          unreadCount: 0,
+          lastMessageText: "",
+          lastMessageAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          // اربطها بالمستخدم الحالي (Model A)
+          assignedTo: currentUser?.uid || "",
+          assignedName: (currentProfile?.name || currentProfile?.displayName || currentUser?.displayName || currentUser?.email || "")
+        }, { merge: true });
+
+        // أضف رسالة نظام بسيطة (اختياري) حتى تظهر الشاشة بشكل طبيعي
+        try{
+          const msgRef = doc(collection(db,"wa_conversations", newRef.id, "messages"));
+          await setDoc(msgRef, {
+            direction: "system",
+            type: "note",
+            text: "بدء محادثة جديدة من صفحة العملاء المحتملون",
+            from: "crm",
+            to: `wa:${p}`,
+            provider: "crm",
+            sentAt: serverTimestamp(),
+            receivedAt: serverTimestamp(),
+            status: "sent"
+          });
+        }catch(_e){}
+
+        // افتح المحادثة
+        openConversation(newRef.id);
+        toast("تم فتح محادثة جديدة لهذا الرقم", "ok");
+      }catch(err){
+        console.warn(err);
+        toast("تعذر إنشاء محادثة جديدة لهذا الرقم", "warn");
+      }
+    }, 160);
+  }
+
+
+// ===== Lead Statuses (Realtime + Admin UI inside Leads tab) =====
   function bindLeadStatusesRealtime(){
     if(unsubLeadStatuses) return;
     unsubLeadStatuses = onSnapshot(collection(db,"settings_lead_statuses"), (snap)=>{
