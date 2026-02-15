@@ -1,5 +1,5 @@
 /* ======================================================
-   THEME.CSS — FULL BASE + RAMADAN PREMIUM (CONTRAST FIX)
+   THEME.CSS — FULL BASE + RAMADAN PREMIUM (HIGH CONTRAST)
    ====================================================== */
 
 :root{
@@ -1471,170 +1471,168 @@
 
 
 /* ======================================================
-   RAMADAN PREMIUM — FIXED CONTRAST (DARK SURFACES)
-   الهدف: مفيش ولا منطقة بيضا بتخنق الداتا / مفيش نص أبيض على أبيض
-   - Override فوق CSS الأصلي فقط
-   - اسم الملف ثابت: theme.css
+   RAMADAN PREMIUM — HIGH CONTRAST (DARK BG + VERY LIGHT TEXT)
+   - خلفية غامقة + كتابة فاتحة وواضحة
+   - يمنع أي مناطق بيضا تسبب اختفاء الداتا
    ====================================================== */
 
-/* 1) Tokens */
 :root{
-  /* رمضان بريميم: زمردي/ذهبي */
-  --b:#0E2A25;                 /* Deep Emerald */
-  --a:#C7A44F;                 /* Gold */
+  /* Ramadan palette */
+  --b:#0C2A25;                 /* deep emerald */
+  --a:#D1B15A;                 /* premium gold */
 
-  /* إعادة تعيين توكنز السورس */
+  /* map to your existing tokens */
   --brown:var(--b);
   --bronze:var(--a);
 
-  --bg:#071815;                /* background */
-  --card:rgba(14,42,37,.88);   /* card surface */
-  --text:#F6F1E7;              /* text */
-  --muted:rgba(246,241,231,.68);
-  --line:rgba(199,164,79,.20);
+  /* core */
+  --bg:#061613;
+  --card:rgba(14, 40, 35, .90);
+  --text:#F8F2E8;              /* VERY LIGHT */
+  --muted:rgba(248,242,232,.78);
+  --line:rgba(209,177,90,.26);
 
-  --shadow:0 18px 55px rgba(0,0,0,.44);
+  --shadow:0 18px 55px rgba(0,0,0,.48);
   --radius:18px;
 
-  /* States */
-  --ok:#25B46B;
-  --bad:#E05A5A;
-  --warn:#D8A43B;
+  /* states */
+  --ok:#27C173;
+  --bad:#FF6464;
+  --warn:#F2C14E;
 
-  /* Helpers */
-  --surface2:rgba(255,255,255,.05);
-  --surface3:rgba(255,255,255,.07);
-  --stroke:rgba(255,255,255,.10);
-  --stroke2:rgba(199,164,79,.22);
+  /* helpers */
+  --surface:rgba(255,255,255,.06);
+  --surface2:rgba(255,255,255,.085);
+  --stroke:rgba(255,255,255,.14);
+  --strokeGold:rgba(209,177,90,.26);
 
-  --link:#A9D4FF;
+  --link:#B9DEFF;
   --linkHover:#FFFFFF;
-  --focus:rgba(199,164,79,.33);
+  --focus:rgba(209,177,90,.36);
 }
 
-/* 2) Background (فاخر بدون رسومات مزعجة) */
+/* Background */
 html,body{
   background:
-    radial-gradient(900px 420px at 12% 8%, rgba(199,164,79,.10), transparent 60%),
-    radial-gradient(820px 420px at 92% 18%, rgba(37,180,107,.10), transparent 58%),
-    radial-gradient(1000px 560px at 55% 100%, rgba(199,164,79,.08), transparent 60%),
+    radial-gradient(920px 460px at 12% 10%, rgba(209,177,90,.12), transparent 60%),
+    radial-gradient(820px 420px at 92% 18%, rgba(39,193,115,.10), transparent 58%),
+    radial-gradient(1100px 620px at 55% 102%, rgba(209,177,90,.10), transparent 62%),
     var(--bg) !important;
   color:var(--text) !important;
 }
 
-/* 3) Global text safety (يمنع نص أبيض على أبيض) */
-*{ color:inherit; }
+/* Ensure text is light everywhere */
+body, body *{
+  color:inherit;
+}
 small,.muted,.sub,.hint,.desc{ color:var(--muted) !important; }
 
-/* 4) Force ALL “white surfaces” to dark (حل جذري لمناطق البياض) */
-/* عناصر النظام الأساسية */
-.app,.panel,.card,.col,.kCard,.kLeadPanel,.kLeadPanelBody,.kLeadPanelForm,
-.convMain,.convList,.chatWrap,.chatBody,.chatComposer,
-.stat,.kv,.filters,.toolbar,.mzj-setEditorGrid,.mzj-setHead,.mzj-setBox,
-.mzj-table,.calcTable{
-  background:var(--card) !important;
-  border-color:var(--stroke2) !important;
-  box-shadow:var(--shadow) !important;
-}
-
-/* أي عنصر واخد خلفية بيضا بالـ inline style */
+/* Kill white surfaces (حتى inline) */
 [style*="background:#fff"],[style*="background: #fff"],
 [style*="background:white"],[style*="background: white"],
 [style*="background-color:#fff"],[style*="background-color: #fff"],
 [style*="background-color:white"],[style*="background-color: white"]{
   background:var(--card) !important;
   color:var(--text) !important;
-  border-color:var(--stroke2) !important;
+  border-color:var(--strokeGold) !important;
 }
 
-/* 5) Sidebar / Nav */
+/* Major surfaces */
+.app,.panel,.card,.content,.box,.section,
+.convMain,.convList,.chatWrap,.chatBody,.chatComposer,
+.filters,.toolbar,.stats,.kpi,
+.mzj-setEditorGrid,.mzj-setHead,.mzj-setBox{
+  background:var(--card) !important;
+  border:1px solid var(--strokeGold) !important;
+  box-shadow:var(--shadow) !important;
+  border-radius:var(--radius) !important;
+}
+
+/* Secondary surfaces */
+.filters, .toolbar, .chatTop, .convMeta, .mzj-setHead{
+  background:var(--surface) !important;
+  border-color:rgba(255,255,255,.12) !important;
+}
+
+/* Sidebar */
 .side,.sidebar,aside,.nav{
-  background:linear-gradient(180deg, rgba(14,42,37,.92), rgba(7,24,21,.92)) !important;
-  border-left:1px solid var(--stroke2) !important;
+  background:linear-gradient(180deg, rgba(12,42,37,.94), rgba(6,22,19,.94)) !important;
+  border-left:1px solid var(--strokeGold) !important;
 }
 .navItem,.navTitle{ color:var(--text) !important; }
-.navItem:hover{ background:rgba(199,164,79,.10) !important; }
-.navItem.active{ background:rgba(199,164,79,.18) !important; border-color:rgba(199,164,79,.22) !important; }
+.navItem:hover{ background:rgba(209,177,90,.12) !important; }
+.navItem.active{ background:rgba(209,177,90,.18) !important; }
 
-/* 6) Buttons */
+/* Buttons */
 .btn,button,.toolBtn,.mzj-miniBtn,.iconBtn,[role="button"]{
-  background:rgba(255,255,255,.06) !important;
+  background:var(--surface) !important;
   color:var(--text) !important;
-  border:1px solid rgba(255,255,255,.10) !important;
-}
-.btn:hover,button:hover,.toolBtn:hover,.mzj-miniBtn:hover,.iconBtn:hover{
-  background:rgba(199,164,79,.14) !important;
-  border-color:rgba(199,164,79,.22) !important;
-}
-.btnPrimary,.primary,button.primary{
-  background:linear-gradient(135deg, #C7A44F, #E2C067) !important;
-  color:#1C1C1C !important;
   border:1px solid rgba(255,255,255,.14) !important;
 }
-.btnPrimary:hover,.primary:hover,button.primary:hover{ filter:brightness(1.03); }
-
-/* 7) Tabs / Pills / Chips */
-.pill,.tag,.badge,.chip{
-  background:rgba(199,164,79,.12) !important;
-  border:1px solid rgba(199,164,79,.20) !important;
-  color:var(--text) !important;
+.btn:hover,button:hover,.toolBtn:hover,.mzj-miniBtn:hover,.iconBtn:hover{
+  background:rgba(209,177,90,.14) !important;
+  border-color:rgba(209,177,90,.26) !important;
 }
-.pill.active,.tag.active,.badge.active,.chip.active{
-  background:rgba(199,164,79,.22) !important;
-  border-color:rgba(199,164,79,.28) !important;
+.btnPrimary,.primary,button.primary{
+  background:linear-gradient(135deg, #D1B15A, #F0D17A) !important;
+  color:#17140E !important;
+  border:1px solid rgba(255,255,255,.16) !important;
 }
+.btnPrimary:hover,.primary:hover,button.primary:hover{ filter:brightness(1.04); }
 
-/* 8) Inputs / Selects (واضحة) */
+/* Inputs */
 input,select,textarea,.miniInput{
-  background:rgba(255,255,255,.06) !important;
+  background:var(--surface2) !important;
   color:var(--text) !important;
-  border:1px solid rgba(255,255,255,.12) !important;
+  border:1px solid rgba(255,255,255,.16) !important;
 }
-input::placeholder,textarea::placeholder{ color:rgba(246,241,231,.45) !important; }
+input::placeholder,textarea::placeholder{
+  color:rgba(248,242,232,.55) !important;
+}
 input:focus,select:focus,textarea:focus{
-  border-color:rgba(199,164,79,.40) !important;
+  border-color:rgba(209,177,90,.42) !important;
   box-shadow:0 0 0 3px var(--focus) !important;
   outline:none !important;
 }
 
-/* 9) Tables (الداتا كانت بتختفي) */
+/* Tabs / Chips */
+.pill,.tag,.badge,.chip{
+  background:rgba(209,177,90,.14) !important;
+  border:1px solid rgba(209,177,90,.24) !important;
+  color:var(--text) !important;
+}
+.pill.active,.tag.active,.badge.active,.chip.active{
+  background:rgba(209,177,90,.22) !important;
+  border-color:rgba(209,177,90,.32) !important;
+}
+
+/* Tables (HIGH CONTRAST) */
 table,.mzj-table,.calcTable{
   color:var(--text) !important;
+}
+table thead th, .mzj-table thead th, .calcTable thead th, table th{
+  background:rgba(255,255,255,.08) !important;
+  color:var(--text) !important;
+  border-bottom:1px solid rgba(209,177,90,.22) !important;
+}
+table tbody td, .mzj-table tbody td, .calcTable tbody td, table td{
   background:transparent !important;
+  color:var(--text) !important;
+  border-bottom:1px solid rgba(255,255,255,.10) !important;
 }
-table thead th,.mzj-table thead th,.calcTable thead th,
-table th{
-  background:rgba(255,255,255,.06) !important;
-  color:rgba(246,241,231,.92) !important;
-  border-bottom:1px solid rgba(199,164,79,.18) !important;
-}
-table tbody td,.mzj-table tbody td,.calcTable tbody td,
-table td{
-  background:transparent !important;
-  color:rgba(246,241,231,.92) !important;
-  border-bottom:1px solid rgba(255,255,255,.08) !important;
-}
-table tbody tr{ background:rgba(255,255,255,.02) !important; }
-table tbody tr:nth-child(even){ background:rgba(255,255,255,.035) !important; }
-table tbody tr:hover{ background:rgba(199,164,79,.12) !important; }
+table tbody tr{ background:rgba(255,255,255,.03) !important; }
+table tbody tr:nth-child(even){ background:rgba(255,255,255,.05) !important; }
+table tbody tr:hover{ background:rgba(209,177,90,.14) !important; }
 
-/* links */
-a{ color:var(--link) !important; }
+/* Links */
+a{ color:var(--link) !important; font-weight:600; }
 a:hover{ color:var(--linkHover) !important; }
 
-/* 10) Modal/Toast */
-.toast{
-  background:rgba(14,42,37,.92) !important;
-  color:var(--text) !important;
-  border:1px solid rgba(199,164,79,.22) !important;
-  box-shadow:0 18px 60px rgba(0,0,0,.55) !important;
-}
+/* Dividers */
+hr,.divider{ border-color:rgba(255,255,255,.10) !important; }
 
-/* 11) Borders and dividers */
-hr,.divider{ border-color:rgba(255,255,255,.08) !important; }
-
-/* 12) Scrollbar */
+/* Scrollbar */
 ::-webkit-scrollbar{width:10px}
-::-webkit-scrollbar-thumb{background:rgba(199,164,79,.26);border-radius:12px}
-::-webkit-scrollbar-thumb:hover{background:rgba(199,164,79,.40)}
+::-webkit-scrollbar-thumb{background:rgba(209,177,90,.28);border-radius:12px}
+::-webkit-scrollbar-thumb:hover{background:rgba(209,177,90,.42)}
 
