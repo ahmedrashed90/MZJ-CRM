@@ -7,6 +7,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -4455,7 +4456,7 @@ function applyLeadFilters(){
     if(blockedRoleIds.includes(roleId)) return true;
     if(/admin/i.test(roleName) || /admin/i.test(name)) return true;
     if(roleName.includes("مدير") || name.includes("مدير")) return true;
-    if(EXCLUDED_ASSIGN_EMAILS && EXCLUDED_ASSIGN_EMAILS.includes(email)) return true;
+    if(typeof EXCLUDED_ASSIGN_EMAILS !== "undefined" && Array.isArray(EXCLUDED_ASSIGN_EMAILS) && EXCLUDED_ASSIGN_EMAILS.includes(email)) return true;
     return false;
   }
 
