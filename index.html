@@ -1764,7 +1764,8 @@
                   <select id="leadsFilterAgent"><option value="">كل المندوبين</option></select>
                   <select id="leadsFilterStage"><option value="">كل المراحل</option></select>
                   <select id="leadsFilterStatus"><option value="">كل الحالات</option></select>
-                  <select id="leadsFilterCar"><option value="">كل السيارات</option></select>
+                                    <select id="leadsFilterSource"><option value="">كل المصادر</option></select>
+<select id="leadsFilterCar"><option value="">كل السيارات</option></select>
                   <select id="leadsFilterPay"><option value="">كل طرق الدفع</option></select>
                   <input class="miniInput" id="leadsSearch" placeholder="بحث بالاسم/الجوال/السيارة…" style="grid-column:1/-1" />
                 </div>
@@ -2241,14 +2242,7 @@
   import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, getDocs, serverTimestamp, writeBatch, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
   import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
-  
-  // NOTE: If you open this file via file://, Chrome may block ES module imports.
-  // Use http://localhost (Live Server) or deploy to a domain (e.g., Vercel) for Firebase Auth to work reliably.
-  if (location.protocol === "file:") {
-    console.warn("Running from file:// — use http://localhost to avoid module/CORS issues with Firebase.");
-  }
-
-// ===== Firebase Config =====
+  // ===== Firebase Config =====
   const firebaseConfig = {
       apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
       authDomain: "mzj-lead.firebaseapp.com",
@@ -2262,11 +2256,6 @@
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
   const auth = getAuth(app);
-
-  // expose for debugging (and for any non-module listeners)
-  window.__mzjApp = app;
-  window.__mzjDb  = db;
-  window.__mzjAuth = auth;
 
   // ثبّت الجلسة (يمنع التعليق على "جار التحقق…" بعد الريفريش)
   try{ setPersistence(auth, browserLocalPersistence); }catch(e){ console.warn("auth persistence", e); }
@@ -3774,6 +3763,27 @@ function refreshSettingsTables(){
     if(prevPay) paySel.value = prevPay;
   }
 
+
+  function refreshLeadSourceFilter(){
+    const srcSel = $("#leadsFilterSource");
+    if(!srcSel) return;
+
+    const prev = srcSel.value || "";
+    const sources = new Map();
+
+    leadsCache.forEach(({data})=>{
+      const s = String(data?.source ?? "").trim();
+      if(s) sources.set(s, s);
+    });
+
+    const items = Array.from(sources.values())
+      .sort((a,b)=> String(a).localeCompare(String(b), "ar"))
+      .map(v=>({value:v,label:v}));
+
+    fillSelect(srcSel, items);
+    if(prev) srcSel.value = prev;
+  }
+
   // ===== Pipeline (Kanban) — نفس حالات العملاء =====
   const PIPE_NONE = "__none__";
   const pipeState = { q:"", car:"", pay:"" };
@@ -4284,6 +4294,7 @@ function enableKanbanDragScroll(board){
 
 function applyLeadFilters(){
     refreshLeadCarPayFilters();
+    refreshLeadSourceFilter();
     const tb = $("#leadsTbody");
     if(!tb) return;
 
@@ -4292,6 +4303,7 @@ function applyLeadFilters(){
     const fa = $("#leadsFilterAgent")?.value || "";
     const fs = $("#leadsFilterStage")?.value || "";
     const fstat = $("#leadsFilterStatus")?.value || "";
+    const fsrc = $("#leadsFilterSource")?.value || "";
     const fcar = $("#leadsFilterCar")?.value || "";
     const fpay = $("#leadsFilterPay")?.value || "";
 
@@ -4301,6 +4313,7 @@ function applyLeadFilters(){
       if(fa && getAssignedUidFromLead(data) !== fa) return false;
       if(fs && data.stageId !== fs) return false;
       if(fstat && (data.leadStatusId || "") !== fstat) return false;
+      if(fsrc && String(data.source||"").trim() !== fsrc) return false;
       if(fcar){
         const carName = getLeadCarName(data);
         if(carName !== fcar) return false;
@@ -4444,7 +4457,7 @@ function applyLeadFilters(){
       });
     });
 
-    ["leadsSearch","leadsFilterBranch","leadsFilterAgent","leadsFilterStage","leadsFilterStatus","leadsFilterCar","leadsFilterPay"].forEach(id=>{
+    ["leadsSearch","leadsFilterBranch","leadsFilterAgent","leadsFilterStage","leadsFilterStatus","leadsFilterSource","leadsFilterCar","leadsFilterPay"].forEach(id=>{
       $("#"+id)?.addEventListener("input", applyLeadFilters);
       $("#"+id)?.addEventListener("change", applyLeadFilters);
     });
