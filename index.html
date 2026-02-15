@@ -2875,7 +2875,6 @@ function refreshSettingsTables(){
 
   // ===== Inbox (WhatsApp via wa_conversations) =====
   let unsubInbox = null;
-  let unsubInbox2 = null;
   let unsubMsgs = null;
   let inboxCache = []; // [{id,data}]
   let activeConvId = null;
@@ -3151,76 +3150,39 @@ function refreshSettingsTables(){
     }
 
     const baseCol = collection(db,"wa_conversations");
-
-// Clean previous listeners
-if(unsubInbox){ try{unsubInbox();}catch{} unsubInbox=null; }
-if(unsubInbox2){ try{unsubInbox2();}catch{} unsubInbox2=null; }
-
-// Admins/managers: single query (no composite index)
-if(canSeeAllInbox()){
-  const convQ = query(baseCol, orderBy("lastMessageAt","desc"), limit(200));
-
-  listEl.innerHTML = `<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل المحادثات…</div>`;
-
-  unsubInbox = onSnapshot(convQ, (snap)=>{
-    inboxCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
-    applyInboxFilters();
-    setBadgeConnected(true);
-
-    // Auto-assign unassigned conversations (random) — managers only
+    let convQ = null;
     if(canSeeAllInbox()){
-      autoAssignUnassignedConversations().catch(e=>console.warn("auto-assign failed", e));
+      convQ = query(baseCol, orderBy("lastMessageAt","desc"), limit(200));
+    }else{
+      // Agents see only their assigned conversations
+      convQ = query(baseCol, where("assignedTo","==", currentUser.uid), limit(400));
     }
-  }, (err)=>{
-    console.error("inbox snapshot error", err);
-    listEl.innerHTML = `<div style="padding:16px;color:#c23a2f;font-size:13px;line-height:1.8">تعذر تحميل المحادثات: ${escapeHtml(err?.message || String(err))}</div>`;
-    setBadgeConnected(false);
-  });
 
-  return;
-}
+    listEl.innerHTML = `<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل المحادثات…</div>`;
 
-// Agents: listen by assignedTo UID (Model A) — WITHOUT orderBy to avoid composite indexes.
-// Also listen to legacy field "assigneeTo" if some old docs still use it.
-listEl.innerHTML = `<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل المحادثات…</div>`;
+    unsubInbox = onSnapshot(convQ, (snap)=>{
+      inboxCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+      applyInboxFilters();
+      setBadgeConnected(true);
 
-let snapA = [];
-let snapB = [];
+      // Auto-assign unassigned conversations (random) — managers only
+      if(canSeeAllInbox()){
+        autoAssignUnassignedConversations().catch(e=>console.warn("auto-assign failed", e));
+      }
 
-const mergeAgentSnaps = ()=>{
-  const map = new Map();
-  const pushDocs = (docs)=>{ (docs||[]).forEach(d=> map.set(d.id, d.data()||{})); };
-  pushDocs(snapA); pushDocs(snapB);
-  inboxCache = Array.from(map.entries()).map(([id,data])=>({id, data}));
-  applyInboxFilters();
-  setBadgeConnected(true);
-};
-
-const qAssigned = query(baseCol, where("assignedTo","==", currentUser.uid), limit(400));
-unsubInbox = onSnapshot(qAssigned, (snap)=>{
-  snapA = snap.docs;
-  mergeAgentSnaps();
-}, (err)=>{
-  console.error("inbox snapshot error (assignedTo)", err);
-  listEl.innerHTML = `<div style="padding:16px;color:#c23a2f;font-size:13px;line-height:1.8">تعذر تحميل المحادثات: ${escapeHtml(err?.message || String(err))}</div>`;
-  setBadgeConnected(false);
-});
-
-// Legacy (optional)
-const qLegacy = query(baseCol, where("assigneeTo","==", currentUser.uid), limit(200));
-unsubInbox2 = onSnapshot(qLegacy, (snap)=>{
-  snapB = snap.docs;
-  mergeAgentSnaps();
-}, (err)=>{
-  // don't block UI if legacy query fails for any reason
-  console.warn("legacy inbox snapshot warning", err);
-  snapB = [];
-  mergeAgentSnaps();
-});
-
-return;
-
-    
+      // auto-open first conversation if none selected
+      if(!activeConvId && inboxCache.length){
+        openConversation(inboxCache[0].id);
+      }
+    }, (err)=>{
+      console.warn("inbox snapshot error", err);
+      setBadgeConnected(false);
+      listEl.innerHTML = `
+        <div style="padding:16px;color:#9b0000;font-weight:800;line-height:1.8">
+          تعذر تحميل المحادثات: ${esc(err?.message||err)}
+        </div>
+      `;
+    });
 
     // click handler (delegate)
     listEl.addEventListener("click", (e)=>{
