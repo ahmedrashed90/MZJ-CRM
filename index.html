@@ -9,6 +9,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1739,12 +1740,7 @@
                 <strong id="statLeadsTotal">0</strong>
                 <div class="hint">آخر 30 يوم</div>
               </div>
-              <div class="stat">
-                <b>غير موزّع</b>
-                <strong id="statLeadsUnassigned">0</strong>
-                <div class="hint">يحتاج توزيع فوري</div>
-              </div>
-              <div class="stat">
+<div class="stat">
                 <b>نتائج الفلاتر</b>
                 <strong id="statLeadsActive">0</strong>
                 <div class="hint">المعروض الآن</div>
@@ -1927,33 +1923,55 @@
           <!-- Panel: Tasks -->
           <div class="panel" id="panel-tasks">
             <div class="grid">
-              <div class="stat">
-                <b>متابعات اليوم</b>
-                <strong>—</strong>
-                <div class="hint">مفتوحة</div>
-              </div>
-              <div class="stat">
-                <b>متأخر</b>
-                <strong>—</strong>
-                <div class="hint">يحتاج تصعيد</div>
-              </div>
-              <div class="stat">
-                <b>تم إنجازه</b>
-                <strong>—</strong>
-                <div class="hint">آخر 24 ساعة</div>
-              </div>
-              <div class="stat">
-                <b>موعد قريب</b>
-                <strong>—</strong>
-                <div class="hint">خلال ساعتين</div>
-              </div>
+
+<div class="stat" id="taskTileToday" data-taskfilter="today" style="cursor:pointer">
+  <b>متابعة اليوم</b>
+  <strong id="statTasksToday">0</strong>
+  <div class="hint">ليدات موعدها اليوم</div>
+</div>
+<div class="stat" id="taskTileLate" data-taskfilter="late" style="cursor:pointer">
+  <b>متأخر</b>
+  <strong id="statTasksLate">0</strong>
+  <div class="hint">تاريخ متابعة فات</div>
+</div>
+<div class="stat" id="taskTileDone" data-taskfilter="done" style="cursor:pointer">
+  <b>تم إنجازه</b>
+  <strong id="statTasksDone">0</strong>
+  <div class="hint">بحالة: تم انجازة</div>
+</div>
+<div class="stat" id="taskTileSoon" data-taskfilter="soon" style="cursor:pointer">
+  <b>موعد قريب</b>
+  <strong id="statTasksSoon">0</strong>
+  <div class="hint">قبل الموعد بيوم</div>
+</div>
+
 
               <div class="card" style="grid-column: span 12;">
                 <h3>قائمة المتابعات</h3>
-                <div class="list">                <div style="padding:12px 2px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
-                  لا توجد مهام متابعة بعد. سيتم إنشاؤها تلقائيًا عبر الأوتوميشن.
-                </div>
-    </div>
+
+
+<div class="filters" style="padding:0 0 10px;border:0">
+  <span class="pill" id="tasksActiveLabel">اضغط على بطاقة بالأعلى لعرض الليدات.</span>
+</div>
+
+<div class="mzj-tableWrap">
+  <table class="mzj-table" style="min-width: 980px;">
+    <thead>
+      <tr>
+        <th>اسم العميل</th>
+        <th>الجوال</th>
+        <th>تاريخ المتابعة</th>
+        <th>الحالة</th>
+        <th>المرحلة</th>
+        <th>المسؤول</th>
+      </tr>
+    </thead>
+    <tbody id="tasksTbody">
+      <tr><td colspan="6" class="mzj-empty">اضغط على بطاقة بالأعلى لعرض الليدات.</td></tr>
+    </tbody>
+  </table>
+</div>
+</div>
                 </div>
               </div>
             </div>
@@ -4340,20 +4358,150 @@ function applyLeadFilters(){
       return true;
     });
 
-    const total = base.length;
+    
+const total = base.length;
     const unassigned = base.filter(x=>!getAssignedUidFromLead(x.data)).length;
+
+    // مغلق (ربح) = حالة باسم "مغلق (ربح)" (عدد هذا الشهر حسب updatedAt)
+    const now = new Date();
+    const curY = now.getFullYear();
+    const curM = now.getMonth();
+    const closedWon = base.filter(x=>{
+      const nm = getEffectiveLeadStatusName(x.data);
+      if(String(nm).trim() !== "مغلق (ربح)") return false;
+      const up = x.data?.updatedAt || x.data?.timestamp || x.data?.createdAt;
+      const dt = up ? new Date(up) : null;
+      return dt && dt.getFullYear() === curY && dt.getMonth() === curM;
+    }).length;
 
     $("#statLeadsTotal") && ($("#statLeadsTotal").textContent = String(total));
     $("#statLeadsUnassigned") && ($("#statLeadsUnassigned").textContent = String(unassigned));
     $("#statLeadsActive") && ($("#statLeadsActive").textContent = String(filtered.length));
-    $("#statLeadsClosed") && ($("#statLeadsClosed").textContent = "0");
+    $("#statLeadsClosed") && ($("#statLeadsClosed").textContent = String(closedWon));
 
     if(!filtered.length){
       tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
     }else{
       tb.innerHTML = filtered.map(x=>renderLeadTr(x.id, x.data)).join("");
     }
+  
+    // تحديث Tab المتابعات (إحصائيات + القائمة)
+    try{ renderTasksList(); }catch(e){}
+}
+
+
+// ===== Tasks / Follow-ups (Tab المتابعات) =====
+let tasksFilterKey = "";
+let tasksBuckets = { today:[], late:[], done:[], soon:[] };
+
+function localYMD(d){
+  try{
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  }catch{ return ""; }
+}
+
+function getTasksBase(){
+  return canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser?.uid||""));
+}
+
+function computeTasksBuckets(){
+  const base = getTasksBase();
+  const today = localYMD(new Date());
+  const tomorrow = localYMD(new Date(Date.now() + 86400000));
+  const doneName = "تم انجازة";
+
+  const isDone = (lead)=> String(getEffectiveLeadStatusName(lead)||"").trim() === doneName;
+
+  const withFollow = base.filter(x=> String(x.data?.followUpDate||"").trim());
+
+  tasksBuckets.today = withFollow.filter(x=> String(x.data.followUpDate).slice(0,10) === today && !isDone(x.data));
+  tasksBuckets.late  = withFollow.filter(x=> String(x.data.followUpDate).slice(0,10) <  today && !isDone(x.data));
+  tasksBuckets.soon  = withFollow.filter(x=> String(x.data.followUpDate).slice(0,10) === tomorrow && !isDone(x.data));
+
+  // "تم انجازة" = بحالة
+  tasksBuckets.done  = base.filter(x=> isDone(x.data));
+
+  $("#statTasksToday") && ($("#statTasksToday").textContent = String(tasksBuckets.today.length));
+  $("#statTasksLate")  && ($("#statTasksLate").textContent  = String(tasksBuckets.late.length));
+  $("#statTasksDone")  && ($("#statTasksDone").textContent  = String(tasksBuckets.done.length));
+  $("#statTasksSoon")  && ($("#statTasksSoon").textContent  = String(tasksBuckets.soon.length));
+}
+
+function renderTasksList(){
+  const tb = $("#tasksTbody");
+  const lab = $("#tasksActiveLabel");
+  if(!tb) return;
+
+  computeTasksBuckets();
+
+  const key = tasksFilterKey || "";
+  const labelMap = {
+    today: "متابعة اليوم",
+    late: "متأخر",
+    done: "تم انجازة",
+    soon: "موعد قريب"
+  };
+
+  if(lab){
+    lab.textContent = key ? `عرض: ${labelMap[key] || key}` : "اضغط على بطاقة بالأعلى لعرض الليدات.";
   }
+
+  if(!key || !tasksBuckets[key]){
+    tb.innerHTML = `<tr><td colspan="6" class="mzj-empty">اضغط على بطاقة بالأعلى لعرض الليدات.</td></tr>`;
+    return;
+  }
+
+  const rows = tasksBuckets[key].slice().sort((a,b)=> String(a.data.followUpDate||"").localeCompare(String(b.data.followUpDate||"")));
+  if(!rows.length){
+    tb.innerHTML = `<tr><td colspan="6" class="mzj-empty">لا توجد ليدات داخل هذا القسم.</td></tr>`;
+    return;
+  }
+
+  tb.innerHTML = rows.map(x=>{
+    const id = x.id;
+    const lead = x.data || {};
+    const d = getLeadDisplay(lead);
+    const stage = stagesMap.get(lead.stageId)?.name || lead.stageId || "—";
+    const follow = (lead.followUpDate || "").slice(0,10) || "—";
+    const assigned = d.assignedName || "—";
+    return `
+      <tr>
+        <td>${esc(d.name||"—")}</td>
+        <td><a class="leadPhoneLink" data-openinboxphone="${esc(lead.phoneNormalized || lead.phone || lead.waId || "")}" data-openinboxname="${esc(d.name)}" href="javascript:void(0)">${esc(d.phone||"—")}</a></td>
+        <td>${esc(follow)}</td>
+        <td>${esc(d.statusName||"—")}</td>
+        <td>${esc(stage)}</td>
+        <td>${esc(assigned)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  // اربط فتح صندوق الوارد من رقم العميل داخل قائمة المتابعات
+  tb.querySelectorAll("[data-openinboxphone]").forEach(a=>{
+    a.addEventListener("click", ()=>{
+      openInboxForPhone(a.dataset.openinboxphone || "", a.dataset.openinboxname || "");
+    });
+  });
+}
+
+function setTasksFilter(key){
+  tasksFilterKey = String(key||"");
+  renderTasksList();
+}
+
+function bindTasksUI(){
+  // Tiles
+  document.querySelectorAll("#panel-tasks [data-taskfilter]").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      setTasksFilter(el.dataset.taskfilter || "");
+    });
+  });
+  // first render
+  try{ renderTasksList(); }catch(e){}
+}
 
   async function ensureLeadsLive(){
     if(unsubLeads) return;
@@ -4855,6 +5003,7 @@ function applyLeadFilters(){
   bindLeadStatusesRealtime();
   bindLeadStatusesAdminUI();
   bindPipelineUI();
+  bindTasksUI();
 
   // ابدأ بحالة تحقق + تايمر حماية (حتى لا يظل "جار التحقق…" للأبد)
   try{ setAuthChecking(); }catch{}
