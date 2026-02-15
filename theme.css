@@ -1,6 +1,5 @@
 /* ======================================================
-   FULL THEME.CSS (BASE + RAMADAN OVERRIDES)
-   ملاحظة: ده ملف كامل مش ناقص.
+   THEME.CSS — FULL BASE + RAMADAN PREMIUM
    ====================================================== */
 
 :root{
@@ -1472,41 +1471,213 @@
 
 
 /* ======================================================
-   THEME OVERRIDES — RAMADAN (SAFE)
-   - لا يغيّر Layout
-   - يغيّر ألوان/ثيم عبر نفس المتغيرات الموجودة في السورس
+   RAMADAN PREMIUM THEME (FULL) — Emerald & Gold
+   - مبني فوق CSS الأصلي (بدون كسر Layout)
+   - يغيّر المتغيرات + تحسينات جمالية/وضوح للداتا
+   - اسم الملف ثابت: theme.css
    ====================================================== */
 
+/* ========== 1) Theme Tokens ========== */
 :root{
-  /* Ramadan Lux (Light) */
-  --b:#0F3D33;        /* deep emerald بدل البني */
-  --a:#C7A44F;        /* gold بدل البرونزي */
+  /* Ramadan Palette */
+  --b:#0F2F2A;                 /* Deep Emerald */
+  --a:#C7A44F;                 /* Gold */
   --brown:var(--b);
   --bronze:var(--a);
 
-  --bg:#F7F4EE;       /* خلفية فاتحة رمضانية */
-  --card:#FFFFFF;     /* الكروت */
-  --text:#1C1C1C;
-  --muted:rgba(28,28,28,.66);
-  --line:rgba(43,26,23,.14);
+  /* Surfaces */
+  --bg:#0B1E1B;                /* App background */
+  --card:rgba(18, 45, 40, .78);/* Glass card */
+  --text:#F6F1E7;
+  --muted:rgba(246,241,231,.66);
+  --line:rgba(199,164,79,.22);
 
-  --shadow:0 18px 44px rgba(0,0,0,.10);
+  /* Effects */
+  --shadow:0 18px 55px rgba(0,0,0,.42);
   --radius:18px;
   --radius2:14px;
 
-  --ok:#1f9b56;
-  --warn:#c08b2b;
-  --bad:#c64444;
+  /* States */
+  --ok:#25B46B;
+  --bad:#E05A5A;
+  --warn:#D8A43B;
 
-  --chip:rgba(199,164,79,.14);
+  /* Extra helpers (used below) */
+  --panelSolid:#112C27;
+  --panelSoft:rgba(17,44,39,.55);
+  --goldSoft:rgba(199,164,79,.16);
+  --goldSoft2:rgba(199,164,79,.10);
+  --link:#A9D4FF;
+  --linkHover:#FFFFFF;
+  --tableHead:rgba(255,255,255,.06);
+  --tableRow:rgba(255,255,255,.02);
+  --tableRowAlt:rgba(255,255,255,.035);
+  --focus:rgba(199,164,79,.35);
 }
 
-/* تحسين وضوح الداتا (جداول/لينكات) بدون لعب في التصميم */
-a{ color:#1B5EAA; }
-a:hover{ color:var(--b); }
+/* ========== 2) Background (Premium, بدون باترن/هلال) ========== */
+html,body{
+  background:
+    radial-gradient(900px 420px at 10% 10%, rgba(199,164,79,.10), transparent 60%),
+    radial-gradient(700px 380px at 90% 15%, rgba(46,180,130,.10), transparent 55%),
+    radial-gradient(900px 520px at 55% 95%, rgba(199,164,79,.08), transparent 60%),
+    var(--bg) !important;
+  color:var(--text) !important;
+}
 
-table thead th{ background:rgba(15,61,51,.06); color:var(--text); }
-table tbody tr:nth-child(even){ background:rgba(15,61,51,.02); }
-table tbody tr:hover{ background:rgba(199,164,79,.10); }
+/* ========== 3) App container polish ========== */
+.app{
+  background:transparent !important;
+}
+.content, .inbox, .convMain, .kLeadPanel, .kCard, .card{
+  background:var(--card) !important;
+  border:1px solid rgba(199,164,79,.18) !important;
+  box-shadow:var(--shadow) !important;
+  backdrop-filter: blur(10px);
+}
+.content, .card, .kCard{ border-radius:var(--radius) !important; }
+.filters, .chatTop, .chatComposer, .convMeta{
+  background:var(--panelSoft) !important;
+  border:1px solid rgba(255,255,255,.08) !important;
+  border-radius:var(--radius2) !important;
+}
 
-input::placeholder, textarea::placeholder{ color:rgba(28,28,28,.45); }
+/* ========== 4) Sidebar premium ========== */
+.side, .sidebar, .nav, aside{
+  background: linear-gradient(180deg, rgba(17,44,39,.92), rgba(11,30,27,.92)) !important;
+  border-left:1px solid rgba(199,164,79,.18) !important;
+}
+.brand, .brandTop{
+  color:var(--text) !important;
+}
+.side .muted, .sidebar .muted, aside .muted{ color:rgba(246,241,231,.70) !important; }
+
+/* ========== 5) Buttons ========== */
+.btn, button{
+  border-radius:14px !important;
+}
+.btnPrimary, .btn.primary, button.primary{
+  background: linear-gradient(135deg, rgba(199,164,79,1), rgba(226,192,103,1)) !important;
+  color:#1C1C1C !important;
+  border:1px solid rgba(255,255,255,.12) !important;
+  box-shadow:0 10px 26px rgba(0,0,0,.28) !important;
+}
+.btnPrimary:hover, .btn.primary:hover, button.primary:hover{
+  filter: brightness(1.03);
+  transform: translateY(-1px);
+}
+.btn:not(.btnPrimary){
+  background: rgba(255,255,255,.06) !important;
+  color: var(--text) !important;
+  border:1px solid rgba(255,255,255,.10) !important;
+}
+.btn:not(.btnPrimary):hover{
+  background: rgba(199,164,79,.14) !important;
+  border-color: rgba(199,164,79,.20) !important;
+}
+
+/* Icon buttons */
+.iconBtn{
+  background: rgba(255,255,255,.06) !important;
+  border:1px solid rgba(255,255,255,.10) !important;
+}
+.iconBtn:hover{
+  background: rgba(199,164,79,.14) !important;
+  border-color: rgba(199,164,79,.22) !important;
+}
+
+/* ========== 6) Tabs / pills / chips ========== */
+.chip, .badge, .pill, .tag, .kChip{
+  background: var(--goldSoft2) !important;
+  border:1px solid rgba(199,164,79,.20) !important;
+  color: var(--text) !important;
+}
+.chip.active, .badge.active, .kChip.active{
+  background: rgba(199,164,79,.22) !important;
+  border-color: rgba(199,164,79,.28) !important;
+}
+.active{
+  outline-color: rgba(199,164,79,.35);
+}
+
+/* ========== 7) Inputs (وضوح عالي) ========== */
+input, select, textarea{
+  background: rgba(255,255,255,.06) !important;
+  color: var(--text) !important;
+  border:1px solid rgba(255,255,255,.12) !important;
+}
+input::placeholder, textarea::placeholder{
+  color: rgba(246,241,231,.45) !important;
+}
+input:focus, select:focus, textarea:focus{
+  border-color: rgba(199,164,79,.40) !important;
+  box-shadow: 0 0 0 3px var(--focus) !important;
+  outline: none !important;
+}
+
+/* ========== 8) Tables / Data visibility (المشكلة اللي في الصورة) ========== */
+table{
+  color: var(--text) !important;
+}
+table thead th, .calcTable thead th{
+  background: var(--tableHead) !important;
+  color: rgba(246,241,231,.92) !important;
+  border-bottom:1px solid rgba(199,164,79,.16) !important;
+}
+table tbody td, .calcTable tbody td{
+  background: transparent !important;
+  color: rgba(246,241,231,.92) !important;
+  border-bottom:1px solid rgba(255,255,255,.08) !important;
+}
+table tbody tr{
+  background: var(--tableRow) !important;
+}
+table tbody tr:nth-child(even){
+  background: var(--tableRowAlt) !important;
+}
+table tbody tr:hover{
+  background: rgba(199,164,79,.12) !important;
+}
+
+/* Links inside table */
+table a{
+  color: var(--link) !important;
+  font-weight: 600;
+}
+table a:hover{
+  color: var(--linkHover) !important;
+}
+
+/* ========== 9) Chat / Conversation list readability ========== */
+.conv, .convList, .chatWrap{
+  background: transparent !important;
+}
+.activityItem, .convMeta, .chatBody{
+  color: var(--text) !important;
+}
+.activityItem{
+  border-bottom:1px solid rgba(255,255,255,.08) !important;
+}
+.activityItem:hover{
+  background: rgba(199,164,79,.10) !important;
+}
+
+/* ========== 10) Status dots ========== */
+.dot{ background: rgba(255,255,255,.18) !important; }
+.dot.ok{ background: rgba(37,180,107,.65) !important; }
+.dot.bad{ background: rgba(224,90,90,.65) !important; }
+.dot.warn{ background: rgba(216,164,59,.65) !important; }
+
+/* ========== 11) Subtle separators ========== */
+hr, .divider{
+  border-color: rgba(255,255,255,.08) !important;
+}
+
+/* ========== 12) Scrollbar ========== */
+::-webkit-scrollbar{width:10px}
+::-webkit-scrollbar-thumb{
+  background: rgba(199,164,79,.28);
+  border-radius: 12px;
+}
+::-webkit-scrollbar-thumb:hover{ background: rgba(199,164,79,.42); }
+
