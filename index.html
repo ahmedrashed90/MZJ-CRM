@@ -1764,6 +1764,7 @@
                   <select id="leadsFilterAgent"><option value="">كل المندوبين</option></select>
                   <select id="leadsFilterStage"><option value="">كل المراحل</option></select>
                   <select id="leadsFilterStatus"><option value="">كل الحالات</option></select>
+                  <select id="leadsFilterSource"><option value="">كل المصادر</option></select>
                   <select id="leadsFilterCar"><option value="">كل السيارات</option></select>
                   <select id="leadsFilterPay"><option value="">كل طرق الدفع</option></select>
                   <input class="miniInput" id="leadsSearch" placeholder="بحث بالاسم/الجوال/السيارة…" style="grid-column:1/-1" />
@@ -2344,15 +2345,8 @@
 
 
   function canSeeAllInbox(){
-    const roleId = String(currentProfile?.roleId || "").toLowerCase().trim();
-    // Only privileged roles can view ALL conversations
-    return (
-      roleId === "admin" ||
-      roleId === "system_manager" ||
-      roleId === "branch_manager" ||
-      roleId === "marketing_admin" ||
-      roleId === "marketing_manager"
-    );
+    const roleId = currentProfile?.roleId;
+    return roleId === "admin" || roleId === "branch_manager" || roleId === "marketing_admin";
   }
 
 
@@ -2967,11 +2961,9 @@ function refreshSettingsTables(){
     const fBranch = ($("#fBranch")?.value || "").trim();
 
     const filtered = inboxCache.filter(({id,data})=>{
-      // Role guard: non-privileged users only see their assigned chats
+      // Role guard: agents only see assigned chats
       if(currentUser && !canSeeAllInbox()){
-        const uid = String(currentUser.uid||"");
-        const assigned = String(data?.assignedTo || data?.assigneeTo || data?.assignedUid || "");
-        if(assigned !== uid) return false;
+        if((data?.assignedTo || "") !== currentUser.uid) return false;
       }
       const c = data || {};
       // channel filter
@@ -3071,6 +3063,33 @@ function refreshSettingsTables(){
   async function openConversation(convId){
     activeConvId = convId;
 
+    // Hard guard: reps cannot open conversations not assigned to them
+    try{
+      if(!canSeeAllInbox()){
+        const cached = inboxCache.find(x=>x.id===convId)?.data || null;
+        const assignedTo = String((cached?.assignedTo) || "").trim();
+        if(assignedTo && assignedTo !== String(currentUser?.uid||"")){
+          toast("لا يمكنك فتح محادثة ليست مخصصة لك", "warn");
+          activeConvId = null;
+          applyInboxFilters();
+          return;
+        }
+        if(!cached){
+          const snap = await getDoc(doc(db,"wa_conversations", convId));
+          if(snap.exists()){
+            const data = snap.data()||{};
+            const at = String(data.assignedTo||"").trim();
+            if(at && at !== String(currentUser?.uid||"")){
+              toast("لا يمكنك فتح محادثة ليست مخصصة لك", "warn");
+              activeConvId = null;
+              applyInboxFilters();
+              return;
+            }
+          }
+        }
+      }
+    }catch(e){}
+
     // highlight list immediately
     applyInboxFilters();
 
@@ -3145,6 +3164,74 @@ function refreshSettingsTables(){
     }
   }
 
+
+  async function autoAssignInstallmentLeads(){
+    // Auto: any lead with source installment_calculator => stage round_robin + random assign to reps only
+    if(!currentUser) return;
+
+    const reps = Array.from(agentsMap.values()).filter(a=>
+      a && a.isActive &&
+      !["admin","system_manager","branch_manager","marketing_admin","marketing_manager"].includes(a.roleId||"") &&
+      !EXCLUDED_ASSIGN_EMAILS.includes(String(a.email||a.id||"").toLowerCase())
+    );
+    if(!reps.length) return;
+
+    const tasks = [];
+    for(const {id,data} of leadsCache){
+      if(!data) continue;
+      if(String(data.source||"") !== "installment_calculator") continue;
+
+      const needsStage = String(data.stageId||"") !== "round_robin";
+      const assignedUid = getAssignedUidFromLead(data);
+      const assignedObj = assignedUid ? agentsUidMap.get(assignedUid) : null;
+      const assignedRole = assignedObj?.roleId || "";
+      const isAssignedExcluded = assignedRole && ["admin","system_manager","branch_manager","marketing_admin","marketing_manager"].includes(assignedRole);
+      const needsAssign = !assignedUid || isAssignedExcluded;
+
+      if(!needsStage && !needsAssign) continue;
+
+      const patch = { updatedAt: new Date().toISOString() };
+      if(needsStage) patch.stageId = "round_robin";
+
+      if(needsAssign){
+        const pick = reps[Math.floor(Math.random()*reps.length)];
+        const pickUid = pick.uid || pick.id;
+        if(pickUid){
+          patch.assignedTo = pickUid;
+          patch.assignedName = pick.name || (agentsUidMap.get(pickUid)?.name) || pickUid;
+          patch.assignedAt = new Date().toISOString();
+          patch.branchId = pick.branchId || (agentsUidMap.get(pickUid)?.branchId) || (data.branchId||"");
+        }
+      }
+
+      tasks.push((async ()=>{
+        try{
+          await updateDoc(doc(db,"leads", id), patch);
+
+          // Sync linked conversation (if exists) so rep inbox respects assignment
+          const convId = String(data.convId || data.conversationId || "").trim();
+          if(convId && patch.assignedTo){
+            try{
+              await updateDoc(doc(db,"wa_conversations", convId), {
+                assignedTo: patch.assignedTo,
+                assignedName: patch.assignedName || "",
+                assignedAt: patch.assignedAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              });
+            }catch(_e){}
+          }
+        }catch(e){
+          // ignore (permissions / race)
+        }
+      })());
+    }
+
+    if(tasks.length){
+      await Promise.allSettled(tasks);
+    }
+  }
+
+
   function channelToSourceLabel(ch){
     const c = String(ch||"").toLowerCase();
     if(c === "whatsapp" || c === "wa") return "واتساب";
@@ -3175,7 +3262,7 @@ function refreshSettingsTables(){
       convQ = query(baseCol, orderBy("lastMessageAt","desc"), limit(200));
     }else{
       // Agents see only their assigned conversations
-      convQ = query(baseCol, where("assignedTo","==", currentUser.uid), limit(400));
+      convQ = query(baseCol, where("assignedTo","==", currentUser.uid), orderBy("lastMessageAt","desc"), limit(400));
     }
 
     listEl.innerHTML = `<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل المحادثات…</div>`;
@@ -3470,6 +3557,22 @@ function refreshSettingsTables(){
   let unsubLeads = null;
   let leadsCache = [];
 
+
+  function getAssignedUidFromLead(data){
+    return String((data && (data.assignedTo || data.assigneeTo)) || "");
+  }
+
+  function canViewAllLeads(){
+    if(!currentUser) return false;
+    const roleId = currentProfile?.roleId || "";
+    const roleName = String(rolesMap.get(roleId) || roleId || "").toLowerCase();
+    const email = String(currentUser?.email || "").toLowerCase();
+    // Admins & managers can see all
+    if(roleName.includes("admin") || roleName.includes("مدير") || roleName.includes("مشرف") || roleName.includes("system") || roleName.includes("owner")) return true;
+    if(email.includes("admin")) return true;
+    return false;
+  }
+
   // حالات العملاء (من installment_calculator وغيرها) — إدارة داخل Tab العملاء المحتملون
   let leadStatusesMap = new Map(); // id -> {id,name,isActive}
   let unsubLeadStatuses = null;
@@ -3755,6 +3858,23 @@ function refreshSettingsTables(){
     if(prevPay) paySel.value = prevPay;
   }
 
+  function refreshLeadSourceFilter(){
+    const srcSel = $("#leadsFilterSource");
+    if(!srcSel) return;
+    const prev = srcSel.value || "";
+    const sources = new Map();
+    leadsCache.forEach(({data})=>{
+      const s = String(data?.source || "").trim();
+      if(s) sources.set(s, s);
+    });
+    const items = Array.from(sources.values())
+      .sort((a,b)=> String(a).localeCompare(String(b), "ar"))
+      .map(v=>({value:v, label:v}));
+    fillSelect(srcSel, items);
+    if(prev) srcSel.value = prev;
+  }
+
+
   // ===== Pipeline (Kanban) — نفس حالات العملاء =====
   const PIPE_NONE = "__none__";
   const pipeState = { q:"", car:"", pay:"" };
@@ -3810,7 +3930,9 @@ function refreshSettingsTables(){
     const car = pipeState.car || "";
     const pay = pipeState.pay || "";
 
-    return leadsCache.filter(({data})=>{
+    const base = canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser?.uid||""));
+
+    return base.filter(({data})=>{
       if(car){
         const c = getLeadCarName(data);
         if(c !== car) return false;
@@ -4263,6 +4385,7 @@ function enableKanbanDragScroll(board){
 
 function applyLeadFilters(){
     refreshLeadCarPayFilters();
+    refreshLeadSourceFilter();
     const tb = $("#leadsTbody");
     if(!tb) return;
 
@@ -4271,13 +4394,17 @@ function applyLeadFilters(){
     const fa = $("#leadsFilterAgent")?.value || "";
     const fs = $("#leadsFilterStage")?.value || "";
     const fstat = $("#leadsFilterStatus")?.value || "";
+    const fsrc = $("#leadsFilterSource")?.value || "";
     const fcar = $("#leadsFilterCar")?.value || "";
     const fpay = $("#leadsFilterPay")?.value || "";
 
-    const filtered = leadsCache.filter(({id,data})=>{
-      if(fa && data.assignedTo !== fa) return false;
+    const base = canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser.uid||""));
+
+    const filtered = base.filter(({id,data})=>{
+      if(fa && getAssignedUidFromLead(data) !== fa) return false;
       if(fs && data.stageId !== fs) return false;
       if(fstat && (data.leadStatusId || "") !== fstat) return false;
+      if(fsrc && String(data.source||"") !== fsrc) return false;
       if(fcar){
         const carName = getLeadCarName(data);
         if(carName !== fcar) return false;
@@ -4304,8 +4431,8 @@ function applyLeadFilters(){
       return true;
     });
 
-    const total = leadsCache.length;
-    const unassigned = leadsCache.filter(x=>!x.data.assignedTo).length;
+    const total = base.length;
+    const unassigned = base.filter(x=>!getAssignedUidFromLead(x.data)).length;
 
     $("#statLeadsTotal") && ($("#statLeadsTotal").textContent = String(total));
     $("#statLeadsUnassigned") && ($("#statLeadsUnassigned").textContent = String(unassigned));
@@ -4335,6 +4462,8 @@ function applyLeadFilters(){
 
     unsubLeads = onSnapshot(qRef, (snap)=>{
       leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+      // auto-assign installment_calculator leads (round_robin + random reps)
+      try{ autoAssignInstallmentLeads().catch(()=>{}); }catch(e){}
       applyLeadFilters();
       try{ renderPipeline(); }catch(e){}
       setBadgeConnected(true);
@@ -4343,6 +4472,7 @@ function applyLeadFilters(){
       try{
         const snap = await getDocs(query(collection(db,"leads"), limit(300)));
         leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+        try{ autoAssignInstallmentLeads().catch(()=>{}); }catch(e){}
         applyLeadFilters();
         try{ renderPipeline(); }catch(e){}
         setBadgeConnected(true);
