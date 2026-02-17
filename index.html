@@ -11,6 +11,8 @@
 
 
 
+
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1786,7 +1788,7 @@
           <div class="userCard" title="الحساب">
             <div class="avatar" id="userAvatar">؟</div>
             <div style="line-height:1.1">
-              <b id="userName">غير مسجل</b>
+              <b id="userName">—</b>
               <span id="userRole">—</span>
             </div>
             <button class="miniBtn" id="btnLogin" type="button" title="تسجيل دخول">دخول</button>
@@ -1898,14 +1900,13 @@
                 </div>
 
                   <div class="chatComposer">
-                    <select id="templateSelect" class="miniSelect" style="width:170px;flex:0 0 auto">
-                      <option value="">القوالب</option>
-                      <option value="welcome">قالب رسالة ترحيبية</option>
-                      <option value="replied">قالب رسالة تم الرد</option>
-                      <option value="no_reply">قالب رسالة لم يتم الرد</option>
-                      <option value="approved">قالب نتيجة الموافقة</option>
-                      <option value="rejected">قالب نتيجة عدم الموافقة</option>
-                    </select>
+                    <select id="templateSelect" class="miniSelect" style="width:170px;flex:0 0 auto"><option value="">القوالب</option>
+<option value="wa:welcome_message">✅ تم استلام طلبك</option>
+<option value="wa:reply_received_v2">📩 تم استلام طلبك بخصوص</option>
+<option value="wa:no_reply_followup">⏳ لم يتم الرد</option>
+<option value="wa:approval_result">✅ تمت الموافقة</option>
+<option value="wa:rejection_result">❌ تعذر رفع الطلب</option>
+</select>
                     <input type="file" id="chatFileInput" multiple hidden />
                     <button class="toolBtn" id="btnAttach" type="button" title="إرفاق ملفات">📎</button>
                     <textarea id="composer" placeholder="اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)"></textarea>
@@ -2462,7 +2463,60 @@
   </div>
 
 <script type="module">
-  // Exclude admin email from random auto-assign
+  
+
+/* ===========================
+   WhatsApp Official Templates (Mersal Approved)
+   =========================== */
+const WA_TEMPLATES = {
+  welcome_message: {
+    name: "welcome_message",
+    lang: "ar",
+    params: [],
+    previewText: "مرحباً بك في مجموعة محمد ذعار العجمي للسيارات\nتم استلام طلبك بنجاح"
+  },
+reply_received_v2: {
+  name: "reply_received_v2",
+  lang: "ar",
+  params: [],
+  previewText:
+`تم استلام طلبك بخصوص:
+السيارة:
+العمر:
+البنك:
+الراتب:
+الالتزام:
+وجاري العمل على الطلب`
+},
+
+  no_reply_followup: {
+    name: "no_reply_followup",
+    lang: "ar",
+    params: [],
+    previewText:
+`تم التواصل معك بخصوص طلبك المقدم ونرجو إفادتنا بالبيانات التالية:
+نوع السيارة:
+العمر:
+جهة تمويل الراتب:
+الراتب:
+هل يوجد التزام؟ وكم إن وجد؟`
+  },
+  approval_result: {
+    name: "approval_result",
+    lang: "ar",
+    params: [],
+    previewText: "تمت الموافقة على طلبك."
+  },
+  rejection_result: {
+    name: "rejection_result",
+    lang: "ar",
+    params: [],
+    previewText: "تعذر رفع الطلب إلى جهة التمويل."
+  }
+};
+let __selectedWaTemplateKey = null;
+
+// Exclude admin email from random auto-assign
   const EXCLUDED_ASSIGN_EMAILS = ["mr.ahmed_rashed@outlook.sa"];
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
@@ -2535,7 +2589,7 @@
   }
 
   function setAuthHeader(profile){
-    const name = profile?.name || profile?.email || "غير مسجل";
+    const name = profile?.name || profile?.email || "—";
     const roleId = profile?.roleId || "";
     const roleName = rolesMap.get(roleId) || roleId || "—";
     const first = (name.trim()[0] || "؟").toUpperCase();
@@ -3183,7 +3237,45 @@ function refreshSettingsTables(){
     `;
   }
 
-  function applyInboxFilters(){
+  
+  function dedupeInboxConversations(list){
+    const map = new Map(); // key -> {id,data}
+    const toCh = (c)=> String(c||"").toLowerCase();
+    const isPhoneLike = (s)=> /^\d{6,}$/.test(String(s||"").replace(/\D/g,""));
+    const score = (obj)=>{
+      const c = obj?.data || {};
+      const wa = String(c.waId||"").trim();
+      const dn = String(c.displayName||"").trim();
+      let sc = 0;
+      if(dn && dn !== wa) sc += 10;
+      if(dn && !isPhoneLike(dn)) sc += 2;
+      // prefer whatsapp convs with waId set
+      if(toCh(c.channel)==="whatsapp" || toCh(c.channel)==="wa") sc += 1;
+      return sc;
+    };
+    const better = (a,b)=>{
+      const sa = score(a), sb = score(b);
+      if(sa !== sb) return sa > sb;
+      // tie-breaker: newest lastMessageAt
+      const ta = fsToMs(a?.data?.lastMessageAt);
+      const tb = fsToMs(b?.data?.lastMessageAt);
+      if(ta !== tb) return ta > tb;
+      // final: keep existing
+      return false;
+    };
+    (list||[]).forEach(item=>{
+      const c = item?.data || {};
+      const ch = toCh(c.channel || "unknown");
+      const wa = String(c.waId||"").trim();
+      const key = (ch==="whatsapp" || ch==="wa") && wa ? `wa:${wa}` : `${ch}:${item.id}`;
+      const cur = map.get(key);
+      if(!cur){ map.set(key, item); return; }
+      if(better(item, cur)) map.set(key, item);
+    });
+    return Array.from(map.values());
+  }
+
+function applyInboxFilters(){
     const listEl = $("#convList");
     if(!listEl) return;
 
@@ -3191,7 +3283,9 @@ function refreshSettingsTables(){
     const fChannel = ($("#fChannel")?.value || "").trim(); // wa/ig/fb
     const fBranch = ($("#fBranch")?.value || "").trim();
 
-    const filtered = inboxCache.filter(({id,data})=>{
+    const baseList = dedupeInboxConversations(inboxCache);
+
+    const filtered = baseList.filter(({id,data})=>{
       // Role guard: agents only see assigned chats
       if(currentUser && !canSeeAllInbox()){
         if((data?.assignedTo || "") !== currentUser.uid) return false;
@@ -3775,102 +3869,112 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
     // مثال: https://YOUR-SEND-WORKER.workers.dev/send
     const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // ضع رابط Worker الإرسال هنا أو عبر window.MERSAL_SEND_ENDPOINT 
 
-    async function sendOutboundMessage(text){
-      const composer = $("#composer");
-      const btn = $("#btnSend");
-      const clean = (text || "").trim();
-      if(!clean) return;
+    
+async function sendOutboundMessage(text){
+  const composer = document.getElementById("composer");
+  const btn = document.getElementById("btnSend") || document.querySelector('[data-send-btn]') || null;
 
-      if(!activeConvId){
-        toast("اختر محادثة أولاً", "warn");
-        return;
-      }
+  const isTemplate = !!(__selectedWaTemplateKey && WA_TEMPLATES?.[__selectedWaTemplateKey]);
+  const clean = String(text || "").trim();
 
-      // اقرأ بيانات المحادثة لمعرفة رقم العميل
-      const convRef = doc(db, "wa_conversations", activeConvId);
-      const convSnap = await getDoc(convRef);
-      if(!convSnap.exists()){
-        toast("المحادثة غير موجودة", "err");
-        return;
-      }
-      const conv = convSnap.data();
-      const waId = conv.waId;
-      if(!waId){
-        toast("رقم العميل غير موجود", "err");
-        return;
-      }
+  if(!isTemplate && !clean) return;
 
-      // اكتب الرسالة في Firestore فوراً (Optimistic UI)
-      const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
-      const localMsgId = msgRef.id;
+  if(!activeConvId){
+    toast("اختر محادثة أولاً", "warn");
+    return;
+  }
 
-      await setDoc(msgRef, {
-        direction: "out",
-        type: "text",
-        text: clean,
-        from: "crm",
-        to: `wa:${waId}`,
-        provider: "mersal",
-        providerMessageId: "",
-        sentAt: serverTimestamp(),
-        receivedAt: serverTimestamp(),
-        status: "pending"
+  const convRef = doc(db, "wa_conversations", activeConvId);
+  const convSnap = await getDoc(convRef);
+  if(!convSnap.exists()){
+    toast("المحادثة غير موجودة", "err");
+    return;
+  }
+  const conv = convSnap.data() || {};
+  const waId = String(conv.waId || "").trim();
+  if(!waId){
+    toast("رقم العميل غير موجود", "err");
+    return;
+  }
+
+  const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
+  const displayText = isTemplate
+    ? (String(tpl.previewText || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
+    : clean;
+
+  // optimistic message in firestore so it يظهر في الشات ومش فاضي
+  const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
+  const localMsgId = msgRef.id;
+
+  await setDoc(msgRef, {
+    direction: "out",
+    type: isTemplate ? "template" : "text",
+    text: displayText,
+    from: "crm",
+    to: `wa:${waId}`,
+    provider: "mersal",
+    providerMessageId: "",
+    sentAt: serverTimestamp(),
+    receivedAt: serverTimestamp(),
+    status: "pending",
+    templateName: isTemplate ? String(tpl.name || "") : "",
+    templateLang: isTemplate ? String(tpl.lang || "ar") : ""
+  });
+
+  await updateDoc(convRef, {
+    lastMessageText: String(displayText || "").slice(0, 280),
+    lastMessageAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+
+  if(btn){ btn.disabled = true; btn.textContent = "جار الإرسال…"; }
+
+  try{
+    const payload = isTemplate
+      ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: Array.isArray(tpl.params)?tpl.params:[] } }
+      : { waId, text: clean };
+
+    const resp = await fetch(MERSAL_SEND_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json().catch(()=> ({}));
+
+    if(!resp.ok || data.ok === false){
+      await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+        status: "failed",
+        error: String(data?.error || ("HTTP " + resp.status))
       });
-
-      await updateDoc(convRef, {
-        lastMessageText: clean.slice(0, 280),
-        lastMessageAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-
-      // clear UI
-      if(composer) composer.value = "";
-      if(composer){ composer.style.height="auto"; composer.style.height = Math.min(composer.scrollHeight, 130) + "px"; }
-      if(btn){ btn.disabled = true; btn.textContent = "جارٍ الإرسال..."; }
-
-      // إرسال فعلي عبر Worker (إن وُجد)
-      if(!MERSAL_SEND_ENDPOINT){
-        // رجّع الزرار وخلّي الرسالة Pending لحد ما تربط الإرسال
-        if(btn){ btn.disabled = false; btn.textContent = "إرسال"; }
-        toast("حدد رابط إرسال مرسال داخل المتغير MERSAL_SEND_ENDPOINT", "warn");
-        return;
-      }
-
-      try{
-        const resp = await fetch(MERSAL_SEND_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify({
-            phone: waId,
-            message: clean,
-            ref_doctype: "",
-            ref_name: "",
-            agent: (window.__currentUserName || window.currentUserName || (auth?.currentUser?.displayName || auth?.currentUser?.email || ""))
-          })
-        });
-
-        const data = await resp.json().catch(()=> ({}));
-
-        if(!resp.ok || data.ok === false){
-          throw new Error(data.error || ("HTTP " + resp.status));
-        }
-
-        // نجاح: حدّث حالة الرسالة
-        await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
-          status: "sent",
-          providerMessageId: data.providerMessageId || data.id || ""
-        });
-
-        toast("تم الإرسال", "ok");
-      }catch(err){
-        await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
-          status: "failed"
-        });
-        toast("فشل الإرسال — راجع إعدادات مرسال", "err");
-      }finally{
-        if(btn){ btn.disabled = false; btn.textContent = "إرسال"; }
-      }
+      toast(String(data?.error || "فشل الإرسال"), "err");
+      return;
     }
+
+    await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+      status: "sent",
+      providerMessageId: String(data.providerMessageId || "")
+    });
+
+    __selectedWaTemplateKey = null;
+    if(composer){
+      composer.readOnly = false;
+      composer.value = "";
+      composer.placeholder = "اكتب رسالتك…";
+      composer.dispatchEvent(new Event("input", { bubbles:true }));
+    }
+    toast("تم الإرسال", "ok");
+  }catch(e){
+    console.error(e);
+    await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+      status: "failed",
+      error: String(e?.message || e)
+    });
+    toast("فشل الإرسال", "err");
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = "إرسال"; }
+  }
+}
+
     // ===== Outbound media (attachments) =====
     async function sendOutboundMedia(file, caption=""){
       if(!activeConvId){
@@ -4004,23 +4108,33 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
       rejected: `تعذر رفع الطلب الى جهة التمويل`
     };
 
-    $("#templateSelect")?.addEventListener("change", (e)=>{
-      const key = e.target?.value || "";
-      if(!key) return;
-      const tpl = QUICK_TEMPLATES[key] || "";
-      const ta = $("#composer");
-      if(ta){
-        ta.value = tpl;
-        // trigger auto-grow
-        ta.dispatchEvent(new Event("input", { bubbles:true }));
-        ta.focus();
-        // move cursor to end
-        try{ ta.setSelectionRange(ta.value.length, ta.value.length); }catch{}
-      }
-      e.target.value = "";
-    });
+    
+document.getElementById("templateSelect")?.addEventListener("change", (e)=>{
+  const v = String(e.target?.value || "");
+  if(!v) return;
 
-    // send button
+  const ta = document.getElementById("composer");
+  __selectedWaTemplateKey = null;
+
+  if(v.startsWith("wa:")){
+    const key = v.slice(3);
+    const tpl = WA_TEMPLATES?.[key];
+    if(tpl){
+      __selectedWaTemplateKey = key;
+      if(ta){
+        ta.readOnly = true;
+        ta.value = String(tpl.previewText || "").trim();
+        ta.dispatchEvent(new Event("input", { bubbles:true }));
+        ta.placeholder = "سيتم إرسال قالب واتساب رسمي (Template) — اضغط إرسال.";
+        ta.focus();
+      }
+    }
+  }
+
+  // keep selected label visible? we reset to placeholder after preview is set
+  e.target.value = "";
+});
+// send button
     $("#btnSend")?.addEventListener("click", ()=>{
       const txt = ($("#composer")?.value || "");
       sendOutboundMessage(txt);
@@ -5360,8 +5474,10 @@ function bindTasksUI(){
       if(s) s.value = p;
       try{ applyInboxFilters(); }catch(e){}
 
-      const exact = inboxCache.find(x=>String(x.data?.waId||"").trim() === p);
-      const partial = exact ? null : inboxCache.find(x=>String(x.data?.waId||"").includes(p) || String(x.data?.displayName||"").includes(p));
+      const baseList = dedupeInboxConversations(inboxCache);
+
+      const exact = baseList.find(x=>String(x.data?.waId||"").trim() === p);
+      const partial = exact ? null : baseList.find(x=>String(x.data?.waId||"").includes(p) || String(x.data?.displayName||"").includes(p));
       const hit = exact || partial;
 
       if(hit){
