@@ -10,6 +10,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -423,7 +424,7 @@
       width:max-content;
     }
     .pill.wa{ background: rgba(30,155,75,.10); border-color: rgba(30,155,75,.22); color: var(--ok); }
-    .pill.ig{ background: rgba(201,122,43,.10); border-color: rgba(201,122,43,.22); color: var (--warn); }
+    .pill.ig{ background: rgba(201,122,43,.10); border-color: rgba(201,122,43,.22); color: var(--warn); }
     .pill.fb{ background: rgba(43,26,23,.06); border-color: rgba(43,26,23,.10); color: var(--b); }
 
     .convText b{
@@ -484,6 +485,9 @@
     .whoInfo span{ display:block; font-size:12px; color:var(--muted); margin-top:2px; }
     .chatTools{
       display:flex; gap:8px; flex:0 0 auto;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      max-width: 100%;
     }
     .toolBtn{
       border:1px solid var(--line);
@@ -544,9 +548,12 @@
       gap:10px;
       align-items:flex-end;
       background:#fff;
+      flex-wrap:wrap;
     }
     .chatComposer textarea{
-      width:100%;
+      flex:1 1 320px;
+      min-width:240px;
+      width:auto;
       resize:none;
       min-height:42px;
       max-height:130px;
@@ -1488,6 +1495,176 @@
       .kCol{ flex-basis: 280px; min-width:280px; }
       .kanbanFilters .field{ min-width: 160px; }
     }
+
+
+    /* ===== Inbox Lead Bar (status + follow-up) ===== */
+    .inboxLeadBar{
+      display:none;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      padding:10px 12px;
+      border-bottom:1px solid var(--line);
+      background:rgba(247,245,242,.75);
+    }
+    .inboxLeadBar.show{ display:flex; }
+    .inboxLeadBar .miniLabel{ font-weight:900; color:var(--muted); font-size:12px; }
+    .inboxLeadBar select,
+    .inboxLeadBar input{
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:9px 10px;
+      background:#fff;
+      font-family:inherit;
+      font-weight:800;
+      font-size:12.5px;
+      outline:none;
+      min-width: 220px;
+    }
+    .inboxLeadBar .toolBtn{ padding:9px 12px; }
+    @media (max-width: 720px){
+      .inboxLeadBar select,
+      .inboxLeadBar input{ min-width: 180px; flex:1 1 180px; }
+    }
+
+    /* ===== Inbox: Client Data Modal + Attachments ===== */
+    .mzjOverlay{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.45);
+      display:none;
+      align-items:center; justify-content:center;
+      z-index:10000;
+      padding:18px;
+    }
+    .mzjOverlay.active{ display:flex; }
+    .mzjClientModal{
+      width:min(920px, 100%);
+      background:#fbfaf8;
+      border:1px solid rgba(43,26,23,.12);
+      border-radius:22px;
+      box-shadow:0 30px 70px rgba(0,0,0,.22);
+      overflow:hidden;
+    }
+    .mzjClientModalHead{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 18px;
+      border-bottom:1px solid rgba(43,26,23,.10);
+      background:linear-gradient(180deg, rgba(43,26,23,.04), transparent);
+    }
+    .mzjClientModalHead b{ font-size:16px; font-weight:900; }
+    .mzjCloseBtn{
+      width:40px;height:40px;border-radius:14px;
+      border:1px solid rgba(43,26,23,.16);
+      background:#fff;
+      cursor:pointer;
+      font-weight:900;
+    }
+    .mzjClientModalBody{ padding:18px; }
+    .mzjGrid2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:14px;
+    }
+    .mzjField label{
+      display:block;
+      font-size:12.5px;
+      color:rgba(28,28,28,.78);
+      margin:0 0 6px;
+      font-weight:800;
+    }
+    .mzjField input,.mzjField textarea{
+      width:100%;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(43,26,23,.14);
+      background:#fff;
+      outline:none;
+      font-family:inherit;
+      font-size:14px;
+    }
+    .mzjField textarea{ min-height:96px; resize:vertical; }
+    .mzjClientModalActions{
+      display:flex; gap:10px; justify-content:flex-start;
+      padding:14px 18px;
+      border-top:1px solid rgba(43,26,23,.10);
+      background:#fff;
+    }
+    .mzjBtn{
+      border:1px solid rgba(43,26,23,.18);
+      background:#fff;
+      color:var(--text);
+      padding:10px 14px;
+      border-radius:14px;
+      font-weight:900;
+      cursor:pointer;
+    }
+    .mzjBtn.primary{
+      background:var(--b);
+      color:#fff;
+      border-color:rgba(43,26,23,.55);
+    }
+    .mzjBtn:active{ transform:translateY(1px); }
+    .mzjFilesList{ margin-top:10px; display:flex; flex-direction:column; gap:8px; }
+    .mzjFileItem{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:10px 12px; border-radius:14px;
+      border:1px solid rgba(43,26,23,.12);
+      background:#fff;
+      font-size:13.5px;
+    }
+    .mzjFileItem a{ color:var(--b); font-weight:900; text-decoration:none; }
+    .mzjMiniDanger{
+      border:1px solid rgba(194,58,47,.25);
+      background:rgba(194,58,47,.08);
+      color:var(--bad);
+      padding:6px 10px;
+      border-radius:12px;
+      font-weight:900;
+      cursor:pointer;
+    }
+    @media (max-width: 860px){
+      .mzjGrid2{ grid-template-columns: 1fr; }
+    }
+
+    /* platform icons in pills */
+    .pill svg{ width:14px; height:14px; margin-left:6px; vertical-align:-2px; }
+
+
+    /* ===== Inbox Lead Bar ===== */
+    .mzjLeadBar{
+      margin:10px 14px 0;
+      border:1px solid rgba(43,26,23,.12);
+      background:#fff;
+      border-radius:16px;
+      padding:12px;
+      box-shadow:0 10px 26px rgba(0,0,0,.06);
+    }
+    .mzjLeadBarGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      align-items:end;
+    }
+    .mzjLeadBarActions{
+      grid-column:1/-1;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-start;
+    }
+    .toolBtn.danger{
+      border-color: rgba(194,58,47,.25);
+      color: #b10000;
+      background: rgba(194,58,47,.06);
+    }
+    .toolBtn.ghost{
+      background:#fff;
+      border-style:dashed;
+    }
+    @media (max-width:520px){
+      .mzjLeadBarGrid{ grid-template-columns: 1fr; }
+    }
+
 </style>
 </head>
 
@@ -1547,7 +1724,18 @@
           <div class="badge ok">نشط</div>
         </div>
 
-        <div class="navItem" data-tab="tasks">
+        
+        <div class="navItem" data-tab="dashboard">
+          <div class="navLeft">
+            <div class="ico">📊</div>
+            <div class="navTitle">
+              <b>داش بورد</b>
+              <span>تقسيم العملاء حسب الحالة</span>
+            </div>
+          </div>
+          <div class="badge neutral">—</div>
+        </div>
+<div class="navItem" data-tab="tasks">
           <div class="navLeft">
             <div class="ico">⏱</div>
             <div class="navTitle">
@@ -1664,7 +1852,7 @@
 
                 <div class="filters">
                   <select id="fBranch">
-                    <option value="">كل الفروع</option>
+                    <option value="">كل الأقسام</option>
                   </select>
                   <select id="fChannel">
                     <option value="">كل المنصات</option>
@@ -1672,13 +1860,11 @@
                     <option value="ig">انستجرام</option>
                     <option value="fb">فيسبوك</option>
                   </select>
-                  <select id="fStatus">
-                    <option value="">كل الحالات</option>
-                    <option>مفتوحة</option>
-                    <option>مؤجلة</option>
-                    <option>مغلقة</option>
+                  <select id="fFolder">
+                    <option value="inbox">صندوق الوارد</option>
+                    <option value="archive">الأرشيف</option>
                   </select>
-                  <input class="miniInput" id="fSearch" placeholder="بحث داخل المحادثات…" />
+<input class="miniInput" id="fSearch" placeholder="بحث داخل المحادثات…" />
                 </div>
 
                 <div class="convList" id="convList">
@@ -1705,8 +1891,26 @@
                       </div>
                     </div>
                     <div class="chatTools">
-                      <button class="toolBtn" id="btnCreateLead">تحويل لعميل محتمل</button>
+                      <button class="toolBtn" id="btnCreateLead" type="button">تحويل لعميل محتمل</button>
+                      <button class="toolBtn" id="btnClientData" type="button">تحديث/إضافة بيانات العميل</button>
+                      <button class="toolBtn" id="btnSetLeadStatus" type="button">تحديد الحالة</button>
+                      <button class="toolBtn" id="btnSetFollowUp" type="button">تحديد موعد</button>
+                      <button class="toolBtn danger" id="btnEndChat" type="button">إنهاء المحادثة</button>
 </div>
+                  </div>
+
+                  <div class="inboxLeadBar" id="inboxLeadBar">
+                    <span class="miniLabel">الحالة</span>
+                    <select id="inboxLeadStatusSelect">
+                      <option value="">— اختر الحالة —</option>
+                    </select>
+                    <button class="toolBtn primary" id="inboxSaveStatus" type="button">حفظ الحالة</button>
+
+                    <span class="miniLabel" style="margin-inline-start:6px">تحديد موعد</span>
+                    <input id="inboxFollowUp" type="datetime-local" />
+                    <button class="toolBtn primary" id="inboxSaveFollowUp" type="button">حفظ الموعد</button>
+
+                    <button class="toolBtn" id="inboxLeadBarClose" type="button">إغلاق</button>
                   </div>
 
                   <div class="chatBody" id="chatBody">
@@ -1724,8 +1928,10 @@
                       <option value="approved">قالب نتيجة الموافقة</option>
                       <option value="rejected">قالب نتيجة عدم الموافقة</option>
                     </select>
+                    <input type="file" id="chatFileInput" multiple hidden />
+                    <button class="toolBtn" id="btnAttach" type="button" title="إرفاق ملفات">📎</button>
                     <textarea id="composer" placeholder="اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)"></textarea>
-                    <button class="toolBtn primary" id="btnSend">إرسال</button>
+                    <button class="toolBtn primary" id="btnSend" type="button">إرسال</button>
                   </div>
                 </div>
               </div>
@@ -1922,6 +2128,27 @@
 
 
           <!-- Panel: Tasks -->
+      <!-- ===== Dashboard (Statuses) ===== -->
+      <div class="panel" id="panel-dashboard">
+        <div class="card">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <div>
+              <h3 style="margin:0 0 6px">داش بورد الحالات</h3>
+              <div style="font-size:12.5px;color:rgba(28,28,28,.64);line-height:1.6">هنا هتشوف كل العملاء مقسمين حسب الحالة (من نفس حقل الحالة في العملاء المحتملون).</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <input class="miniInput" id="dashSearch" placeholder="بحث بالاسم/الجوال…" style="min-width:260px" />
+              <button class="miniBtn" id="dashRefresh" type="button">تحديث</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:14px">
+          <div id="dashBoardGrid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px"></div>
+        </div>
+      </div>
+
+
           <div class="panel" id="panel-tasks">
             <div class="grid">
 
@@ -2257,9 +2484,13 @@
   </div>
 
 <script type="module">
+  // Exclude admin email from random auto-assign
+  const EXCLUDED_ASSIGN_EMAILS = ["mr.ahmed_rashed@outlook.sa"];
+
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
   import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, getDocs, serverTimestamp, writeBatch, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
   import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+  import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
 
   // ===== Firebase Config =====
   const firebaseConfig = {
@@ -2386,6 +2617,7 @@
       inbox:     { title:"صندوق الوارد",       desc:"تاب واحد للرد على كل الرسائل والتعليقات — مع تسجيل كل تفاعل وإشعارات فورية." },
       leads:     { title:"العملاء المحتملون",   desc:"استعراض وفرز العملاء المحتملين وتحديث بياناتهم بسرعة." },
       pipeline:  { title:"مراحل البيع",        desc:"كانبان لمتابعة مراحل البيع — اضغط على عميل لعرض التفاصيل والتحديث." },
+      dashboard:{ title:"داش بورد",          desc:"تقسيم العملاء حسب الحالة — عرض سريع لكل العملاء." },
       tasks:     { title:"المتابعات",          desc:"مهام اليوم والتأخير — راقب المتابعة القادمة لكل عميل." },
       retarget:  { title:"إعادة الاستهداف",    desc:"قوائم وحملات — تجهيز الجمهور والمتابعات." },
       automation:{ title:"الأوتوميشن",         desc:"قواعد وتنبيهات وتشغيل/إيقاف الأتمتة." },
@@ -2936,10 +3168,13 @@ function refreshSettingsTables(){
   }
 
   function convChannelPill(ch){
-    // stored channel = "whatsapp" for now
-    if(ch === "whatsapp" || ch === "wa") return `<span class="pill wa">واتساب</span>`;
-    if(ch === "instagram" || ch === "ig") return `<span class="pill ig">انستجرام</span>`;
-    if(ch === "facebook" || ch === "fb") return `<span class="pill fb">فيسبوك</span>`;
+    const svgWA = `<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M19.1 17.5c-.2-.1-1.1-.6-1.3-.6s-.3-.1-.5.1-.5.6-.6.7-.2.2-.4.1c-.2-.1-.8-.3-1.6-1-.6-.5-1-1.2-1.1-1.4s0-.3.1-.4l.3-.4c.1-.1.1-.2.2-.4.1-.1 0-.3 0-.4s-.5-1.2-.7-1.6c-.2-.4-.4-.4-.5-.4h-.4c-.1 0-.4.1-.6.3s-.8.7-.8 1.8.8 2.1.9 2.2c.1.2 1.6 2.5 3.9 3.5.5.2.9.3 1.2.4.5.1.9.1 1.2.1.4-.1 1.1-.5 1.3-.9.2-.4.2-.8.1-.9 0-.1-.2-.2-.4-.3z"/><path fill="currentColor" d="M26.9 5.1A14.9 14.9 0 0 0 4.4 23.7L3 29l5.4-1.4A14.9 14.9 0 0 0 29 16c0-4-1.6-7.8-4.1-10.9zM16 28.1c-2.1 0-4.2-.6-6-1.6l-.4-.2-3.2.8.8-3.1-.2-.4c-1.1-1.9-1.7-4.1-1.7-6.3C5.3 9.7 10.1 4.9 16 4.9S26.7 9.7 26.7 16 21.9 28.1 16 28.1z"/></svg>`;
+    const svgIG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9A5.5 5.5 0 0 1 16.5 22h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4h-9z"/><path fill="currentColor" d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/><path fill="currentColor" d="M17.8 6.2a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>`;
+    const svgFB = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.5 22v-8h2.7l.4-3H13.5V9.1c0-.9.3-1.6 1.6-1.6h1.7V4.8c-.3 0-1.5-.1-2.8-.1-2.8 0-4.7 1.7-4.7 4.8V11H7v3h2.6v8h3.9z"/></svg>`;
+
+    if(ch === "whatsapp" || ch === "wa") return `<span class="pill wa">${svgWA}واتساب</span>`;
+    if(ch === "instagram" || ch === "ig") return `<span class="pill ig">${svgIG}انستجرام</span>`;
+    if(ch === "facebook" || ch === "fb") return `<span class="pill fb">${svgFB}فيسبوك</span>`;
     return `<span class="pill">قناة</span>`;
   }
 
@@ -2976,8 +3211,8 @@ function refreshSettingsTables(){
 
     const qText = ($("#fSearch")?.value || "").trim().toLowerCase();
     const fChannel = ($("#fChannel")?.value || "").trim(); // wa/ig/fb
-    const fStatus = ($("#fStatus")?.value || "").trim();
     const fBranch = ($("#fBranch")?.value || "").trim();
+    const fFolder = ($("#fFolder")?.value || "inbox").trim(); // inbox/archive
 
     const filtered = inboxCache.filter(({id,data})=>{
       // Role guard: agents only see assigned chats
@@ -2985,18 +3220,16 @@ function refreshSettingsTables(){
         if((data?.assignedTo || "") !== currentUser.uid) return false;
       }
       const c = data || {};
+      // folder filter
+      const isArchived = !!c.archived;
+      if(fFolder === "archive" && !isArchived) return false;
+      if(fFolder !== "archive" && isArchived) return false;
       // channel filter
       if(fChannel){
         const ch = (c.channel || "").toLowerCase();
         if(fChannel === "wa" && ch !== "whatsapp" && ch !== "wa") return false;
         if(fChannel === "ig" && ch !== "instagram" && ch !== "ig") return false;
         if(fChannel === "fb" && ch !== "facebook" && ch !== "fb") return false;
-      }
-      // status filter (UI: مفتوحة/مؤجلة/مغلقة)
-      if(fStatus){
-        const s = (c.status || "open");
-        const map = { "مفتوحة":"open", "مؤجلة":"snoozed", "مغلقة":"closed" };
-        if(map[fStatus] && s !== map[fStatus]) return false;
       }
       // branch filter (optional field)
       if(fBranch && (c.branchId || "") !== fBranch) return false;
@@ -3033,7 +3266,19 @@ function refreshSettingsTables(){
   function setChatHeader(conv){
     const name = conv?.displayName || conv?.waId || "—";
     $("#chatName") && ($("#chatName").textContent = name);
-    $("#chatMeta") && ($("#chatMeta").textContent = conv?.waId ? `WhatsApp • ${conv.waId}` : "—");
+
+    const metaEl = $("#chatMeta");
+    if(!metaEl){ return; }
+
+    if(conv?.waId){
+      // منصة + أيقونة + رقم (LTR)
+      const pill = convChannelPill(conv.channel || "wa")
+        .replace('<span class="pill', '<span class="pill" style="padding:0;border:0;background:transparent;display:inline-flex;align-items:center;gap:6px"');
+
+      metaEl.innerHTML = `${pill} <span style="color:rgba(28,28,28,.55);font-weight:800">•</span> <span style="direction:ltr;unicode-bidi:plaintext">${esc(conv.waId)}</span>`;
+    }else{
+      metaEl.textContent = "—";
+    }
   }
 
   function renderMessages(msgs){
@@ -3061,12 +3306,39 @@ function refreshSettingsTables(){
     body.innerHTML = msgs.map(m=>{
       const d = m.data || {};
       const dir = (d.direction === "out") ? "out" : "in";
-      const text = d.text || "";
       const tms = fsToMs(d.sentAt) || fsToMs(d.receivedAt);
+
+      // media support
+      const type = (d.type || "text").toLowerCase();
+      const mediaUrl = d.mediaUrl || d.url || "";
+      const mime = d.mimeType || "";
+      const fileName = d.fileName || "ملف";
+      const text = d.text || d.caption || "";
+
+      let content = "";
+      if(type === "media" && mediaUrl){
+        const isImg = mime.startsWith("image/") || /\.(png|jpg|jpeg|webp|gif)$/i.test(mediaUrl);
+        if(isImg){
+          content = `<div style="display:flex;flex-direction:column;gap:8px">
+            <a href="${esc(mediaUrl)}" target="_blank" rel="noopener" style="text-decoration:none">
+              <img src="${esc(mediaUrl)}" alt="image" style="max-width:260px;border-radius:14px;border:1px solid rgba(43,26,23,.14)"/>
+            </a>
+            ${text ? `<div style="font-weight:800">${esc(text)}</div>` : ``}
+          </div>`;
+        }else{
+          content = `<div style="display:flex;flex-direction:column;gap:8px">
+            <a href="${esc(mediaUrl)}" target="_blank" rel="noopener" style="font-weight:900;color:var(--b);text-decoration:none">📎 ${esc(fileName)}</a>
+            ${text ? `<div style="font-weight:800">${esc(text)}</div>` : ``}
+          </div>`;
+        }
+      }else{
+        content = esc(text || "");
+      }
+
       return `
         <div class="msgRow ${dir}">
           <div class="msg">
-            ${esc(text)}
+            ${content}
             <small>${esc(fmtTime(tms))}</small>
           </div>
         </div>
@@ -3228,7 +3500,7 @@ function refreshSettingsTables(){
     ["fSearch"].forEach(id=>{
       $("#"+id)?.addEventListener("input", applyInboxFilters);
     });
-    ["fBranch","fChannel","fStatus"].forEach(id=>{
+    ["fBranch","fChannel","fFolder"].forEach(id=>{
       $("#"+id)?.addEventListener("change", applyInboxFilters);
     });
 
@@ -3241,10 +3513,11 @@ function refreshSettingsTables(){
         const convSnap = await getDoc(convRef);
         if(!convSnap.exists()){ toast("المحادثة غير موجودة", "warn"); return; }
         const conv = convSnap.data() || {};
-        const phone = String(conv.waId || "").trim();
+        const phoneRaw = String(conv.waId || "").trim();
+        const phone = normalizePhone(phoneRaw).replace(/^\+/, ""); // unify digits only
         if(!phone){ toast("رقم العميل غير موجود", "warn"); return; }
 
-        // prevent duplicates by phoneNormalized
+        // prevent duplicates by phoneNormalized (unified)
         const existingQ = query(collection(db,"leads"), where("phoneNormalized","==", phone), limit(1));
         const existingSnap = await getDocs(existingQ);
         if(!existingSnap.empty){
@@ -3254,8 +3527,8 @@ function refreshSettingsTables(){
           return;
         }
 
-        const leadRef = doc(collection(db,"leads"));
-        const leadId = leadRef.id;
+        const leadId = phone;
+        const leadRef = doc(db,"leads", leadId);
 
         const assignedTo = conv.assignedTo || currentUser?.uid || "";
         const source = channelToSourceLabel(conv.channel);
@@ -3288,6 +3561,217 @@ function refreshSettingsTables(){
         toast("تعذر التحويل: " + (e?.message||e), "warn");
       }
     });
+    // ===== Client Data Modal (Inbox only) =====
+    const cdOverlay = $("#clientDataOverlay");
+    const cdOpenBtn = $("#btnClientData");
+    const cdCloseAll = ()=> {
+      if(!cdOverlay) return;
+      cdOverlay.classList.remove("active");
+      cdOverlay.setAttribute("aria-hidden","true");
+      document.body.style.overflow = "";
+    };
+    const cdOpen = ()=> {
+      if(!cdOverlay) return;
+      cdOverlay.classList.add("active");
+      cdOverlay.setAttribute("aria-hidden","false");
+      document.body.style.overflow = "hidden";
+    };
+
+    // close events
+    document.addEventListener("click", (e)=>{
+      if(!cdOverlay) return;
+      if(e.target === cdOverlay) cdCloseAll();
+      if(e.target.closest(".close-client-modal")) cdCloseAll();
+    });
+    document.addEventListener("keydown", (e)=>{
+      if(e.key === "Escape") cdCloseAll();
+    });
+
+    // explicit close buttons
+    $("#cd_cancel")?.addEventListener("click", cdCloseAll);
+    cdOverlay?.querySelector(".close-client-modal")?.addEventListener("click", cdCloseAll);
+
+
+    async function cdLoadForCurrent(){
+      if(!activeConvId){ toast("اختر محادثة أولاً", "warn"); return; }
+      const convRef = doc(db, "wa_conversations", activeConvId);
+      const convSnap = await getDoc(convRef);
+      if(!convSnap.exists()){ toast("المحادثة غير موجودة", "warn"); return; }
+      const conv = convSnap.data() || {};
+      const phoneRaw = String(conv.waId || "").trim();
+      const phone = normalizePhone(phoneRaw).replace(/^\+/, "");
+
+      // prefill phone from chat (unified)
+      $("#cd_phone") && ($("#cd_phone").value = phone || "");
+
+      // Try load from contacts/{phoneNormalized} then {raw}
+      let data = null;
+      if(phone){
+        const cRef1 = doc(db, "contacts", phone);
+        const cSnap1 = await getDoc(cRef1).catch(()=>null);
+        if(cSnap1 && cSnap1.exists()) data = cSnap1.data() || null;
+
+        if(!data && phoneRaw && phoneRaw !== phone){
+          const cRef2 = doc(db, "contacts", phoneRaw);
+          const cSnap2 = await getDoc(cRef2).catch(()=>null);
+          if(cSnap2 && cSnap2.exists()) data = cSnap2.data() || null;
+        }
+      }
+
+      // Fallback: load from linked lead (if exists)
+      if(!data && conv.leadId){
+        const lRef = doc(db, "leads", conv.leadId);
+        const lSnap = await getDoc(lRef).catch(()=>null);
+        if(lSnap && lSnap.exists()) data = lSnap.data() || null;
+      }
+
+      // Fallback: load lead by phoneNormalized (if not linked)
+      if(!data && phone){
+        const qLead = query(collection(db,"leads"), where("phoneNormalized","==", phone), limit(1));
+        const sLead = await getDocs(qLead).catch(()=>null);
+        if(sLead && !sLead.empty) data = sLead.docs[0].data() || null;
+      }
+
+$("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
+      $("#cd_salary") && ($("#cd_salary").value = data?.salary || "");
+      $("#cd_commitment") && ($("#cd_commitment").value = data?.commitment || data?.obligation || "");
+      $("#cd_age") && ($("#cd_age").value = data?.age || "");
+      $("#cd_bank") && ($("#cd_bank").value = data?.bank || data?.salaryBank || "");
+      $("#cd_car_type") && ($("#cd_car_type").value = data?.carType || data?.car || "");
+      $("#cd_notes") && ($("#cd_notes").value = data?.notes || "");
+
+      // load existing attachments list
+      const list = $("#cd_files_list");
+      if(list){
+        const arr = Array.isArray(data?.attachments) ? data.attachments : [];
+        list.innerHTML = arr.map((x,idx)=>`
+          <div class="mzjFileItem">
+            <a href="${esc(x.url||"#")}" target="_blank" rel="noopener">${esc(x.name||"ملف")}</a>
+            <button class="mzjMiniDanger" type="button" data-del-attach="${idx}">حذف</button>
+          </div>
+        `).join("") || `<div style="font-size:12.5px;color:rgba(28,28,28,.55)">لا توجد ملفات مرفقة.</div>`;
+      }
+
+      // handle delete existing attachment (UI only -> remove on save)
+      cdOverlay && cdOverlay.addEventListener("click", (e)=>{
+        const btn = e.target.closest("[data-del-attach]");
+        if(!btn) return;
+        btn.preventDefault();
+        btn.stopPropagation();
+        btn.dataset._clicked = "1";
+      }, { once:true });
+    }
+
+    // open button
+    cdOpenBtn?.addEventListener("click", async ()=>{
+      await cdLoadForCurrent();
+      cdOpen();
+    });
+
+    // save
+    $("#cd_save")?.addEventListener("click", async ()=>{
+      try{
+        const phoneRaw = ($("#cd_phone")?.value || "").trim();
+        const phone = normalizePhone(phoneRaw).replace(/^\+/, "");
+        if(!phone){ toast("رقم الجوال مطلوب", "warn"); return; }
+
+        // Upload new files (if any)
+        const files = Array.from($("#cd_files")?.files || []);
+        const st = getStorage();
+        const uploads = [];
+        for(const f of files){
+          const safeName = String(f.name || "file").replace(/[^\w.\-؀-ۿ]+/g,"_");
+          const key = `client_files/${phone}/${Date.now()}_${safeName}`;
+          const r = sRef(st, key);
+          uploads.push((async ()=>{
+            await uploadBytes(r, f);
+            const url = await getDownloadURL(r);
+            return { name: f.name || "ملف", url, mimeType: f.type || "", createdAt: new Date().toISOString() };
+          })());
+        }
+        const newFiles = uploads.length ? await Promise.all(uploads) : [];
+
+        // merge with existing attachments (support legacy doc id)
+        const cRef = doc(db, "contacts", phone);
+        const cSnap = await getDoc(cRef).catch(()=>null);
+        let existing = (cSnap && cSnap.exists()) ? (cSnap.data()||{}) : {};
+
+        // legacy: if user wrote phone with + or spaces before, try that key too
+        if((!existing || Object.keys(existing).length===0) && phoneRaw && phoneRaw !== phone){
+          const cRef2 = doc(db, "contacts", phoneRaw);
+          const cSnap2 = await getDoc(cRef2).catch(()=>null);
+          if(cSnap2 && cSnap2.exists()) existing = (cSnap2.data()||{});
+        }
+        const prevAtt = Array.isArray(existing.attachments) ? existing.attachments : [];
+        const attachments = [...prevAtt, ...newFiles];
+
+        const payload = {
+          name: ($("#cd_name")?.value || "").trim(),
+          phone: phone,
+          salary: ($("#cd_salary")?.value || "").trim(),
+          commitment: ($("#cd_commitment")?.value || "").trim(),
+          age: ($("#cd_age")?.value || "").trim(),
+          bank: ($("#cd_bank")?.value || "").trim(),
+          carType: ($("#cd_car_type")?.value || "").trim(),
+          notes: ($("#cd_notes")?.value || "").trim(),
+          attachments,
+          updatedAt: new Date().toISOString()
+        };
+
+        await setDoc(cRef, payload, { merge:true });
+
+        // also update/link lead (NO duplicates)
+        if(activeConvId){
+          const convRef2 = doc(db,"wa_conversations", activeConvId);
+          const convSnap2 = await getDoc(convRef2).catch(()=>null);
+          const conv2 = (convSnap2 && convSnap2.exists()) ? (convSnap2.data()||{}) : {};
+          let leadId = String(conv2.leadId || "");
+
+          // validate leadId exists
+          if(leadId){
+            const lTest = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
+            if(!(lTest && lTest.exists())) leadId = "";
+          }
+
+          // if not linked, try find by phoneNormalized
+          if(!leadId && phone){
+            const q1 = query(collection(db,"leads"), where("phoneNormalized","==", phone), limit(1));
+            const s1 = await getDocs(q1).catch(()=>null);
+            if(s1 && !s1.empty){
+              leadId = s1.docs[0].id;
+              await updateDoc(convRef2, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
+            }
+          }
+
+          // update lead if found (do not create new lead here)
+          if(leadId){
+            await setDoc(doc(db,"leads", leadId), {
+              name: payload.name || existing.name || "",
+              phone: phone,
+              phoneNormalized: phone,
+              salary: payload.salary || "",
+              commitment: payload.commitment || "",
+              age: payload.age || "",
+              bank: payload.bank || "",
+              carType: payload.carType || "",
+              notes: payload.notes || "",
+              // keep attachments on lead as well (optional)
+              attachments: attachments || [],
+              updatedAt: new Date().toISOString()
+            }, { merge:true });
+          }
+        }
+
+        toast("تم حفظ بيانات العميل", "ok");
+        cdCloseAll();
+        // reset file input
+        if($("#cd_files")) $("#cd_files").value = "";
+      }catch(e){
+        console.warn(e);
+        toast("تعذر حفظ البيانات", "warn");
+      }
+    });
+
 
     // mark all read
     $("#btnMarkAllRead")?.addEventListener("click", async ()=>{
@@ -3414,6 +3898,116 @@ function refreshSettingsTables(){
         if(btn){ btn.disabled = false; btn.textContent = "إرسال"; }
       }
     }
+    // ===== Outbound media (attachments) =====
+    async function sendOutboundMedia(file, caption=""){
+      if(!activeConvId){
+        toast("اختر محادثة أولاً", "warn");
+        return;
+      }
+      const convRef = doc(db, "wa_conversations", activeConvId);
+      const convSnap = await getDoc(convRef);
+      if(!convSnap.exists()){ toast("المحادثة غير موجودة", "warn"); return; }
+      const conv = convSnap.data() || {};
+      const waId = conv.waId;
+      if(!waId){ toast("رقم العميل غير موجود", "err"); return; }
+
+      // 1) Upload to Firebase Storage
+      const st = getStorage();
+      const safeName = String(file.name || "file").replace(/[^\w.\-؀-ۿ]+/g,"_");
+      const key = `chat_files/${activeConvId}/${Date.now()}_${safeName}`;
+      const storageRef = sRef(st, key);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+
+      // 2) Write message to Firestore (optimistic)
+      const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
+      const localMsgId = msgRef.id;
+
+      await setDoc(msgRef, {
+        direction: "out",
+        type: "media",
+        text: caption || "",
+        caption: caption || "",
+        mediaUrl: url,
+        mimeType: file.type || "",
+        fileName: file.name || "ملف",
+        from: "crm",
+        to: `wa:${waId}`,
+        provider: "mersal",
+        providerMessageId: "",
+        sentAt: serverTimestamp(),
+        receivedAt: serverTimestamp(),
+        status: "pending"
+      });
+
+      await updateDoc(convRef, {
+        lastMessageText: (caption || ("📎 " + (file.name||"ملف"))).slice(0, 280),
+        lastMessageAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // 3) Send via worker (best-effort). If worker doesn't support media, fallback to sending link as text.
+      try{
+        const payload = {
+          phone: waId,
+          type: (file.type||"").startsWith("image/") ? "image" : "document",
+          media_url: url,
+          filename: file.name || "file",
+          caption: caption || "",
+          agent: (window.__currentUserName || window.currentUserName || (auth?.currentUser?.displayName || auth?.currentUser?.email || ""))
+        };
+
+        const resp = await fetch(MERSAL_SEND_ENDPOINT, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        let data = {};
+        try{ data = await resp.json(); }catch{}
+        if(!resp.ok || data.ok === false){
+          // fallback: send url as text
+          await fetch(MERSAL_SEND_ENDPOINT, {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ phone: waId, message: (caption? caption + "\n" : "") + url })
+          }).catch(()=>{});
+        }
+
+        await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+          status: "sent",
+          providerMessageId: data.providerMessageId || data.id || ""
+        });
+        toast("تم إرسال المرفق", "ok");
+      }catch(err){
+        await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), { status:"failed" });
+        toast("فشل إرسال المرفق", "err");
+      }
+    }
+
+    // Attach button in chat (Inbox only)
+    (function(){
+      const btnAttach = $("#btnAttach");
+      const input = $("#chatFileInput");
+      if(!btnAttach || !input) return;
+
+      btnAttach.addEventListener("click", ()=> input.click());
+
+      input.addEventListener("change", async ()=>{
+        const files = Array.from(input.files || []);
+        if(!files.length) return;
+        // caption from composer (optional)
+        const caption = ($("#composer")?.value || "").trim();
+        // clear composer after taking caption
+        if($("#composer")){ $("#composer").value = ""; $("#composer").dispatchEvent(new Event("input",{bubbles:true})); }
+        for(const f of files){
+          try{ await sendOutboundMedia(f, caption); }
+          catch(e){ console.warn(e); toast("تعذر رفع/إرسال ملف", "warn"); }
+        }
+        input.value = "";
+      });
+    })();
+
 
 
     // templates (quick replies) - local only (Firestore version later)
@@ -3691,6 +4285,16 @@ function refreshSettingsTables(){
       ["آخر تحديث", fsToHuman(lead.updatedAt || lead.timestamp || lead.createdAt)],
     ];
 
+    const extra = [];
+    if(lead.salary) extra.push(["الراتب", lead.salary]);
+    if(lead.commitment) extra.push(["الالتزام", lead.commitment]);
+    if(lead.age) extra.push(["العمر", lead.age]);
+    if(lead.bank) extra.push(["بنك الراتب", lead.bank]);
+    if(lead.carType) extra.push(["نوع السيارة", lead.carType]);
+    if(lead.notes) extra.push(["ملاحظات", lead.notes]);
+
+    const att = Array.isArray(lead.attachments) ? lead.attachments : [];
+
     const canSeeActivity = canSeeAllInbox(); // مدير النظام + مدير الفرع + مدير التسويق
 
     return `
@@ -3719,8 +4323,25 @@ function refreshSettingsTables(){
 
         <div class="leadDetailsBody">
           <div class="kvRow">
-            ${pills.map(([k,v])=>`<div class="kvPill"><span>${esc(k)}</span><b title="${esc(v)}">${esc(v)}</b></div>`).join("")}
+            ${pills.concat(extra).map(([k,v])=>`<div class="kvPill"><span>${esc(k)}</span><b title="${esc(v)}">${esc(v)}</b></div>`).join("")}
           </div>
+
+          ${att.length ? `
+          <div class="mzj-activityCard" style="margin-top:12px">
+            <div class="mzj-activityHead">
+              <b>مرفقات العميل</b>
+              <span class="hint">${att.length} ملف</span>
+            </div>
+            <div class="mzj-activityList" style="padding:10px 12px">
+              ${att.map(x=>`
+                <div class="mzjFileItem" style="border:1px solid rgba(43,26,23,.10);border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+                  <a href="${esc(x.url||"#")}" target="_blank" rel="noopener" style="font-weight:800;color:var(--brown);text-decoration:none">${esc(x.name||"ملف")}</a>
+                  <span style="font-size:12px;color:rgba(28,28,28,.6)">${esc((x.mimeType||"").split("/")[0]||"")}</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+          ` : ``}
 
           <div class="leadInlineRow">
             <label for="leadStatusSelect">تحديد حالة العميل:</label>
@@ -5062,11 +5683,379 @@ function bindTasksUI(){
       console.warn("ensure agent doc", e);
     }
   });
+
+    // ===== Inbox: Lead Status + Follow-up + End Chat + Archive =====
+    let inboxShowArchived = false;
+
+    function setLeadBarVisible(v){
+      const bar = $("#inboxLeadBar");
+      if(!bar) return;
+      bar.classList.toggle("show", !!v);
+    }
+
+    async function getActiveConv(){
+      if(!activeConvId) return null;
+      const s = await getDoc(doc(db,"wa_conversations", activeConvId)).catch(()=>null);
+      if(!s || !s.exists()) return null;
+      return { id: activeConvId, data: (s.data()||{}) };
+    }
+
+    async function findLeadByPhoneNormalized(phone){
+      if(!phone) return "";
+      const q1 = query(collection(db,"leads"), where("phoneNormalized","==", phone), limit(1));
+      const s1 = await getDocs(q1).catch(()=>null);
+      if(s1 && !s1.empty) return s1.docs[0].id;
+      const q2 = query(collection(db,"leads"), where("phone","==", phone), limit(1));
+      const s2 = await getDocs(q2).catch(()=>null);
+      if(s2 && !s2.empty) return s2.docs[0].id;
+      return "";
+    }
+
+    async function ensureLeadIdForActiveConversation(){
+      const convObj = await getActiveConv();
+      if(!convObj) return "";
+      const conv = convObj.data || {};
+      const convRef = doc(db,"wa_conversations", convObj.id);
+
+      const phone = String(conv.waId || conv.phone || "").trim();
+      let leadId = String(conv.leadId || "").trim();
+
+      if(leadId){
+        const s = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
+        if(!(s && s.exists())) leadId = "";
+      }
+
+      if(!leadId){
+        const found = await findLeadByPhoneNormalized(phone);
+        if(found){
+          leadId = found;
+          await updateDoc(convRef, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
+        }
+      }
+
+      if(!leadId && phone){
+        leadId = phone; // deterministic id avoids duplicates
+        const leadRef = doc(db,"leads", leadId);
+        const exists = await getDoc(leadRef).catch(()=>null);
+        if(!(exists && exists.exists())){
+          const source = (conv.source || conv.platform || conv.channel || "whatsapp");
+          const defaultStageId = (typeof getDefaultStageId === "function") ? getDefaultStageId() : "";
+          await setDoc(leadRef, {
+            name: conv.displayName || "-",
+            phone: phone,
+            phoneNormalized: phone,
+            source: source,
+            channel: conv.channel || "whatsapp",
+            stageId: defaultStageId,
+            assignedTo: "",
+            branchId: "",
+            convId: convObj.id,
+            leadStatusId: getDefaultLeadStatus().id,
+            leadStatusName: getDefaultLeadStatus().name,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }, { merge:true });
+        }
+        await updateDoc(convRef, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
+      }
+
+      return leadId;
+    }
+
+    function fillInboxStatusSelect(currentId=""){
+      const sel = $("#inboxLeadStatusSelect");
+      if(!sel) return;
+      try{
+        sel.innerHTML = leadStatusOptionsHtml(currentId || "");
+      }catch{
+        const arr = Array.from(leadStatusesMap.values()).filter(x=>x && x.isActive!==false);
+        sel.innerHTML = `<option value="">الحالة الافتراضية</option>` + arr.map(x=>`<option value="${esc(x.id)}">${esc(x.name||"")}</option>`).join("");
+      }
+    }
+
+    async function syncLeadBarFromConversation(){
+      const convObj = await getActiveConv();
+      if(!convObj){ setLeadBarVisible(false); return; }
+
+      const leadId = await ensureLeadIdForActiveConversation().catch(()=> "");
+      let lead = null;
+      if(leadId){
+        const s = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
+        if(s && s.exists()) lead = s.data() || null;
+      }
+
+      const statusId = (lead && lead.leadStatusId) ? String(lead.leadStatusId) : "";
+      fillInboxStatusSelect(statusId);
+
+      const fu = (lead && lead.followUpDate) ? String(lead.followUpDate) : "";
+      const fuEl = $("#inboxFollowUp");
+      if(fuEl){
+        if(fu){
+          try{
+            const d = new Date(fu);
+            const pad = (n)=> String(n).padStart(2,"0");
+            fuEl.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          }catch{ fuEl.value = ""; }
+        }else fuEl.value = "";
+      }
+    }
+
+    $("#btnSetLeadStatus")?.addEventListener("click", async ()=>{
+      setLeadBarVisible(true);
+      await syncLeadBarFromConversation();
+      $("#inboxLeadStatusSelect")?.focus();
+    });
+
+    $("#btnSetFollowUp")?.addEventListener("click", async ()=>{
+      setLeadBarVisible(true);
+      await syncLeadBarFromConversation();
+      $("#inboxFollowUp")?.focus();
+    });
+
+    $("#inboxLeadBarClose")?.addEventListener("click", ()=> setLeadBarVisible(false));
+
+    $("#inboxSaveStatus")?.addEventListener("click", async ()=>{
+      try{
+        const leadId = await ensureLeadIdForActiveConversation();
+        if(!leadId){ toast("لا يوجد عميل محتمل مرتبط", "warn"); return; }
+        const sel = $("#inboxLeadStatusSelect");
+        const rawStatusId = sel?.value || "";
+        const statusId = rawStatusId ? rawStatusId : getDefaultLeadStatus().id;
+        const statusName = getEffectiveLeadStatusName({ leadStatusId: statusId });
+
+        const leadSnap = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
+        const leadData = (leadSnap && leadSnap.exists()) ? (leadSnap.data()||{}) : {};
+        if(typeof canEditLeadStatus === "function" && !canEditLeadStatus(leadData)){
+          toast("ليس لديك صلاحية تعديل الحالة", "warn");
+          return;
+        }
+
+        await updateDoc(doc(db,"leads", leadId), {
+          leadStatusId: statusId,
+          leadStatusName: statusName,
+          updatedAt: new Date().toISOString()
+        });
+        toast("تم تحديث الحالة", "ok");
+        if($(".navItem.active")?.dataset?.tab === "dashboard") renderDashboard();
+      }catch(e){
+        console.warn(e);
+        toast("تعذر تحديث الحالة", "warn");
+      }
+    });
+
+    $("#inboxSaveFollowUp")?.addEventListener("click", async ()=>{
+      try{
+        const leadId = await ensureLeadIdForActiveConversation();
+        if(!leadId){ toast("لا يوجد عميل محتمل مرتبط", "warn"); return; }
+        const el = $("#inboxFollowUp");
+        const v = (el?.value || "").trim();
+        const iso = v ? (new Date(v)).toISOString() : "";
+        await updateDoc(doc(db,"leads", leadId), {
+          followUpDate: iso || "",
+          updatedAt: new Date().toISOString()
+        });
+        toast("تم حفظ الموعد", "ok");
+      }catch(e){
+        console.warn(e);
+        toast("تعذر حفظ الموعد", "warn");
+      }
+    });
+
+    $("#btnEndChat")?.addEventListener("click", async ()=>{
+      if(!activeConvId){ toast("اختر محادثة أولاً", "warn"); return; }
+      try{
+        await updateDoc(doc(db,"wa_conversations", activeConvId), {
+          archived: true,
+          archivedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        toast("تم إنهاء المحادثة (أرشيف)", "ok");
+        activeConvId = "";
+        setLeadBarVisible(false);
+        $("#chatTitle") && ($("#chatTitle").textContent = "اختر محادثة");
+        $("#chatSub") && ($("#chatSub").textContent = "—");
+        $("#chatBody") && ($("#chatBody").innerHTML = `<div style="padding:12px;color:rgba(28,28,28,.68);font-weight:800">اختر محادثة من القائمة</div>`);
+        renderInboxList && renderInboxList();
+      }catch(e){
+        console.warn(e);
+        toast("تعذر إنهاء المحادثة", "warn");
+      }
+    });
+
+    $("#inboxToggleArchive")?.addEventListener("click", ()=>{
+      inboxShowArchived = !inboxShowArchived;
+      const btn = $("#inboxToggleArchive");
+      if(btn) btn.textContent = inboxShowArchived ? "إخفاء الأرشيف" : "عرض الأرشيف";
+      renderInboxList && renderInboxList();
+    });
+
+    // wrap renderInboxList (client-side filter)
+    if(typeof renderInboxList === "function" && !renderInboxList.__wrapped){
+      const __orig = renderInboxList;
+      const wrapped = function(){
+        const prev = inboxCache;
+        try{
+          if(Array.isArray(prev)){
+            inboxCache = prev.filter(x=>{
+              const a = !!(x && x.data && x.data.archived);
+              return inboxShowArchived ? a : !a;
+            });
+          }
+        }catch{}
+        const r = __orig();
+        inboxCache = prev;
+        return r;
+      };
+      wrapped.__wrapped = true;
+      renderInboxList = wrapped;
+    }
+
+    // ===== Dashboard render =====
+    function renderDashboard(){
+      const grid = $("#dashBoardGrid");
+      if(!grid) return;
+
+      const q = ( ($("#dashSearch")?.value || "").trim().toLowerCase() );
+      const leads = Array.isArray(leadsCache) ? leadsCache : [];
+      const filtered = q ? leads.filter(x=>{
+        const d = x.data || {};
+        return String(d.name||"").toLowerCase().includes(q)
+          || String(d.phone||"").toLowerCase().includes(q)
+          || String(d.phoneNormalized||"").toLowerCase().includes(q);
+      }) : leads;
+
+      const statuses = Array.from(leadStatusesMap.values()).filter(x=>x && x.isActive!==false);
+      if(!statuses.find(s=>s.id===getDefaultLeadStatus().id)){
+        statuses.unshift(getDefaultLeadStatus());
+      }
+
+      const byStatus = new Map();
+      statuses.forEach(s=>byStatus.set(s.id, []));
+      filtered.forEach(x=>{
+        const d = x.data||{};
+        const sid = String(d.leadStatusId || getDefaultLeadStatus().id);
+        if(!byStatus.has(sid)) byStatus.set(sid, []);
+        byStatus.get(sid).push(x);
+      });
+      for(const [sid, arr] of byStatus.entries()){
+        arr.sort((a,b)=> (new Date(b.data?.updatedAt||0)).getTime() - (new Date(a.data?.updatedAt||0)).getTime());
+      }
+
+      grid.innerHTML = statuses.map(s=>{
+        const items = (byStatus.get(s.id) || []);
+        const list = items.slice(0, 40).map(x=>{
+          const d = x.data||{};
+          return `
+            <div style="padding:10px 10px;border:1px solid rgba(43,26,23,.10);border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="min-width:0">
+                <div style="font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.name||"-")}</div>
+                <div style="font-size:12px;color:rgba(28,28,28,.64);margin-top:3px">${esc(d.phone||d.phoneNormalized||"")}</div>
+              </div>
+              <button class="miniBtn" data-open="${esc(x.id)}" type="button">فتح</button>
+            </div>
+          `;
+        }).join("");
+
+        return `
+          <div class="card" style="padding:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+              <div>
+                <div style="font-weight:900">${esc(s.name||"حالة")}</div>
+                <div style="font-size:12px;color:rgba(28,28,28,.64)">${items.length} عميل</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;max-height:520px;overflow:auto;padding-left:2px">
+              ${list || `<div class="mzj-empty" style="padding:18px;border:1px dashed rgba(43,26,23,.18);border-radius:14px;background:rgba(43,26,23,.02)">لا يوجد عملاء</div>`}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      grid.onclick = (e)=>{
+        const btn = e.target.closest("[data-open]");
+        if(!btn) return;
+        const leadId = btn.getAttribute("data-open");
+        if(!leadId) return;
+        showTab("leads");
+        setTimeout(()=> { try{ openLeadDetails && openLeadDetails(leadId); }catch{} }, 60);
+      };
+    }
+
+    $("#dashRefresh")?.addEventListener("click", ()=> renderDashboard());
+    $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
+
 </script>
 
 
 
-  <!-- Settings CRUD Modal -->
+  
+  <!-- Client Data Modal (Inbox only) -->
+  <div class="mzjOverlay" id="clientDataOverlay" aria-hidden="true">
+    <div class="mzjClientModal" role="dialog" aria-modal="true" aria-label="تحديث/إضافة بيانات العميل">
+      <div class="mzjClientModalHead">
+        <b>تحديث/إضافة بيانات العميل</b>
+        <button class="mzjCloseBtn close-client-modal" type="button" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="mzjClientModalBody">
+        <div class="mzjGrid2">
+          <div class="mzjField">
+            <label>اسم العميل</label>
+            <input id="cd_name" placeholder="مثال: أحمد محمد" />
+          </div>
+          <div class="mzjField">
+            <label>رقم الجوال</label>
+            <input id="cd_phone" placeholder="9665xxxxxxxx" />
+          </div>
+
+          <div class="mzjField">
+            <label>الراتب</label>
+            <input id="cd_salary" placeholder="مثال: 12000" />
+          </div>
+          <div class="mzjField">
+            <label>الالتزام (إن وجد)</label>
+            <input id="cd_commitment" placeholder="مثال: 1500" />
+          </div>
+
+          <div class="mzjField">
+            <label>العمر</label>
+            <input id="cd_age" placeholder="مثال: 32" />
+          </div>
+          <div class="mzjField">
+            <label>نزول الراتب على أي بنك</label>
+            <input id="cd_bank" placeholder="مثال: الراجحي" />
+          </div>
+
+          <div class="mzjField" style="grid-column:1/-1">
+            <label>نوع السيارة</label>
+            <input id="cd_car_type" placeholder="مثال: سيدان / SUV / إلخ" />
+          </div>
+
+          <div class="mzjField" style="grid-column:1/-1">
+            <label>ملاحظات</label>
+            <textarea id="cd_notes" placeholder="اكتب أي ملاحظات..."></textarea>
+          </div>
+
+          <div class="mzjField" style="grid-column:1/-1">
+            <label>إرفاق ملفات</label>
+            <input type="file" id="cd_files" multiple />
+            <div class="mzjFilesList" id="cd_files_list"></div>
+            <div style="margin-top:6px;font-size:12.5px;color:rgba(28,28,28,.64)">
+              يمكن إرفاق أكثر من ملف. سيتم رفعها على Firebase Storage.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mzjClientModalActions">
+        <button class="mzjBtn primary" id="cd_save" type="button">حفظ البيانات</button>
+        <button class="mzjBtn close-client-modal" id="cd_cancel" type="button">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+
+<!-- Settings CRUD Modal -->
   <div class="mzjModalOverlay" id="setModal">
     <div class="mzjModal" role="dialog" aria-modal="true" aria-label="إدارة الإعدادات">
       <div class="mzjModalHead">
@@ -5086,5 +6075,4 @@ function bindTasksUI(){
   </div>
 
 </body>
-</html>  const EXCLUDED_ASSIGN_EMAILS = ["mr.ahmed_rashed@outlook.sa"];
-
+</html>
