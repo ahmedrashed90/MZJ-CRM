@@ -424,7 +424,7 @@
       width:max-content;
     }
     .pill.wa{ background: rgba(30,155,75,.10); border-color: rgba(30,155,75,.22); color: var(--ok); }
-    .pill.ig{ background: rgba(201,122,43,.10); border-color: rgba(201,122,43,.22); color: var(--warn); }
+    .pill.ig{ background: rgba(201,122,43,.10); border-color: rgba(201,122,43,.22); color: var (--warn); }
     .pill.fb{ background: rgba(43,26,23,.06); border-color: rgba(43,26,23,.10); color: var(--b); }
 
     .convText b{
@@ -485,9 +485,6 @@
     .whoInfo span{ display:block; font-size:12px; color:var(--muted); margin-top:2px; }
     .chatTools{
       display:flex; gap:8px; flex:0 0 auto;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      max-width: 100%;
     }
     .toolBtn{
       border:1px solid var(--line);
@@ -548,12 +545,9 @@
       gap:10px;
       align-items:flex-end;
       background:#fff;
-      flex-wrap:wrap;
     }
     .chatComposer textarea{
-      flex:1 1 320px;
-      min-width:240px;
-      width:auto;
+      width:100%;
       resize:none;
       min-height:42px;
       max-height:130px;
@@ -1496,37 +1490,6 @@
       .kanbanFilters .field{ min-width: 160px; }
     }
 
-
-    /* ===== Inbox Lead Bar (status + follow-up) ===== */
-    .inboxLeadBar{
-      display:none;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
-      padding:10px 12px;
-      border-bottom:1px solid var(--line);
-      background:rgba(247,245,242,.75);
-    }
-    .inboxLeadBar.show{ display:flex; }
-    .inboxLeadBar .miniLabel{ font-weight:900; color:var(--muted); font-size:12px; }
-    .inboxLeadBar select,
-    .inboxLeadBar input{
-      border:1px solid var(--line);
-      border-radius:12px;
-      padding:9px 10px;
-      background:#fff;
-      font-family:inherit;
-      font-weight:800;
-      font-size:12.5px;
-      outline:none;
-      min-width: 220px;
-    }
-    .inboxLeadBar .toolBtn{ padding:9px 12px; }
-    @media (max-width: 720px){
-      .inboxLeadBar select,
-      .inboxLeadBar input{ min-width: 180px; flex:1 1 180px; }
-    }
-
     /* ===== Inbox: Client Data Modal + Attachments ===== */
     .mzjOverlay{
       position:fixed; inset:0;
@@ -1665,6 +1628,14 @@
       .mzjLeadBarGrid{ grid-template-columns: 1fr; }
     }
 
+
+    /* ===== Inbox Lead Bar ===== */
+    .inboxLeadBar{ padding:10px 12px; border-top:1px solid rgba(43,26,23,.10); border-bottom:1px solid rgba(43,26,23,.10); background:rgba(255,255,255,.7); backdrop-filter: blur(6px); }
+    .inboxLeadBarInner{ display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .inboxLeadBarMode{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .inboxLeadBarField{ display:flex; gap:8px; align-items:center; }
+    .smallLabel{ font-size:12px; color:rgba(28,28,28,.7); font-weight:800; }
+    .miniInput{ height:38px; padding:0 12px; border-radius:12px; border:1px solid rgba(43,26,23,.14); background:#fff; font-family:inherit; }
 </style>
 </head>
 
@@ -1860,10 +1831,6 @@
                     <option value="ig">انستجرام</option>
                     <option value="fb">فيسبوك</option>
                   </select>
-                  <select id="fFolder">
-                    <option value="inbox">صندوق الوارد</option>
-                    <option value="archive">الأرشيف</option>
-                  </select>
 <input class="miniInput" id="fSearch" placeholder="بحث داخل المحادثات…" />
                 </div>
 
@@ -1899,18 +1866,29 @@
 </div>
                   </div>
 
-                  <div class="inboxLeadBar" id="inboxLeadBar">
-                    <span class="miniLabel">الحالة</span>
-                    <select id="inboxLeadStatusSelect">
-                      <option value="">— اختر الحالة —</option>
-                    </select>
-                    <button class="toolBtn primary" id="inboxSaveStatus" type="button">حفظ الحالة</button>
+                  <!-- Inbox Lead Bar (Status / Follow-up) -->
+                  <div id="inboxLeadBar" class="inboxLeadBar" style="display:none">
+                    <div class="inboxLeadBarInner">
+                      <div class="inboxLeadBarLeft">
+                        <button class="toolBtn" id="inboxLeadBarClose" type="button">إغلاق</button>
+                      </div>
 
-                    <span class="miniLabel" style="margin-inline-start:6px">تحديد موعد</span>
-                    <input id="inboxFollowUp" type="datetime-local" />
-                    <button class="toolBtn primary" id="inboxSaveFollowUp" type="button">حفظ الموعد</button>
+                      <div class="inboxLeadBarMode" id="inboxLeadBarModeStatus" style="display:none">
+                        <div class="inboxLeadBarField">
+                          <label class="smallLabel">الحالة</label>
+                          <select id="inboxLeadStatusSelect" class="miniSelect" style="min-width:240px"></select>
+                        </div>
+                        <button class="toolBtn primary" id="inboxSaveStatus" type="button">حفظ الحالة</button>
+                      </div>
 
-                    <button class="toolBtn" id="inboxLeadBarClose" type="button">إغلاق</button>
+                      <div class="inboxLeadBarMode" id="inboxLeadBarModeFollow" style="display:none">
+                        <div class="inboxLeadBarField">
+                          <label class="smallLabel">تحديد موعد</label>
+                          <input id="inboxFollowUp" type="datetime-local" class="miniInput" style="min-width:260px" />
+                        </div>
+                        <button class="toolBtn primary" id="inboxSaveFollowUp" type="button">حفظ الموعد</button>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="chatBody" id="chatBody">
@@ -3212,7 +3190,6 @@ function refreshSettingsTables(){
     const qText = ($("#fSearch")?.value || "").trim().toLowerCase();
     const fChannel = ($("#fChannel")?.value || "").trim(); // wa/ig/fb
     const fBranch = ($("#fBranch")?.value || "").trim();
-    const fFolder = ($("#fFolder")?.value || "inbox").trim(); // inbox/archive
 
     const filtered = inboxCache.filter(({id,data})=>{
       // Role guard: agents only see assigned chats
@@ -3220,10 +3197,6 @@ function refreshSettingsTables(){
         if((data?.assignedTo || "") !== currentUser.uid) return false;
       }
       const c = data || {};
-      // folder filter
-      const isArchived = !!c.archived;
-      if(fFolder === "archive" && !isArchived) return false;
-      if(fFolder !== "archive" && isArchived) return false;
       // channel filter
       if(fChannel){
         const ch = (c.channel || "").toLowerCase();
@@ -3500,7 +3473,7 @@ function refreshSettingsTables(){
     ["fSearch"].forEach(id=>{
       $("#"+id)?.addEventListener("input", applyInboxFilters);
     });
-    ["fBranch","fChannel","fFolder"].forEach(id=>{
+    ["fBranch","fChannel"].forEach(id=>{
       $("#"+id)?.addEventListener("change", applyInboxFilters);
     });
 
@@ -5690,7 +5663,17 @@ function bindTasksUI(){
     function setLeadBarVisible(v){
       const bar = $("#inboxLeadBar");
       if(!bar) return;
-      bar.classList.toggle("show", !!v);
+      bar.style.display = v ? "block" : "none";
+      if(!v) setLeadBarMode(null);
+    }
+
+    let inboxLeadBarMode = null;
+    function setLeadBarMode(mode){
+      inboxLeadBarMode = mode;
+      const a = $('#inboxLeadBarModeStatus');
+      const b = $('#inboxLeadBarModeFollow');
+      if(a) a.style.display = (mode==='status') ? 'flex' : 'none';
+      if(b) b.style.display = (mode==='follow') ? 'flex' : 'none';
     }
 
     async function getActiveConv(){
@@ -5800,19 +5783,27 @@ function bindTasksUI(){
       }
     }
 
-    $("#btnSetLeadStatus")?.addEventListener("click", async ()=>{
-      setLeadBarVisible(true);
-      await syncLeadBarFromConversation();
-      $("#inboxLeadStatusSelect")?.focus();
+    
+    /* inbox delegated leadbar clicks */
+    document.addEventListener('click', async (e)=>{
+      const tStatus = e.target.closest('#btnSetLeadStatus');
+      if(tStatus){
+        setLeadBarVisible(true);
+        setLeadBarMode('status');
+        await syncLeadBarFromConversation();
+        $('#inboxLeadStatusSelect')?.focus();
+        return;
+      }
+      const tFollow = e.target.closest('#btnSetFollowUp');
+      if(tFollow){
+        setLeadBarVisible(true);
+        setLeadBarMode('follow');
+        await syncLeadBarFromConversation();
+        $('#inboxFollowUp')?.focus();
+        return;
+      }
     });
-
-    $("#btnSetFollowUp")?.addEventListener("click", async ()=>{
-      setLeadBarVisible(true);
-      await syncLeadBarFromConversation();
-      $("#inboxFollowUp")?.focus();
-    });
-
-    $("#inboxLeadBarClose")?.addEventListener("click", ()=> setLeadBarVisible(false));
+$("#inboxLeadBarClose")?.addEventListener("click", ()=> setLeadBarVisible(false));
 
     $("#inboxSaveStatus")?.addEventListener("click", async ()=>{
       try{
