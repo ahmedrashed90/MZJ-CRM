@@ -13,6 +13,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -48,7 +49,7 @@
     html,body{height:100%}
     body{
       margin:0;
-      font-family:"Tajawal","Cairo",system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      font-family:"Tajawal",system-ui,-apple-system,Segoe UI,Roboto,Arial;
       background:var(--bg);
       color:var(--text);
     }
@@ -1638,6 +1639,54 @@
     .inboxLeadBarField{ display:flex; gap:8px; align-items:center; }
     .smallLabel{ font-size:12px; color:rgba(28,28,28,.7); font-weight:800; }
     .miniInput{ height:38px; padding:0 12px; border-radius:12px; border:1px solid rgba(43,26,23,.14); background:#fff; font-family:inherit; }
+
+
+/* Dashboard small tiles */
+#dashBoardGrid{
+  display:grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important;
+  gap:12px !important;
+}
+.dashTile{
+  all:unset;
+  cursor:pointer;
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:14px;
+  box-shadow:0 10px 26px rgba(0,0,0,.06);
+  padding:14px 14px 12px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:10px;
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.dashTile:hover{
+  transform:translateY(-1px);
+  box-shadow:0 14px 34px rgba(0,0,0,.08);
+  border-color:rgba(192,122,74,.35);
+}
+.dashTileName{
+  font-weight:900;
+  font-size:14px;
+  line-height:1.3;
+  color:var(--text);
+  min-width:0;
+}
+.dashTileCount{
+  font-weight:900;
+  font-size:22px;
+  color:var(--bronze);
+  background:rgba(192,122,74,.10);
+  border:1px solid rgba(192,122,74,.22);
+  border-radius:12px;
+  padding:4px 10px;
+  line-height:1;
+}
+
+/* Auth lock: prevent using the app while logged out */
+body.auth-locked .app{ pointer-events:none; user-select:none; }
+body.auth-locked #authModal{ pointer-events:auto; }
 </style>
 </head>
 
@@ -1833,6 +1882,10 @@
                     <option value="ig">انستجرام</option>
                     <option value="fb">فيسبوك</option>
                   </select>
+                  <select id="fArchive">
+                    <option value="">صندوق الوارد</option>
+                    <option value="archived">الارشيف</option>
+                  </select>
 <input class="miniInput" id="fSearch" placeholder="بحث داخل المحادثات…" />
                 </div>
 
@@ -1932,7 +1985,7 @@
                 <div class="hint">المعروض الآن</div>
               </div>
               <div class="stat">
-                <b>مغلق (ربح)</b>
+                <b>تم الإنتهاء - إنشاء طلب البيع</b>
                 <strong id="statLeadsClosed">0</strong>
                 <div class="hint">هذا الشهر</div>
               </div>
@@ -2582,9 +2635,13 @@ let __selectedWaTemplateKey = null;
   function openAuthModal(){
     $("#authModal").style.display = "flex";
     $("#authMsg").style.display = "none";
+    // إخفاء زر الإغلاق لو غير مسجل
+    try{ $("#authClose").style.display = currentUser ? "inline-flex" : "none"; }catch{}
     $("#authEmail").focus();
   }
   function closeAuthModal(){
+    // لا تغلق نافذة تسجيل الدخول إلا بعد تسجيل الدخول فعلياً
+    if(!currentUser){ return; }
     $("#authModal").style.display = "none";
   }
 
@@ -2676,6 +2733,7 @@ let __selectedWaTemplateKey = null;
       ensureLeadsLive(); 
       try{ renderPipeline(); }catch(e){} 
     }
+    if(tabId === "dashboard"){ try{ renderDashboard(); }catch(e){} }
     if(tabId === "settings") refreshSettingsTables();
   }
 
@@ -3282,6 +3340,8 @@ function applyInboxFilters(){
     const qText = ($("#fSearch")?.value || "").trim().toLowerCase();
     const fChannel = ($("#fChannel")?.value || "").trim(); // wa/ig/fb
     const fBranch = ($("#fBranch")?.value || "").trim();
+    const fArchive = ($("#fArchive")?.value || "").trim(); // archived
+    inboxShowArchived = (fArchive === "archived");
 
     const baseList = dedupeInboxConversations(inboxCache);
 
@@ -3291,6 +3351,9 @@ function applyInboxFilters(){
         if((data?.assignedTo || "") !== currentUser.uid) return false;
       }
       const c = data || {};
+      // archive filter
+      const isArch = !!c.archived;
+      if(inboxShowArchived ? !isArch : isArch) return false;
       // channel filter
       if(fChannel){
         const ch = (c.channel || "").toLowerCase();
@@ -3504,7 +3567,16 @@ function applyInboxFilters(){
   }
 
 
-  function ensureInboxLive(){
+  
+// تحديث فلاتر صندوق الوارد (المنصة/القسم/البحث/الأرشيف)
+try{
+  $("#fBranch")?.addEventListener("change", ()=> applyInboxFilters());
+  $("#fChannel")?.addEventListener("change", ()=> applyInboxFilters());
+  $("#fArchive")?.addEventListener("change", ()=> applyInboxFilters());
+  $("#fSearch")?.addEventListener("input",  ()=> applyInboxFilters());
+}catch(e){ console.warn("inbox filter bind", e); }
+
+function ensureInboxLive(){
     if(unsubInbox) return;
 
     const listEl = $("#convList");
@@ -5071,13 +5143,13 @@ function applyLeadFilters(){
 const total = base.length;
     const unassigned = base.filter(x=>!getAssignedUidFromLead(x.data)).length;
 
-    // مغلق (ربح) = حالة باسم "مغلق (ربح)" (عدد هذا الشهر حسب updatedAt)
+    // تم الإنتهاء - إنشاء طلب البيع (وكانت سابقاً "تم الإنتهاء - إنشاء طلب البيع") = عدد هذا الشهر حسب updatedAt
     const now = new Date();
     const curY = now.getFullYear();
     const curM = now.getMonth();
     const closedWon = base.filter(x=>{
       const nm = getEffectiveLeadStatusName(x.data);
-      if(String(nm).trim() !== "مغلق (ربح)") return false;
+      if(!(["مغلق (ربح)","تم الإنتهاء - إنشاء طلب البيع"].includes(String(nm).trim()))) return false;
       const up = x.data?.updatedAt || x.data?.timestamp || x.data?.createdAt;
       const dt = up ? new Date(up) : null;
       return dt && dt.getFullYear() === curY && dt.getMonth() === curM;
@@ -5718,6 +5790,7 @@ function bindTasksUI(){
 
   // ابدأ بحالة تحقق + تايمر حماية (حتى لا يظل "جار التحقق…" للأبد)
   try{ setAuthChecking(); }catch{}
+  try{ document.body.classList.add("auth-locked"); }catch{}
   try{ startAuthGuardTimer(); }catch{}
 
   // لا تجعل أي خطأ UI يوقف auth
@@ -5733,6 +5806,8 @@ function bindTasksUI(){
       setAuthHeader(null);
       applyRoleGuards();
       setBadgeConnected(false);
+      try{ document.body.classList.add("auth-locked"); }catch{}
+      try{ openAuthModal(); }catch{}
       // stop inbox listeners
       try{ if(unsubInbox){unsubInbox();} }catch{} unsubInbox=null;
       try{ if(unsubMsgs){unsubMsgs();} }catch{} unsubMsgs=null;
@@ -5744,6 +5819,8 @@ function bindTasksUI(){
     }
 
     currentProfile = await loadProfileForUser(user);
+    try{ document.body.classList.remove("auth-locked"); }catch{}
+    try{ closeAuthModal(); }catch{}
     setAuthHeader(currentProfile);
     applyRoleGuards();
     renderLeadStatusesAdminTable();
@@ -6019,77 +6096,115 @@ $("#inboxLeadBarClose")?.addEventListener("click", ()=> setLeadBarVisible(false)
 
     // ===== Dashboard render =====
     function renderDashboard(){
-      const grid = $("#dashBoardGrid");
-      if(!grid) return;
+  const grid = $("#dashBoardGrid");
+  if(!grid) return;
 
-      const q = ( ($("#dashSearch")?.value || "").trim().toLowerCase() );
-      const leads = Array.isArray(leadsCache) ? leadsCache : [];
-      const filtered = q ? leads.filter(x=>{
+  const q = ( ($("#dashSearch")?.value || "").trim().toLowerCase() );
+  const leads = Array.isArray(leadsCache) ? leadsCache : [];
+  const filtered = q ? leads.filter(x=>{
+    const d = x.data || {};
+    return String(d.name||"").toLowerCase().includes(q)
+      || String(d.phone||"").toLowerCase().includes(q)
+      || String(d.phoneNormalized||"").toLowerCase().includes(q);
+  }) : leads;
+
+  // statuses list (from settings_lead_statuses + default)
+  const statuses = Array.from(leadStatusesMap.values()).filter(x=>x && x.isActive!==false);
+  if(!statuses.find(s=>s.id===getDefaultLeadStatus().id)){
+    statuses.unshift(getDefaultLeadStatus());
+  }
+
+  // count per status
+  const counts = new Map();
+  statuses.forEach(s=>counts.set(s.id, 0));
+  filtered.forEach(x=>{
+    const d = x.data||{};
+    const sid = String(d.leadStatusId || getDefaultLeadStatus().id);
+    counts.set(sid, (counts.get(sid)||0) + 1);
+  });
+
+  // small tiles
+  grid.innerHTML = statuses.map(s=>{
+    const c = counts.get(s.id) || 0;
+    return `
+      <button class="dashTile" type="button" data-dash-status="${esc(s.id)}" title="فتح العملاء في هذه الحالة">
+        <span class="dashTileName">${esc(s.name||"حالة")}</span>
+        <span class="dashTileCount">${c}</span>
+      </button>
+    `;
+  }).join("");
+
+  grid.onclick = (e)=>{
+    const btn = e.target.closest("[data-dash-status]");
+    if(!btn) return;
+    const sid = btn.getAttribute("data-dash-status") || "";
+    renderDashboardStatusLeads(sid);
+  };
+
+
+function renderDashboardStatusLeads(statusId){
+  const grid = $("#dashBoardGrid");
+  if(!grid) return;
+
+  const sid = String(statusId||"");
+  const q = ( ($("#dashSearch")?.value || "").trim().toLowerCase() );
+  const leads = Array.isArray(leadsCache) ? leadsCache : [];
+
+  const filtered = leads.filter(x=>{
+    const d = x.data || {};
+    const inSearch = !q
+      || String(d.name||"").toLowerCase().includes(q)
+      || String(d.phone||"").toLowerCase().includes(q)
+      || String(d.phoneNormalized||"").toLowerCase().includes(q);
+    const curSid = String(d.leadStatusId || getDefaultLeadStatus().id);
+    return inSearch && curSid === sid;
+  });
+
+  const statusName =
+    (leadStatusesMap.get(sid)?.name)
+    || (sid === getDefaultLeadStatus().id ? getDefaultLeadStatus().name : "")
+    || "الحالة";
+
+  grid.innerHTML = `
+    <div class="card" style="grid-column:1/-1;padding:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+          <h3 style="margin:0 0 4px">عملاء: ${esc(statusName)}</h3>
+          <div style="font-size:12.5px;color:rgba(28,28,28,.64);line-height:1.6">اضغط على العميل لفتح لوحة التفاصيل.</div>
+        </div>
+        <button class="miniBtn" type="button" id="dashBackBtn">رجوع</button>
+      </div>
+    </div>
+    <div class="card" style="grid-column:1/-1;padding:0;overflow:hidden">
+      ${filtered.length ? filtered.map(x=>{
         const d = x.data || {};
-        return String(d.name||"").toLowerCase().includes(q)
-          || String(d.phone||"").toLowerCase().includes(q)
-          || String(d.phoneNormalized||"").toLowerCase().includes(q);
-      }) : leads;
-
-      const statuses = Array.from(leadStatusesMap.values()).filter(x=>x && x.isActive!==false);
-      if(!statuses.find(s=>s.id===getDefaultLeadStatus().id)){
-        statuses.unshift(getDefaultLeadStatus());
-      }
-
-      const byStatus = new Map();
-      statuses.forEach(s=>byStatus.set(s.id, []));
-      filtered.forEach(x=>{
-        const d = x.data||{};
-        const sid = String(d.leadStatusId || getDefaultLeadStatus().id);
-        if(!byStatus.has(sid)) byStatus.set(sid, []);
-        byStatus.get(sid).push(x);
-      });
-      for(const [sid, arr] of byStatus.entries()){
-        arr.sort((a,b)=> (new Date(b.data?.updatedAt||0)).getTime() - (new Date(a.data?.updatedAt||0)).getTime());
-      }
-
-      grid.innerHTML = statuses.map(s=>{
-        const items = (byStatus.get(s.id) || []);
-        const list = items.slice(0, 40).map(x=>{
-          const d = x.data||{};
-          return `
-            <div style="padding:10px 10px;border:1px solid rgba(43,26,23,.10);border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px">
-              <div style="min-width:0">
-                <div style="font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.name||"-")}</div>
-                <div style="font-size:12px;color:rgba(28,28,28,.64);margin-top:3px">${esc(d.phone||d.phoneNormalized||"")}</div>
-              </div>
-              <button class="miniBtn" data-open="${esc(x.id)}" type="button">فتح</button>
-            </div>
-          `;
-        }).join("");
-
+        const name = esc(d.name || "—");
+        const phone = esc(d.phone || d.phoneNormalized || "—");
         return `
-          <div class="card" style="padding:12px">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
-              <div>
-                <div style="font-weight:900">${esc(s.name||"حالة")}</div>
-                <div style="font-size:12px;color:rgba(28,28,28,.64)">${items.length} عميل</div>
-              </div>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:8px;max-height:520px;overflow:auto;padding-left:2px">
-              ${list || `<div class="mzj-empty" style="padding:18px;border:1px dashed rgba(43,26,23,.18);border-radius:14px;background:rgba(43,26,23,.02)">لا يوجد عملاء</div>`}
-            </div>
+          <div class="mzj-row" data-dash-lead="${esc(x.id)}" style="padding:12px 14px;border-bottom:1px solid rgba(43,26,23,.10);cursor:pointer">
+            <div style="font-weight:900">${name}</div>
+            <div style="font-size:12px;color:rgba(28,28,28,.64);margin-top:3px">📱 ${phone}</div>
           </div>
         `;
-      }).join("");
+      }).join("") : `<div style="padding:14px;color:rgba(28,28,28,.64)">لا يوجد عملاء داخل هذه الحالة.</div>`}
+    </div>
+  `;
 
-      grid.onclick = (e)=>{
-        const btn = e.target.closest("[data-open]");
-        if(!btn) return;
-        const leadId = btn.getAttribute("data-open");
-        if(!leadId) return;
-        showTab("leads");
-        setTimeout(()=> { try{ openLeadDetails && openLeadDetails(leadId); }catch{} }, 60);
-      };
-    }
+  $("#dashBackBtn")?.addEventListener("click", ()=> renderDashboard());
+  grid.querySelectorAll("[data-dash-lead]").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const id = el.getAttribute("data-dash-lead") || "";
+      if(!id) return;
+      try{ openPipeLeadPanel(id); }catch(e){}
+    });
+  });
+}
 
-    $("#dashRefresh")?.addEventListener("click", ()=> renderDashboard());
-    $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
+}
+
+$("#dashRefresh")?.addEventListener("click", ()=> renderDashboard());
+$("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
+
 
 </script>
 
