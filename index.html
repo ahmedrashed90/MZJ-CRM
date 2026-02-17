@@ -3773,7 +3773,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
     // ===== Outbound send (Inbox only) =====
     // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال (لو عندك Worker إرسال منفصل)
     // مثال: https://YOUR-SEND-WORKER.workers.dev/send
-    const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev"; // ضع رابط Worker الإرسال هنا أو عبر window.MERSAL_SEND_ENDPOINT 
+    const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // ضع رابط Worker الإرسال هنا أو عبر window.MERSAL_SEND_ENDPOINT 
 
     async function sendOutboundMessage(text){
       const composer = $("#composer");
