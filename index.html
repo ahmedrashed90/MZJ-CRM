@@ -1,22 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1958,7 +1939,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
                   <div class="chatComposer">
                     <select id="templateSelect" class="miniSelect" style="width:170px;flex:0 0 auto"><option value="">القوالب</option>
 <option value="wa:welcome_message">✅ تم استلام طلبك</option>
-<option value="wa:reply_received_v2">📩 تم استلام طلبك بخصوص</option>
+<option value="wa:finance_request_received_v3">📩 تم استلام طلبك بخصوص</option>
 <option value="wa:no_reply_followup">⏳ لم يتم الرد</option>
 <option value="wa:approval_result">✅ تمت الموافقة</option>
 <option value="wa:rejection_result">❌ تعذر رفع الطلب</option>
@@ -2531,18 +2512,19 @@ const WA_TEMPLATES = {
     params: [],
     previewText: "مرحباً بك في مجموعة محمد ذعار العجمي للسيارات\nتم استلام طلبك بنجاح"
   },
-reply_received_v2: {
-  name: "reply_received_v2",
+finance_request_received_v3: {
+  name: "finance_request_received_v3",
   lang: "ar",
+  // params will be auto-filled from Lead data at send time
   params: [],
   previewText:
-`تم استلام طلبك بخصوص:
-السيارة:
-العمر:
-البنك:
-الراتب:
-الالتزام:
-وجاري العمل على الطلب`
+`تم استلام طلبك بخصوص :
+السيارة: {{1}}
+العمر: {{2}}
+البنك: {{3}}
+الراتب: {{4}}
+الالتزام: {{5}}
+وجاري العمل على الطلب ✅`
 },
 
   no_reply_followup: {
@@ -3625,6 +3607,34 @@ try{
     const convSnap = await getDoc(convRef);
     if(!convSnap.exists()) return false;
     const conv = convSnap.data() || {};
+
+  // Load linked Lead data (for template auto-params)
+  const leadId = String(conv.leadId || "").trim();
+  let lead = null;
+  if(leadId){
+    try{
+      const leadSnap = await getDoc(doc(db, "leads", leadId));
+      lead = leadSnap.exists() ? (leadSnap.data() || {}) : null;
+    }catch(e){ lead = null; }
+  }
+
+  function buildTemplateParams(tpl){
+    if(!tpl) return [];
+    // If template already has explicit params, keep them.
+    if(Array.isArray(tpl.params) && tpl.params.length) return tpl.params;
+
+    // Auto-fill finance receipt template from lead/customer data.
+    if(String(tpl.name||"") === "finance_request_received_v3"){
+      const car = String(lead?.carType || lead?.car || conv?.carType || conv?.car || "").trim();
+      const age = String(lead?.age || conv?.age || "").trim();
+      const bank = String(lead?.bank || lead?.salaryBank || conv?.bank || "").trim();
+      const salary = String(lead?.salary || conv?.salary || "").trim();
+      const commitment = String(lead?.commitment || lead?.obligation || conv?.commitment || "").trim();
+      return [car, age, bank, salary, commitment].map(x=> x || "");
+    }
+
+    return [];
+  }
     const waId = String(conv.waId || "").trim();
     if(!waId) return false;
 
@@ -4408,7 +4418,7 @@ async function sendOutboundMessage(text){
 
   try{
     const payload = isTemplate
-      ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: Array.isArray(tpl.params)?tpl.params:[] } }
+      ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: buildTemplateParams(tpl) } }
       : { waId, text: clean };
 
     const resp = await fetch(MERSAL_SEND_ENDPOINT, {
