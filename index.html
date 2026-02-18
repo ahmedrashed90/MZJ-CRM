@@ -2532,11 +2532,12 @@ const WA_TEMPLATES = {
     params: [],
     previewText: "مرحباً بك في مجموعة محمد ذعار العجمي للسيارات\nتم استلام طلبك بنجاح"
   },
-  finance_request_received_v3: {
-    name: "finance_request_received_v3",
-    lang: "ar",
-    params: ["", "", "", "", ""], // will be filled from Lead عند الاختيار
-    previewText:
+finance_request_received_v3: {
+  name: "finance_request_received_v3",
+  lang: "ar",
+  // will be filled automatically from lead when selected
+  params: [],
+  previewText:
 `تم استلام طلبك بخصوص :
 السيارة: {{1}}
 العمر: {{2}}
@@ -2544,7 +2545,7 @@ const WA_TEMPLATES = {
 الراتب: {{4}}
 الالتزام: {{5}}
 وجاري العمل على الطلب ✅`
-  },
+},
 
   no_reply_followup: {
     name: "no_reply_followup",
@@ -2572,6 +2573,76 @@ const WA_TEMPLATES = {
   }
 };
 let __selectedWaTemplateKey = null;
+  // --- helpers: normalize & fetch lead for templates ---
+  function normalizeSaudiPhone(p){
+    let x = String(p||"").trim();
+    if(!x) return "";
+    x = x.replace(/\s+/g,"").replace(/\+/g,"");
+    if(x.startsWith("00")) x = x.slice(2);
+    // if stored like 9660xxxxxxxx -> drop the 0 after 966
+    if(x.startsWith("9660")) x = "966" + x.slice(4);
+    // local SA numbers: 05xxxxxxxx or 5xxxxxxxx
+    if(x.startsWith("0") && x.length === 10) x = "966" + x.slice(1);
+    if(x.startsWith("5") && x.length === 9) x = "966" + x;
+    return x;
+  }
+
+  async function getActiveLeadForConversation(){
+    try{
+      if(!activeConvId) return null;
+      const convSnap = await getDoc(doc(db,"wa_conversations", activeConvId));
+      if(!convSnap.exists()) return null;
+      const conv = convSnap.data() || {};
+      const leadId = String(conv.leadId || "").trim();
+      if(leadId){
+        const leadSnap = await getDoc(doc(db,"leads", leadId));
+        if(leadSnap.exists()) return { id: leadSnap.id, data: (leadSnap.data()||{}) };
+      }
+      // fallback: search by phoneNormalized
+      const waId = normalizeSaudiPhone(conv.waId || conv.phone || conv.phoneNormalized || "");
+      if(!waId) return null;
+      // try match on phoneNormalized then on phone
+      const q1 = query(collection(db,"leads"), where("phoneNormalized","==", waId), limit(1));
+      const r1 = await getDocs(q1);
+      if(!r1.empty){ const d=r1.docs[0]; return { id:d.id, data:(d.data()||{}) }; }
+      const q2 = query(collection(db,"leads"), where("phone","==", waId), limit(1));
+      const r2 = await getDocs(q2);
+      if(!r2.empty){ const d=r2.docs[0]; return { id:d.id, data:(d.data()||{}) }; }
+      return null;
+    }catch(e){
+      console.warn("getActiveLeadForConversation", e);
+      return null;
+    }
+  }
+
+  function pickLeadField(lead, keys, fallback=""){
+    for(const k of keys){
+      const v = (lead && lead[k] != null) ? lead[k] : undefined;
+      if(v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+    }
+    return String(fallback||"");
+  }
+
+  function buildFinanceParamsFromLead(lead){
+    const car = (typeof getLeadCarName === "function") ? String(getLeadCarName(lead)||"").trim() : "";
+    const age = pickLeadField(lead, ["age","customerAge","financeAge"]);
+    const bank = pickLeadField(lead, ["bank","salaryBank","bankName"]);
+    const salary = pickLeadField(lead, ["salary","income","monthlySalary","totalSalary"]);
+    const commitment = pickLeadField(lead, ["commitment","obligation","installment","monthlyCommitment"], "-");
+    return [
+      car || pickLeadField(lead, ["carType","car","carName","carModel"]),
+      age || "-",
+      bank || "-",
+      salary || "-",
+      commitment || "-"
+    ].map(x=> String(x||"-"));
+  }
+
+  function renderFinancePreview(params){
+    const [car, age, bank, salary, commitment] = params;
+    return `تم استلام طلبك بخصوص :\nالسيارة: ${car}\nالعمر: ${age}\nالبنك: ${bank}\nالراتب: ${salary}\nالالتزام: ${commitment}\nوجاري العمل على الطلب ✅`;
+  }
+
 
 // Exclude admin email from random auto-assign
   const EXCLUDED_ASSIGN_EMAILS = ["mr.ahmed_rashed@outlook.sa"];
@@ -2783,7 +2854,8 @@ let __selectedWaTemplateKey = null;
       branchesMap = new Map();
       snap.forEach(d=>{
         const v=d.data()||{};
-        branchesMap.set(d.id, { id:d.id, name:v.name||d.id, city:v.city||"", isActive: v.isActive !== false });
+        branchesMap.set(d.id, { id:d.id, name:v.name||d.id, city:v.city||"", isActive: v.isActive !== false,
+          canReceiveLeads: v.canReceiveLeads !== false });
       });
       const branchItems = Array.from(branchesMap.values()).filter(b=>b.isActive).map(b=>({value:b.id,label:b.name}));
       fillSelect($("#fBranch"), branchItems);
@@ -3626,7 +3698,7 @@ try{
     const convSnap = await getDoc(convRef);
     if(!convSnap.exists()) return false;
     const conv = convSnap.data() || {};
-    const waId = String(conv.waId || "").trim();
+    const waId = normalizeSaudiPhone(String(conv.waId || conv.phoneNormalized || conv.phone || "").trim());
     if(!waId) return false;
 
     // optimistic message in firestore
@@ -4587,7 +4659,7 @@ async function sendOutboundMessage(text){
     };
 
     
-document.getElementById("templateSelect")?.addEventListener("change", (e)=>{
+document.getElementById("templateSelect")?.addEventListener("change", async (e)=>{
   const v = String(e.target?.value || "");
   if(!v) return;
 
@@ -4599,65 +4671,23 @@ document.getElementById("templateSelect")?.addEventListener("change", (e)=>{
     const tpl = WA_TEMPLATES?.[key];
     if(tpl){
       __selectedWaTemplateKey = key;
-
-      // ✅ تعبئة متغيرات قالب التمويل من بيانات الـ Lead المرتبط بالمحادثة/الرقم
-      if(key === "finance_request_received_v3"){
-        (async ()=>{
-          try{
-            if(!activeConvId) return;
-            const convSnap = await getDoc(doc(db,"wa_conversations", activeConvId));
-            if(!convSnap.exists()) return;
-            const conv = convSnap.data() || {};
-            const waId = String(conv.waId || "").trim();
-            const leadId = String(conv.leadId || "").trim();
-
-            let lead = null;
-            if(leadId){
-              const ls = await getDoc(doc(db,"leads", leadId));
-              if(ls.exists()) lead = ls.data() || null;
-            }
-            if(!lead && waId){
-              const pn = normalizePhone(waId).replace(/^\+/, "");
-              const q1 = query(collection(db,"leads"), where("phoneNormalized","==", pn), limit(1));
-              const s1 = await getDocs(q1).catch(()=>null);
-              if(s1 && !s1.empty) lead = s1.docs[0].data() || null;
-            }
-
-            const srcObj = (lead?.calculator || lead?.payload || lead || {});
-            const car = (lead?.carName || srcObj?.carName || srcObj?.car || lead?.car || "") || "—";
-            const age = (srcObj?.age || lead?.age || "") || "—";
-            const bank = (srcObj?.bank || srcObj?.salaryBank || lead?.bank || lead?.salaryBank || "") || "—";
-            const salary = (srcObj?.salary || srcObj?.income || lead?.salary || lead?.income || "") || "—";
-            const commitment = (srcObj?.commitment || srcObj?.obligation || srcObj?.commitments || lead?.commitment || lead?.obligation || "") || "—";
-
-            tpl.params = [car, age, bank, salary, commitment];
-
-            if(ta){
-              ta.readOnly = true;
-              ta.value = String(tpl.previewText || "")
-                .replace("{{1}}", car)
-                .replace("{{2}}", age)
-                .replace("{{3}}", bank)
-                .replace("{{4}}", salary)
-                .replace("{{5}}", commitment)
-                .trim();
-              ta.dispatchEvent(new Event("input", { bubbles:true }));
-              ta.placeholder = "سيتم إرسال قالب واتساب رسمي (Template) — اضغط إرسال.";
-              ta.focus();
-            }
-            return;
-          }catch(e){
-            console.warn("fill finance template params failed", e);
-          }
-        })();
-        // stop هنا لأننا ملّينا textarea فوق
-        e.target.value = "";
-        return;
-      }
-
       if(ta){
         ta.readOnly = true;
         ta.value = String(tpl.previewText || "").trim();
+        // Auto-fill finance template from lead (installment calculator / التمويل)
+        if(__selectedWaTemplateKey === "finance_request_received_v3"){
+          const leadWrap = await getActiveLeadForConversation();
+          const lead = leadWrap?.data || null;
+          if(lead){
+            const params = buildFinanceParamsFromLead(lead);
+            WA_TEMPLATES.finance_request_received_v3.params = params;
+            ta.value = renderFinancePreview(params);
+          }else{
+            // keep placeholders if lead not found
+            WA_TEMPLATES.finance_request_received_v3.params = [];
+          }
+        }
+
         ta.dispatchEvent(new Event("input", { bubbles:true }));
         ta.placeholder = "سيتم إرسال قالب واتساب رسمي (Template) — اضغط إرسال.";
         ta.focus();
@@ -5856,7 +5886,6 @@ function bindTasksUI(){
     tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">جاري تحميل العملاء المحتملين من Firebase...</td></tr>`;
   }
 
-  
   function openAssignPrompt(leadId, leadData){
     const roleId = currentProfile?.roleId || "";
     const canAssign = canSeeSettings() || roleId === "branch_manager";
@@ -5865,51 +5894,61 @@ function bindTasksUI(){
       return;
     }
 
-    // ✅ تحديد القسم المستهدف بناءً على نوع الدفع/المصدر
-    const payType = getLeadPayType(leadData); // "تمويل" / "كاش"
-    let branchName = "خدمة العملاء";
-    if(String(payType||"").includes("تمويل")) branchName = "مبيعات التمويل";
-    else if(String(payType||"").includes("كاش")) branchName = "مبيعات الكاش";
+    // decide target branch from lead (تمويل/كاش/خدمة العملاء)
+    const pay = (typeof getLeadPayType === "function") ? String(getLeadPayType(leadData)||"").trim() : "";
+    const src = String(leadData?.source || "").trim();
+    let targetBranchName = "خدمة العملاء";
+    if(pay === "تمويل" || src === "installment_calculator") targetBranchName = "مبيعات التمويل";
+    else if(pay === "كاش") targetBranchName = "مبيعات الكاش";
 
-    const agents = getEligibleAgentsForBranch(branchName);
+    // pool: active + same branch + canReceiveLeads != false + not excluded
+    const ids = getBranchIdsByNameExact(targetBranchName);
+    const agents = Array.from(agentsUidMap.values())
+      .filter(a=>{
+        if(!a || a.isActive === false) return false;
+        if(a.canReceiveLeads === false) return false;
+        if(isExcludedAssignee(a)) return false;
+        const bid = String(a.branchId||"").trim();
+        return ids.size ? ids.has(bid) : (bid === targetBranchName);
+      })
+      .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||""), "ar"));
+
     if(!agents.length){
-      toast("لا يوجد مناديب مؤهلين لهذا القسم", "warn");
+      toast(`لا يوجد مناديب نشطين في (${targetBranchName})`, "warn");
       return;
     }
 
     const pick = agents[Math.floor(Math.random()*agents.length)];
-    const pickId = pick.uid || pick.id;
-    if(!pickId){
-      toast("تعذر اختيار مندوب", "warn");
-      return;
-    }
+    const pickId = (pick && (pick.uid || pick.id)) || "";
+    if(!pickId){ toast("لا يوجد مناديب للتوزيع", "warn"); return; }
 
-    const agentName = pick.name || pick.email || pickId;
-    toast("تم التوزيع على: " + agentName);
+    toast("تم التوزيع على: " + (pick.name||pick.email||pickId));
 
-    // Update lead + linked conversation (إن وجدت)
     updateDoc(doc(db,"leads", leadId), {
       assignedTo: pickId,
-      assignedName: agentName,
+      assignedName: (pick.name || pickId),
+      branchId: pick.branchId || targetBranchName,
       assignedAt: new Date().toISOString(),
-      branchId: pick.branchId || "",
       updatedAt: new Date().toISOString()
-    }).then(async ()=>{
-      // sync conversation if exists
-      const convId = leadData?.convId || "";
-      if(convId){
-        await updateDoc(doc(db,"wa_conversations", convId), {
+    });
+
+    // Also assign conversation if linked
+    try{
+      const convId = String(leadData?.convId || leadData?.conversationId || "").trim();
+      // if not provided, try by phone from lead
+      const phone = normalizeSaudiPhone(leadData?.phoneNormalized || leadData?.phone || leadData?.waId || "");
+      const convId2 = convId || (phone ? `wa_${phone}` : "");
+      if(convId2){
+        updateDoc(doc(db,"wa_conversations", convId2), {
           assignedTo: pickId,
-          assignedName: agentName,
-          branchId: pick.branchId || "",
+          assignedName: (pick.name || pickId),
+          branchId: pick.branchId || targetBranchName,
           assignedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }).catch(()=>{});
       }
-      toast("تم التوزيع", "ok");
-    }).catch(e=>toast("خطأ: " + (e?.message||e), "warn"));
+    }catch(e){}
   }
-
 
   
   // ===== Lead assignment helpers (Leads tab only) =====
@@ -5919,8 +5958,6 @@ function bindTasksUI(){
 
   function isExcludedAssignee(agent){
     if(!agent) return true;
-    // ✅ شرط منع الإدارة/غير المؤهلين من استلام ليدات
-    if(agent.canReceiveLeads === false) return true;
     const roleId = String(agent.roleId||"").trim();
     const roleName = String(roleNameOf(roleId)||"").trim();
     const name = String(agent.name||"").trim();
