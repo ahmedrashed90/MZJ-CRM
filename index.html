@@ -18,6 +18,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3424,7 +3425,8 @@ function applyInboxFilters(){
     const filtered = baseList.filter(({id,data})=>{
       // Role guard: agents only see assigned chats
       if(currentUser && !canSeeAllInbox()){
-        if((data?.assignedTo || "") !== currentUser.uid) return false;
+        const asg = (data?.assignedTo || "");
+        if(asg !== currentUser.uid && asg !== "") return false;
       }
       const c = data || {};
       // archive filter
@@ -4074,7 +4076,7 @@ function ensureInboxLive(){
       convQ = query(baseCol, orderBy("lastMessageAt","desc"), limit(200));
     }else{
       // Agents see only their assigned conversations
-      convQ = query(baseCol, where("assignedTo","==", currentUser.uid), limit(400));
+      convQ = query(baseCol, where("assignedTo","in", [currentUser.uid, ""]), limit(400));
     }
 
     listEl.innerHTML = `<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل المحادثات…</div>`;
@@ -4417,7 +4419,8 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
     // ===== Outbound send (Inbox only) =====
     // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال (لو عندك Worker إرسال منفصل)
     // مثال: https://YOUR-SEND-WORKER.workers.dev/send
-    const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // ضع رابط Worker الإرسال هنا أو عبر window.MERSAL_SEND_ENDPOINT 
+    const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // ضع رابط Worker الإرسال هنا أو عبر window
+    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://manychat.next-erp-mzj.workers.dev/send/facebook"; // إرسال فيسبوك ماسنجر.MERSAL_SEND_ENDPOINT 
 
     
 async function sendOutboundMessage(text){
@@ -4441,11 +4444,13 @@ async function sendOutboundMessage(text){
     return;
   }
   const conv = convSnap.data() || {};
+  const platform = String(conv.platform || conv.channel || conv.source || "").toLowerCase();
+  const isFB = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || String(conv.source||"").includes("فيسبوك");
   const waId = String(conv.waId || "").trim();
-  if(!waId){
-    toast("رقم العميل غير موجود", "err");
-    return;
-  }
+  const fbPsid = String(conv.participantId || conv.senderId || "").trim();
+  const fbPageId = String(conv.pageId || "").trim();
+  if(!isFB && !waId){ toast("رقم العميل غير موجود", "err"); return; }
+  if(isFB && !fbPsid){ toast("معرّف فيسبوك غير موجود", "err"); return; }
 
   const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
   const displayText = isTemplate
@@ -4456,13 +4461,15 @@ async function sendOutboundMessage(text){
   const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
   const localMsgId = msgRef.id;
 
+  const outTo = isFB ? `fb:${fbPsid}` : `wa:${waId}`;
+  const outProvider = isFB ? "facebook" : "mersal";
   await setDoc(msgRef, {
     direction: "out",
     type: isTemplate ? "template" : "text",
     text: displayText,
     from: "crm",
-    to: `wa:${waId}`,
-    provider: "mersal",
+    to: outTo,
+    provider: outProvider,
     providerMessageId: "",
     sentAt: serverTimestamp(),
     receivedAt: serverTimestamp(),
@@ -4480,16 +4487,30 @@ async function sendOutboundMessage(text){
   if(btn){ btn.disabled = true; btn.textContent = "جار الإرسال…"; }
 
   try{
-    const payload = isTemplate
-      ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: Array.isArray(tpl.params)?tpl.params:[] } }
-      : { waId, text: clean };
+    let resp, data;
+    if(isFB){
+      const payload = { convId: activeConvId, recipientId: fbPsid, pageId: fbPageId, message: clean, agent: (currentProfile?.name || currentUser?.displayName || currentUser?.email || "") };
+      resp = await fetch(FB_SEND_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      data = await resp.json().catch(()=> ({}));
+      // normalize
+      if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
+      if(data && data.ok === undefined) data.ok = resp.ok;
+    }else{
+      const payload = isTemplate
+        ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: Array.isArray(tpl.params)?tpl.params:[] } }
+        : { waId, text: clean };
 
-    const resp = await fetch(MERSAL_SEND_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const data = await resp.json().catch(()=> ({}));
+      resp = await fetch(MERSAL_SEND_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      data = await resp.json().catch(()=> ({}));
+    }
 
     if(!resp.ok || data.ok === false){
       await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
@@ -4502,7 +4523,7 @@ async function sendOutboundMessage(text){
 
     await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
       status: "sent",
-      providerMessageId: String(data.providerMessageId || "")
+      providerMessageId: String(data.providerMessageId || data.message_id || data.id || "")
     });
 
     __selectedWaTemplateKey = null;
