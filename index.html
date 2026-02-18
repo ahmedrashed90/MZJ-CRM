@@ -3667,93 +3667,7 @@ function applyInboxFilters(){
     }
   }
 
-  
-
-  async function sendBotMenuToConv(convId){
-    const convRef = doc(db, "wa_conversations", convId);
-    const convSnap = await getDoc(convRef);
-    if(!convSnap.exists()) return false;
-    const conv = convSnap.data() || {};
-    const waId = String(conv.waId || "").trim();
-    if(!waId) return false;
-
-    const msgRef = doc(collection(db, "wa_conversations", convId, "messages"));
-    const localMsgId = msgRef.id;
-
-    // نخزن في النظام كرسالة أوتوميشن (حتى لو المزود ما دعمش الأزرار)
-    await setDoc(msgRef, {
-      direction: "out",
-      type: "interactive",
-      text: String(WA_AUTO_MSG_MENU||"").trim(),
-      from: "crm_auto",
-      to: `wa:${waId}`,
-      provider: "mersal",
-      providerMessageId: "",
-      sentAt: serverTimestamp(),
-      receivedAt: serverTimestamp(),
-      status: "pending",
-      auto: true,
-      interactive: {
-        kind: "button",
-        buttons: [
-          { id: "cash", title: "مبيعات الكاش" },
-          { id: "finance", title: "مبيعات التمويل" },
-          { id: "cs", title: "خدمة العملاء" }
-        ]
-      }
-    });
-
-    await updateDoc(convRef, {
-      lastMessageText: String(WA_AUTO_MSG_MENU_FALLBACK||"").slice(0, 280),
-      lastMessageAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    }).catch(()=>{});
-
-    const interactivePayload = {
-      type: "interactive",
-      interactive: {
-        type: "button",
-        body: { text: String(WA_AUTO_MSG_MENU||"").trim() },
-        action: {
-          buttons: [
-            { type: "reply", reply: { id: "cash", title: "مبيعات الكاش" } },
-            { type: "reply", reply: { id: "finance", title: "مبيعات التمويل" } },
-            { type: "reply", reply: { id: "cs", title: "خدمة العملاء" } }
-          ]
-        }
-      }
-    };
-
-    try{
-      const resp = await fetch(MERSAL_SEND_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // نرسل text + interactive معاً: لو المزود لا يدعم الأزرار، سيرسل النص فقط.
-        body: JSON.stringify({ waId, text: String(WA_AUTO_MSG_MENU_FALLBACK||"").trim(), ...interactivePayload })
-      });
-      const data = await resp.json().catch(()=> ({}));
-      if(!resp.ok || data.ok === false){
-        await updateDoc(doc(db,"wa_conversations", convId, "messages", localMsgId), {
-          status: "failed",
-          error: String(data?.error || ("HTTP " + resp.status))
-        }).catch(()=>{});
-        return false;
-      }
-      await updateDoc(doc(db,"wa_conversations", convId, "messages", localMsgId), {
-        status: "sent",
-        providerMessageId: String(data?.id || data?.messageId || "")
-      }).catch(()=>{});
-      return true;
-    }catch(err){
-      await updateDoc(doc(db,"wa_conversations", convId, "messages", localMsgId), {
-        status: "failed",
-        error: String(err?.message || err)
-      }).catch(()=>{});
-      return false;
-    }
-  }
-
-async function assignConversationToBranchRandom(convId, branchName){
+  async function assignConversationToBranchRandom(convId, branchName){
     const agents = getEligibleAgentsForBranch(branchName);
     if(!agents.length) return { ok:false, reason:"no_agents" };
     const pick = agents[Math.floor(Math.random()*agents.length)];
@@ -3790,11 +3704,6 @@ async function assignConversationToBranchRandom(convId, branchName){
   }
 
   const WA_AUTO_MSG_MENU =
-`مرحباً بك في مجموعة محمد بن ذعار العجمي للسيارات - برجاء إختيار الخدمة
-اختر من الأزرار بالأسفل.`;
-
-// Fallback (لو مزود الإرسال لا يدعم الأزرار)
-const WA_AUTO_MSG_MENU_FALLBACK =
 `مرحباً بك في مجموعة محمد بن ذعار العجمي للسيارات - برجاء إختيار الخدمة
 1) مبيعات الكاش
 2) مبيعات التمويل
@@ -3867,7 +3776,7 @@ const WA_AUTO_MSG_MENU_FALLBACK =
 
       // 0) If no state yet -> send menu once
       if(!state){
-        await sendBotMenuToConv(convId);
+        await sendBotTextToConv(convId, WA_AUTO_MSG_MENU);
         await updateDoc(convRef, {
           autoFlowState: "awaiting_choice",
           autoMenuSentAt: new Date().toISOString(),
@@ -3885,7 +3794,7 @@ const WA_AUTO_MSG_MENU_FALLBACK =
           const n = Number(conv.autoInvalidChoiceCount || 0) + 1;
           await updateDoc(convRef, { autoInvalidChoiceCount: n, autoLastInboundId: lastId, updatedAt: new Date().toISOString() }).catch(()=>{});
           if(n <= 2){
-            await sendBotMenuToConv(convId);
+            await sendBotTextToConv(convId, WA_AUTO_MSG_MENU);
           }
           return;
         }
