@@ -14,6 +14,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3532,7 +3533,8 @@ function applyInboxFilters(){
 
   const _autoAssignSeen = new Set();
   async function autoAssignUnassignedConversations(){
-    const agents = Array.from(agentsMap.values()).filter(a=>a && a.isActive && !["admin","system_manager","branch_manager","marketing_admin","marketing_manager"].includes(a.roleId||"") && !EXCLUDED_ASSIGN_EMAILS.includes(String(a.email||a.id||"").toLowerCase()));
+    // Finance Sales only
+    const agents = getEligibleAgents();
     if(!agents.length) return;
     const updates = [];
     for(const x of inboxCache){
@@ -3548,6 +3550,8 @@ function applyInboxFilters(){
 
       updates.push(updateDoc(doc(db,"wa_conversations", x.id), {
         assignedTo: pickId,
+        assignedName: pick.name || pick.email || pickId,
+        branchId: pick.branchId || "",
         assignedAt: new Date().toISOString(),
         assignedBy: "auto",
         updatedAt: new Date().toISOString()
@@ -5435,11 +5439,33 @@ function bindTasksUI(){
     return false;
   }
 
+  // === Assignment Pool: Finance Sales only (مبيعات التمويل) ===
+  function getFinanceSalesBranchIds(){
+    const ids = new Set();
+    try{
+      if(typeof branchesMap !== "undefined" && branchesMap && branchesMap.values){
+        for(const b of branchesMap.values()){
+          if(!b || b.isActive === false) continue;
+          const nm = String(b.name || "").trim();
+          if(nm === "مبيعات التمويل") ids.add(String(b.id || "").trim());
+        }
+      }
+    }catch(e){}
+    return ids;
+  }
+  function isFinanceSalesAgent(a){
+    const ids = getFinanceSalesBranchIds();
+    if(!ids.size) return false;
+    return ids.has(String(a?.branchId || "").trim());
+  }
+
   function getEligibleAgents(){
+    // Only agents from "مبيعات التمويل" branch + not excluded + active
     return Array.from(agentsUidMap.values())
-      .filter(a=>a && a.isActive && !isExcludedAssignee(a))
+      .filter(a=>a && a.isActive && !isExcludedAssignee(a) && isFinanceSalesAgent(a))
       .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||""), "ar"));
   }
+
 
   function fillTempRedistributeAgents(selectCss){
     const sel = $(selectCss);
