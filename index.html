@@ -2515,16 +2515,15 @@ const WA_TEMPLATES = {
 finance_request_received_v3: {
   name: "finance_request_received_v3",
   lang: "ar",
-  // params will be auto-filled from Lead data at send time
-  params: [],
+  params: ["", "", "", "", ""],
   previewText:
-`تم استلام طلبك بخصوص :
-السيارة: {{1}}
-العمر: {{2}}
-البنك: {{3}}
-الراتب: {{4}}
-الالتزام: {{5}}
-وجاري العمل على الطلب ✅`
+`تم استلام طلبك بخصوص:
+السيارة:
+العمر:
+البنك:
+الراتب:
+الالتزام:
+وجاري العمل على الطلب`
 },
 
   no_reply_followup: {
@@ -3607,34 +3606,6 @@ try{
     const convSnap = await getDoc(convRef);
     if(!convSnap.exists()) return false;
     const conv = convSnap.data() || {};
-
-  // Load linked Lead data (for template auto-params)
-  const leadId = String(conv.leadId || "").trim();
-  let lead = null;
-  if(leadId){
-    try{
-      const leadSnap = await getDoc(doc(db, "leads", leadId));
-      lead = leadSnap.exists() ? (leadSnap.data() || {}) : null;
-    }catch(e){ lead = null; }
-  }
-
-  function buildTemplateParams(tpl){
-    if(!tpl) return [];
-    // If template already has explicit params, keep them.
-    if(Array.isArray(tpl.params) && tpl.params.length) return tpl.params;
-
-    // Auto-fill finance receipt template from lead/customer data.
-    if(String(tpl.name||"") === "finance_request_received_v3"){
-      const car = String(lead?.carType || lead?.car || conv?.carType || conv?.car || "").trim();
-      const age = String(lead?.age || conv?.age || "").trim();
-      const bank = String(lead?.bank || lead?.salaryBank || conv?.bank || "").trim();
-      const salary = String(lead?.salary || conv?.salary || "").trim();
-      const commitment = String(lead?.commitment || lead?.obligation || conv?.commitment || "").trim();
-      return [car, age, bank, salary, commitment].map(x=> x || "");
-    }
-
-    return [];
-  }
     const waId = String(conv.waId || "").trim();
     if(!waId) return false;
 
@@ -4418,7 +4389,7 @@ async function sendOutboundMessage(text){
 
   try{
     const payload = isTemplate
-      ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: buildTemplateParams(tpl) } }
+      ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: Array.isArray(tpl.params)?tpl.params:[] } }
       : { waId, text: clean };
 
     const resp = await fetch(MERSAL_SEND_ENDPOINT, {
@@ -4596,7 +4567,7 @@ async function sendOutboundMessage(text){
     };
 
     
-document.getElementById("templateSelect")?.addEventListener("change", (e)=>{
+document.getElementById("templateSelect")?.addEventListener("change", async (e)=>{
   const v = String(e.target?.value || "");
   if(!v) return;
 
@@ -4607,6 +4578,51 @@ document.getElementById("templateSelect")?.addEventListener("change", (e)=>{
     const key = v.slice(3);
     const tpl = WA_TEMPLATES?.[key];
     if(tpl){
+      // ✅ Auto-fill template params from Lead data (for finance template)
+      if(key === "finance_request_received_v3"){
+        try{
+          if(activeConvId){
+            const convSnap = await getDoc(doc(db, "wa_conversations", activeConvId));
+            const conv = convSnap.exists() ? (convSnap.data()||{}) : {};
+            const leadId = String(conv.leadId || "").trim();
+            if(leadId){
+              const leadSnap = await getDoc(doc(db, "leads", leadId));
+              const lead = leadSnap.exists() ? (leadSnap.data()||{}) : {};
+              const car = String(lead?.carType || lead?.car || lead?.financeCar || "").trim();
+              const age = String(lead?.age || "").trim();
+              const bank = String(lead?.bank || lead?.salaryBank || "").trim();
+              const salary = String(lead?.salary || lead?.income || "").trim();
+              const commitment = String(lead?.commitment || lead?.obligation || "").trim();
+
+              // Fill params in order {{1..5}}
+              tpl.params = [
+                car || "غير محدد",
+                age || "غير محدد",
+                bank || "غير محدد",
+                salary || "غير محدد",
+                commitment || "غير محدد"
+              ];
+
+              // Optional: fill preview with values so you see what will be sent
+              const prev =
+`تم استلام طلبك بخصوص :
+السيارة: ${tpl.params[0]}
+العمر: ${tpl.params[1]}
+البنك: ${tpl.params[2]}
+الراتب: ${tpl.params[3]}
+الالتزام: ${tpl.params[4]}
+وجاري العمل على الطلب ✅`;
+              tpl.previewText = prev;
+            }else{
+              // No lead linked yet
+              tpl.params = ["غير محدد","غير محدد","غير محدد","غير محدد","غير محدد"];
+            }
+          }
+        }catch(_e){
+          // ignore, keep defaults
+        }
+      }
+
       __selectedWaTemplateKey = key;
       if(ta){
         ta.readOnly = true;
@@ -4618,7 +4634,7 @@ document.getElementById("templateSelect")?.addEventListener("change", (e)=>{
     }
   }
 
-  // keep selected label visible? we reset to placeholder after preview is set
+  // reset dropdown to placeholder
   e.target.value = "";
 });
 // send button
