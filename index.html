@@ -19,6 +19,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3517,13 +3518,26 @@ try{
   });
 }catch(_e){}
     if(!msgs.length){
-      body.innerHTML = `
-        <div style="padding:12px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
-          لا توجد رسائل بعد.
-        </div>
-      `;
-      return;
+  // Fallback: بعض المنصات/الويبهوك قد تُحدّث lastMessageText بدون تخزين الرسائل داخل subcollection
+  try{
+    const conv = inboxCache.find(x=>x.id===activeConvId)?.data || {};
+    const lastText = String(conv.lastMessageText || conv.last_message_text || "").trim();
+    if(lastText){
+      const lastAt = conv.lastMessageAt || conv.last_message_at || conv.updatedAt || new Date().toISOString();
+      msgs = [{ id:"__last__", data:{ direction:"in", type:"text", text:lastText, sentAt:lastAt } }];
     }
+  }catch(_e){}
+
+  if(!msgs.length){
+    body.innerHTML = `
+      <div style="padding:12px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
+        لا توجد رسائل بعد.
+      </div>
+    `;
+    return;
+  }
+}
+
 
     body.innerHTML = msgs.map(m=>{
       const d = m.data || {};
@@ -4760,7 +4774,41 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
   }
 
   // حالات العملاء (من installment_calculator وغيرها) — إدارة داخل Tab العملاء المحتملون
-  let leadStatusesMap = new Map(); // id -> {id,name,isActive}
+  let leadStatusesMap = new Map();
+
+// ===== Custom Status Order (Dashboard + Pipeline + Dropdowns) =====
+const CUSTOM_STATUS_ORDER = [
+  "تم الإتصال (للفلترة + طلب الأوراق)",
+  "غير مؤهل",
+  "مؤهل - لم يتم إرسال الأوراق",
+  "مؤهل - تم إرسال الأوراق",
+  "تم رفع الطلب الى جهة التمويل",
+  "تم رفع الطلب الى جهة التمويل - متقدم",
+  "طلبات تمت الموافقة",
+  "طلبات لم تتم الموافقة",
+  "تم الإتصال لتوقيع العقد",
+  "تم توقيع العقد",
+  "لم يتم توقيع العقد",
+  "تم الإنتهاء - إنشاء طلب البيع"
+];
+
+function sortStatusesByCustomOrder(list){
+  const arr = Array.isArray(list) ? list.slice() : [];
+  // Items not in list go to the end; keep Arabic alphabetical among them for stability
+  arr.sort((a,b)=>{
+    const na = String(a?.name || "").trim();
+    const nb = String(b?.name || "").trim();
+    const ia = CUSTOM_STATUS_ORDER.indexOf(na);
+    const ib = CUSTOM_STATUS_ORDER.indexOf(nb);
+    const aIn = ia !== -1, bIn = ib !== -1;
+    if(aIn && bIn) return ia - ib;
+    if(aIn && !bIn) return -1;
+    if(!aIn && bIn) return 1;
+    return na.localeCompare(nb, "ar");
+  });
+  return arr;
+}
+ // id -> {id,name,isActive}
   let unsubLeadStatuses = null;
 
   function canEditLeadStatus(lead){
@@ -5136,11 +5184,11 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
   }
 
   function getPipelineStatuses(){
-    // الأعمدة: الحالات النشطة بالترتيب الأبجدي العربي (بدون "بدون حالة")
-    const act = Array.from(leadStatusesMap.values()).filter(s=>s.isActive !== false);
-    act.sort((a,b)=> String(a.name).localeCompare(String(b.name),"ar"));
-    return act.length ? act : [getDefaultLeadStatus()];
-  }
+  // الأعمدة: الحالات النشطة حسب الترتيب المطلوب (وأي حالات أخرى في النهاية)
+  const act = Array.from(leadStatusesMap.values()).filter(s=>s.isActive !== false);
+  const sorted = sortStatusesByCustomOrder(act);
+  return sorted.length ? sorted : [getDefaultLeadStatus()];
+}
 
   function filterPipelineLeads(){
     const q = (pipeState.q||"").trim().toLowerCase();
@@ -6213,7 +6261,7 @@ function bindTasksUI(){
     const tb = $("#tblLeadStatuses");
     if(!tb) return;
 
-    const rows = Array.from(leadStatusesMap.values()).sort((a,b)=> String(a.name).localeCompare(String(b.name), "ar"));
+    const rows = sortStatusesByCustomOrder(Array.from(leadStatusesMap.values()));
     if(!rows.length){
       tb.innerHTML = `<tr><td colspan="4" class="mzj-empty">لا توجد حالات بعد.</td></tr>`;
       return;
@@ -6691,7 +6739,7 @@ $("#inboxLeadBarClose")?.addEventListener("click", ()=> setLeadBarVisible(false)
   }) : leads;
 
   // statuses list (from settings_lead_statuses + default)
-  const statuses = Array.from(leadStatusesMap.values()).filter(x=>x && x.isActive!==false);
+  const statuses = sortStatusesByCustomOrder(Array.from(leadStatusesMap.values()).filter(x=>x && x.isActive!==false));
   if(!statuses.find(s=>s.id===getDefaultLeadStatus().id)){
     statuses.unshift(getDefaultLeadStatus());
   }
