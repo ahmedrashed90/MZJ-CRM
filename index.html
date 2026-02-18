@@ -3346,10 +3346,11 @@ function refreshSettingsTables(){
   }
 
   function renderConvItem(id, c){
-    const name = c.displayName || c.waId || "—";
-    const last = c.lastMessageText || "";
-    const tms = fsToMs(c.lastMessageAt);
-    const u = Number(c.unreadCount || 0);
+    // ✅ دعم واتساب + فيسبوك بنفس الهيكل
+    const name = c.name || c.displayName || c.waId || c.participantId || "—";
+    const last = c.last_message_text || c.lastMessageText || c.lastMessage || "";
+    const tms = fsToMs(c.last_message_at || c.lastMessageAt);
+    const u = Number(c.unreadCount || c.unread_count || 0);
     const isActive = (id === activeConvId);
 
     return `
@@ -3361,7 +3362,7 @@ function refreshSettingsTables(){
           <div class="convText" style="min-width:0">
             <b title="${esc(name)}">${esc(name)}</b>
             <p title="${esc(last)}">${esc(last)}</p>
-            ${convChannelPill(c.channel)}
+            ${convChannelPill(c.channel || (String(c.platform||"").includes("facebook")?"facebook":"wa"))}
           </div>
         </div>
         <div class="convMeta">
@@ -3423,36 +3424,34 @@ function applyInboxFilters(){
     const baseList = dedupeInboxConversations(inboxCache);
 
     const filtered = baseList.filter(({id,data})=>{
-      // Role guard: agents only see assigned chats
-      if(currentUser && !canSeeAllInbox()){
-        const asg = (data?.assignedTo || "");
-        if(asg !== currentUser.uid && asg !== "") return false;
-      }
-      const c = data || {};
+      // ✅ Show conversations for everyone (no assignedTo filter)
+const c = data || {};
       // archive filter
       const isArch = !!c.archived;
       if(inboxShowArchived ? !isArch : isArch) return false;
       // channel filter
       if(fChannel){
-        const ch = (c.channel || "").toLowerCase();
+        const chRaw = String(c.channel || "").toLowerCase();
+        const pfRaw = String(c.platform || "").toLowerCase();
+        const ch = chRaw || (pfRaw.includes("whatsapp") ? "whatsapp" : pfRaw.includes("facebook") ? "facebook" : pfRaw.includes("instagram") ? "instagram" : "");
         if(fChannel === "wa" && ch !== "whatsapp" && ch !== "wa") return false;
         if(fChannel === "ig" && ch !== "instagram" && ch !== "ig") return false;
-        if(fChannel === "fb" && ch !== "facebook" && ch !== "fb") return false;
+        if(fChannel === "fb" && ch !== "facebook" && ch !== "fb" && ch !== "facebook_messenger") return false;
       }
       // branch filter (optional field)
       if(fBranch && (c.branchId || "") !== fBranch) return false;
 
       if(qText){
-        const name = String(c.displayName || "").toLowerCase();
-        const waId = String(c.waId || "").toLowerCase();
-        const last = String(c.lastMessageText || "").toLowerCase();
+        const name = String(c.displayName || c.name || "").toLowerCase();
+        const waId = String(c.waId || c.participantId || "").toLowerCase();
+        const last = String(c.lastMessageText || c.last_message_text || "").toLowerCase();
         if(!name.includes(qText) && !waId.includes(qText) && !last.includes(qText)) return false;
       }
       return true;
     });
 
     // sort by last message (newest first)
-    filtered.sort((a,b)=> fsToMs(b.data?.lastMessageAt) - fsToMs(a.data?.lastMessageAt));
+    filtered.sort((a,b)=> (fsToMs(b.data?.lastMessageAt) || fsToMs(b.data?.last_message_at)) - (fsToMs(a.data?.lastMessageAt) || fsToMs(a.data?.last_message_at)));
 
     // render
     if(!filtered.length){
@@ -3480,7 +3479,7 @@ function applyInboxFilters(){
 
     if(conv?.waId){
       // منصة + أيقونة + رقم (LTR)
-      const pill = convChannelPill(conv.channel || "wa")
+      const pill = convChannelPill(conv.channel || (String(conv.platform||"").includes("facebook")?"facebook":"wa"))
         .replace('<span class="pill', '<span class="pill" style="padding:0;border:0;background:transparent;display:inline-flex;align-items:center;gap:6px"');
 
       metaEl.innerHTML = `${pill} <span style="color:rgba(28,28,28,.55);font-weight:800">•</span> <span style="direction:ltr;unicode-bidi:plaintext">${esc(conv.waId)}</span>`;
@@ -4072,12 +4071,9 @@ function ensureInboxLive(){
 
     const baseCol = collection(db,"wa_conversations");
     let convQ = null;
-    if(canSeeAllInbox()){
-      convQ = query(baseCol, orderBy("lastMessageAt","desc"), limit(200));
-    }else{
-      // Agents see only their assigned conversations
-      convQ = query(baseCol, where("assignedTo","in", [currentUser.uid, ""]), limit(400));
-    }
+    // ✅ عرض كل المحادثات للجميع (بدون فلترة assignedTo)
+    // ✅ بدون orderBy لأن المنصات تستخدم حقول مختلفة (lastMessageAt / last_message_at)
+    convQ = query(baseCol, limit(800));
 
     listEl.innerHTML = `<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل المحادثات…</div>`;
 
