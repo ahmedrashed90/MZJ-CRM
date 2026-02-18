@@ -6230,6 +6230,13 @@ function bindTasksUI(){
       }
 
       if(!leadId && phone){
+        // Create lead only after the customer chooses a service (or if already assigned)
+        const _shouldCreate = !!(conv.assignedTo || conv.autoService || conv.autoFlowState);
+        if(!_shouldCreate){
+          // keep conversation without lead until routing/choice happens
+          return "";
+        }
+
         leadId = phone; // deterministic id avoids duplicates
         const leadRef = doc(db,"leads", leadId);
         const exists = await getDoc(leadRef).catch(()=>null);
