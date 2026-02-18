@@ -2650,7 +2650,7 @@ let __selectedWaTemplateKey = null;
   const EXCLUDED_ASSIGN_EMAILS = ["mr.ahmed_rashed@outlook.sa"];
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, getDocs, serverTimestamp, writeBatch, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+  import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, getDocs, serverTimestamp, writeBatch, addDoc, startAfter} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
   import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
   import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
 
@@ -3307,6 +3307,13 @@ function refreshSettingsTables(){
   // ===== Inbox (WhatsApp via wa_conversations) =====
   let unsubInbox = null;
   let unsubMsgs = null;
+
+// ===== Inbox Pagination (Professional Infinite Scroll) =====
+const INBOX_PAGE_SIZE = 50;
+let inboxLastDoc = null;
+let inboxLoadingMore = false;
+let inboxReachedEnd = false;
+let unsubInboxLive = null; // live updates for first page only
   let inboxCache = []; // [{id,data}]
   let activeConvId = null;
 
@@ -4091,12 +4098,36 @@ function ensureInboxLive(){
 
     listEl.innerHTML = `<div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل المحادثات…</div>`;
 
-    unsubInbox = onSnapshot(convQ, (snap)=>{
-      inboxCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+    
+// ===== Inbox loader (paginated) =====
+async function loadInboxFirstPage(){
+  const listEl = $("#convList");
+  if(!listEl) return;
+
+  inboxLastDoc = null;
+  inboxReachedEnd = false;
+  inboxLoadingMore = true;
+  listEl.innerHTML = `<div style="padding:14px;color:rgba(28,28,28,.68);font-size:13px">جاري تحميل المحادثات…</div>`;
+
+  try{
+    // Live for latest page only
+    if(unsubInboxLive){ unsubInboxLive(); unsubInboxLive = null; }
+
+    const baseRef = collection(db,"wa_conversations");
+    // Use updatedAt as stable ordering (exists on our writes). Fallback field names are handled in UI sort.
+    const liveQ = query(baseRef, orderBy("updatedAt","desc"), limit(INBOX_PAGE_SIZE));
+
+    unsubInboxLive = onSnapshot(liveQ, (snap)=>{
+      const firstPage = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+      // merge with existing pages (keep older pages loaded by pagination)
+      const older = Array.isArray(inboxCache) ? inboxCache.filter(x=> !firstPage.some(p=>p.id===x.id)) : [];
+      inboxCache = firstPage.concat(older);
+      inboxLastDoc = snap.docs.length ? snap.docs[snap.docs.length-1] : inboxLastDoc;
+      inboxReachedEnd = snap.docs.length < INBOX_PAGE_SIZE;
       applyInboxFilters();
       setBadgeConnected(true);
 
-      // Auto-assign unassigned conversations (random) — managers only
+      // Auto-assign + automation only for managers
       if(canSeeAllInbox()){
         autoAssignUnassignedConversations().catch(e=>console.warn("auto-assign failed", e));
         runWhatsAppAutomationOnInbox().catch(e=>console.warn("wa automation failed", e));
@@ -4116,9 +4147,60 @@ function ensureInboxLive(){
       `;
     });
 
-    // click handler (delegate)
+  }catch(err){
+    console.warn(err);
+    listEl.innerHTML = `<div style="padding:16px;color:#9b0000;font-weight:800;line-height:1.8">تعذر التحميل.</div>`;
+  }finally{
+    inboxLoadingMore = false;
+  }
+}
+
+async function loadInboxMore(){
+  if(inboxLoadingMore || inboxReachedEnd) return;
+  const listEl = $("#convList");
+  if(!listEl) return;
+  if(!inboxLastDoc) return; // nothing to page from yet
+
+  inboxLoadingMore = true;
+  try{
+    const baseRef = collection(db,"wa_conversations");
+    const moreQ = query(baseRef, orderBy("updatedAt","desc"), startAfter(inboxLastDoc), limit(INBOX_PAGE_SIZE));
+    const snap = await getDocs(moreQ);
+
+    const more = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+    // append then dedupe at render time
+    inboxCache = (Array.isArray(inboxCache) ? inboxCache : []).concat(more);
+
+    inboxLastDoc = snap.docs.length ? snap.docs[snap.docs.length-1] : inboxLastDoc;
+    if(snap.docs.length < INBOX_PAGE_SIZE) inboxReachedEnd = true;
+
+    applyInboxFilters();
+  }catch(err){
+    console.warn("loadInboxMore failed", err);
+  }finally{
+    inboxLoadingMore = false;
+  }
+}
+
+// start loading inbox
+loadInboxFirstPage();
+
+// click handler
+
+      // click handler (delegate)
     listEl.addEventListener("click", (e)=>{
       const item = e.target.closest(".conv");
+
+
+// infinite scroll: load more when near bottom
+const scroller = listEl.closest(".inboxList") || listEl.parentElement || listEl;
+scroller.addEventListener("scroll", ()=>{
+  try{
+    const el = scroller;
+    const nearBottom = (el.scrollTop + el.clientHeight) >= (el.scrollHeight - 220);
+    if(nearBottom) loadInboxMore();
+  }catch(_e){}
+}, {passive:true});
       if(!item) return;
       const id = item.dataset.id;
       if(!id) return;
