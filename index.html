@@ -3427,6 +3427,21 @@ function applyInboxFilters(){
       return;
     }
 
+
+// de-duplicate messages (avoid showing optimistic + webhook duplicates)
+try{
+  const seen = new Set();
+  msgs = (msgs||[]).filter(mm=>{
+    const dd = mm?.data || {};
+    const pid = String(dd.providerMessageId || dd.id || "").trim();
+    const ms = fsToMs(dd.sentAt) || fsToMs(dd.receivedAt) || 0;
+    const txt = String(dd.text || dd.caption || dd.body || dd.message || "").trim();
+    const key = pid ? ("pid:"+pid) : (`k:${String(dd.direction||"")}|${String(dd.type||"")}|${txt}|${ms}`);
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}catch(_e){}
     if(!msgs.length){
       body.innerHTML = `
         <div style="padding:12px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
