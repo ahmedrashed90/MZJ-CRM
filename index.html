@@ -1,26 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -4075,42 +4052,88 @@ function channelToSourceLabel(ch){
 
   // ✅ توحيد عرض المصدر (فيسبوك/ماسنجر/Meta -> فيسبوك) + (انستجرام/IG) + (واتساب/WA)
   function normalizeSourceLabel(raw){
-    const s0 = String(raw||"").trim();
-    if(!s0) return "غير معروف";
-    // لو المصدر مكتوب عربي بالفعل
-    if(/واتساب|انستجرام|فيسبوك|حاسبة التقسيط|غير معروف/.test(s0)) return s0;
-    const s = s0.toLowerCase();
-    if(s.includes("instagram") || s === "ig") return "انستجرام";
-    if(s.includes("facebook") || s === "fb" || s.includes("messenger") || s.includes("meta")) return "فيسبوك";
-    if(s.includes("whatsapp") || s === "wa") return "واتساب";
-    // مصادر داخلية أخرى (مثل: حاسبة التقسيط)
-    if(s === "installment_calculator" || s.includes("calculator")) return "حاسبة التقسيط";
-    return s0;
-  }
+  const s0 = String(raw ?? "").trim();
+  if(!s0) return "";
+  // placeholders treated as empty
+  if(s0 === "-" || s0 === "—" || s0.toLowerCase() === "null" || s0.toLowerCase() === "undefined") return "";
+  // لو المصدر مكتوب عربي بالفعل
+  if(/واتساب|انستجرام|فيسبوك|حاسبة التقسيط/.test(s0)) return s0;
 
-  function getNormalizedSourceForLead(lead){
-    // 1) نحاول نقرأ المصدر من (source) ثم (channel) ثم أي حقول شائعة
-    let raw = (lead?.source ?? lead?.channel ?? lead?.platform ?? lead?.provider ?? "");
-    let label = normalizeSourceLabel(raw);
+  const s = s0.toLowerCase();
+  if(s.includes("instagram") || s === "ig") return "انستجرام";
+  if(s.includes("facebook") || s === "fb" || s.includes("messenger") || s.includes("meta")) return "فيسبوك";
+  if(s.includes("whatsapp") || s === "wa") return "واتساب";
 
-    // 2) لو فاضي/غير معروف، نستنتج من contactKey (ليدات السوشيال بدون جوال)
-    if(!raw || label === "غير معروف"){
-      const ck = String(lead?.contactKey || lead?.contact_key || "").toLowerCase();
-      if(ck.startsWith("fb:") || ck.includes("facebook") || ck.includes("messenger")) label = "فيسبوك";
-      else if(ck.startsWith("ig:") || ck.includes("instagram")) label = "انستجرام";
+  // مصادر داخلية أخرى (مثل: حاسبة التقسيط)
+  if(s === "installment_calculator" || s.includes("calculator")) return "حاسبة التقسيط";
+
+  return s0;
+}
+
+function inferSourceFromLeadDoc(lead, leadId=""){
+  const d = lead || {};
+  const id = String(leadId || d.id || "").trim();
+
+  // 1) try meaningful fields (ignore placeholders)
+  const candidates = [
+    d.source, d.channel, d.platform, d.provider,
+    d.origin, d.inboxChannel, d.inboxPlatform
+  ].map(normalizeSourceLabel).filter(Boolean);
+
+  if(candidates.length) return candidates[0];
+
+  // 2) infer from id / convId / contactKey patterns
+  const keyStr = String(d.contactKey || d.convId || d.conversationId || "").toLowerCase();
+  const idStr  = id.toLowerCase();
+
+  if(idStr.startsWith("fb_") || keyStr.startsWith("fb:") || keyStr.includes("facebook") || keyStr.includes("messenger")) return "فيسبوك";
+  if(idStr.startsWith("ig_") || keyStr.startsWith("ig:") || keyStr.includes("instagram")) return "انستجرام";
+
+  // 3) if has WhatsApp phone normalized and nothing else, treat as WhatsApp
+  const pn = String(d.phoneNormalized || d.waId || d.phone || "").trim();
+  if(pn) return "واتساب";
+
+  return "";
+}
+
+function getNormalizedSourceForLead(lead, leadId=""){
+  return inferSourceFromLeadDoc(lead, leadId) || "—";
+}
+
+// إصلاح تلقائي لمصادر الليدات التي تم حفظها بـ "-" (مرة واحدة لكل ليد)
+window.__fixedLeadSources = window.__fixedLeadSources || new Set();
+async function autoFixLeadSourcesOnce(list){
+  try{
+    if(!Array.isArray(list) || !list.length) return;
+    const todo = [];
+    for(const x of list){
+      const id = x?.id || "";
+      const d  = x?.data || {};
+      if(!id || window.__fixedLeadSources.has(id)) continue;
+
+      const cur = String(d.source ?? "").trim();
+      if(cur && cur !== "-" && cur !== "—") { window.__fixedLeadSources.add(id); continue; }
+
+      const inferred = inferSourceFromLeadDoc(d, id);
+      if(!inferred) { window.__fixedLeadSources.add(id); continue; }
+
+      todo.push({id, inferred});
+      if(todo.length >= 25) break; // حماية من كثرة الكتابة
     }
 
-    // 3) fallback: وجود participantId بدون جوال غالبًا سوشيال
-    if(label === "غير معروف"){
-      const pid = String(lead?.participantId || lead?.senderId || "").trim();
-      const hasPhone = !!String(lead?.phoneNormalized || lead?.phone || "").trim();
-      if(pid && !hasPhone) label = "فيسبوك";
+    for(const t of todo){
+      window.__fixedLeadSources.add(t.id);
+      try{
+        updateDoc(doc(db,"leads", t.id), { source: t.inferred, updatedAt: new Date().toISOString() }).catch(()=>{});
+      }catch(e){
+        // لو مفيش صلاحيات تحديث، على الأقل العرض هيبقى صحيح لأنه بيعتمد على channel/platform
+      }
     }
-
-    return label;
+  }catch(e){
+    console.warn("autoFixLeadSourcesOnce", e);
   }
+}
 
-  
 
   
 // تحديث فلاتر صندوق الوارد (المنصة/القسم/البحث/الأرشيف)
@@ -5030,7 +5053,7 @@ function sortStatusesByCustomOrder(list){
       <tr data-id="${esc(id)}" class="leadTr">
         <td><a class="leadNameLink" data-openlead="${esc(id)}" href="javascript:void(0)">${esc(d.name)}</a></td>
         <td><a class="leadPhoneLink" data-openinboxphone="${esc(lead.phoneNormalized || lead.phone || lead.waId || "")}" data-openinboxname="${esc(d.name)}" href="javascript:void(0)">${esc(d.phone)}</a></td>
-        <td>${esc(getNormalizedSourceForLead(lead) || "—")}</td>
+        <td>${esc(getNormalizedSourceForLead(lead,id) || "—")}</td>
         <td title="${esc(carName)}">${esc(carName)}</td>
         <td>${esc(payType || "—")}</td>
         <td>${esc(d.statusName || "—")}</td>
@@ -5153,7 +5176,7 @@ function sortStatusesByCustomOrder(list){
 
     const pills = [
       ["الجوال", (lead.phone || lead.phoneNormalized || "—")],
-      ["المصدر", (getNormalizedSourceForLead(lead) || "—")],
+      ["المصدر", (getNormalizedSourceForLead(lead,id) || "—")],
       ["اسم السيارة", carName],
       ["الدفع", payType],
       ["المرحلة", d.stage],
@@ -5288,8 +5311,8 @@ function sortStatusesByCustomOrder(list){
     const prev = srcSel.value || "";
     const sources = new Map();
 
-    leadsCache.forEach(({data})=>{
-      const s = String(getNormalizedSourceForLead(data) ?? "").trim();
+    leadsCache.forEach(({id,data})=>{
+      const s = String(getNormalizedSourceForLead(data, id) ?? "").trim();
       if(s) sources.set(s, s);
     });
 
@@ -5742,7 +5765,7 @@ function enableKanbanDragScroll(board){
     const events = [];
 
     const created = lead.createdAt || lead.timestamp || lead.updatedAt;
-    events.push({ t: created, title:"تم إنشاء العميل", desc:`دخل من مصدر: ${(getNormalizedSourceForLead(lead)||"—")}` });
+    events.push({ t: created, title:"تم إنشاء العميل", desc:`دخل من مصدر: ${(getNormalizedSourceForLead(lead,leadId)||"—")}` });
 
     const carName = getLeadCarName(lead);
     if(carName && carName !== "—") events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تحديد السيارة", desc:`السيارة: ${carName}` });
@@ -5830,7 +5853,7 @@ function applyLeadFilters(){
       if(fa && getAssignedUidFromLead(data) !== fa) return false;
       if(fs && data.stageId !== fs) return false;
       if(fstat && (data.leadStatusId || "") !== fstat) return false;
-      if(fsrc && String(getNormalizedSourceForLead(data)||"").trim() !== fsrc) return false;
+      if(fsrc && String(getNormalizedSourceForLead(data,id)||"").trim() !== fsrc) return false;
       if(fcar){
         const carName = getLeadCarName(data);
         if(carName !== fcar) return false;
@@ -5849,7 +5872,7 @@ function applyLeadFilters(){
         const n = String(data.name||"").toLowerCase();
         const p = String(data.phone||"").toLowerCase();
         const pn = String(data.phoneNormalized||"").toLowerCase();
-        const src = String(getNormalizedSourceForLead(data)||"").toLowerCase();
+        const src = String(getNormalizedSourceForLead(data,id)||"").toLowerCase();
         const car = String(getLeadCarName(data)||"").toLowerCase();
         const pay = String(getLeadPayType(data)||"").toLowerCase();
         if(!n.includes(qText) && !p.includes(qText) && !pn.includes(qText) && !src.includes(qText) && !car.includes(qText) && !pay.includes(qText)) return false;
@@ -6019,6 +6042,7 @@ function bindTasksUI(){
     unsubLeads = onSnapshot(qRef, (snap)=>{
       leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
       applyLeadFilters();
+      try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
       try{ renderPipeline(); }catch(e){}
       setBadgeConnected(true);
     }, async (err)=>{
@@ -6027,6 +6051,7 @@ function bindTasksUI(){
         const snap = await getDocs(query(collection(db,"leads"), limit(300)));
         leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
         applyLeadFilters();
+        try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
         try{ renderPipeline(); }catch(e){}
         setBadgeConnected(true);
       }catch(e){
