@@ -20,6 +20,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3486,11 +3487,13 @@ const c = data || {};
     if(!metaEl){ return; }
 
     if(conv?.waId){
-      // منصة + أيقونة + رقم (LTR)
       const pill = convChannelPill(conv.channel || (String(conv.platform||"").includes("facebook")?"facebook":"wa"))
         .replace('<span class="pill', '<span class="pill" style="padding:0;border:0;background:transparent;display:inline-flex;align-items:center;gap:6px"');
-
       metaEl.innerHTML = `${pill} <span style="color:rgba(28,28,28,.55);font-weight:800">•</span> <span style="direction:ltr;unicode-bidi:plaintext">${esc(conv.waId)}</span>`;
+    }else if(conv?.participantId){
+      const pill = convChannelPill(conv.channel || (String(conv.platform||"").includes("instagram")?"instagram":"facebook"))
+        .replace('<span class="pill', '<span class="pill" style="padding:0;border:0;background:transparent;display:inline-flex;align-items:center;gap:6px"');
+      metaEl.innerHTML = `${pill} <span style="color:rgba(28,28,28,.55);font-weight:800">•</span> <span style="direction:ltr;unicode-bidi:plaintext">${esc(conv.participantId)}</span>`;
     }else{
       metaEl.textContent = "—";
     }
@@ -3620,17 +3623,22 @@ try{
 
     const msgsQ = query(
       collection(db,"wa_conversations", convId, "messages"),
-      orderBy("sentAt","asc"),
       limit(400)
-    );
-
-    const body = $("#chatBody");
+    );const body = $("#chatBody");
     if(body){
       body.innerHTML = `<div style="padding:12px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">جاري تحميل الرسائل…</div>`;
     }
 
     unsubMsgs = onSnapshot(msgsQ, (snap)=>{
-      const msgs = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+      let msgs = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+      // ✅ ترتيب محلي حسب الوقت الحقيقي (يحل مشكلة تجميع رسائل CRM لوحدها ورسائل العميل لوحدها بسبب اختلاف نوع الحقول)
+      msgs.sort((a,b)=>{
+        const da = a.data||{}, dbb = b.data||{};
+        const ta = (fsToMs(da.sentAt) || fsToMs(da.receivedAt) || 0);
+        const tb = (fsToMs(dbb.sentAt) || fsToMs(dbb.receivedAt) || 0);
+        if(ta !== tb) return ta - tb;
+        return String(a.id).localeCompare(String(b.id));
+      });
       renderMessages(msgs);
       setBadgeConnected(true);
     }, (err)=>{
@@ -4061,10 +4069,48 @@ function channelToSourceLabel(ch){
     const c = String(ch||"").toLowerCase();
     if(c === "whatsapp" || c === "wa") return "واتساب";
     if(c === "instagram" || c === "ig") return "انستجرام";
-    if(c === "facebook" || c === "fb") return "فيسبوك";
+    if(c === "facebook" || c === "fb" || c.includes("messenger")) return "فيسبوك";
     return ch || "—";
   }
 
+  // ✅ توحيد عرض المصدر (فيسبوك/ماسنجر/Meta -> فيسبوك) + (انستجرام/IG) + (واتساب/WA)
+  function normalizeSourceLabel(raw){
+    const s0 = String(raw||"").trim();
+    if(!s0) return "غير معروف";
+    // لو المصدر مكتوب عربي بالفعل
+    if(/واتساب|انستجرام|فيسبوك|حاسبة التقسيط|غير معروف/.test(s0)) return s0;
+    const s = s0.toLowerCase();
+    if(s.includes("instagram") || s === "ig") return "انستجرام";
+    if(s.includes("facebook") || s === "fb" || s.includes("messenger") || s.includes("meta")) return "فيسبوك";
+    if(s.includes("whatsapp") || s === "wa") return "واتساب";
+    // مصادر داخلية أخرى (مثل: حاسبة التقسيط)
+    if(s === "installment_calculator" || s.includes("calculator")) return "حاسبة التقسيط";
+    return s0;
+  }
+
+  function getNormalizedSourceForLead(lead){
+    // 1) نحاول نقرأ المصدر من (source) ثم (channel) ثم أي حقول شائعة
+    let raw = (lead?.source ?? lead?.channel ?? lead?.platform ?? lead?.provider ?? "");
+    let label = normalizeSourceLabel(raw);
+
+    // 2) لو فاضي/غير معروف، نستنتج من contactKey (ليدات السوشيال بدون جوال)
+    if(!raw || label === "غير معروف"){
+      const ck = String(lead?.contactKey || lead?.contact_key || "").toLowerCase();
+      if(ck.startsWith("fb:") || ck.includes("facebook") || ck.includes("messenger")) label = "فيسبوك";
+      else if(ck.startsWith("ig:") || ck.includes("instagram")) label = "انستجرام";
+    }
+
+    // 3) fallback: وجود participantId بدون جوال غالبًا سوشيال
+    if(label === "غير معروف"){
+      const pid = String(lead?.participantId || lead?.senderId || "").trim();
+      const hasPhone = !!String(lead?.phoneNormalized || lead?.phone || "").trim();
+      if(pid && !hasPhone) label = "فيسبوك";
+    }
+
+    return label;
+  }
+
+  
 
   
 // تحديث فلاتر صندوق الوارد (المنصة/القسم/البحث/الأرشيف)
@@ -4076,7 +4122,8 @@ try{
 }catch(e){ console.warn("inbox filter bind", e); }
 
 function ensureInboxLive(){
-    if(unsubInbox) return;
+    // ✅ لا تعيد تهيئة صندوق الوارد أكثر من مرة (يمنع تكرار الإرسال/الأحداث)
+    if(window.__inboxBooted) return;
 
     const listEl = $("#convList");
     if(!listEl) return;
@@ -4089,6 +4136,9 @@ function ensureInboxLive(){
       `;
       return;
     }
+
+    // ✅ تم تأكيد تسجيل الدخول — ابدأ تهيئة صندوق الوارد مرة واحدة فقط
+    window.__inboxBooted = true;
 
     const baseCol = collection(db,"wa_conversations");
     let convQ = null;
@@ -4226,10 +4276,16 @@ scroller.addEventListener("scroll", ()=>{
         const conv = convSnap.data() || {};
         const phoneRaw = String(conv.waId || "").trim();
         const phone = normalizePhone(phoneRaw).replace(/^\+/, ""); // unify digits only
-        if(!phone){ toast("رقم العميل غير موجود", "warn"); return; }
+        const platform = String(conv.platform || conv.channel || conv.source || "").toLowerCase();
+        const isFB = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || String(conv.source||"").includes("فيسبوك");
+        const isIG = platform.includes("instagram") || platform.includes("ig") || String(conv.source||"").includes("انستجرام");
+        const pid = String(conv.participantId || conv.senderId || "").trim();
+        const contactKey = phone ? phone : ((isIG?"ig:":"fb:") + (pid || activeConvId));
+        if(!phone && !pid){ toast("بيانات العميل غير مكتملة", "warn"); return; }
 
         // prevent duplicates by phoneNormalized (unified)
-        const existingQ = query(collection(db,"leads"), where("phoneNormalized","==", phone), limit(1));
+        const existingQ = phone ? query(collection(db,"leads"), where("phoneNormalized","==", phone), limit(1))
+                                 : query(collection(db,"leads"), where("contactKey","==", contactKey), limit(1));
         const existingSnap = await getDocs(existingQ);
         if(!existingSnap.empty){
           const leadId = existingSnap.docs[0].id;
@@ -4238,22 +4294,25 @@ scroller.addEventListener("scroll", ()=>{
           return;
         }
 
-        const leadId = phone;
+        const leadId = phone || contactKey;
         const leadRef = doc(db,"leads", leadId);
 
         const assignedTo = conv.assignedTo || currentUser?.uid || "";
-        const source = channelToSourceLabel(conv.channel);
+        const _rawCh = (conv.channel || conv.platform || conv.source || "");
+        const source = normalizeSourceLabel(_rawCh || (isIG?"instagram":(isFB?"facebook":"whatsapp")));
 
         // choose first stage as default (if available)
         const defaultStageId = Array.from(stagesMap.keys())[0] || "";
         const branchId = assignedTo ? (agentsUidMap.get(assignedTo)?.branchId || "") : "";
 
         await setDoc(leadRef, {
-          name: conv.displayName || "-",
-          phone: phone,
-          phoneNormalized: phone,
+          name: (conv.displayName || conv.name || conv.participantName || conv.participant_name || "-"),
+          phone: phone ? ("+" + phone) : "",
+          phoneNormalized: phone || "",
+          contactKey: contactKey,
+          participantId: pid || "",
           source: source,
-          channel: conv.channel || "whatsapp",
+          channel: conv.channel || (isIG?"instagram":(isFB?"facebook":"whatsapp")),
           stageId: defaultStageId,
           assignedTo: assignedTo,
           branchId: branchId,
@@ -4382,9 +4441,20 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
     // save
     $("#cd_save")?.addEventListener("click", async ()=>{
       try{
-        const phoneRaw = ($("#cd_phone")?.value || "").trim();
-        const phone = normalizePhone(phoneRaw).replace(/^\+/, "");
-        if(!phone){ toast("رقم الجوال مطلوب", "warn"); return; }
+        if(!activeConvId){ toast("اختر محادثة أولاً", "warn"); return; }
+
+        const phoneRawIn = ($("#cd_phone")?.value || "").trim();
+        const phoneNorm = normalizePhone(phoneRawIn).replace(/^\+/, "");
+        if(!phoneNorm){ toast("رقم الجوال مطلوب", "warn"); return; }
+
+        // Read current conversation (single source of truth)
+        const convRef = doc(db,"wa_conversations", activeConvId);
+        const convSnap = await getDoc(convRef).catch(()=>null);
+        if(!(convSnap && convSnap.exists())){ toast("المحادثة غير موجودة", "warn"); return; }
+        const conv = convSnap.data() || {};
+        const pid = String(conv.participantId || conv.participant_id || "");
+        const contactKey = String(conv.contactKey || phoneNorm);
+        const channel = (conv.channel || conv.platform || "facebook");
 
         // Upload new files (if any)
         const files = Array.from($("#cd_files")?.files || []);
@@ -4392,7 +4462,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
         const uploads = [];
         for(const f of files){
           const safeName = String(f.name || "file").replace(/[^\w.\-؀-ۿ]+/g,"_");
-          const key = `client_files/${phone}/${Date.now()}_${safeName}`;
+          const key = `client_files/${phoneNorm}/${Date.now()}_${safeName}`;
           const r = sRef(st, key);
           uploads.push((async ()=>{
             await uploadBytes(r, f);
@@ -4402,23 +4472,31 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
         }
         const newFiles = uploads.length ? await Promise.all(uploads) : [];
 
-        // merge with existing attachments (support legacy doc id)
-        const cRef = doc(db, "contacts", phone);
+        // Load existing contact (prefer normalized id)
+        let existing = {};
+        const cRef = doc(db, "contacts", phoneNorm);
         const cSnap = await getDoc(cRef).catch(()=>null);
-        let existing = (cSnap && cSnap.exists()) ? (cSnap.data()||{}) : {};
+        if(cSnap && cSnap.exists()) existing = cSnap.data() || {};
 
-        // legacy: if user wrote phone with + or spaces before, try that key too
-        if((!existing || Object.keys(existing).length===0) && phoneRaw && phoneRaw !== phone){
-          const cRef2 = doc(db, "contacts", phoneRaw);
-          const cSnap2 = await getDoc(cRef2).catch(()=>null);
-          if(cSnap2 && cSnap2.exists()) existing = (cSnap2.data()||{});
+        // Legacy: try raw key (only if different)
+        if(Object.keys(existing).length===0){
+          const rawKey = normalizePhone(phoneRawIn);
+          if(rawKey && rawKey !== phoneNorm){
+            const cSnap2 = await getDoc(doc(db,"contacts", rawKey)).catch(()=>null);
+            if(cSnap2 && cSnap2.exists()) existing = cSnap2.data() || {};
+          }
         }
+
         const prevAtt = Array.isArray(existing.attachments) ? existing.attachments : [];
         const attachments = [...prevAtt, ...newFiles];
 
         const payload = {
           name: ($("#cd_name")?.value || "").trim(),
-          phone: phone,
+          phone: "+" + phoneNorm,
+          phoneNormalized: phoneNorm,
+          contactKey: contactKey,
+          participantId: pid || existing.participantId || "",
+          channel: channel || existing.channel || "",
           salary: ($("#cd_salary")?.value || "").trim(),
           commitment: ($("#cd_commitment")?.value || "").trim(),
           age: ($("#cd_age")?.value || "").trim(),
@@ -4429,59 +4507,60 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           updatedAt: new Date().toISOString()
         };
 
+        // Save contact
         await setDoc(cRef, payload, { merge:true });
 
-        // also update/link lead (NO duplicates)
-        if(activeConvId){
-          const convRef2 = doc(db,"wa_conversations", activeConvId);
-          const convSnap2 = await getDoc(convRef2).catch(()=>null);
-          const conv2 = (convSnap2 && convSnap2.exists()) ? (convSnap2.data()||{}) : {};
-          let leadId = String(conv2.leadId || "");
+        // Update conversation so name/phone show immediately
+        const convUpdates = { updatedAt: new Date().toISOString(), contactKey };
+        if(payload.name) convUpdates.displayName = payload.name;
+        // for FB/IG we still keep waId field as "phoneNormalized" to unify linking
+        convUpdates.waId = phoneNorm;
+        if(pid) convUpdates.participantId = pid;
+        await updateDoc(convRef, convUpdates).catch(()=>{});
+        try{ setChatHeader({ ...conv, ...convUpdates }); }catch(_e){}
+        try{ applyInboxFilters(); }catch(_e){}
 
-          // validate leadId exists
-          if(leadId){
-            const lTest = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
-            if(!(lTest && lTest.exists())) leadId = "";
+        // Update linked lead if exists (no duplicates)
+        let leadId = String(conv.leadId || "").trim();
+        if(leadId){
+          const lTest = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
+          if(!(lTest && lTest.exists())) leadId = "";
+        }
+        if(!leadId){
+          const found = await findLeadByPhoneNormalized(phoneNorm).catch(()=> "");
+          if(found){
+            leadId = found;
+            await updateDoc(convRef, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
           }
-
-          // if not linked, try find by phoneNormalized
-          if(!leadId && phone){
-            const q1 = query(collection(db,"leads"), where("phoneNormalized","==", phone), limit(1));
-            const s1 = await getDocs(q1).catch(()=>null);
-            if(s1 && !s1.empty){
-              leadId = s1.docs[0].id;
-              await updateDoc(convRef2, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
-            }
-          }
-
-          // update lead if found (do not create new lead here)
-          if(leadId){
-            await setDoc(doc(db,"leads", leadId), {
-              name: payload.name || existing.name || "",
-              phone: phone,
-              phoneNormalized: phone,
-              salary: payload.salary || "",
-              commitment: payload.commitment || "",
-              age: payload.age || "",
-              bank: payload.bank || "",
-              carType: payload.carType || "",
-              notes: payload.notes || "",
-              // keep attachments on lead as well (optional)
-              attachments: attachments || [],
-              updatedAt: new Date().toISOString()
-            }, { merge:true });
-          }
+        }
+        if(leadId){
+          await setDoc(doc(db,"leads", leadId), {
+            name: payload.name || "",
+            phone: payload.phone,
+            phoneNormalized: phoneNorm,
+            contactKey: contactKey,
+            participantId: pid,
+            channel: channel,
+            salary: payload.salary,
+            commitment: payload.commitment,
+            age: payload.age,
+            bank: payload.bank,
+            carType: payload.carType,
+            notes: payload.notes,
+            attachments: attachments || [],
+            updatedAt: new Date().toISOString()
+          }, { merge:true });
         }
 
         toast("تم حفظ بيانات العميل", "ok");
         cdCloseAll();
-        // reset file input
         if($("#cd_files")) $("#cd_files").value = "";
       }catch(e){
         console.warn(e);
         toast("تعذر حفظ البيانات", "warn");
       }
     });
+
 
 
     // mark all read
@@ -4951,7 +5030,7 @@ function sortStatusesByCustomOrder(list){
       <tr data-id="${esc(id)}" class="leadTr">
         <td><a class="leadNameLink" data-openlead="${esc(id)}" href="javascript:void(0)">${esc(d.name)}</a></td>
         <td><a class="leadPhoneLink" data-openinboxphone="${esc(lead.phoneNormalized || lead.phone || lead.waId || "")}" data-openinboxname="${esc(d.name)}" href="javascript:void(0)">${esc(d.phone)}</a></td>
-        <td>${esc(lead.source || "—")}</td>
+        <td>${esc(getNormalizedSourceForLead(lead) || "—")}</td>
         <td title="${esc(carName)}">${esc(carName)}</td>
         <td>${esc(payType || "—")}</td>
         <td>${esc(d.statusName || "—")}</td>
@@ -5074,7 +5153,7 @@ function sortStatusesByCustomOrder(list){
 
     const pills = [
       ["الجوال", (lead.phone || lead.phoneNormalized || "—")],
-      ["المصدر", (lead.source || "—")],
+      ["المصدر", (getNormalizedSourceForLead(lead) || "—")],
       ["اسم السيارة", carName],
       ["الدفع", payType],
       ["المرحلة", d.stage],
@@ -5210,7 +5289,7 @@ function sortStatusesByCustomOrder(list){
     const sources = new Map();
 
     leadsCache.forEach(({data})=>{
-      const s = String(data?.source ?? "").trim();
+      const s = String(getNormalizedSourceForLead(data) ?? "").trim();
       if(s) sources.set(s, s);
     });
 
@@ -5663,7 +5742,7 @@ function enableKanbanDragScroll(board){
     const events = [];
 
     const created = lead.createdAt || lead.timestamp || lead.updatedAt;
-    events.push({ t: created, title:"تم إنشاء العميل", desc:`دخل من مصدر: ${(lead.source||"—")}` });
+    events.push({ t: created, title:"تم إنشاء العميل", desc:`دخل من مصدر: ${(getNormalizedSourceForLead(lead)||"—")}` });
 
     const carName = getLeadCarName(lead);
     if(carName && carName !== "—") events.push({ t: lead.updatedAt || lead.timestamp || created, title:"تحديد السيارة", desc:`السيارة: ${carName}` });
@@ -5751,7 +5830,7 @@ function applyLeadFilters(){
       if(fa && getAssignedUidFromLead(data) !== fa) return false;
       if(fs && data.stageId !== fs) return false;
       if(fstat && (data.leadStatusId || "") !== fstat) return false;
-      if(fsrc && String(data.source||"").trim() !== fsrc) return false;
+      if(fsrc && String(getNormalizedSourceForLead(data)||"").trim() !== fsrc) return false;
       if(fcar){
         const carName = getLeadCarName(data);
         if(carName !== fcar) return false;
@@ -5770,7 +5849,7 @@ function applyLeadFilters(){
         const n = String(data.name||"").toLowerCase();
         const p = String(data.phone||"").toLowerCase();
         const pn = String(data.phoneNormalized||"").toLowerCase();
-        const src = String(data.source||"").toLowerCase();
+        const src = String(getNormalizedSourceForLead(data)||"").toLowerCase();
         const car = String(getLeadCarName(data)||"").toLowerCase();
         const pay = String(getLeadPayType(data)||"").toLowerCase();
         if(!n.includes(qText) && !p.includes(qText) && !pn.includes(qText) && !src.includes(qText) && !car.includes(qText) && !pay.includes(qText)) return false;
@@ -6011,7 +6090,7 @@ function bindTasksUI(){
           return;
         }
         try{
-          const statusName = getEffectiveLeadStatusName({ leadStatusId: statusId });
+          const statusName = (leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name);
           await updateDoc(doc(db,"leads", id), {
             leadStatusId: statusId,
             leadStatusName: statusName,
@@ -6598,45 +6677,52 @@ function bindTasksUI(){
       const conv = convObj.data || {};
       const convRef = doc(db,"wa_conversations", convObj.id);
 
-      const phone = String(conv.waId || conv.phone || "").trim();
-      let leadId = String(conv.leadId || "").trim();
+      // Normalize phone if exists (WhatsApp usually)
+      const phoneRaw = String(conv.waId || conv.phone || conv.phoneNormalized || "").trim();
+      const phoneNorm = normalizePhone(phoneRaw).replace(/^\+/, "");
 
+      // 1) If conversation already linked to a lead, verify it exists
+      let leadId = String(conv.leadId || "").trim();
       if(leadId){
         const s = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
         if(!(s && s.exists())) leadId = "";
       }
 
-      if(!leadId){
-        const found = await findLeadByPhoneNormalized(phone);
+      // 2) If not linked, try find lead by phoneNormalized (only if we have phone)
+      if(!leadId && phoneNorm){
+        const found = await findLeadByPhoneNormalized(phoneNorm);
         if(found){
           leadId = found;
           await updateDoc(convRef, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
         }
       }
 
-      if(!leadId && phone){
-        // Create lead only after the customer chooses a service (or if already assigned)
-        const _shouldCreate = !!(conv.assignedTo || conv.autoService || conv.autoFlowState);
-        if(!_shouldCreate){
-          // keep conversation without lead until routing/choice happens
-          return "";
-        }
+      // 3) If still not found and we have phone, optionally create a lead (deterministic id = phoneNorm)
+      if(!leadId && phoneNorm){
+        // Create only when routing happened OR assigned already (avoids creating garbage leads)
+        const shouldCreate = !!(conv.assignedTo || conv.autoService || conv.autoFlowState || conv.createdBy || conv.source);
+        if(!shouldCreate) return "";
 
-        leadId = phone; // deterministic id avoids duplicates
+        leadId = phoneNorm;
         const leadRef = doc(db,"leads", leadId);
         const exists = await getDoc(leadRef).catch(()=>null);
         if(!(exists && exists.exists())){
-          const source = (conv.source || conv.platform || conv.channel || "whatsapp");
-          const defaultStageId = (typeof getDefaultStageId === "function") ? getDefaultStageId() : "";
+          const source = normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp");
+          const defaultStageId = (typeof getDefaultStageId === "function") ? getDefaultStageId() : (Array.from(stagesMap.keys())[0] || "");
+          const assignedTo = conv.assignedTo || "";
+          const branchId = assignedTo ? (agentsUidMap.get(assignedTo)?.branchId || "") : "";
+
           await setDoc(leadRef, {
-            name: conv.displayName || "-",
-            phone: phone,
-            phoneNormalized: phone,
+            name: (conv.displayName || conv.name || conv.participantName || conv.participant_name || "-"),
+            phone: phoneNorm ? ("+" + phoneNorm) : "",
+            phoneNormalized: phoneNorm,
+            contactKey: String(conv.contactKey || phoneNorm),
+            participantId: String(conv.participantId || conv.participant_id || ""),
             source: source,
-            channel: conv.channel || "whatsapp",
+            channel: (conv.channel || conv.platform || "whatsapp"),
             stageId: defaultStageId,
-            assignedTo: "",
-            branchId: "",
+            assignedTo: assignedTo,
+            branchId: branchId,
             convId: convObj.id,
             leadStatusId: getDefaultLeadStatus().id,
             leadStatusName: getDefaultLeadStatus().name,
@@ -6649,6 +6735,7 @@ function bindTasksUI(){
 
       return leadId;
     }
+
 
     function fillInboxStatusSelect(currentId=""){
       const sel = $("#inboxLeadStatusSelect");
