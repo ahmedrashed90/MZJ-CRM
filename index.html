@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -648,6 +649,7 @@
       background: rgba(247,245,242,.55);
       margin-bottom:10px;
     }
+    .note.unread{ box-shadow: 0 0 0 2px rgba(201,122,43,.25) inset; }
     .note b{ display:block; font-size:13px; }
     .note span{ display:block; margin-top:4px; font-size:12px; color:var(--muted); line-height:1.7; }
 
@@ -2498,6 +2500,34 @@ body.auth-locked #authModal{ pointer-events:auto; }
       </div>
     </div>
   </div>
+  <!-- ===== Close Chat Modal ===== -->
+  <div class="modalOverlay" id="closeChatModal" style="display:none">
+    <div class="modal">
+      <div class="modalHead">
+        <b>إنهاء المحادثة</b>
+        <button class="iconBtn" id="closeChatClose" type="button" aria-label="إغلاق">✕</button>
+      </div>
+      <div class="modalBody">
+        <div class="field">
+          <label>سبب الإنهاء <span style="color:var(--bad);font-weight:900">*</span></label>
+          <select id="closeChatReason">
+            <option value="" selected>اختر السبب...</option>
+            <option value="تم البيع">تم البيع</option>
+            <option value="غير مؤهل">غير مؤهل</option>
+          </select>
+          <div id="closeChatMsg" style="display:none;margin-top:10px;color:var(--bad);font-weight:800"></div>
+        </div>
+        <div style="margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.7">
+          سيتم تسجيل: <b>closedBy</b> و <b>closedAt</b> و <b>reason</b> داخل المحادثة.
+        </div>
+      </div>
+      <div class="modalActions">
+        <button class="btn" id="closeChatCancel" type="button">إلغاء</button>
+        <button class="btn btnPrimary" id="closeChatConfirm" type="button">تأكيد الإنهاء</button>
+      </div>
+    </div>
+  </div>
+
 
 <script type="module">
   
@@ -2669,6 +2699,9 @@ let __selectedWaTemplateKey = null;
     return String(s ?? "").replace(/[&<>"']/g, (c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
 
+  // hide bell count until loaded
+  try{ const bc=$("#bellCount"); if(bc){ bc.style.display="none"; bc.textContent="0"; } }catch(e){}
+
   function setBadgeConnected(isConnected){
     const badge = $("#envBadge");
     if(!badge) return;
@@ -2684,6 +2717,262 @@ let __selectedWaTemplateKey = null;
     el.style.opacity = "1";
     clearTimeout(window.__toastT);
     window.__toastT = setTimeout(()=>{ el.style.opacity="0"; }, 2200);
+  }
+
+
+  // ===== Live In-Page Notifications (Leads + Inbox) =====
+  const NOTIF_MAX = 80;
+  let notifStore = [];
+  let unsubNotifLeads = null;
+  let unsubNotifConvs = null;
+  let __notifLeadInit = false;
+  let __notifConvInit = false;
+  let __prevUnreadByConv = new Map();
+
+  function __notifStorageKey(){
+    return "mzj_notifications_" + (currentUser?.uid || "guest");
+  }
+  function loadNotifs(){
+    try{
+      const raw = localStorage.getItem(__notifStorageKey());
+      notifStore = raw ? (JSON.parse(raw) || []) : [];
+      if(!Array.isArray(notifStore)) notifStore = [];
+    }catch(e){ notifStore = []; }
+    // normalize
+    notifStore = notifStore.map(x=>({
+      id: String(x.id||""),
+      type: String(x.type||""),
+      title: String(x.title||""),
+      body: String(x.body||""),
+      ts: Number(x.ts||Date.now()),
+      read: !!x.read,
+      convId: x.convId ? String(x.convId) : "",
+      leadId: x.leadId ? String(x.leadId) : ""
+    })).slice(0, NOTIF_MAX);
+  }
+  function saveNotifs(){
+    try{ localStorage.setItem(__notifStorageKey(), JSON.stringify(notifStore.slice(0, NOTIF_MAX))); }catch(e){}
+  }
+  function notifUnreadCount(){
+    return (notifStore||[]).filter(n=>!n.read).length;
+  }
+  function updateBellCount(){
+    const el = $("#bellCount");
+    if(!el) return;
+    const c = notifUnreadCount();
+    el.textContent = String(c);
+    el.style.display = c>0 ? "inline-flex" : "none";
+  }
+
+  function addNotif(item){
+    const id = item.id || ("n_" + Date.now() + "_" + Math.random().toString(16).slice(2));
+    const n = {
+      id,
+      type: item.type || "",
+      title: item.title || "إشعار",
+      body: item.body || "",
+      ts: Number(item.ts || Date.now()),
+      read: false,
+      convId: item.convId || "",
+      leadId: item.leadId || ""
+    };
+
+    // de-dupe: same type+conv/lead within 20s
+    const now = Date.now();
+    const dup = (notifStore||[]).find(x=>{
+      if(x.type !== n.type) return false;
+      if(n.convId && x.convId === n.convId && (now - (x.ts||0) < 20000)) return true;
+      if(n.leadId && x.leadId === n.leadId && (now - (x.ts||0) < 20000)) return true;
+      return false;
+    });
+    if(dup) return;
+
+    notifStore.unshift(n);
+    if(notifStore.length > NOTIF_MAX) notifStore = notifStore.slice(0, NOTIF_MAX);
+    saveNotifs();
+    updateBellCount();
+
+    // toast
+    try{ toast(n.title, "ok"); }catch(e){}
+  }
+
+  function formatNotifTime(ts){
+    try{
+      const d = new Date(ts||Date.now());
+      const h = String(d.getHours()).padStart(2,"0");
+      const m = String(d.getMinutes()).padStart(2,"0");
+      return `${h}:${m}`;
+    }catch(e){ return ""; }
+  }
+
+  function renderNotifList(){
+    const list = $("#notifList");
+    if(!list) return;
+    if(!notifStore.length){
+      list.innerHTML = `<div style="padding:14px;color:rgba(28,28,28,.65);font-weight:800">لا توجد إشعارات</div>`;
+      return;
+    }
+    list.innerHTML = notifStore.map(n=>{
+      const cls = "note" + (n.read ? "" : " unread");
+      const meta = formatNotifTime(n.ts);
+      return `
+        <div class="${cls}" data-nid="${esc(n.id)}" data-type="${esc(n.type)}" data-conv="${esc(n.convId||"")}" data-lead="${esc(n.leadId||"")}">
+          <b>${esc(n.title)} <span style="font-size:11px;opacity:.7;font-weight:900">• ${esc(meta)}</span></b>
+          <span>${esc(n.body||"")}</span>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function openNotifOverlay(){
+    const ov = $("#overlay");
+    if(!ov) return;
+    ov.classList.add("show");
+    renderNotifList();
+    // mark all as read
+    notifStore = (notifStore||[]).map(n=>({ ...n, read:true }));
+    saveNotifs();
+    updateBellCount();
+    try{ document.body.style.overflow = "hidden"; }catch(e){}
+  }
+  function closeNotifOverlay(){
+    const ov = $("#overlay");
+    if(!ov) return;
+    ov.classList.remove("show");
+    try{ document.body.style.overflow = ""; }catch(e){}
+  }
+
+  // Wire bell button + overlay close
+  try{
+    $("#btnBell")?.addEventListener("click", ()=>{
+      if(!currentUser){ toast("يجب تسجيل الدخول", "warn"); try{ openAuthModal(); }catch(e){} return; }
+      openNotifOverlay();
+    });
+    $("#closeOverlay")?.addEventListener("click", closeNotifOverlay);
+    $("#overlay")?.addEventListener("click", (e)=>{
+      if(e.target && e.target.id==="overlay") closeNotifOverlay();
+    });
+    $("#notifList")?.addEventListener("click", (e)=>{
+      const card = e.target?.closest?.(".note");
+      if(!card) return;
+      const convId = card.getAttribute("data-conv") || "";
+      const leadId = card.getAttribute("data-lead") || "";
+      closeNotifOverlay();
+      if(convId){
+        showTab("inbox");
+        setTimeout(()=>{ try{ openConversation(convId); }catch(e){} }, 250);
+        return;
+      }
+      if(leadId){
+        // Open pipeline lead panel if available, otherwise just go to pipeline tab
+        showTab("pipeline");
+        setTimeout(()=>{ try{ openPipeLeadPanel(leadId); }catch(e){} }, 250);
+      }
+    });
+  }catch(e){}
+
+  function stopLiveNotifications(){
+    try{ if(unsubNotifLeads){unsubNotifLeads();} }catch(e){} unsubNotifLeads=null;
+    try{ if(unsubNotifConvs){unsubNotifConvs();} }catch(e){} unsubNotifConvs=null;
+    __notifLeadInit = false;
+    __notifConvInit = false;
+    __prevUnreadByConv = new Map();
+  }
+
+  function startLiveNotifications(){
+    stopLiveNotifications();
+    loadNotifs();
+    updateBellCount();
+
+    const uid = currentUser?.uid;
+    if(!uid) return;
+
+    // --- Leads assigned to me (new assigned/new created) ---
+    __notifLeadInit = false;
+    try{
+      const qLead = query(
+        collection(db,"leads"),
+        where("assignedTo","==", uid),
+        orderBy("updatedAt","desc"),
+        limit(30)
+      );
+      unsubNotifLeads = onSnapshot(qLead, (snap)=>{
+        if(!__notifLeadInit){
+          __notifLeadInit = true;
+          return;
+        }
+        snap.docChanges().forEach((ch)=>{
+          if(ch.type !== "added") return;
+          const d = ch.doc.data() || {};
+          const name = d.name || "—";
+          const phone = d.phone || d.phoneNormalized || "";
+          addNotif({
+            type:"lead",
+            title:"📌 ليد جديد تم توزيعه لك",
+            body:`${name}${phone?(" — "+phone):""}`,
+            leadId: ch.doc.id
+          });
+        });
+      }, (err)=>console.warn("notif leads snapshot", err));
+    }catch(e){ console.warn(e); }
+
+    // --- Conversations assigned to me (new conversation + new message) ---
+    __notifConvInit = false;
+    __prevUnreadByConv = new Map();
+    try{
+      const qConv = query(
+        collection(db,"wa_conversations"),
+        where("assignedTo","==", uid),
+        orderBy("updatedAt","desc"),
+        limit(60)
+      );
+      unsubNotifConvs = onSnapshot(qConv, (snap)=>{
+        if(!__notifConvInit){
+          __notifConvInit = true;
+          snap.docs.forEach(docu=>{
+            const d = docu.data()||{};
+            const u = Number(d.unreadCount || d.unread_count || 0);
+            __prevUnreadByConv.set(docu.id, u);
+          });
+          return;
+        }
+
+        snap.docChanges().forEach((ch)=>{
+          const id = ch.doc.id;
+          const d = ch.doc.data() || {};
+          const name = d.name || d.displayName || d.waId || d.participantId || "—";
+          const last = d.last_message_text || d.lastMessageText || d.lastMessage || "";
+          const u = Number(d.unreadCount || d.unread_count || 0);
+          const prev = (__prevUnreadByConv.has(id) ? __prevUnreadByConv.get(id) : u);
+          __prevUnreadByConv.set(id, u);
+
+          if(ch.type === "added"){
+            addNotif({
+              type:"conv",
+              title:"💬 محادثة جديدة تم توزيعها لك",
+              body:`${name}`,
+              convId: id
+            });
+            return;
+          }
+
+          // New message (unread increased)
+          if(ch.type === "modified" && u > prev){
+            // If agent currently reading this conversation in inbox, don't interrupt
+            try{
+              const inboxActive = $("#panel-inbox")?.classList.contains("active");
+              if(inboxActive && activeConvId === id) return;
+            }catch(e){}
+            addNotif({
+              type:"msg",
+              title:"💬 رسالة جديدة",
+              body:`${name}: ${String(last||"رسالة جديدة").slice(0, 90)}`,
+              convId: id
+            });
+          }
+        });
+      }, (err)=>console.warn("notif conv snapshot", err));
+    }catch(e){ console.warn(e); }
   }
 
   // ===== Auth modal =====
@@ -6618,6 +6907,7 @@ function bindTasksUI(){
       try{ document.body.classList.add("auth-locked"); }catch{}
       try{ openAuthModal(); }catch{}
       // stop inbox listeners
+      try{ stopLiveNotifications(); }catch(e){}
       try{ if(unsubInbox){unsubInbox();} }catch{} unsubInbox=null;
       try{ if(unsubMsgs){unsubMsgs();} }catch{} unsubMsgs=null;
       activeConvId=null;
@@ -6634,6 +6924,7 @@ function bindTasksUI(){
     applyRoleGuards();
     renderLeadStatusesAdminTable();
     setBadgeConnected(true);
+    try{ startLiveNotifications(); }catch(e){}
 
     // start inbox listeners if inbox tab is open
     try{ if($("#panel-inbox")?.classList.contains("active")) ensureInboxLive(); }catch{}
@@ -6660,7 +6951,7 @@ function bindTasksUI(){
   });
 
     // ===== Inbox: Lead Status + Follow-up + End Chat + Archive =====
-    let inboxShowArchived = false;
+    let inboxShowArchived = false; // (ARCHIVE DISABLED)
 
     function setLeadBarVisible(v){
       const bar = $("#inboxLeadBar");
@@ -6869,35 +7160,118 @@ $("#inboxLeadBarClose")?.addEventListener("click", ()=> setLeadBarVisible(false)
       }
     });
 
-    $("#btnEndChat")?.addEventListener("click", async ()=>{
-      if(!activeConvId){ toast("اختر محادثة أولاً", "warn"); return; }
+    
+    // ===== End Chat (NO ARCHIVE) =====
+    function openCloseChatModal(){
+      if(!currentUser){
+        toast("يجب تسجيل الدخول أولاً", "warn");
+        try{ openAuthModal(); }catch{}
+        return;
+      }
+      if(!activeConvId){
+        toast("اختر محادثة أولاً", "warn");
+        return;
+      }
       try{
+        $("#closeChatReason").value = "";
+        $("#closeChatMsg").style.display = "none";
+        $("#closeChatModal").style.display = "flex";
+        $("#closeChatReason").focus();
+      }catch(e){
+        console.warn(e);
+      }
+    }
+    function closeCloseChatModal(){
+      try{ $("#closeChatModal").style.display = "none"; }catch{}
+    }
+
+    function findLeadStatusIdByNameExact(name){
+      const target = String(name || "").trim();
+      if(!target) return "";
+      for(const v of leadStatusesMap.values()){
+        if(String(v?.name||"").trim() === target) return v.id;
+      }
+      return "";
+    }
+
+    async function applyCloseReason(reason){
+      if(!currentUser){
+        toast("يجب تسجيل الدخول أولاً", "warn");
+        try{ openAuthModal(); }catch{}
+        return;
+      }
+      if(!activeConvId){
+        toast("اختر محادثة أولاً", "warn");
+        return;
+      }
+      const r = String(reason||"").trim();
+      if(!r){
+        $("#closeChatMsg").textContent = "سبب الإنهاء إجباري";
+        $("#closeChatMsg").style.display = "block";
+        return;
+      }
+
+      try{
+        // 1) Update conversation close fields
+        const by = {
+          uid: currentUser.uid || "",
+          email: currentUser.email || "",
+          name: currentProfile?.name || currentUser.email || ""
+        };
         await updateDoc(doc(db,"wa_conversations", activeConvId), {
-          archived: true,
-          archivedAt: new Date().toISOString(),
+          closedBy: by,
+          closedAt: new Date().toISOString(),
+          reason: r,
           updatedAt: new Date().toISOString()
         });
-        toast("تم إنهاء المحادثة (أرشيف)", "ok");
+
+        // 2) Update linked lead status (if any)
+        const leadId = await ensureLeadIdForActiveConversation().catch(()=> "");
+        if(leadId){
+          let targetName = "";
+          if(r === "تم البيع") targetName = "تم الإنتهاء - إنشاء طلب البيع";
+          else if(r === "غير مؤهل") targetName = "غير مؤهل";
+
+          if(targetName){
+            const statusId = findLeadStatusIdByNameExact(targetName) || "";
+            await updateDoc(doc(db,"leads", leadId), {
+              leadStatusId: statusId || "",
+              leadStatusName: targetName,
+              updatedAt: new Date().toISOString()
+            }).catch((e)=>{ console.warn("update lead status", e); });
+          }
+        }
+
+        toast("تم إنهاء المحادثة", "ok");
+        closeCloseChatModal();
+
+        // 3) Reset UI
         activeConvId = "";
         setLeadBarVisible(false);
         $("#chatTitle") && ($("#chatTitle").textContent = "اختر محادثة");
         $("#chatSub") && ($("#chatSub").textContent = "—");
         $("#chatBody") && ($("#chatBody").innerHTML = `<div style="padding:12px;color:rgba(28,28,28,.68);font-weight:800">اختر محادثة من القائمة</div>`);
-        renderInboxList && renderInboxList();
+        try{ renderInboxList && renderInboxList(); }catch{}
       }catch(e){
         console.warn(e);
         toast("تعذر إنهاء المحادثة", "warn");
       }
-    });
+    }
 
-    $("#inboxToggleArchive")?.addEventListener("click", ()=>{
-      inboxShowArchived = !inboxShowArchived;
-      const btn = $("#inboxToggleArchive");
-      if(btn) btn.textContent = inboxShowArchived ? "إخفاء الأرشيف" : "عرض الأرشيف";
-      renderInboxList && renderInboxList();
-    });
+    $("#btnEndChat")?.addEventListener("click", openCloseChatModal);
+    $("#closeChatClose")?.addEventListener("click", closeCloseChatModal);
+    $("#closeChatCancel")?.addEventListener("click", closeCloseChatModal);
+    $("#closeChatModal")?.addEventListener("click", (e)=>{ if(e.target.id==="closeChatModal") closeCloseChatModal(); });
 
-    // wrap renderInboxList (client-side filter)
+    $("#closeChatConfirm")?.addEventListener("click", async ()=>{
+      const r = ($("#closeChatReason")?.value || "").trim();
+      await applyCloseReason(r);
+    });
+/* ARCHIVE REMOVED */
+
+
+    /* archive toggle disabled */
+// wrap renderInboxList (client-side filter)
     if(typeof renderInboxList === "function" && !renderInboxList.__wrapped){
       const __orig = renderInboxList;
       const wrapped = function(){
