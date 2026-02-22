@@ -1,4 +1,5 @@
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1903,6 +1904,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
                       <button class="toolBtn" id="btnClientData" type="button">تحديث/إضافة بيانات العميل</button>
                       <button class="toolBtn" id="btnSetLeadStatus" type="button">تحديد الحالة</button>
                       <button class="toolBtn" id="btnSetFollowUp" type="button">تحديد موعد</button>
+                      <button class="toolBtn" id="btnEligibilityCalc" type="button">حسبة أهلية</button>
                       <button class="toolBtn danger" id="btnEndChat" type="button">إنهاء المحادثة</button>
 </div>
                   </div>
@@ -2525,7 +2527,51 @@ body.auth-locked #authModal{ pointer-events:auto; }
         <button class="btn" id="closeChatCancel" type="button">إلغاء</button>
         <button class="btn btnPrimary" id="closeChatConfirm" type="button">تأكيد الإنهاء</button>
       </div>
+    
+<!-- ===== Eligibility Calc Modal (Inbox only) ===== -->
+<div class="modalOverlay" id="eligModal" style="display:none">
+  <div class="modal">
+    <div class="modalHead">
+      <b>حسبة أهلية مبدئية</b>
+      <button class="iconBtn" id="eligClose" type="button" aria-label="إغلاق">✕</button>
     </div>
+    <div class="modalBody">
+      <div class="field">
+        <label>نوع التمويل</label>
+        <select id="eligType">
+          <option value="general" selected>عام (45%)</option>
+          <option value="realestate">عقاري (65%)</option>
+        </select>
+      </div>
+
+      <div class="field" style="margin-top:10px">
+        <label>الراتب (ريال)</label>
+        <input id="eligSalary" type="number" inputmode="numeric" min="0" step="1" placeholder="مثال: 8000" />
+      </div>
+
+      <div class="field" style="margin-top:10px">
+        <label>الالتزامات (ريال)</label>
+        <input id="eligOblig" type="number" inputmode="numeric" min="0" step="1" placeholder="مثال: 1200" />
+      </div>
+
+      <div id="eligResultBox" class="mzj-hintBox" style="display:none;margin-top:12px">
+        <b id="eligResultTitle">—</b>
+        <span id="eligResultText">—</span>
+      </div>
+
+      <div style="margin-top:10px;color:var(--muted);font-size:12.5px;line-height:1.7">
+        المعادلة: (الراتب × <b>45%</b> أو <b>65%</b>) − الالتزامات = <b>الحد الائتماني</b>.
+        <br/>الحد الائتماني أقل من <b>650</b> = غير مؤهل • 650 فأعلى = مؤهل.
+      </div>
+    </div>
+    <div class="modalActions">
+      <button class="btn" id="eligCancel" type="button">إغلاق</button>
+      <button class="btn btnPrimary" id="eligCalc" type="button">احسب</button>
+    </div>
+  </div>
+</div>
+
+</div>
   </div>
 
 
@@ -7258,10 +7304,73 @@ $("#inboxLeadBarClose")?.addEventListener("click", ()=> setLeadBarVisible(false)
       }
     }
 
+    
+
+// ===== Eligibility Calc (Inbox) =====
+function openEligibilityModal(){
+  if(!currentUser){
+    toast("يجب تسجيل الدخول أولاً", "warn");
+    try{ openAuthModal(); }catch{}
+    return;
+  }
+  if(!activeConvId){
+    toast("اختر محادثة أولاً", "warn");
+    return;
+  }
+  try{
+    $("#eligSalary").value = "";
+    $("#eligOblig").value = "";
+    $("#eligType").value = "general";
+    $("#eligResultBox").style.display = "none";
+    $("#eligModal").style.display = "flex";
+    $("#eligSalary").focus();
+  }catch(e){ console.warn(e); }
+}
+function closeEligibilityModal(){
+  try{ $("#eligModal").style.display = "none"; }catch{}
+}
+function fmtSAR(n){
+  const x = Number(n||0);
+  if(!isFinite(x)) return "0";
+  return Math.round(x).toLocaleString("ar-SA");
+}
+function calcEligibility(){
+  const salary = Number(($("#eligSalary")?.value||"").toString().replace(/[^\d.]/g,"")) || 0;
+  const oblig  = Number(($("#eligOblig")?.value||"").toString().replace(/[^\d.]/g,"")) || 0;
+  const t = ($("#eligType")?.value||"general").trim();
+  const pct = (t === "realestate") ? 0.65 : 0.45;
+  const cap = salary * pct;
+  const limit = cap - oblig;
+  const eligible = limit >= 650;
+  const title = eligible ? "✅ النتيجة: مؤهل" : "❌ النتيجة: غير مؤهل";
+  const details = `النسبة: ${(pct*100).toFixed(0)}% • (الراتب × النسبة) = ${fmtSAR(cap)} ريال • الالتزامات = ${fmtSAR(oblig)} ريال • الحد الائتماني = ${fmtSAR(limit)} ريال`;
+  $("#eligResultTitle").textContent = title;
+  $("#eligResultText").textContent = details;
+  $("#eligResultBox").style.display = "block";
+  // quick toast
+  toast(title.replace("✅ ","").replace("❌ ",""), eligible ? "ok" : "warn");
+}
+
     $("#btnEndChat")?.addEventListener("click", openCloseChatModal);
     $("#closeChatClose")?.addEventListener("click", closeCloseChatModal);
     $("#closeChatCancel")?.addEventListener("click", closeCloseChatModal);
     $("#closeChatModal")?.addEventListener("click", (e)=>{ if(e.target.id==="closeChatModal") closeCloseChatModal(); });
+
+$("#btnEligibilityCalc")?.addEventListener("click", openEligibilityModal);
+$("#eligClose")?.addEventListener("click", closeEligibilityModal);
+$("#eligCancel")?.addEventListener("click", closeEligibilityModal);
+$("#eligModal")?.addEventListener("click", (e)=>{ if(e.target.id==="eligModal") closeEligibilityModal(); });
+$("#eligCalc")?.addEventListener("click", ()=>{
+  if(!currentUser){
+    toast("يجب تسجيل الدخول أولاً", "warn");
+    try{ openAuthModal(); }catch{}
+    return;
+  }
+  calcEligibility();
+});
+// Enter to calculate
+$("#eligSalary")?.addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); calcEligibility(); }});
+$("#eligOblig")?.addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); calcEligibility(); }});
 
     $("#closeChatConfirm")?.addEventListener("click", async ()=>{
       const r = ($("#closeChatReason")?.value || "").trim();
