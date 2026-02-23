@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CRM - تسجيل الدخول / قاعدة البيانات</title>
+
+  <style>
+    :root{
+      --bg:#0f0f10;
+      --card:#161618;
+      --muted:#a9a9b2;
+      --text:#f2f2f4;
+      --line:#2a2a2f;
+      --accent:#c07a4a;
+      --accent2:#2b1a17;
+      --danger:#ff5c5c;
+      --ok:#2bdc7a;
+      --field:#111113;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Tahoma, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(192,122,74,.18), transparent 60%),
+                  radial-gradient(900px 500px at 100% 20%, rgba(43,26,23,.35), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+    .wrap{max-width:1200px;margin:0 auto;padding:18px}
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;
+      gap:12px; padding:14px 16px; border:1px solid var(--line);
+      border-radius:14px; background: rgba(22,22,24,.8); backdrop-filter: blur(8px);
+      position: sticky; top: 10px; z-index: 10;
+    }
+    .brand{
+      display:flex;align-items:center;gap:10px;min-width:220px;
+    }
+    .logo{
+      width:34px;height:34px;border-radius:10px;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .brand h1{font-size:14px;margin:0;font-weight:700}
+    .brand p{font-size:12px;margin:0;color:var(--muted)}
+    .actions{display:flex;align-items:center;gap:10px}
+    .btn{
+      border:1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      color: var(--text);
+      padding:10px 12px;border-radius:12px;cursor:pointer;
+      font-weight:700;font-size:12px;
+    }
+    .btn:hover{border-color: rgba(192,122,74,.6)}
+    .btn.primary{
+      border-color: rgba(192,122,74,.55);
+      background: linear-gradient(180deg, rgba(192,122,74,.22), rgba(43,26,23,.15));
+    }
+    .btn.danger{
+      border-color: rgba(255,92,92,.45);
+      background: linear-gradient(180deg, rgba(255,92,92,.14), rgba(255,255,255,.02));
+    }
+    .pill{
+      font-size:12px;color:var(--muted);
+      border:1px solid var(--line);
+      border-radius:999px;padding:8px 10px;
+      background: rgba(0,0,0,.18);
+      white-space:nowrap;
+    }
+    .card{
+      margin-top:14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background: rgba(22,22,24,.7);
+      backdrop-filter: blur(6px);
+      overflow:hidden;
+    }
+    .cardHead{
+      padding:14px 16px;
+      border-bottom:1px solid var(--line);
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+    .tabs{
+      display:flex;gap:8px;align-items:center;
+    }
+    .tab{
+      padding:10px 12px;border-radius:12px;
+      border:1px solid var(--line);
+      color:var(--muted);
+      background: rgba(0,0,0,.12);
+      font-weight:800;font-size:12px;
+    }
+    .tab.active{
+      color:var(--text);
+      border-color: rgba(192,122,74,.55);
+      background: linear-gradient(180deg, rgba(192,122,74,.18), rgba(0,0,0,.08));
+    }
+    .content{padding:14px 16px}
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap:10px;
+    }
+    @media (max-width: 1100px){
+      .grid{grid-template-columns: repeat(3, minmax(0, 1fr));}
+    }
+    @media (max-width: 820px){
+      .grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
+      .topbar{position:static}
+    }
+    @media (max-width: 520px){
+      .grid{grid-template-columns: 1fr;}
+      .brand{min-width:auto}
+    }
+    label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+    input, select{
+      width:100%;
+      padding:11px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(17,17,19,.85);
+      color: var(--text);
+      outline:none;
+      font-weight:650;
+    }
+    input:focus, select:focus{border-color: rgba(192,122,74,.6)}
+    .row{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .note{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+    }
+    .error{color: var(--danger); font-size:12px; font-weight:700}
+    .ok{color: var(--ok); font-size:12px; font-weight:700}
+
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      overflow:hidden;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background: rgba(0,0,0,.10);
+    }
+    thead th{
+      position: sticky;
+      top: 0;
+      background: rgba(22,22,24,.95);
+      backdrop-filter: blur(6px);
+      z-index: 1;
+      border-bottom:1px solid var(--line);
+      color: var(--muted);
+      font-size:12px;
+      text-align:right;
+      padding:12px 10px;
+      white-space:nowrap;
+    }
+    tbody td{
+      border-bottom:1px solid rgba(42,42,47,.7);
+      padding:12px 10px;
+      font-size:12.5px;
+      vertical-align:top;
+      white-space:nowrap;
+      max-width: 220px;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
+    tbody tr:hover td{background: rgba(192,122,74,.06)}
+    .tableWrap{
+      overflow:auto;
+      max-height: 62vh;
+      border-radius:14px;
+    }
+    .kpi{
+      display:flex; gap:10px; align-items:center;
+      color:var(--muted); font-size:12px; font-weight:750;
+    }
+    .kpi b{color:var(--text)}
+    .hide{display:none !important}
+    .split{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:14px;
+      align-items:start;
+    }
+    @media (max-width: 820px){
+      .split{grid-template-columns:1fr}
+    }
+  </style>
+
+  <!-- SheetJS (Export Excel) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>CRM</h1>
+          <p id="subtitle">تسجيل الدخول</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <span id="userPill" class="pill hide">—</span>
+        <button id="logoutBtn" class="btn danger hide">تسجيل خروج</button>
+      </div>
+    </div>
+
+    <!-- Login -->
+    <div id="loginCard" class="card">
+      <div class="cardHead">
+        <div class="tabs">
+          <div class="tab active">تسجيل الدخول</div>
+        </div>
+        <div class="kpi">
+          <span class="pill">Firebase Auth</span>
+        </div>
+      </div>
+      <div class="content">
+        <div class="split">
+          <div>
+            <div class="grid" style="grid-template-columns: 1fr; max-width:520px;">
+              <div>
+                <label>الإيميل</label>
+                <input id="email" type="email" autocomplete="username" placeholder="name@company.com" />
+              </div>
+              <div>
+                <label>كلمة المرور</label>
+                <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
+              </div>
+
+              <div class="row">
+                <button id="loginBtn" class="btn primary">دخول</button>
+                <span id="loginStatus" class="note"></span>
+              </div>
+
+              <div id="loginError" class="error hide"></div>
+            </div>
+          </div>
+
+          <div class="note">
+            <div style="border:1px solid var(--line);border-radius:14px;padding:14px;background:rgba(0,0,0,.10)">
+              <b style="color:var(--text)">ملاحظة</b>
+              <div style="height:8px"></div>
+              <div>بعد تسجيل الدخول: أول تاب هو <b style="color:var(--text)">قاعدة البيانات</b> (جدول + فلاتر + تصدير Excel).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- App -->
+    <div id="appCard" class="card hide">
+      <div class="cardHead">
+        <div class="tabs">
+          <div class="tab active" id="dbTab">قاعدة البيانات</div>
+        </div>
+
+        <div class="row" style="justify-content:flex-end">
+          <div class="kpi">
+            <span>الإجمالي: <b id="totalCount">0</b></span>
+            <span class="pill">المعروض: <b id="shownCount">0</b></span>
+          </div>
+          <button id="exportBtn" class="btn primary">تصدير Excel</button>
+          <button id="refreshBtn" class="btn">تحديث</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <!-- Filters -->
+        <div class="grid" style="margin-bottom:12px">
+          <div>
+            <label>اسم العميل</label>
+            <input id="f_customerName" type="text" placeholder="بحث..." />
+          </div>
+          <div>
+            <label>الجوال</label>
+            <input id="f_phone" type="text" placeholder="بحث..." />
+          </div>
+          <div>
+            <label>المصدر</label>
+            <input id="f_source" type="text" placeholder="بحث..." />
+          </div>
+          <div>
+            <label>اسم السيارة</label>
+            <input id="f_carName" type="text" placeholder="بحث..." />
+          </div>
+
+          <div>
+            <label>الدفع</label>
+            <input id="f_payment" type="text" placeholder="بحث..." />
+          </div>
+          <div>
+            <label>الحالة</label>
+            <input id="f_status" type="text" placeholder="بحث..." />
+          </div>
+          <div>
+            <label>اسم الحملة</label>
+            <input id="f_campaignName" type="text" placeholder="بحث..." />
+          </div>
+          <div>
+            <label>آخر تحديث</label>
+            <select id="f_lastUpdate">
+              <option value="">الكل</option>
+              <option value="today">اليوم</option>
+              <option value="7d">آخر 7 أيام</option>
+              <option value="30d">آخر 30 يوم</option>
+              <option value="older">أقدم من 30 يوم</option>
+              <option value="empty">بدون تاريخ</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-bottom:12px">
+          <button id="clearFiltersBtn" class="btn">مسح الفلاتر</button>
+          <span id="dataStatus" class="note"></span>
+          <span id="dataError" class="error hide"></span>
+        </div>
+
+        <!-- Table -->
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>اسم العميل</th>
+                <th>الجوال</th>
+                <th>المصدر</th>
+                <th>اسم السيارة</th>
+                <th>الدفع</th>
+                <th>الحالة</th>
+                <th>اسم الحملة</th>
+                <th>آخر تحديث</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr><td colspan="8" class="note" style="padding:14px">جاري التحميل...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Firebase (modular v9) -->
+  <script type="module">
+    // ===== Firebase Config (as provided) =====
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    // ===== Collection Name (data source) =====
+    // If your leads are stored in a different collection, change this value only.
+    const COLLECTION_NAME = "leads";
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      getDocs,
+      query,
+      orderBy
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    // ----- Init -----
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // ----- UI Elements -----
+    const subtitle = document.getElementById("subtitle");
+    const userPill = document.getElementById("userPill");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    const loginCard = document.getElementById("loginCard");
+    const appCard = document.getElementById("appCard");
+
+    const emailEl = document.getElementById("email");
+    const passEl  = document.getElementById("password");
+    const loginBtn = document.getElementById("loginBtn");
+    const loginStatus = document.getElementById("loginStatus");
+    const loginError = document.getElementById("loginError");
+
+    const refreshBtn = document.getElementById("refreshBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const clearFiltersBtn = document.getElementById("clearFiltersBtn");
+
+    const totalCountEl = document.getElementById("totalCount");
+    const shownCountEl = document.getElementById("shownCount");
+    const tbody = document.getElementById("tbody");
+    const dataStatus = document.getElementById("dataStatus");
+    const dataError = document.getElementById("dataError");
+
+    const f = {
+      customerName: document.getElementById("f_customerName"),
+      phone: document.getElementById("f_phone"),
+      source: document.getElementById("f_source"),
+      carName: document.getElementById("f_carName"),
+      payment: document.getElementById("f_payment"),
+      status: document.getElementById("f_status"),
+      campaignName: document.getElementById("f_campaignName"),
+      lastUpdate: document.getElementById("f_lastUpdate"),
+    };
+
+    // ----- State -----
+    let allRows = [];      // raw fetched rows
+    let filteredRows = []; // after filters
+
+    // ===== Helpers =====
+    const esc = (v) => {
+      const s = String(v ?? "");
+      return s.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+    };
+
+    const toText = (v) => (v == null ? "" : String(v)).trim();
+
+    const normalize = (s) =>
+      toText(s)
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const isTimestampLike = (v) => v && typeof v === "object" && typeof v.toDate === "function";
+
+    function parseDateAny(value){
+      // Accept Firestore Timestamp, JS Date, number (ms), ISO string
+      if (!value) return null;
+      if (isTimestampLike(value)) return value.toDate();
+      if (value instanceof Date) return value;
+      if (typeof value === "number") {
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      if (typeof value === "string") {
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      return null;
+    }
+
+    function formatDate(d){
+      if (!d) return "";
+      // yyyy-mm-dd hh:mm
+      const pad = (n) => String(n).padStart(2,"0");
+      const yyyy = d.getFullYear();
+      const mm = pad(d.getMonth()+1);
+      const dd = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const mi = pad(d.getMinutes());
+      return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+    }
+
+    function show(el){ el.classList.remove("hide"); }
+    function hide(el){ el.classList.add("hide"); }
+
+    function setLoginError(msg){
+      if (!msg){ hide(loginError); loginError.textContent = ""; return; }
+      loginError.textContent = msg;
+      show(loginError);
+    }
+
+    function setDataError(msg){
+      if (!msg){ hide(dataError); dataError.textContent = ""; return; }
+      dataError.textContent = msg;
+      show(dataError);
+    }
+
+    function setTbodyLoading(text="جاري التحميل..."){
+      tbody.innerHTML = `<tr><td colspan="8" class="note" style="padding:14px">${esc(text)}</td></tr>`;
+    }
+
+    // ===== Auth =====
+    loginBtn.addEventListener("click", async () => {
+      setLoginError("");
+      loginStatus.textContent = "جاري تسجيل الدخول...";
+      try{
+        const email = toText(emailEl.value);
+        const pass  = toText(passEl.value);
+        await signInWithEmailAndPassword(auth, email, pass);
+        loginStatus.textContent = "";
+      }catch(e){
+        loginStatus.textContent = "";
+        setLoginError(readableAuthError(e));
+      }
+    });
+
+    passEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loginBtn.click();
+    });
+    emailEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loginBtn.click();
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      try{ await signOut(auth); }catch(_){}
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user){
+        subtitle.textContent = "تسجيل الدخول";
+        userPill.textContent = "—";
+        hide(userPill);
+        hide(logoutBtn);
+        show(loginCard);
+        hide(appCard);
+        return;
+      }
+
+      subtitle.textContent = "قاعدة البيانات";
+      userPill.textContent = user.email || user.uid;
+      show(userPill);
+      show(logoutBtn);
+      hide(loginCard);
+      show(appCard);
+
+      // Load data after login
+      await loadData();
+    });
+
+    function readableAuthError(e){
+      const code = (e && e.code) ? String(e.code) : "";
+      if (code.includes("auth/invalid-email")) return "الإيميل غير صحيح.";
+      if (code.includes("auth/user-not-found")) return "المستخدم غير موجود.";
+      if (code.includes("auth/wrong-password")) return "كلمة المرور غير صحيحة.";
+      if (code.includes("auth/too-many-requests")) return "محاولات كثيرة. جرّب لاحقاً.";
+      if (code.includes("auth/invalid-credential")) return "بيانات الدخول غير صحيحة.";
+      return "فشل تسجيل الدخول.";
+    }
+
+    // ===== Data Load =====
+    refreshBtn.addEventListener("click", loadData);
+
+    async function loadData(){
+      setDataError("");
+      dataStatus.textContent = "جاري تحميل البيانات...";
+      setTbodyLoading("جاري تحميل البيانات...");
+
+      try{
+        // Attempt to order by a common updated field if exists.
+        // If it fails (missing index/field), fallback to simple getDocs.
+        let snaps;
+        try{
+          const q1 = query(collection(db, COLLECTION_NAME), orderBy("updatedAt", "desc"));
+          snaps = await getDocs(q1);
+        }catch(_){
+          try{
+            const q2 = query(collection(db, COLLECTION_NAME), orderBy("lastUpdated", "desc"));
+            snaps = await getDocs(q2);
+          }catch(_2){
+            snaps = await getDocs(collection(db, COLLECTION_NAME));
+          }
+        }
+
+        const rows = [];
+        snaps.forEach(docSnap => {
+          const d = docSnap.data() || {};
+          // Map common possible field names to required columns
+          const customerName = d.customerName ?? d.name ?? d.fullName ?? d.clientName ?? "";
+          const phone        = d.phone ?? d.mobile ?? d.phoneNumber ?? d.whatsapp ?? d.contactPhone ?? "";
+          const source       = d.source ?? d.leadSource ?? d.platform ?? "";
+          const carName      = d.carName ?? d.car ?? d.vehicle ?? d.vehicleName ?? "";
+          const payment      = d.payment ?? d.paymentType ?? d.payType ?? "";
+          const status       = d.status ?? d.leadStatus ?? d.stage ?? "";
+          const campaignName = d.campaignName ?? d.campaign ?? d.adName ?? d.utmCampaign ?? "";
+
+          const updatedRaw   = d.updatedAt ?? d.lastUpdated ?? d.updated_at ?? d.updatedOn ?? d.createdAt ?? d.created_at ?? null;
+          const updatedAt    = parseDateAny(updatedRaw);
+
+          rows.push({
+            id: docSnap.id,
+            customerName,
+            phone,
+            source,
+            carName,
+            payment,
+            status,
+            campaignName,
+            updatedAt,
+          });
+        });
+
+        allRows = rows;
+        totalCountEl.textContent = String(allRows.length);
+        dataStatus.textContent = "تم التحميل.";
+        applyFiltersAndRender();
+      }catch(e){
+        console.error(e);
+        dataStatus.textContent = "";
+        setDataError("فشل تحميل البيانات من Firebase.");
+        setTbodyLoading("فشل تحميل البيانات.");
+        allRows = [];
+        filteredRows = [];
+        totalCountEl.textContent = "0";
+        shownCountEl.textContent = "0";
+      }
+    }
+
+    // ===== Filters =====
+    Object.values(f).forEach(el => el.addEventListener("input", applyFiltersAndRender));
+    f.lastUpdate.addEventListener("change", applyFiltersAndRender);
+
+    clearFiltersBtn.addEventListener("click", () => {
+      f.customerName.value = "";
+      f.phone.value = "";
+      f.source.value = "";
+      f.carName.value = "";
+      f.payment.value = "";
+      f.status.value = "";
+      f.campaignName.value = "";
+      f.lastUpdate.value = "";
+      applyFiltersAndRender();
+    });
+
+    function applyFiltersAndRender(){
+      const qCustomer = normalize(f.customerName.value);
+      const qPhone    = normalize(f.phone.value);
+      const qSource   = normalize(f.source.value);
+      const qCar      = normalize(f.carName.value);
+      const qPayment  = normalize(f.payment.value);
+      const qStatus   = normalize(f.status.value);
+      const qCamp     = normalize(f.campaignName.value);
+      const dateMode  = f.lastUpdate.value;
+
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const msDay = 24*60*60*1000;
+
+      filteredRows = allRows.filter(r => {
+        if (qCustomer && !normalize(r.customerName).includes(qCustomer)) return false;
+        if (qPhone && !normalize(r.phone).includes(qPhone)) return false;
+        if (qSource && !normalize(r.source).includes(qSource)) return false;
+        if (qCar && !normalize(r.carName).includes(qCar)) return false;
+        if (qPayment && !normalize(r.payment).includes(qPayment)) return false;
+        if (qStatus && !normalize(r.status).includes(qStatus)) return false;
+        if (qCamp && !normalize(r.campaignName).includes(qCamp)) return false;
+
+        if (dateMode){
+          const d = r.updatedAt;
+          if (dateMode === "empty") return !d;
+          if (!d) return false;
+
+          const diff = now.getTime() - d.getTime();
+          if (dateMode === "today") return d >= startOfToday;
+          if (dateMode === "7d") return diff <= 7*msDay;
+          if (dateMode === "30d") return diff <= 30*msDay;
+          if (dateMode === "older") return diff > 30*msDay;
+        }
+
+        return true;
+      });
+
+      shownCountEl.textContent = String(filteredRows.length);
+      renderTable(filteredRows);
+    }
+
+    function renderTable(rows){
+      if (!rows.length){
+        tbody.innerHTML = `<tr><td colspan="8" class="note" style="padding:14px">لا توجد بيانات مطابقة للفلاتر.</td></tr>`;
+        return;
+      }
+
+      const html = rows.map(r => {
+        return `
+          <tr>
+            <td title="${esc(r.customerName)}">${esc(r.customerName)}</td>
+            <td title="${esc(r.phone)}">${esc(r.phone)}</td>
+            <td title="${esc(r.source)}">${esc(r.source)}</td>
+            <td title="${esc(r.carName)}">${esc(r.carName)}</td>
+            <td title="${esc(r.payment)}">${esc(r.payment)}</td>
+            <td title="${esc(r.status)}">${esc(r.status)}</td>
+            <td title="${esc(r.campaignName)}">${esc(r.campaignName)}</td>
+            <td title="${esc(formatDate(r.updatedAt))}">${esc(formatDate(r.updatedAt))}</td>
+          </tr>
+        `;
+      }).join("");
+
+      tbody.innerHTML = html;
+    }
+
+    // ===== Export Excel =====
+    exportBtn.addEventListener("click", () => {
+      // export filtered rows (what is currently shown)
+      const rows = filteredRows.length ? filteredRows : allRows;
+
+      const aoa = [
+        ["اسم العميل","الجوال","المصدر","اسم السيارة","الدفع","الحالة","اسم الحملة","آخر تحديث"],
+        ...rows.map(r => [
+          toText(r.customerName),
+          toText(r.phone),
+          toText(r.source),
+          toText(r.carName),
+          toText(r.payment),
+          toText(r.status),
+          toText(r.campaignName),
+          toText(formatDate(r.updatedAt)),
+        ])
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Database");
+
+      const fileName = `CRM_Database_${new Date().toISOString().slice(0,10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+    });
+  </script>
+</body>
+</html>
