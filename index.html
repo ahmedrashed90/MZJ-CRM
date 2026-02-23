@@ -1,6 +1,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1784,18 +1785,6 @@ body.auth-locked #authModal{ pointer-events:auto; }
         </div>
 
 
-        <div class="navItem" data-tab="pipeline">
-          <div class="navLeft">
-            <div class="ico">⛓</div>
-            <div class="navTitle">
-              <b>مراحل البيع</b>
-              <span>كانبان عربي</span>
-            </div>
-          </div>
-          <div class="badge ok">نشط</div>
-        </div>
-
-        
         <div class="navItem" data-tab="dashboard">
           <div class="navLeft">
             <div class="ico">📊</div>
@@ -2167,95 +2156,8 @@ body.auth-locked #authModal{ pointer-events:auto; }
             </div>
           </div>
 
-<!-- Panel: Pipeline -->
-          <div class="panel" id="panel-pipeline">
-            <div class="grid">
-              <div class="card" style="grid-column: span 12;">
-                <div class="kanbanTop">
-                  <div>
-                    <h3 style="margin:0 0 4px">مراحل البيع — كانبان عربي</h3>
-                    <p style="margin:0;color:var(--muted);font-size:13px;line-height:1.7">
-                      الأعمدة مبنية على <b>حالات العملاء</b> (نفس الحالات داخل Tab العملاء المحتملون).
-                    </p>
-                  </div>
 
-                  <div class="kanbanFilters">
-                    <div class="field">
-                      <label>بحث</label>
-                      <input id="pipeSearch" type="text" placeholder="اسم / جوال / سيارة..." />
-                    </div>
-
-                    <div class="field">
-                      <label>اسم السيارة</label>
-                      <select id="pipeCar">
-                        <option value="">كل السيارات</option>
-                      </select>
-                    </div>
-
-                    <div class="field">
-                      <label>الدفع</label>
-                      <select id="pipePay">
-                        <option value="">كاش + تمويل</option>
-                        <option value="كاش">كاش</option>
-                        <option value="تمويل">تمويل</option>
-                      </select>
-                    </div>
-
-                    <button class="toolBtn" id="pipeReset">تصفير الفلاتر</button>
-                  </div>
-                </div>
-
-                <div class="kanbanWrap">
-                  <div class="kanbanBoard" id="pipelineBoard">
-                    <div class="mzj-empty" style="padding:18px">جاري تحميل البيانات...</div>
-                  </div>
-                </div>
-
-
-                <!-- تفاصيل العميل داخل مراحل البيع (بدون Popups) -->
-                <div class="kLeadPanel" id="pipeLeadPanel" hidden>
-                  <div class="kLeadPanelTop">
-                    <div>
-                      <div class="kLeadPanelTitle" id="pipeLeadTitle">تفاصيل العميل</div>
-                      <div class="kLeadPanelSub" id="pipeLeadSub">اختر عميلًا من الكانبان لعرض سجل النشاط وإضافة ملاحظة/متابعة.</div>
-                    </div>
-                    <button class="toolBtn" id="pipeLeadClose" type="button">إغلاق</button>
-                  </div>
-
-                  <div class="kLeadPanelBody">
-                    <div class="kLeadPanelForm">
-                      <div class="field">
-                        <label>ملاحظة جديدة</label>
-                        <textarea id="pipeLeadNote" rows="3" placeholder="اكتب ملحوظة بخصوص العميل..."></textarea>
-                      </div>
-                      <div class="field">
-                        <label>تاريخ المتابعة</label>
-                        <input id="pipeLeadFollow" type="date" />
-                      </div>
-                      <div class="field">
-                        <label>اسم السيارة</label>
-                        <input id="pipeLeadCarName" type="text" placeholder="اكتب اسم السيارة..." />
-                      </div>
-                      <div class="kLeadPanelActions">
-                        <button class="btnPrimary" id="pipeLeadSave" type="button">حفظ</button>
-                        <span class="kLeadPanelMsg" id="pipeLeadMsg"></span>
-                      </div>
-                    </div>
-
-                    <div class="kLeadPanelActivity">
-                      <div class="kLeadPanelSectionTitle">سجل النشاط</div>
-                      <div class="activityList" id="pipeLeadActivity"></div>
-                    </div>
-                  </div>
-                </div>
-
-
-                <p class="kanbanHint">
-                  * اسحب العميل بين الأعمدة لتغيير حالته (حسب الصلاحيات). أي عميل جديد يظهر تلقائيًا هنا وفي جدول العملاء المحتملون.
-                </p>
-              </div>
-            </div>
-          </div>
+          
 
 
           <!-- Panel: Tasks -->
@@ -3234,8 +3136,6 @@ let __selectedWaTemplateKey = null;
       leads_cs:      { title:"العملاء المحتملون - خدمة عملاء", desc:"عرض العملاء المحتملين لخدمة العملاء." },
 
       database:      { title:"قاعدة البيانات", desc:"كل العملاء الذين دخلوا النظام — فلاتر متقدمة (المصدر/السيارة/الدفع/الحالة/الحملة/تاريخها)." },
-
-      pipeline:      { title:"مراحل البيع", desc:"كانبان لمتابعة مراحل البيع — اضغط على عميل لعرض التفاصيل والتحديث." },
       dashboard:     { title:"داش بورد", desc:"تقسيم العملاء حسب الحالة — عرض سريع لكل العملاء." },
       tasks:         { title:"المتابعات", desc:"مهام اليوم والتأخير — راقب المتابعة القادمة لكل عميل." },
       retarget:      { title:"إعادة الاستهداف", desc:"قوائم وحملات — تجهيز الجمهور والمتابعات." },
