@@ -3260,8 +3260,12 @@ let __selectedWaTemplateKey = null;
     // ✅ Lead views presets
     if(panelKey === "leads"){
       window.__leadsViewMode = tabId; // used inside applyLeadFilters
-      try{ applyLeadFilters();
-      try{ applyDatabaseFilters(); }catch(e){} }catch(e){}
+      // لازم نضمن تحميل العملاء (leads) أولاً حتى تظهر أي View فور فتحه
+      try{ ensureLeadsLive(); }catch(e){}
+      try{
+        applyLeadFilters();
+        try{ applyDatabaseFilters(); }catch(e){}
+      }catch(e){}
     }
 
     // ✅ Database tab
@@ -6488,6 +6492,11 @@ function applyLeadFilters(){
 
     const filtered = base.filter(({id,data})=>{
       // Views (Tabs) تحت "العملاء"
+      // العملاء = العملاء الجديدة فقط (استبعاد المؤهلين)
+      if(viewMode === "customers"){
+        const stName = String(data.leadStatusName || "").trim();
+        if(stName.startsWith("مؤهل")) return false;
+      }
       if(viewMode === "leads_cash"){
         if(getLeadPayType(data) !== "كاش") return false;
       }else if(viewMode === "leads_finance"){
@@ -6837,6 +6846,31 @@ function bindTasksUI(){
 
     // open details by clicking name
     const tableWrap = tb.closest(".mzj-tableWrap") || tb.parentElement;
+
+    // ✅ فتح مودال العميل من تبويب "قاعدة البيانات" أيضاً
+    const dbTb = $("#dbTbody");
+    const dbWrap = dbTb ? (dbTb.closest(".mzj-tableWrap") || dbTb.parentElement) : null;
+    if(dbWrap && !window.__dbLeadClickBound){
+      window.__dbLeadClickBound = true;
+      dbWrap.addEventListener("click", (e)=>{
+        const ph = e.target.closest(".leadPhoneLink");
+        if(ph){
+          const p = String(ph.dataset.openinboxphone||"").trim();
+          if(p){
+            openInboxForPhone(p, ph.dataset.openinboxname || "");
+          }else{
+            toast("رقم غير موجود", "warn");
+          }
+          return;
+        }
+        const a = e.target.closest("[data-openlead]");
+        if(!a) return;
+        const id = a.dataset.openlead;
+        const found = (leadsCache||[]).find(x=>x.id===id);
+        if(!found) return;
+        openLeadModal(id, found.data);
+      });
+    }
     (tableWrap || document).addEventListener("click", (e)=>{
       const ph = e.target.closest(".leadPhoneLink");
       if(ph){
