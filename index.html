@@ -1,6 +1,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -2018,11 +2019,12 @@ body.auth-locked #authModal{ pointer-events:auto; }
                 </div>
 
                 <div class="mzj-tableWrap">
-                  <table class="mzj-table" style="min-width: 1180px;">
+                  <table class="mzj-table" style="min-width: 1260px;">
                     <thead>
                       <tr>
                         <th>اسم العميل</th>
                         <th>الجوال</th>
+                        <th>المكان</th>
                         <th>المصدر</th>
                         <th>اسم السيارة</th>
                         <th>الدفع</th>
@@ -2033,7 +2035,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
                       </tr>
                     </thead>
                     <tbody id="leadsTbody">
-                      <tr><td colspan="9" class="mzj-empty">لا توجد بيانات بعد. سيتم جلب العملاء المحتملين من Firebase.</td></tr>
+                      <tr><td colspan="10" class="mzj-empty">لا توجد بيانات بعد. سيتم جلب العملاء المحتملين من Firebase.</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -5317,6 +5319,7 @@ function sortStatusesByCustomOrder(list){
       <tr data-id="${esc(id)}" class="leadTr">
         <td><a class="leadNameLink" data-openlead="${esc(id)}" href="javascript:void(0)">${esc(d.name)}</a></td>
         <td><a class="leadPhoneLink" data-openinboxphone="${esc(lead.phoneNormalized || lead.phone || lead.waId || "")}" data-openinboxname="${esc(d.name)}" href="javascript:void(0)">${esc(d.phone)}</a></td>
+        <td>${esc((String((lead?.place ?? lead?.location ?? lead?.city ?? "")).trim()) || "—")}</td>
         <td>${esc(getNormalizedSourceForLead(lead,id) || "—")}</td>
         <td title="${esc(carName)}">${esc(carName)}</td>
         <td>${esc(payType || "—")}</td>
@@ -6554,7 +6557,7 @@ function bindTasksUI(){
     if(!tb) return;
 
     if(!currentUser){
-      tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">سجّل الدخول لعرض العملاء المحتملين.</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">سجّل الدخول لعرض العملاء المحتملين.</td></tr>`;
       return;
     }
 
@@ -6579,7 +6582,7 @@ function bindTasksUI(){
         setBadgeConnected(true);
       }catch(e){
         setBadgeConnected(false);
-        tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">تعذر تحميل العملاء: ${esc(err?.message || err)}</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">تعذر تحميل العملاء: ${esc(err?.message || err)}</td></tr>`;
       }
     });
 
