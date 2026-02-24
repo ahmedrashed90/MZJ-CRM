@@ -1,9 +1,6 @@
 
 
 
-
-
-
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1787,6 +1784,9 @@ body.auth-locked #authModal{ pointer-events:auto; }
         </div>
 
 
+        
+
+        
         <div class="navItem" data-tab="dashboard">
           <div class="navLeft">
             <div class="ico">📊</div>
@@ -1807,7 +1807,13 @@ body.auth-locked #authModal{ pointer-events:auto; }
           </div>
           <div class="badge">—</div>
         </div>
-</nav>
+
+        
+
+        
+
+        
+      </nav>
 
       <div class="sideFooter">
         <div style="display:flex;align-items:center;gap:10px">
@@ -1862,7 +1868,8 @@ body.auth-locked #authModal{ pointer-events:auto; }
           </div>
 
           <div id="inboxHeaderTools" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-start">
-</div>
+<button class="toolBtn" id="btnEligibilityCalc" title="حاسبة مبدئية">حاسبة مبدئية</button>
+          </div>
         </div>
 
         <div class="pageBody">
@@ -1913,13 +1920,14 @@ body.auth-locked #authModal{ pointer-events:auto; }
                     <div class="who">
                       <div class="avatar" style="width:40px;height:40px;border-radius:16px">أ</div>
                       <div class="whoInfo">
-                        <b id="chatName" style="cursor:pointer;text-decoration:underline">—</b>
+                        <b id="chatName">—</b>
                         <span id="chatMeta">—</span>
                       </div>
                     </div>
                     <div class="chatTools">
                       <button class="toolBtn" id="btnCreateLead" type="button">تحويل لعميل محتمل</button>
-<button class="toolBtn" id="btnSetLeadStatus" type="button">تحديد الحالة</button>
+                      <button class="toolBtn" id="btnClientData" type="button">تحديث/إضافة بيانات العميل</button>
+                      <button class="toolBtn" id="btnSetLeadStatus" type="button">تحديد الحالة</button>
                       <button class="toolBtn" id="btnSetFollowUp" type="button">تحديد موعد</button>
                       <button class="toolBtn danger" id="btnEndChat" type="button">إنهاء المحادثة</button>
 </div>
@@ -2086,6 +2094,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
                   </div>
                   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                     <button class="miniBtn" id="dbRefresh" type="button">تحديث</button>
+                    <button class="miniBtn" id="dbExportExcel" type="button">تصدير Excel</button>
                   </div>
                 </div>
 
@@ -2095,25 +2104,29 @@ body.auth-locked #authModal{ pointer-events:auto; }
                   <select id="dbFilterPay"><option value="">كل طرق الدفع</option></select>
                   <select id="dbFilterStatus"><option value="">كل الحالات</option></select>
                   <select id="dbFilterCampaign"><option value="">كل الحملات</option></select>
+                  <input class="miniInput" id="dbDateFrom" type="date" title="من تاريخ (تاريخ الحملة)" />
+                  <input class="miniInput" id="dbDateTo" type="date" title="إلى تاريخ (تاريخ الحملة)" />
                   <input class="miniInput" id="dbSearch" placeholder="بحث بالاسم/الجوال/السيارة/المصدر…" style="grid-column:1/-1" />
                 </div>
 
                 <div class="mzj-tableWrap">
-                  <table class="mzj-table" style="min-width: 1180px;">
+                  <table class="mzj-table" style="min-width: 1460px;">
                     <thead>
                       <tr>
                         <th>اسم العميل</th>
                         <th>الجوال</th>
+                        <th>المكان</th>
                         <th>المصدر</th>
                         <th>اسم السيارة</th>
                         <th>الدفع</th>
                         <th>الحالة</th>
                         <th>اسم الحملة</th>
+                        <th>تاريخ الحملة</th>
                         <th>آخر تحديث</th>
                       </tr>
                     </thead>
                     <tbody id="dbTbody">
-                      <tr><td colspan="8" class="mzj-empty">جاري تحميل قاعدة البيانات.</td></tr>
+                      <tr><td colspan="10" class="mzj-empty">جاري تحميل قاعدة البيانات...</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -2121,7 +2134,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
             </div>
           </div>
 
-
+<!-- Panel: Pipeline -->
           
 
 
@@ -2203,8 +2216,15 @@ body.auth-locked #authModal{ pointer-events:auto; }
             </div>
           </div>
 
+          <!-- Panel: Retarget -->
+          
+            </div>
+          </div>
+
+          <!-- Panel: Automation -->
           
 
+          <!-- Panel: Settings -->
           
 
         </div>
@@ -2288,17 +2308,6 @@ body.auth-locked #authModal{ pointer-events:auto; }
           <div id="closeChatMsg" style="display:none;margin-top:10px;color:var(--bad);font-weight:800"></div>
         </div>
 
-        <div style="margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.7">
-          سيتم تسجيل: <b>closedBy</b> و <b>closedAt</b> و <b>reason</b> داخل المحادثة.
-        </div>
-      </div>
-      <div class="modalActions">
-        <button class="btn" id="closeChatCancel" type="button">إلغاء</button>
-        <button class="btn btnPrimary" id="closeChatConfirm" type="button">تأكيد الإنهاء</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ===== Lead Details Modal (Popup) ===== -->
   <div class="modalOverlay" id="leadModal" style="display:none">
     <div class="modal" role="dialog" aria-modal="true" aria-label="بيانات العميل">
@@ -2311,6 +2320,18 @@ body.auth-locked #authModal{ pointer-events:auto; }
         <button class="btn" id="leadModalClose2" type="button">إغلاق</button>
       </div>
     </div>
+  </div>
+
+        <div style="margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.7">
+          سيتم تسجيل: <b>closedBy</b> و <b>closedAt</b> و <b>reason</b> داخل المحادثة.
+        </div>
+      </div>
+      <div class="modalActions">
+        <button class="btn" id="closeChatCancel" type="button">إلغاء</button>
+        <button class="btn btnPrimary" id="closeChatConfirm" type="button">تأكيد الإنهاء</button>
+      </div>
+    </div>
+  </div>
 
 
 
@@ -2318,7 +2339,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
   <div class="modalOverlay" id="eligModal" style="display:none">
     <div class="modal" style="max-width:520px">
       <div class="modalHead">
-        <b>حسبة الأهلية (مبدئي)</b>
+        <b>حاسبة مبدئية</b>
         <button class="iconBtn" id="eligClose" type="button" aria-label="إغلاق">✕</button>
       </div>
       <div class="modalBody">
@@ -2694,9 +2715,13 @@ let __selectedWaTemplateKey = null;
         return;
       }
       if(leadId){
-        // Open pipeline lead panel if available, otherwise just go to pipeline tab
-        showTab("pipeline");
-        setTimeout(()=>{ try{ openPipeLeadPanel(leadId); }catch(e){} }, 250);
+        // Pipeline tab removed: open lead details from Leads tab
+        showTab("leads");
+        setTimeout(()=>{ try{
+          const found = (window.leadsCache||[]).find(x=>x.id===leadId);
+          if(found) openLeadModal(leadId, found.data||{});
+          else { /* fallback */ }
+        }catch(e){} }, 250);
       }
     });
   }catch(e){}
@@ -2891,6 +2916,8 @@ let __selectedWaTemplateKey = null;
       leads_cs:      { title:"العملاء المحتملون - خدمة عملاء", desc:"عرض العملاء المحتملين لخدمة العملاء." },
 
       database:      { title:"قاعدة البيانات", desc:"كل العملاء الذين دخلوا النظام — فلاتر متقدمة (المصدر/السيارة/الدفع/الحالة/الحملة/تاريخها)." },
+
+      pipeline:      { title:"مراحل البيع", desc:"كانبان لمتابعة مراحل البيع — اضغط على عميل لعرض التفاصيل والتحديث." },
       dashboard:     { title:"داش بورد", desc:"تقسيم العملاء حسب الحالة — عرض سريع لكل العملاء." },
       tasks:         { title:"المتابعات", desc:"مهام اليوم والتأخير — راقب المتابعة القادمة لكل عميل." },
       retarget:      { title:"إعادة الاستهداف", desc:"قوائم وحملات — تجهيز الجمهور والمتابعات." },
@@ -2915,12 +2942,9 @@ let __selectedWaTemplateKey = null;
     // ✅ Lead views presets
     if(panelKey === "leads"){
       window.__leadsViewMode = tabId; // used inside applyLeadFilters
-      // لازم نضمن تحميل العملاء (leads) أولاً حتى تظهر أي View فور فتحه
+      // تأكد أن العملاء يتم تحميلهم حتى لو فتحت أي View غير قاعدة البيانات
       try{ ensureLeadsLive(); }catch(e){}
-      try{
-        applyLeadFilters();
-        try{ applyDatabaseFilters(); }catch(e){}
-      }catch(e){}
+      try{ applyLeadFilters(); }catch(e){}
     }
 
     // ✅ Database tab
@@ -4572,8 +4596,8 @@ scroller.addEventListener("scroll", ()=>{
 $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
       $("#cd_salary") && ($("#cd_salary").value = data?.salary || "");
       $("#cd_commitment") && ($("#cd_commitment").value = data?.commitment || data?.obligation || "");
-            $("#cd_location") && ($("#cd_location").value = data?.location || data?.city || data?.region || "");
-$("#cd_age") && ($("#cd_age").value = data?.age || "");
+      $("#cd_place") && ($("#cd_place").value = data?.place || data?.location || data?.city || "");
+      $("#cd_age") && ($("#cd_age").value = data?.age || "");
       $("#cd_bank") && ($("#cd_bank").value = data?.bank || data?.salaryBank || "");
       $("#cd_car_type") && ($("#cd_car_type").value = data?.carType || data?.car || "");
       $("#cd_notes") && ($("#cd_notes").value = data?.notes || "");
@@ -4607,17 +4631,6 @@ $("#cd_age") && ($("#cd_age").value = data?.age || "");
     });
 
     // save
-    // Expose ONLY what we need for external tiny JS (فتح بيانات العميل)
-    window.__mzjOpenClientData = async function(){
-      try{
-        cdOpen();
-        await cdLoadForCurrent();
-      }catch(e){
-        console.warn("open client data failed", e);
-        toast("تعذر فتح بيانات العميل: " + (e?.message||e), "warn");
-      }
-    };
-
     $("#cd_save")?.addEventListener("click", async ()=>{
       try{
         if(!activeConvId){ toast("اختر محادثة أولاً", "warn"); return; }
@@ -4678,10 +4691,10 @@ $("#cd_age") && ($("#cd_age").value = data?.age || "");
           channel: channel || existing.channel || "",
           salary: ($("#cd_salary")?.value || "").trim(),
           commitment: ($("#cd_commitment")?.value || "").trim(),
+          place: ($("#cd_place")?.value || "").trim(),
           age: ($("#cd_age")?.value || "").trim(),
           bank: ($("#cd_bank")?.value || "").trim(),
           carType: ($("#cd_car_type")?.value || "").trim(),
-          location: ($("#cd_location")?.value || "").trim(),
           notes: ($("#cd_notes")?.value || "").trim(),
           attachments,
           updatedAt: new Date().toISOString()
@@ -4725,6 +4738,7 @@ $("#cd_age") && ($("#cd_age").value = data?.age || "");
             channel: channel,
             salary: payload.salary,
             commitment: payload.commitment,
+            place: payload.place,
             age: payload.age,
             bank: payload.bank,
             carType: payload.carType,
@@ -6160,11 +6174,6 @@ function applyLeadFilters(){
 
     const filtered = base.filter(({id,data})=>{
       // Views (Tabs) تحت "العملاء"
-      // العملاء = العملاء الجديدة فقط (استبعاد المؤهلين)
-      if(viewMode === "customers"){
-        const stName = String(data.leadStatusName || "").trim();
-        if(stName.startsWith("مؤهل")) return false;
-      }
       if(viewMode === "leads_cash"){
         if(getLeadPayType(data) !== "كاش") return false;
       }else if(viewMode === "leads_finance"){
@@ -6231,7 +6240,7 @@ const total = base.length;
     $("#statLeadsClosed") && ($("#statLeadsClosed").textContent = String(closedWon));
 
     if(!filtered.length){
-      tb.innerHTML = `<tr><td colspan="8" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
     }else{
       tb.innerHTML = filtered.map(x=>renderLeadTr(x.id, x.data)).join("");
     }
@@ -6260,7 +6269,8 @@ function refreshDbFilters(){
   const carSel = $("#dbFilterCar");
   const paySel = $("#dbFilterPay");
   const stSel  = $("#dbFilterStatus");
-  if(!srcSel || !carSel || !paySel || !stSel) return;
+  const campSel= $("#dbFilterCampaign");
+  if(!srcSel || !carSel || !paySel || !stSel || !campSel) return;
 
   // Sources
   const sources = Array.from(new Set((leadsCache||[]).map(x=>String(getNormalizedSourceForLead(x.data,x.id)||"").trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,"ar"));
@@ -6288,33 +6298,34 @@ function refreshDbFilters(){
   if(curSt) stSel.value = curSt;
 
   // Campaigns
-  const campSel = $("#dbFilterCampaign");
-  if(campSel){
-    const curCamp = campSel.value || "";
-    const camps = Array.from(new Set((leadsCache||[]).map(x=>getLeadCampaignName(x.data)).filter(Boolean))).sort((a,b)=>String(a).localeCompare(String(b),"ar"));
-    campSel.innerHTML = `<option value="">كل الحملات</option>` + camps.map(s=>`<option value="${esc(s)}">${esc(s)}<\/option>`).join("");
-    if(curCamp) campSel.value = curCamp;
-  }
+  const camps = Array.from(new Set((leadsCache||[]).map(x=>String(getLeadCampaignName(x.data)||"").trim()).filter(Boolean)))
+    .sort((a,b)=>a.localeCompare(b,"ar"));
+  const curCamp = campSel.value || "";
+  campSel.innerHTML = `<option value="">كل الحملات</option>` + camps.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join("");
+  if(curCamp) campSel.value = curCamp;
 }
-
 
 function renderDbTr(id, data){
   const name = esc(data?.name || "—");
   const phone = esc(normalizePhone(data?.phone || data?.phoneNormalized || ""));
+  const place = esc((data?.place || data?.location || data?.city || "") || "—");
   const source = esc(getNormalizedSourceForLead(data,id) || "—");
   const car = esc(getLeadCarName(data) || "—");
   const pay = esc(getLeadPayType(data) || "—");
   const st  = esc(data?.leadStatusName || (leadStatusesMap.get(data?.leadStatusId||"")?.name) || "—");
   const camp = esc(getLeadCampaignName(data) || "—");
+  const campDate = esc(getLeadCampaignDate(data) || "—");
   const upd = esc(fsToHuman(data?.updatedAt || data?.updatedAtMs || data?.updated_at || data?.lastUpdatedAt || ""));
   return `<tr>
     <td><a class="leadOpenLink" data-openlead="${esc(id)}" href="javascript:void(0)">${name}</a></td>
     <td><a class="leadPhoneLink" data-openinboxphone="${esc(phone)}" data-openinboxname="${name}" href="javascript:void(0)">${phone ? ("+"+phone) : "—"}</a></td>
-    <td>${source}</td>
+     <td>${place}</td>
+     <td>${source}</td>
     <td>${car}</td>
     <td>${pay}</td>
     <td>${st}</td>
     <td>${camp}</td>
+    <td>${campDate}</td>
     <td>${upd}</td>
   </tr>`;
 }
@@ -6330,6 +6341,8 @@ function applyDatabaseFilters(){
   const fpay = $("#dbFilterPay")?.value || "";
   const fstat= $("#dbFilterStatus")?.value || "";
   const fcamp= ($("#dbFilterCampaign")?.value || "").trim();
+  const ffrom= ($("#dbDateFrom")?.value || "").trim();
+  const fto  = ($("#dbDateTo")?.value || "").trim();
 
   const base = canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser?.uid||""));
 
@@ -6338,9 +6351,16 @@ function applyDatabaseFilters(){
     if(fcar && String(getLeadCarName(data)||"").trim() !== fcar) return false;
     if(fpay && String(getLeadPayType(data)||"").trim() !== fpay) return false;
     if(fstat && String(data.leadStatusId||"").trim() !== fstat) return false;
+
     if(fcamp){
-      const c = getLeadCampaignName(data).trim();
+      const c = String(getLeadCampaignName(data)||"").trim();
       if(c !== fcamp) return false;
+    }
+    if(ffrom || fto){
+      const d = String(getLeadCampaignDate(data)||"").trim(); // expected YYYY-MM-DD
+      if(!d) return false;
+      if(ffrom && d < ffrom) return false;
+      if(fto && d > fto) return false;
     }
 
     if(qText){
@@ -6350,16 +6370,67 @@ function applyDatabaseFilters(){
       const src= String(getNormalizedSourceForLead(data,id)||"").toLowerCase();
       const car= String(getLeadCarName(data)||"").toLowerCase();
       const pay= String(getLeadPayType(data)||"").toLowerCase();
-      if(!n.includes(qText) && !p.includes(qText) && !pn.includes(qText) && !src.includes(qText) && !car.includes(qText) && !pay.includes(qText)) return false;
+      const plc= String(data.place||data.location||data.city||"").toLowerCase();
+      if(!n.includes(qText) && !p.includes(qText) && !pn.includes(qText) && !src.includes(qText) && !car.includes(qText) && !pay.includes(qText) && !plc.includes(qText)) return false;
     }
     return true;
   });
 
+  window.__dbLastFiltered = filtered;
+
   if(!filtered.length){
-    tb.innerHTML = `<tr><td colspan="8" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
   }else{
     tb.innerHTML = filtered.map(x=>renderDbTr(x.id, x.data)).join("");
   }
+
+function exportDatabaseToExcel(){
+  // يصدّر نفس النتائج المعروضة حالياً (بعد الفلاتر)
+  try{ applyDatabaseFilters(); }catch(e){}
+  const rows = Array.isArray(window.__dbLastFiltered) ? window.__dbLastFiltered : [];
+  if(!rows.length){
+    toast("لا توجد بيانات للتصدير", "warn");
+    return;
+  }
+
+  const headers = ["اسم العميل","الجوال","المكان","المصدر","اسم السيارة","الدفع","الحالة","اسم الحملة","تاريخ الحملة","آخر تحديث"];
+  const lines = [];
+  lines.push(headers);
+
+  rows.forEach(({id,data})=>{
+    const name = (data?.name || "").toString().trim();
+    const phone = normalizePhone(data?.phone || data?.phoneNormalized || "");
+    const place = (data?.place || data?.location || data?.city || "").toString();
+    const source = (getNormalizedSourceForLead(data,id) || "").toString();
+    const car = (getLeadCarName(data) || "").toString();
+    const pay = (getLeadPayType(data) || "").toString();
+    const st  = (data?.leadStatusName || (leadStatusesMap.get(data?.leadStatusId||"")?.name) || "").toString();
+    const camp = (getLeadCampaignName(data) || "").toString();
+    const campDate = (getLeadCampaignDate(data) || "").toString();
+    const upd = fsToHuman(data?.updatedAt || data?.updatedAtMs || data?.updated_at || data?.lastUpdatedAt || "");
+    lines.push([name, phone ? ("+"+phone) : "", place, source, car, pay, st, camp, campDate, upd]);
+  });
+
+  const csv = lines.map(row=>row.map(v=>{
+    const s = (v==null) ? "" : String(v);
+    // escape quotes
+    const escv = s.replace(/"/g,'""');
+    return '"' + escv + '"';
+  }).join(",")).join("\r\n");
+
+  const blob = new Blob(["\ufeff"+csv], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "database_export.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  toast("تم تصدير Excel", "ok");
+}
+
+
 }
 
 // ===== Tasks / Follow-ups (Tab المتابعات) =====
@@ -6514,32 +6585,6 @@ function bindTasksUI(){
 
     // open details by clicking name
     const tableWrap = tb.closest(".mzj-tableWrap") || tb.parentElement;
-
-    // ✅ فتح مودال العميل من تبويب "قاعدة البيانات" أيضاً
-    const dbTb = $("#dbTbody");
-    const dbWrap = dbTb ? (dbTb.closest(".mzj-tableWrap") || dbTb.parentElement) : null;
-    if(dbWrap && !window.__dbLeadClickBound){
-      window.__dbLeadClickBound = true;
-      dbWrap.addEventListener("click", (e)=>{
-        const ph = e.target.closest(".leadPhoneLink");
-        if(ph){
-          const p = String(ph.dataset.openinboxphone||"").trim();
-          if(p){
-            openInboxForPhone(p, ph.dataset.openinboxname || "");
-          }else{
-            toast("رقم غير موجود", "warn");
-          }
-          return;
-        }
-        const a = e.target.closest("[data-openlead]");
-        if(!a) return;
-        const id = a.dataset.openlead;
-        const found = (leadsCache||[]).find(x=>x.id===id);
-        if(!found) return;
-        // openLeadModal disabled (name click)
-        return;
-      });
-    }
     (tableWrap || document).addEventListener("click", (e)=>{
       const ph = e.target.closest(".leadPhoneLink");
       if(ph){
@@ -6557,8 +6602,8 @@ function bindTasksUI(){
       const id = a.dataset.openlead;
       const found = leadsCache.find(x=>x.id===id);
       if(!found) return;
-      // openLeadModal disabled (name click)
-      return;
+
+      openLeadModal(id, found.data); return;
 
       // سجل النشاط
       try{ loadLeadActivity(id, found.data); }catch(e){ console.warn("loadLeadActivity", e); }
@@ -6615,18 +6660,21 @@ function bindTasksUI(){
     // Database filters bind (مرة واحدة)
     if(!window.__dbFiltersBound){
       window.__dbFiltersBound = true;
-      ["dbSearch","dbFilterSource","dbFilterCar","dbFilterPay","dbFilterStatus","dbFilterCampaign"].forEach(id=>{
+      ["dbSearch","dbFilterSource","dbFilterCar","dbFilterPay","dbFilterStatus","dbFilterCampaign","dbDateFrom","dbDateTo"].forEach(id=>{
         $("#"+id)?.addEventListener("input", applyDatabaseFilters);
         $("#"+id)?.addEventListener("change", applyDatabaseFilters);
       });
       $("#dbRefresh")?.addEventListener("click", ()=>{
         try{ applyDatabaseFilters(); }catch(e){}
       });
-    }
+      $("#dbExportExcel")?.addEventListener("click", ()=>{
+        try{ exportDatabaseToExcel(); }catch(e){}
+      });
+}
 
 
 
-    tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">جاري تحميل العملاء المحتملين من Firebase...</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">جاري تحميل العملاء المحتملين من Firebase...</td></tr>`;
   }
 
   function openAssignPrompt(leadId, leadData){
@@ -7650,8 +7698,9 @@ $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
 
           <div class="mzjField">
             <label>المكان</label>
-            <input id="cd_location" placeholder="مثال: الرياض" />
+            <input id="cd_place" placeholder="مثال: الرياض" />
           </div>
+
 
           <div class="mzjField">
             <label>العمر</label>
@@ -7710,6 +7759,5 @@ $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
     </div>
   </div>
 
-  <script src="client-data-button-only.js"></script>
 </body>
 </html>
