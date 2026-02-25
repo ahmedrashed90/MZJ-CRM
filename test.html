@@ -4,6 +4,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1694,7 +1695,188 @@ body.auth-locked #authModal{ pointer-events:auto; }
     .navItem.subNav .navTitle span{
       font-size: 11.5px;
     }
-</style>
+
+/* ===== Lead Status Manager (حالات العملاء) - UI polish (scoped) ===== */
+#panel-lead_status_manager .grid{ align-items:start; }
+
+#panel-lead_status_manager .lsmCard{
+  border:1px solid var(--line);
+  background:#fff;
+  border-radius:18px;
+  padding:16px;
+  box-shadow: 0 12px 26px rgba(0,0,0,.06);
+}
+
+#panel-lead_status_manager .cardHead{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding-bottom:12px;
+  border-bottom:1px solid var(--line);
+  margin-bottom:12px;
+}
+#panel-lead_status_manager .cardHead b{
+  font-size:15.5px;
+  font-weight:900;
+  color:var(--b);
+}
+#panel-lead_status_manager .cardHead .muted{
+  display:block;
+  margin-top:6px;
+  font-size:12.8px;
+  color:var(--muted);
+  line-height:1.8;
+}
+
+/* Filter bar */
+#panel-lead_status_manager .row{
+  border:1px solid var(--line);
+  background: rgba(247,245,242,.55);
+  border-radius:16px;
+  padding:12px;
+  align-items:flex-end;
+}
+
+/* Inputs / Selects */
+#panel-lead_status_manager .field label{
+  font-size:12px;
+  font-weight:900;
+  color:var(--muted);
+  margin-bottom:6px;
+  display:block;
+}
+#panel-lead_status_manager .input{
+  width:100%;
+  height:42px;
+  border:1px solid rgba(43,26,23,.14);
+  border-radius:14px;
+  padding:0 12px;
+  font-family:inherit;
+  font-size:13.5px;
+  font-weight:800;
+  outline:none;
+  background:#fff;
+  box-shadow: 0 10px 18px rgba(0,0,0,.03);
+}
+#panel-lead_status_manager .input:focus{
+  border-color: rgba(192,122,74,.55);
+  box-shadow: 0 0 0 4px rgba(192,122,74,.14);
+}
+
+/* Premium select */
+#panel-lead_status_manager select.input{
+  appearance:none;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  padding-left:42px; /* RTL: مساحة للأيقونة يسار */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24'%3E%3Cpath fill='%232B1A17' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position: left 14px center;
+  background-size:18px 18px;
+}
+#panel-lead_status_manager select.input::-ms-expand{ display:none; }
+
+/* Table */
+#panel-lead_status_manager .tableWrap{
+  margin-top:12px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  overflow:auto;
+  background:#fff;
+}
+#panel-lead_status_manager table.table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  min-width: 980px; /* desktop full-width feel */
+}
+#panel-lead_status_manager table.table thead th{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background: rgba(247,245,242,.92);
+  border-bottom:1px solid var(--line);
+  font-size:12.2px;
+  color:var(--muted);
+  text-align:right;
+  padding:12px 12px;
+  white-space:nowrap;
+  font-weight:900;
+}
+#panel-lead_status_manager table.table tbody td{
+  border-bottom:1px solid var(--line);
+  padding:12px 12px;
+  font-size:13px;
+  font-weight:800;
+  white-space:nowrap;
+  vertical-align:middle;
+}
+#panel-lead_status_manager table.table tbody tr:hover td{
+  background: rgba(192,122,74,.06);
+}
+#panel-lead_status_manager .mzj-empty{
+  text-align:center;
+  color:var(--muted);
+  font-weight:900;
+  padding:18px 12px !important;
+  white-space:normal;
+}
+
+/* Button polish inside LSM */
+#panel-lead_status_manager #btnLsmRefresh{
+  width:100%;
+  height:42px;
+  border-radius:14px;
+  box-shadow: 0 12px 22px rgba(43,26,23,.16);
+}
+
+/* Responsive */
+@media (max-width: 1100px){
+  #panel-lead_status_manager table.table{ min-width: 820px; }
+}
+@media (max-width: 520px){
+  #panel-lead_status_manager table.table{ min-width: 720px; }
+  #panel-lead_status_manager .row{ padding:10px; }
+}
+
+
+    /* ===== Sales Commissions (scoped) ===== */
+    #panel-sales_commissions .scChips{display:flex;flex-wrap:wrap;gap:8px}
+    #panel-sales_commissions .scChip{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.75);
+      padding:8px 12px;
+      border-radius:999px;
+      cursor:pointer;
+      font-weight:700;
+      color:var(--text);
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      user-select:none;
+      transition:transform .08s ease, background .12s ease, border-color .12s ease;
+    }
+    #panel-sales_commissions .scChip:hover{transform:translateY(-1px); border-color:rgba(192,122,74,.5)}
+    #panel-sales_commissions .scChip.active{
+      background:rgba(192,122,74,.14);
+      border-color:rgba(192,122,74,.65);
+      color:var(--brown);
+    }
+    #panel-sales_commissions .tableWrap{max-height:60vh; overflow:auto; border-radius:14px}
+    #panel-sales_commissions .table thead th{position:sticky; top:0; z-index:2; background:#fff}
+    #panel-sales_commissions .table tbody tr:hover{background:rgba(192,122,74,.06)}
+    #panel-sales_commissions .table input{
+      width:100%;
+      padding:8px 10px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      outline:none;
+      font-weight:700;
+    }
+    #panel-sales_commissions .table input:focus{border-color:rgba(192,122,74,.75); box-shadow:0 0 0 3px rgba(192,122,74,.12)}
+
+  </style>
 </head>
 
 <body>
@@ -1729,6 +1911,18 @@ body.auth-locked #authModal{ pointer-events:auto; }
             </div>
           </div>
           <div class="badge" id="navUnread">0</div>
+        </div>
+
+
+        <div class="navItem" data-tab="lead_status_manager">
+          <div class="navLeft">
+            <div class="ico">✅</div>
+            <div class="navTitle">
+              <b>حالات العملاء</b>
+              <span>تغيير الحالة من مكان واحد</span>
+            </div>
+          </div>
+          <div class="badge neutral">—</div>
         </div>
 
         <div class="navItem" data-tab="customers">
@@ -1787,6 +1981,9 @@ body.auth-locked #authModal{ pointer-events:auto; }
         </div>
 
 
+        
+
+        
         <div class="navItem" data-tab="dashboard">
           <div class="navLeft">
             <div class="ico">📊</div>
@@ -1807,7 +2004,24 @@ body.auth-locked #authModal{ pointer-events:auto; }
           </div>
           <div class="badge">—</div>
         </div>
-</nav>
+
+        <div class="navItem" data-tab="sales_commissions">
+          <div class="navLeft">
+            <div class="ico">💰</div>
+            <div class="navTitle">
+              <b>التقييم والعمولات</b>
+              <span>أداء المناديب شهرياً</span>
+            </div>
+          </div>
+          <div class="badge neutral">—</div>
+        </div>
+
+        
+
+        
+
+        
+      </nav>
 
       <div class="sideFooter">
         <div style="display:flex;align-items:center;gap:10px">
@@ -1862,7 +2076,8 @@ body.auth-locked #authModal{ pointer-events:auto; }
           </div>
 
           <div id="inboxHeaderTools" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-start">
-</div>
+
+          </div>
         </div>
 
         <div class="pageBody">
@@ -1919,10 +2134,10 @@ body.auth-locked #authModal{ pointer-events:auto; }
                     </div>
                     <div class="chatTools">
                       <button class="toolBtn" id="btnCreateLead" type="button">تحويل لعميل محتمل</button>
-<button class="toolBtn" id="btnSetLeadStatus" type="button">تحديد الحالة</button>
+                      <button class="toolBtn" id="btnClientData" type="button">تحديث/إضافة بيانات العميل</button>
+                      <button class="toolBtn" id="btnSetLeadStatus" type="button">تحديد الحالة</button>
                       <button class="toolBtn" id="btnSetFollowUp" type="button">تحديد موعد</button>
-                                            <button class="toolBtn" id="btnClientData" type="button">تحديث/إضافة بيانات العميل</button>
-<button class="toolBtn danger" id="btnEndChat" type="button">إنهاء المحادثة</button>
+                      <button class="toolBtn danger" id="btnEndChat" type="button">إنهاء المحادثة</button>
 </div>
                   </div>
 
@@ -1976,7 +2191,72 @@ body.auth-locked #authModal{ pointer-events:auto; }
           </div>
 
           
-          <!-- Panel: Leads -->
+          
+          <!-- Panel: Lead Status Manager -->
+          <div class="panel" id="panel-lead_status_manager">
+            <div class="grid">
+
+              <div class="card lsmCard" style="grid-column: span 12;">
+                <div class="cardHead">
+                  <b>حالات العملاء</b>
+                  <span class="muted">تغيير الحالة من مكان واحد — يظهر لك (أنت) العملاء المسندين لك، والمدير يشوف الكل.</span>
+                </div>
+
+                <div class="row" style="gap:10px;flex-wrap:wrap">
+                  <div class="field" style="min-width:220px;flex:1">
+                    <label>بحث (اسم / جوال)</label>
+                    <input id="lsmSearch" class="input" placeholder="ابحث هنا..." />
+                  </div>
+
+                  <div class="field" style="min-width:220px">
+                    <label>فلترة بالحالة</label>
+                    <select id="lsmStatusFilter" class="input">
+                      <option value="">كل الحالات</option>
+                    </select>
+                  </div>
+
+                  <div class="field" style="min-width:180px">
+                    <label>من تاريخ</label>
+                    <input id="lsmFrom" type="date" class="input" />
+                  </div>
+
+                  <div class="field" style="min-width:180px">
+                    <label>إلى تاريخ</label>
+                    <input id="lsmTo" type="date" class="input" />
+                  </div>
+
+                  <div class="field" style="min-width:140px;align-self:flex-end">
+                    <button class="btn btnPrimary" id="btnLsmRefresh" type="button">تحديث</button>
+                  </div>
+                </div>
+
+                <div class="tableWrap" style="margin-top:10px">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th>العميل</th>
+                        <th>الجوال</th>
+                        <th>الفرع</th>
+                        <th>الحالة الحالية</th>
+                        <th style="width:220px">تغيير الحالة</th>
+                        <th>آخر تحديث</th>
+                      </tr>
+                    </thead>
+                    <tbody id="lsmTbody">
+                      <tr><td colspan="6" class="mzj-empty">جاري تحميل العملاء...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="muted" style="margin-top:10px;font-size:13px">
+                  ملاحظة: تغيير الحالة هنا لا يلمس أي منطق قديم في التابات الأخرى — فقط تحديث حالة الليد.
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+<!-- Panel: Leads -->
           <div class="panel" id="panel-leads">
             <div class="grid">
               <div class="stat">
@@ -2011,11 +2291,12 @@ body.auth-locked #authModal{ pointer-events:auto; }
                 </div>
 
                 <div class="mzj-tableWrap">
-                  <table class="mzj-table" style="min-width: 1180px;">
+                  <table class="mzj-table" style="min-width: 1260px;">
                     <thead>
                       <tr>
                         <th>اسم العميل</th>
                         <th>الجوال</th>
+                        <th>المكان</th>
                         <th>المصدر</th>
                         <th>اسم السيارة</th>
                         <th>الدفع</th>
@@ -2026,7 +2307,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
                       </tr>
                     </thead>
                     <tbody id="leadsTbody">
-                      <tr><td colspan="9" class="mzj-empty">لا توجد بيانات بعد. سيتم جلب العملاء المحتملين من Firebase.</td></tr>
+                      <tr><td colspan="10" class="mzj-empty">لا توجد بيانات بعد. سيتم جلب العملاء المحتملين من Firebase.</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -2087,6 +2368,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
                   </div>
                   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                     <button class="miniBtn" id="dbRefresh" type="button">تحديث</button>
+                    <button class="miniBtn" id="dbExportExcel" type="button">تصدير Excel</button>
                   </div>
                 </div>
 
@@ -2096,25 +2378,29 @@ body.auth-locked #authModal{ pointer-events:auto; }
                   <select id="dbFilterPay"><option value="">كل طرق الدفع</option></select>
                   <select id="dbFilterStatus"><option value="">كل الحالات</option></select>
                   <select id="dbFilterCampaign"><option value="">كل الحملات</option></select>
+                  <input class="miniInput" id="dbDateFrom" type="date" title="من تاريخ (تاريخ الحملة)" />
+                  <input class="miniInput" id="dbDateTo" type="date" title="إلى تاريخ (تاريخ الحملة)" />
                   <input class="miniInput" id="dbSearch" placeholder="بحث بالاسم/الجوال/السيارة/المصدر…" style="grid-column:1/-1" />
                 </div>
 
                 <div class="mzj-tableWrap">
-                  <table class="mzj-table" style="min-width: 1180px;">
+                  <table class="mzj-table" style="min-width: 1460px;">
                     <thead>
                       <tr>
                         <th>اسم العميل</th>
                         <th>الجوال</th>
+                        <th>المكان</th>
                         <th>المصدر</th>
                         <th>اسم السيارة</th>
                         <th>الدفع</th>
                         <th>الحالة</th>
                         <th>اسم الحملة</th>
+                        <th>تاريخ الحملة</th>
                         <th>آخر تحديث</th>
                       </tr>
                     </thead>
                     <tbody id="dbTbody">
-                      <tr><td colspan="8" class="mzj-empty">جاري تحميل قاعدة البيانات.</td></tr>
+                      <tr><td colspan="10" class="mzj-empty">جاري تحميل قاعدة البيانات...</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -2122,7 +2408,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
             </div>
           </div>
 
-
+<!-- Panel: Pipeline -->
           
 
 
@@ -2205,7 +2491,114 @@ body.auth-locked #authModal{ pointer-events:auto; }
           </div>
 
           
+          <!-- Panel: Sales Performance + Commissions -->
+          <div class="panel" id="panel-sales_commissions">
+            <div class="grid">
 
+              <div class="card">
+                <div class="cardHead">
+                  <b>التقييم والعمولات</b>
+                  <span class="muted">حساب سريع للأداء خلال فترة محددة (حسب الحالة: تم الإنتهاء - إنشاء طلب البيع)</span>
+                </div>
+
+                <div class="row" style="gap:10px;flex-wrap:wrap">
+                  <div class="field" style="min-width:180px">
+                    <label>من تاريخ</label>
+                    <input id="scFrom" type="date" class="input" />
+                  </div>
+                  <div class="field" style="min-width:180px">
+                    <label>إلى تاريخ</label>
+                    <input id="scTo" type="date" class="input" />
+                  </div>
+                  <div class="field" style="min-width:220px">
+                    <label>القسم</label>
+                    <select id="scDept" class="input">
+                      <option value="">كل الأقسام</option>
+                    </select>
+                  </div>
+
+
+                  <div class="field" style="min-width:140px;align-self:flex-end">
+                    <button class="btn btnPrimary" id="btnScRefresh" type="button">تحديث التقرير</button>
+                  </div>
+
+                  <div class="field" style="min-width:160px;align-self:flex-end">
+                    <button class="btn" id="btnScExportExcel" type="button">تصدير Excel</button>
+                  </div>
+
+                  <div class="field" style="min-width:160px;align-self:flex-end">
+                    <button class="btn" id="btnScExportPdf" type="button">تصدير PDF</button>
+                  </div>
+                </div>
+
+                <div class="row" style="gap:12px;flex-wrap:wrap;margin-top:10px" id="scKpis">
+                  <div class="stat" style="min-width:220px;flex:1">
+                    <small>عدد المناديب</small>
+                    <b id="scKpiReps">—</b>
+                  </div>
+                  <div class="stat" style="min-width:220px;flex:1">
+                    <small>إجمالي الصفقات (بيع نهائي)</small>
+                    <b id="scKpiDeals">—</b>
+                  </div>
+                  <div class="stat" style="min-width:220px;flex:1">
+                    <small>إجمالي العمولة (تقديري)</small>
+                    <b id="scKpiCommission">—</b>
+                  </div>
+                  <div class="stat" style="min-width:220px;flex:1">
+                    <small>المحققين للتارجت</small>
+                    <b id="scKpiAchieved">—</b>
+                  </div>
+                </div>
+
+                <div id="scDeptChips" class="scChips" style="margin-top:10px"></div>
+
+
+                <div class="row" style="gap:12px;flex-wrap:wrap;margin-top:10px">
+                  <div class="card" style="flex:1;min-width:320px">
+                    <div class="cardHead">
+                      <b>جدول المناديب</b>
+                      <span class="muted">التارجت/العمولة تُكتب هنا (مؤقتًا داخل المتصفح) — الحساب تلقائي.</span>
+                    </div>
+
+                    <div class="tableWrap">
+                      <table class="table">
+                        <thead>
+                          <tr>
+                            <th>المندوب</th>
+                            <th style="width:120px">التارجت</th>
+                            <th style="width:120px">المحقق</th>
+                            <th style="width:140px">% الإنجاز</th>
+                            <th style="width:140px">المتبقي</th>
+                            <th style="width:140px">عمولة/صفقة</th>
+                            <th style="width:140px">العمولة</th>
+                          </tr>
+                        </thead>
+                        <tbody id="scTbody">
+                          <tr><td colspan="7" class="mzj-empty">اختر فترة واضغط (تحديث التقرير).</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div class="muted" style="margin-top:10px;font-size:13px">
+                      ملاحظة: النسخة الحالية تحسب “البيع النهائي” من الـ leads مباشرة (حسب تاريخ updatedAt) إلى أن يتم إضافة سجل مبيعات نهائي مستقل (final_sales).
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+
+<!-- Panel: Retarget -->
+          
+            </div>
+          </div>
+
+          <!-- Panel: Automation -->
+          
+
+          <!-- Panel: Settings -->
           
 
         </div>
@@ -2289,17 +2682,6 @@ body.auth-locked #authModal{ pointer-events:auto; }
           <div id="closeChatMsg" style="display:none;margin-top:10px;color:var(--bad);font-weight:800"></div>
         </div>
 
-        <div style="margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.7">
-          سيتم تسجيل: <b>closedBy</b> و <b>closedAt</b> و <b>reason</b> داخل المحادثة.
-        </div>
-      </div>
-      <div class="modalActions">
-        <button class="btn" id="closeChatCancel" type="button">إلغاء</button>
-        <button class="btn btnPrimary" id="closeChatConfirm" type="button">تأكيد الإنهاء</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ===== Lead Details Modal (Popup) ===== -->
   <div class="modalOverlay" id="leadModal" style="display:none">
     <div class="modal" role="dialog" aria-modal="true" aria-label="بيانات العميل">
@@ -2312,6 +2694,18 @@ body.auth-locked #authModal{ pointer-events:auto; }
         <button class="btn" id="leadModalClose2" type="button">إغلاق</button>
       </div>
     </div>
+  </div>
+
+        <div style="margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.7">
+          سيتم تسجيل: <b>closedBy</b> و <b>closedAt</b> و <b>reason</b> داخل المحادثة.
+        </div>
+      </div>
+      <div class="modalActions">
+        <button class="btn" id="closeChatCancel" type="button">إلغاء</button>
+        <button class="btn btnPrimary" id="closeChatConfirm" type="button">تأكيد الإنهاء</button>
+      </div>
+    </div>
+  </div>
 
 
 
@@ -2319,7 +2713,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
   <div class="modalOverlay" id="eligModal" style="display:none">
     <div class="modal" style="max-width:520px">
       <div class="modalHead">
-        <b>حسبة الأهلية (مبدئي)</b>
+        <b>حاسبة مبدئية</b>
         <button class="iconBtn" id="eligClose" type="button" aria-label="إغلاق">✕</button>
       </div>
       <div class="modalBody">
@@ -2695,9 +3089,13 @@ let __selectedWaTemplateKey = null;
         return;
       }
       if(leadId){
-        // Open pipeline lead panel if available, otherwise just go to pipeline tab
-        showTab("pipeline");
-        setTimeout(()=>{ try{ openPipeLeadPanel(leadId); }catch(e){} }, 250);
+        // Pipeline tab removed: open lead details from Leads tab
+        showTab("leads");
+        setTimeout(()=>{ try{
+          const found = (window.leadsCache||[]).find(x=>x.id===leadId);
+          if(found) openLeadModal(leadId, found.data||{});
+          else { /* fallback */ }
+        }catch(e){} }, 250);
       }
     });
   }catch(e){}
@@ -2881,6 +3279,17 @@ let __selectedWaTemplateKey = null;
     $$(".navItem").forEach(n=>n.classList.toggle("active", n.dataset.tab === tabId));
     // تفعيل اللوحة
     $$(".panel").forEach(p=>p.classList.toggle("active", p.id === "panel-" + panelKey));
+    // ✅ اجعل التاب يظهر من فوق فوراً (خصوصاً التقييم والعمولات)
+    if(panelKey === "sales_commissions"){
+      try{
+        const p = document.getElementById("panel-" + panelKey);
+        // reset window scroll then snap to panel
+        window.scrollTo({top:0,left:0,behavior:"instant"});
+        setTimeout(()=>{ p?.scrollIntoView({block:"start", inline:"nearest"}); }, 0);
+        setTimeout(()=>{ window.scrollTo({top:0,left:0,behavior:"instant"}); }, 30);
+      }catch(e){}
+    }
+
 
     // تحديث عنوان/وصف الصفحة حسب التاب
     const tabMeta = {
@@ -2892,11 +3301,17 @@ let __selectedWaTemplateKey = null;
       leads_cs:      { title:"العملاء المحتملون - خدمة عملاء", desc:"عرض العملاء المحتملين لخدمة العملاء." },
 
       database:      { title:"قاعدة البيانات", desc:"كل العملاء الذين دخلوا النظام — فلاتر متقدمة (المصدر/السيارة/الدفع/الحالة/الحملة/تاريخها)." },
+
+      pipeline:      { title:"مراحل البيع", desc:"كانبان لمتابعة مراحل البيع — اضغط على عميل لعرض التفاصيل والتحديث." },
       dashboard:     { title:"داش بورد", desc:"تقسيم العملاء حسب الحالة — عرض سريع لكل العملاء." },
       tasks:         { title:"المتابعات", desc:"مهام اليوم والتأخير — راقب المتابعة القادمة لكل عميل." },
       retarget:      { title:"إعادة الاستهداف", desc:"قوائم وحملات — تجهيز الجمهور والمتابعات." },
       automation:    { title:"الأوتوميشن", desc:"قواعد وتنبيهات وتشغيل/إيقاف الأتمتة." },
-      settings:      { title:"الإعدادات", desc:"فروع + مناديب + صلاحيات." }
+      settings:      { title:"الإعدادات", desc:"فروع + مناديب + صلاحيات." },
+
+      lead_status_manager: { title:"حالات العملاء", desc:"مكان واحد لتغيير حالة العملاء — حسب المسؤول." },
+      sales_commissions:   { title:"التقييم والعمولات", desc:"تقييم أداء المناديب + العمولات حسب فترة زمنية." },
+
     };
     const meta = tabMeta[tabId] || {title:"", desc:""};
     const tEl = $("#pageTitle");
@@ -2916,12 +3331,20 @@ let __selectedWaTemplateKey = null;
     // ✅ Lead views presets
     if(panelKey === "leads"){
       window.__leadsViewMode = tabId; // used inside applyLeadFilters
-      // لازم نضمن تحميل العملاء (leads) أولاً حتى تظهر أي View فور فتحه
+      // تأكد أن العملاء يتم تحميلهم حتى لو فتحت أي View غير قاعدة البيانات
       try{ ensureLeadsLive(); }catch(e){}
-      try{
-        applyLeadFilters();
-        try{ applyDatabaseFilters(); }catch(e){}
-      }catch(e){}
+      try{ applyLeadFilters(); }catch(e){}
+    }
+
+
+    // ✅ Lead Status Manager tab
+    if(panelKey === "lead_status_manager"){
+      try{ ensureLeadStatusManagerLive(); }catch(e){}
+    }
+
+    // ✅ Sales Commissions tab
+    if(panelKey === "sales_commissions"){
+      try{ ensureSalesCommissionsReport(); }catch(e){}
     }
 
     // ✅ Database tab
@@ -4500,45 +4923,103 @@ scroller.addEventListener("scroll", ()=>{
       }
     });
     // ===== Client Data Modal (Inbox only) =====
-    function getCdOverlay(){ return document.querySelector("#clientDataOverlay"); }
-    function cdCloseAll(){
-      const o = getCdOverlay();
-      if(!o) return;
-      o.classList.remove("active");
-      o.setAttribute("aria-hidden","true");
+    const cdOverlay = $("#clientDataOverlay");
+    const cdOpenBtn = $("#btnClientData");
+    const cdCloseAll = ()=> {
+      if(!cdOverlay) return;
+      cdOverlay.classList.remove("active");
+      cdOverlay.setAttribute("aria-hidden","true");
       document.body.style.overflow = "";
-    }
-    async function cdOpen(){
-      const o = getCdOverlay();
-      if(!o){ toast("مودال بيانات العميل غير موجود في الصفحة", "warn"); return; }
-      if(!activeConvId){ toast("اختر محادثة أولاً", "warn"); return; }
-      try{ await cdLoadForCurrent(); }catch(err){ console.warn(err); }
-      o.classList.add("active");
-      o.setAttribute("aria-hidden","false");
+    };
+    const cdOpen = ()=> {
+      if(!cdOverlay) return;
+      cdOverlay.classList.add("active");
+      cdOverlay.setAttribute("aria-hidden","false");
       document.body.style.overflow = "hidden";
+    };
+    // ===== Client Modal: Eligibility calculator (inline) =====
+    function cdApplyEligibilityStyles(statusText){
+      const limEl = $("#cd_limit");
+      const stEl  = $("#cd_eligStatus");
+      if(!limEl || !stEl) return;
+
+      const s = String(statusText || "").trim();
+      // reset
+      limEl.style.color = "";
+      stEl.style.color = "";
+
+      if(s === "مؤهل"){
+        limEl.style.color = "#0f7a2a";
+        stEl.style.color  = "#0f7a2a";
+      }else if(s === "غير مؤهل"){
+        limEl.style.color = "#b00020";
+        stEl.style.color  = "#b00020";
+      }
     }
 
-    // Delegated events (works even after re-render)
-    document.addEventListener("click", (e)=>{
-      const t = e.target;
+    function calcClientEligibility(){
+      const type = String($("#cd_finType")?.value || "");
+      const sal  = Number(($("#cd_salary")?.value || "").toString().replace(/[^\d.]/g,"")) || 0;
+      const com  = Number(($("#cd_commitment")?.value || "").toString().replace(/[^\d.]/g,"")) || 0;
 
-      // open from inbox header OR inbox button
-      if(t.closest("#btnClientData") || t.closest("#chatName")){
-        e.preventDefault();
-        cdOpen();
+      const box = $("#cd_calcBox");
+      const outLimit = $("#cd_limit");
+      const outStatus = $("#cd_eligStatus");
+
+      if(!box || !outLimit || !outStatus) return;
+
+      if(!type){
+        box.style.display = "none";
+        outLimit.textContent = "—";
+        outStatus.textContent = "—";
+        cdApplyEligibilityStyles("");
         return;
       }
 
-      // close
-      if(t.matches("#clientDataOverlay")){ cdCloseAll(); return; }
-      if(t.closest(".close-client-modal") || t.closest("#cd_cancel")){ cdCloseAll(); return; }
-    });
+      const rate = (type === "realestate") ? 0.65 : 0.45;
+      const limit = Math.round((sal * rate) - com);
 
+      box.style.display = "";
+      outLimit.textContent = isFinite(limit) ? String(limit) : "—";
+
+      // Eligibility rule
+      if(!isFinite(limit)){
+        outStatus.textContent = "—";
+      }else if(limit < 650){
+        outStatus.textContent = "غير مؤهل";
+      }else{
+        outStatus.textContent = "مؤهل";
+      }
+
+      cdApplyEligibilityStyles(outStatus.textContent);
+    }
+
+    // bind once
+    (function bindClientEligibility(){
+      try{
+        $("#cd_finType")?.addEventListener("change", ()=> calcClientEligibility());
+        $("#cd_salary")?.addEventListener("input", ()=> { if($("#cd_finType")?.value) calcClientEligibility(); });
+        $("#cd_commitment")?.addEventListener("input", ()=> { if($("#cd_finType")?.value) calcClientEligibility(); });
+      }catch(e){ console.warn("bindClientEligibility", e); }
+    })();
+
+
+    // close events
+    document.addEventListener("click", (e)=>{
+      if(!cdOverlay) return;
+      if(e.target === cdOverlay) cdCloseAll();
+      if(e.target.closest(".close-client-modal")) cdCloseAll();
+    });
     document.addEventListener("keydown", (e)=>{
       if(e.key === "Escape") cdCloseAll();
     });
 
-async function cdLoadForCurrent(){
+    // explicit close buttons
+    $("#cd_cancel")?.addEventListener("click", cdCloseAll);
+    cdOverlay?.querySelector(".close-client-modal")?.addEventListener("click", cdCloseAll);
+
+
+    async function cdLoadForCurrent(){
       if(!activeConvId){ toast("اختر محادثة أولاً", "warn"); return; }
       const convRef = doc(db, "wa_conversations", activeConvId);
       const convSnap = await getDoc(convRef);
@@ -4581,11 +5062,47 @@ async function cdLoadForCurrent(){
 $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
       $("#cd_salary") && ($("#cd_salary").value = data?.salary || "");
       $("#cd_commitment") && ($("#cd_commitment").value = data?.commitment || data?.obligation || "");
-      $("#cd_location") && ($("#cd_location").value = data?.location || data?.place || data?.city || "");
+      $("#cd_place") && ($("#cd_place").value = data?.place || data?.location || data?.city || "");
       $("#cd_age") && ($("#cd_age").value = data?.age || "");
       $("#cd_bank") && ($("#cd_bank").value = data?.bank || data?.salaryBank || "");
       $("#cd_car_type") && ($("#cd_car_type").value = data?.carType || data?.car || "");
       $("#cd_notes") && ($("#cd_notes").value = data?.notes || "");
+      // fill lead status dropdown from settings_lead_statuses (map)
+      try{
+        const sel = $("#cd_statusSelect");
+        if(sel){
+          const curId = String(data?.leadStatusId || "");
+          sel.innerHTML = leadStatusOptionsHtml(curId);
+        }
+      }catch(e){ console.warn("cd status options", e); }
+
+      // load saved eligibility (if any) + compute eligibility box (uses salary + commitment)
+      try{
+        const ft = String(data?.financeType || data?.finType || data?.eligibilityType || "");
+        if($("#cd_finType")) $("#cd_finType").value = ft;
+
+        const salV = String($("#cd_salary")?.value || "").trim();
+        const comV = String($("#cd_commitment")?.value || "").trim();
+        const savedLimitRaw = (data && (data.creditLimit ?? data.credit_limit ?? (data.eligibility && data.eligibility.limit))) ;
+        const savedStatus = String(data?.eligibilityStatus || data?.eligibility_status || (data?.eligibility && data.eligibility.status) || "").trim();
+
+        // If we don't have inputs but have saved result, show it as-is
+        if(ft && (salV==="" && comV==="") && (savedLimitRaw!=null || savedStatus)){
+          const box = $("#cd_calcBox");
+          const outLimit = $("#cd_limit");
+          const outStatus = $("#cd_eligStatus");
+          if(box && outLimit && outStatus){
+            box.style.display = "";
+            const n = Number(savedLimitRaw);
+            outLimit.textContent = (savedLimitRaw!=="" && isFinite(n)) ? String(Math.round(n)) : "—";
+            outStatus.textContent = savedStatus || "—";
+            try{ cdApplyEligibilityStyles(outStatus.textContent); }catch(e){}
+          }
+        }else{
+          calcClientEligibility();
+        }
+      }catch(e){}
+
 
       // load existing attachments list
       const list = $("#cd_files_list");
@@ -4600,16 +5117,20 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
       }
 
       // handle delete existing attachment (UI only -> remove on save)
-    document.addEventListener("click", (e)=>{
-      const btn = e.target.closest("#clientDataOverlay [data-del-attach]");
-      if(!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
-      btn.dataset._clicked = "1";
-    });
+      cdOverlay && cdOverlay.addEventListener("click", (e)=>{
+        const btn = e.target.closest("[data-del-attach]");
+        if(!btn) return;
+        btn.preventDefault();
+        btn.stopPropagation();
+        btn.dataset._clicked = "1";
+      }, { once:true });
+    }
 
-cdOpen;
-    ;
+    // open button
+    cdOpenBtn?.addEventListener("click", async ()=>{
+      await cdLoadForCurrent();
+      cdOpen();
+    });
 
     // save
     $("#cd_save")?.addEventListener("click", async ()=>{
@@ -4663,6 +5184,25 @@ cdOpen;
         const prevAtt = Array.isArray(existing.attachments) ? existing.attachments : [];
         const attachments = [...prevAtt, ...newFiles];
 
+
+        const selectedLeadStatusId = String($("#cd_statusSelect")?.value || "").trim();
+        const selectedLeadStatusName = selectedLeadStatusId ? (leadStatusesMap.get(selectedLeadStatusId)?.name || "") : "";
+
+        // --- Eligibility (persist in contact + lead) ---
+        const finType = String($("#cd_finType")?.value || "").trim(); // general / realestate / ""
+        const salNum  = Number(($("#cd_salary")?.value || "").toString().replace(/[^\d.]/g,"")) || 0;
+        const comNum  = Number(($("#cd_commitment")?.value || "").toString().replace(/[^\d.]/g,"")) || 0;
+        let creditLimit = null;
+        let eligibilityStatus = "";
+        if(finType){
+          const pct = (finType === "realestate") ? 0.65 : 0.45;
+          const lim = Math.round((salNum * pct) - comNum);
+          if(isFinite(lim)){
+            creditLimit = lim;
+            eligibilityStatus = (lim < 650) ? "غير مؤهل" : "مؤهل";
+          }
+        }
+
         const payload = {
           name: ($("#cd_name")?.value || "").trim(),
           phone: "+" + phoneNorm,
@@ -4672,7 +5212,11 @@ cdOpen;
           channel: channel || existing.channel || "",
           salary: ($("#cd_salary")?.value || "").trim(),
           commitment: ($("#cd_commitment")?.value || "").trim(),
-          location: ($("#cd_location")?.value || "").trim(),
+          financeType: finType,
+          creditLimit: (creditLimit==null ? "" : creditLimit),
+          eligibilityStatus: eligibilityStatus,
+
+          place: ($("#cd_place")?.value || "").trim(),
           age: ($("#cd_age")?.value || "").trim(),
           bank: ($("#cd_bank")?.value || "").trim(),
           carType: ($("#cd_car_type")?.value || "").trim(),
@@ -4719,10 +5263,15 @@ cdOpen;
             channel: channel,
             salary: payload.salary,
             commitment: payload.commitment,
+            financeType: payload.financeType,
+            creditLimit: payload.creditLimit,
+            eligibilityStatus: payload.eligibilityStatus,
+            place: payload.place,
             age: payload.age,
             bank: payload.bank,
             carType: payload.carType,
             notes: payload.notes,
+            ...(selectedLeadStatusId ? { leadStatusId: selectedLeadStatusId, leadStatusName: selectedLeadStatusName } : {}),
             attachments: attachments || [],
             updatedAt: new Date().toISOString()
           }, { merge:true });
@@ -5297,6 +5846,7 @@ function sortStatusesByCustomOrder(list){
       <tr data-id="${esc(id)}" class="leadTr">
         <td><a class="leadNameLink" data-openlead="${esc(id)}" href="javascript:void(0)">${esc(d.name)}</a></td>
         <td><a class="leadPhoneLink" data-openinboxphone="${esc(lead.phoneNormalized || lead.phone || lead.waId || "")}" data-openinboxname="${esc(d.name)}" href="javascript:void(0)">${esc(d.phone)}</a></td>
+        <td>${esc((String((lead?.place ?? lead?.location ?? lead?.city ?? "")).trim()) || "—")}</td>
         <td>${esc(getNormalizedSourceForLead(lead,id) || "—")}</td>
         <td title="${esc(carName)}">${esc(carName)}</td>
         <td>${esc(payType || "—")}</td>
@@ -6154,11 +6704,6 @@ function applyLeadFilters(){
 
     const filtered = base.filter(({id,data})=>{
       // Views (Tabs) تحت "العملاء"
-      // العملاء = العملاء الجديدة فقط (استبعاد المؤهلين)
-      if(viewMode === "customers"){
-        const stName = String(data.leadStatusName || "").trim();
-        if(stName.startsWith("مؤهل")) return false;
-      }
       if(viewMode === "leads_cash"){
         if(getLeadPayType(data) !== "كاش") return false;
       }else if(viewMode === "leads_finance"){
@@ -6225,7 +6770,7 @@ const total = base.length;
     $("#statLeadsClosed") && ($("#statLeadsClosed").textContent = String(closedWon));
 
     if(!filtered.length){
-      tb.innerHTML = `<tr><td colspan="8" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
     }else{
       tb.innerHTML = filtered.map(x=>renderLeadTr(x.id, x.data)).join("");
     }
@@ -6254,7 +6799,8 @@ function refreshDbFilters(){
   const carSel = $("#dbFilterCar");
   const paySel = $("#dbFilterPay");
   const stSel  = $("#dbFilterStatus");
-  if(!srcSel || !carSel || !paySel || !stSel) return;
+  const campSel= $("#dbFilterCampaign");
+  if(!srcSel || !carSel || !paySel || !stSel || !campSel) return;
 
   // Sources
   const sources = Array.from(new Set((leadsCache||[]).map(x=>String(getNormalizedSourceForLead(x.data,x.id)||"").trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,"ar"));
@@ -6282,33 +6828,34 @@ function refreshDbFilters(){
   if(curSt) stSel.value = curSt;
 
   // Campaigns
-  const campSel = $("#dbFilterCampaign");
-  if(campSel){
-    const curCamp = campSel.value || "";
-    const camps = Array.from(new Set((leadsCache||[]).map(x=>getLeadCampaignName(x.data)).filter(Boolean))).sort((a,b)=>String(a).localeCompare(String(b),"ar"));
-    campSel.innerHTML = `<option value="">كل الحملات</option>` + camps.map(s=>`<option value="${esc(s)}">${esc(s)}<\/option>`).join("");
-    if(curCamp) campSel.value = curCamp;
-  }
+  const camps = Array.from(new Set((leadsCache||[]).map(x=>String(getLeadCampaignName(x.data)||"").trim()).filter(Boolean)))
+    .sort((a,b)=>a.localeCompare(b,"ar"));
+  const curCamp = campSel.value || "";
+  campSel.innerHTML = `<option value="">كل الحملات</option>` + camps.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join("");
+  if(curCamp) campSel.value = curCamp;
 }
-
 
 function renderDbTr(id, data){
   const name = esc(data?.name || "—");
   const phone = esc(normalizePhone(data?.phone || data?.phoneNormalized || ""));
+  const place = esc((data?.place || data?.location || data?.city || "") || "—");
   const source = esc(getNormalizedSourceForLead(data,id) || "—");
   const car = esc(getLeadCarName(data) || "—");
   const pay = esc(getLeadPayType(data) || "—");
   const st  = esc(data?.leadStatusName || (leadStatusesMap.get(data?.leadStatusId||"")?.name) || "—");
   const camp = esc(getLeadCampaignName(data) || "—");
+  const campDate = esc(getLeadCampaignDate(data) || "—");
   const upd = esc(fsToHuman(data?.updatedAt || data?.updatedAtMs || data?.updated_at || data?.lastUpdatedAt || ""));
   return `<tr>
     <td><a class="leadOpenLink" data-openlead="${esc(id)}" href="javascript:void(0)">${name}</a></td>
     <td><a class="leadPhoneLink" data-openinboxphone="${esc(phone)}" data-openinboxname="${name}" href="javascript:void(0)">${phone ? ("+"+phone) : "—"}</a></td>
-    <td>${source}</td>
+     <td>${place}</td>
+     <td>${source}</td>
     <td>${car}</td>
     <td>${pay}</td>
     <td>${st}</td>
     <td>${camp}</td>
+    <td>${campDate}</td>
     <td>${upd}</td>
   </tr>`;
 }
@@ -6324,6 +6871,8 @@ function applyDatabaseFilters(){
   const fpay = $("#dbFilterPay")?.value || "";
   const fstat= $("#dbFilterStatus")?.value || "";
   const fcamp= ($("#dbFilterCampaign")?.value || "").trim();
+  const ffrom= ($("#dbDateFrom")?.value || "").trim();
+  const fto  = ($("#dbDateTo")?.value || "").trim();
 
   const base = canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser?.uid||""));
 
@@ -6332,9 +6881,16 @@ function applyDatabaseFilters(){
     if(fcar && String(getLeadCarName(data)||"").trim() !== fcar) return false;
     if(fpay && String(getLeadPayType(data)||"").trim() !== fpay) return false;
     if(fstat && String(data.leadStatusId||"").trim() !== fstat) return false;
+
     if(fcamp){
-      const c = getLeadCampaignName(data).trim();
+      const c = String(getLeadCampaignName(data)||"").trim();
       if(c !== fcamp) return false;
+    }
+    if(ffrom || fto){
+      const d = String(getLeadCampaignDate(data)||"").trim(); // expected YYYY-MM-DD
+      if(!d) return false;
+      if(ffrom && d < ffrom) return false;
+      if(fto && d > fto) return false;
     }
 
     if(qText){
@@ -6344,16 +6900,67 @@ function applyDatabaseFilters(){
       const src= String(getNormalizedSourceForLead(data,id)||"").toLowerCase();
       const car= String(getLeadCarName(data)||"").toLowerCase();
       const pay= String(getLeadPayType(data)||"").toLowerCase();
-      if(!n.includes(qText) && !p.includes(qText) && !pn.includes(qText) && !src.includes(qText) && !car.includes(qText) && !pay.includes(qText)) return false;
+      const plc= String(data.place||data.location||data.city||"").toLowerCase();
+      if(!n.includes(qText) && !p.includes(qText) && !pn.includes(qText) && !src.includes(qText) && !car.includes(qText) && !pay.includes(qText) && !plc.includes(qText)) return false;
     }
     return true;
   });
 
+  window.__dbLastFiltered = filtered;
+
   if(!filtered.length){
-    tb.innerHTML = `<tr><td colspan="8" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
   }else{
     tb.innerHTML = filtered.map(x=>renderDbTr(x.id, x.data)).join("");
   }
+
+function exportDatabaseToExcel(){
+  // يصدّر نفس النتائج المعروضة حالياً (بعد الفلاتر)
+  try{ applyDatabaseFilters(); }catch(e){}
+  const rows = Array.isArray(window.__dbLastFiltered) ? window.__dbLastFiltered : [];
+  if(!rows.length){
+    toast("لا توجد بيانات للتصدير", "warn");
+    return;
+  }
+
+  const headers = ["اسم العميل","الجوال","المكان","المصدر","اسم السيارة","الدفع","الحالة","اسم الحملة","تاريخ الحملة","آخر تحديث"];
+  const lines = [];
+  lines.push(headers);
+
+  rows.forEach(({id,data})=>{
+    const name = (data?.name || "").toString().trim();
+    const phone = normalizePhone(data?.phone || data?.phoneNormalized || "");
+    const place = (data?.place || data?.location || data?.city || "").toString();
+    const source = (getNormalizedSourceForLead(data,id) || "").toString();
+    const car = (getLeadCarName(data) || "").toString();
+    const pay = (getLeadPayType(data) || "").toString();
+    const st  = (data?.leadStatusName || (leadStatusesMap.get(data?.leadStatusId||"")?.name) || "").toString();
+    const camp = (getLeadCampaignName(data) || "").toString();
+    const campDate = (getLeadCampaignDate(data) || "").toString();
+    const upd = fsToHuman(data?.updatedAt || data?.updatedAtMs || data?.updated_at || data?.lastUpdatedAt || "");
+    lines.push([name, phone ? ("+"+phone) : "", place, source, car, pay, st, camp, campDate, upd]);
+  });
+
+  const csv = lines.map(row=>row.map(v=>{
+    const s = (v==null) ? "" : String(v);
+    // escape quotes
+    const escv = s.replace(/"/g,'""');
+    return '"' + escv + '"';
+  }).join(",")).join("\r\n");
+
+  const blob = new Blob(["\ufeff"+csv], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "database_export.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  toast("تم تصدير Excel", "ok");
+}
+
+
 }
 
 // ===== Tasks / Follow-ups (Tab المتابعات) =====
@@ -6469,6 +7076,600 @@ function bindTasksUI(){
   try{ renderTasksList(); }catch(e){}
 }
 
+
+// ==============================
+// Lead Status Manager (Tab)
+// ==============================
+let unsubLsm = null;
+let lsmCache = [];
+let __lsmBound = false;
+
+function lsmGetFilters(){
+  const q = ($("#lsmSearch")?.value || "").trim();
+  const st = ($("#lsmStatusFilter")?.value || "").trim();
+  const from = ($("#lsmFrom")?.value || "").trim();
+  const to = ($("#lsmTo")?.value || "").trim();
+  return { q, st, from, to };
+}
+
+function lsmDateInRange(isoOrTs, from, to){
+  if(!from && !to) return true;
+  try{
+    let d = null;
+    if(!isoOrTs) return false;
+    if(typeof isoOrTs === "string"){
+      // supports ISO
+      d = new Date(isoOrTs);
+    }else if(typeof isoOrTs === "object" && typeof isoOrTs.toDate === "function"){
+      d = isoOrTs.toDate();
+    }else if(typeof isoOrTs === "number"){
+      d = new Date(isoOrTs);
+    }
+    if(!d || isNaN(d.getTime())) return false;
+    const di = d.toISOString().slice(0,10);
+    if(from && di < from) return false;
+    if(to && di > to) return false;
+    return true;
+  }catch(e){
+    return true;
+  }
+}
+
+function renderLeadStatusManager(){
+  const tb = $("#lsmTbody");
+  if(!tb) return;
+
+  if(!currentUser){
+    tb.innerHTML = `<tr><td colspan="6" class="mzj-empty">سجّل الدخول لعرض العملاء.</td></tr>`;
+    return;
+  }
+
+  const { q, st, from, to } = lsmGetFilters();
+  const qLower = q.toLowerCase();
+
+  // show all for manager/admin, otherwise only assigned to me (client-side filter لتجنب Index)
+  const allowAll = canSeeAllInbox() || canSeeSettings();
+  const rows = (lsmCache || []).filter(x=>{
+    const lead = x.data || {};
+    if(!allowAll){
+      if((lead.assignedTo || "") !== currentUser.uid) return false;
+    }
+    const name = (lead.name || lead.clientName || lead.fullName || "").toString();
+    const phone = (lead.phoneNormalized || lead.phone || lead.waId || "").toString();
+    const statusName = (lead.leadStatusName || lead.leadStatusId || "").toString();
+    const upd = lead.updatedAt || lead.statusUpdatedAt || lead.createdAt || "";
+    if(qLower){
+      if(!name.toLowerCase().includes(qLower) && !phone.toLowerCase().includes(qLower)) return false;
+    }
+    if(st){
+      if(statusName !== st) return false;
+    }
+    if(!lsmDateInRange(upd, from, to)) return false;
+    return true;
+  });
+
+  if(!rows.length){
+    tb.innerHTML = `<tr><td colspan="6" class="mzj-empty">لا توجد نتائج.</td></tr>`;
+    return;
+  }
+
+  const statusOpts = buildLeadStatusOptionsHTML();
+
+  tb.innerHTML = rows.map(x=>{
+    const id = x.id;
+    const lead = x.data || {};
+    const d = getLeadDisplay(lead);
+    const branch = lead.branchId || lead.branchName || "—";
+    const statusName = d.statusName || lead.leadStatusName || lead.leadStatusId || "—";
+
+    const upd = lead.updatedAt || lead.statusUpdatedAt || lead.createdAt || "";
+    let updTxt = "—";
+    try{
+      if(typeof upd === "string") updTxt = upd.slice(0,16).replace("T"," ");
+      else if(typeof upd === "object" && typeof upd.toDate === "function") updTxt = upd.toDate().toISOString().slice(0,16).replace("T"," ");
+    }catch(e){}
+
+    const canEdit = canEditLeadStatus(lead);
+    const disabledAttr = canEdit ? "" : "disabled";
+
+    return `
+      <tr>
+        <td>${esc(d.name||"—")}</td>
+        <td><a class="leadPhoneLink" data-openinboxphone="${esc(lead.phoneNormalized || lead.phone || lead.waId || "")}" data-openinboxname="${esc(d.name)}" href="javascript:void(0)">${esc(d.phone||"—")}</a></td>
+        <td>${esc(branch)}</td>
+        <td>${esc(statusName)}</td>
+        <td>
+          <select class="input lsmStatusSel" data-id="${esc(id)}" ${disabledAttr}>
+            ${statusOpts.replace(`value="${esc(statusName)}"`, `value="${esc(statusName)}" selected`)}
+          </select>
+        </td>
+        <td>${esc(updTxt)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  // open inbox by phone
+  tb.querySelectorAll("[data-openinboxphone]").forEach(a=>{
+    a.addEventListener("click", ()=>{
+      openInboxForPhone(a.dataset.openinboxphone || "", a.dataset.openinboxname || "");
+    });
+  });
+
+  // status change
+  tb.querySelectorAll(".lsmStatusSel").forEach(sel=>{
+    sel.addEventListener("change", async ()=>{
+      const leadId = sel.dataset.id;
+      const newStatus = sel.value;
+      const leadRow = (lsmCache || []).find(z=>z.id===leadId);
+      const lead = leadRow?.data || {};
+      if(!canEditLeadStatus(lead)){
+        toast("ليس لديك صلاحية", "warn");
+        sel.value = lead.leadStatusName || lead.leadStatusId || "";
+        return;
+      }
+      try{
+        await updateDoc(doc(db,"leads", leadId), {
+          leadStatusId: newStatus,
+          leadStatusName: newStatus,
+          statusUpdatedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          statusUpdatedBy: currentUser.uid
+        });
+        toast("تم تحديث الحالة");
+      }catch(e){
+        console.warn(e);
+        toast("تعذر تحديث الحالة", "warn");
+      }
+    });
+  });
+}
+
+function buildLeadStatusOptionsHTML(){
+  // use CUSTOM_STATUS_ORDER for consistent order when available
+  const active = [];
+  leadStatusesMap.forEach((v, k)=>{
+    if(v && v.isActive === false) return;
+    active.push(k);
+  });
+
+  // ensure stable order
+  const ordered = [];
+  const set = new Set(active);
+  (CUSTOM_STATUS_ORDER || []).forEach(s=>{ if(set.has(s)) ordered.push(s); });
+  // add remaining
+  active.forEach(s=>{ if(!ordered.includes(s)) ordered.push(s); });
+
+  if(!ordered.length){
+    return `<option value="">—</option>`;
+  }
+  return ordered.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join("");
+}
+
+function hydrateLsmStatusFilter(){
+  const sel = $("#lsmStatusFilter");
+  if(!sel) return;
+  const cur = sel.value || "";
+  const opts = buildLeadStatusOptionsHTML();
+  sel.innerHTML = `<option value="">كل الحالات</option>` + opts;
+  if(cur) sel.value = cur;
+}
+
+function bindLeadStatusManagerUI(){
+  if(__lsmBound) return;
+  __lsmBound = true;
+
+  $("#btnLsmRefresh")?.addEventListener("click", ()=>{
+    renderLeadStatusManager();
+  });
+  $("#lsmSearch")?.addEventListener("input", ()=>{
+    renderLeadStatusManager();
+  });
+  $("#lsmStatusFilter")?.addEventListener("change", ()=>{
+    renderLeadStatusManager();
+  });
+  $("#lsmFrom")?.addEventListener("change", ()=>{
+    renderLeadStatusManager();
+  });
+  $("#lsmTo")?.addEventListener("change", ()=>{
+    renderLeadStatusManager();
+  });
+}
+
+function ensureLeadStatusManagerLive(){
+  // bind first
+  bindLeadStatusManagerUI();
+  hydrateLsmStatusFilter();
+
+  const tb = $("#lsmTbody");
+  if(!tb) return;
+
+  if(!currentUser){
+    tb.innerHTML = `<tr><td colspan="6" class="mzj-empty">سجّل الدخول لعرض العملاء.</td></tr>`;
+    return;
+  }
+
+  if(unsubLsm) return;
+
+  tb.innerHTML = `<tr><td colspan="6" class="mzj-empty">جاري تحميل العملاء...</td></tr>`;
+
+  // بدون where لتجنب الحاجة لعمل Index (نفلتر داخل المتصفح)
+  const qRef = query(collection(db,"leads"), orderBy("updatedAt","desc"), limit(300));
+  unsubLsm = onSnapshot(qRef, (snap)=>{
+    lsmCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+    try{ hydrateLsmStatusFilter(); }catch(e){}
+    renderLeadStatusManager();
+  }, (err)=>{
+    console.warn(err);
+    tb.innerHTML = `<tr><td colspan="6" class="mzj-empty">تعذر تحميل العملاء.</td></tr>`;
+  });
+}
+
+// ==============================
+// Sales Commissions (Tab) - MVP
+// ==============================
+let __scBound = false;
+let scLastRows = [];
+
+function scDefaultRange(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = d.getMonth(); // 0-based current month
+  const first = new Date(y, m, 1).toISOString().slice(0,10);
+  const last = new Date(y, m+1, 0).toISOString().slice(0,10);
+  return { first, last };
+}
+
+function scLoadLocalSettings(){
+  try{
+    return JSON.parse(localStorage.getItem("mzj_sc_settings") || "{}") || {};
+  }catch(e){ return {}; }
+}
+
+function scSaveLocalSettings(obj){
+  try{
+    localStorage.setItem("mzj_sc_settings", JSON.stringify(obj||{}));
+  }catch(e){}
+}
+
+
+// ===== Sales Commissions helpers =====
+function scGetDeptNameByAgentId(uid){
+  try{
+    const a = agentsMap?.get(uid);
+    const v = a?.data ? a.data : (a || {});
+    return String(v.branchId || v.assignedBranchId || v.branch || v.department || "").trim();
+  }catch(e){ return ""; }
+}
+function scBuildDeptIndex(){
+  const map = new Map(); // dept -> count
+  try{
+    if(!agentsMap) return map;
+    agentsMap.forEach((a, id)=>{
+      const v = a?.data ? a.data : (a || {});
+      const active = (v.isActive !== false);
+      if(!active) return;
+      const dept = String(v.branchId || "").trim();
+      if(!dept) return;
+      map.set(dept, (map.get(dept)||0) + 1);
+    });
+  }catch(e){}
+  return map;
+}
+function scRefreshDeptsUI(){
+  const sel = document.getElementById("scDept");
+  const chips = document.getElementById("scDeptChips");
+  if(!sel || !chips) return;
+  const idx = scBuildDeptIndex();
+  const current = sel.value || "";
+  // fill select
+  sel.innerHTML = "";
+  const optAll = document.createElement("option");
+  optAll.value = "";
+  optAll.textContent = "كل الأقسام";
+  sel.appendChild(optAll);
+  Array.from(idx.entries()).sort((a,b)=> a[0].localeCompare(b[0], "ar")).forEach(([dept,count])=>{
+    const opt=document.createElement("option");
+    opt.value=dept;
+    opt.textContent = `${dept} (${count})`;
+    sel.appendChild(opt);
+  });
+  sel.value = current; // keep
+  // fill chips
+  const total = Array.from(idx.values()).reduce((s,n)=>s+n,0);
+  const mkChip = (label, value, count)=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.className="scChip" + ((sel.value||"")===value ? " active" : "");
+    b.innerHTML = `<span>${esc(label)}</span><span class="badge neutral" style="margin:0">${esc(String(count||0))}</span>`;
+    b.addEventListener("click", ()=>{
+      sel.value = value;
+      ensureSalesCommissionsReport();
+    });
+    return b;
+  };
+  chips.innerHTML = "";
+  chips.appendChild(mkChip("الكل", "", total));
+  Array.from(idx.entries()).sort((a,b)=> a[0].localeCompare(b[0], "ar")).forEach(([dept,count])=>{
+    chips.appendChild(mkChip(dept, dept, count));
+  });
+}
+
+function bindSalesCommissionsUI(){
+  if(__scBound) return;
+  __scBound = true;
+
+  const r = scDefaultRange();
+  if($("#scFrom") && !$("#scFrom").value) $("#scFrom").value = r.first;
+  if($("#scTo") && !$("#scTo").value) $("#scTo").value = r.last;
+
+  // fill departments UI
+  try{ scRefreshDeptsUI(); }catch(e){}
+  document.getElementById('scDept')?.addEventListener('change', ()=> ensureSalesCommissionsReport());
+
+  $("#btnScRefresh")?.addEventListener("click", ()=>{
+    ensureSalesCommissionsReport();
+  });
+
+  $("#btnScExportExcel")?.addEventListener("click", ()=>{
+    exportSalesCommissionsCSV();
+  });
+
+  $("#btnScExportPdf")?.addEventListener("click", ()=>{
+    exportSalesCommissionsPDF();
+  });
+
+  // delegate inputs
+  document.addEventListener("input", (e)=>{
+    const el = e.target;
+    if(!el || !el.closest) return;
+    if(!el.closest("#panel-sales_commissions")) return;
+    if(el.classList.contains("scTarget") || el.classList.contains("scCommission")){
+      persistSalesCommissionsInputs();
+    }
+  });
+}
+
+function persistSalesCommissionsInputs(){
+  const store = scLoadLocalSettings();
+  const monthKey = scMonthKey();
+  store[monthKey] = store[monthKey] || {};
+  const panel = $("#panel-sales_commissions");
+  if(!panel) return;
+
+  panel.querySelectorAll("tr[data-rep]").forEach(tr=>{
+    const repId = tr.dataset.rep;
+    const t = tr.querySelector(".scTarget")?.value || "";
+    const c = tr.querySelector(".scCommission")?.value || "";
+    store[monthKey][repId] = { target: Number(t||0), commission: Number(c||0) };
+  });
+  scSaveLocalSettings(store);
+}
+
+function scMonthKey(){
+  const from = ($("#scFrom")?.value || "").trim();
+  if(from && /^\d{4}-\d{2}-\d{2}$/.test(from)) return from.slice(0,7);
+  const d = new Date();
+  return d.toISOString().slice(0,7);
+}
+
+function ensureSalesCommissionsReport(){
+  bindSalesCommissionsUI();
+
+  const tb = $("#scTbody");
+  if(!tb) return;
+
+  if(!currentUser){
+    tb.innerHTML = `<tr><td colspan="7" class="mzj-empty">سجّل الدخول لعرض التقرير.</td></tr>`;
+    return;
+  }
+
+  const from = ($("#scFrom")?.value || "").trim();
+  const to = ($("#scTo")?.value || "").trim();
+  const FINAL = "تم الإنتهاء - إنشاء طلب البيع";
+
+  try{ scRefreshDeptsUI(); }catch(e){}
+
+  // Fetch leads (client-side filter)
+  tb.innerHTML = `<tr><td colspan="7" class="mzj-empty">جاري تجهيز التقرير...</td></tr>`;
+
+  // grab latest leads cache if available, otherwise do a one-shot
+  const compute = (rows)=>{
+    const inRange = (lead)=>{
+      const upd = lead.updatedAt || lead.statusUpdatedAt || lead.createdAt || "";
+      return lsmDateInRange(upd, from, to);
+    };
+
+    const finalRows = (rows||[]).filter(x=>{
+      const lead = x.data || {};
+      const st = (lead.leadStatusName || lead.leadStatusId || "");
+      if(st !== FINAL) return false;
+      return inRange(lead);
+    });
+
+    // group by rep
+    const reps = new Map(); // repId -> {repId, repName, deals}
+    finalRows.forEach(x=>{
+      const lead = x.data || {};
+      const repId = lead.assignedTo || "";
+      if(!repId) return;
+      const repName = agentsMap?.get(repId)?.name || usersMap?.get(repId)?.name || repId;
+      const cur = reps.get(repId) || { repId, repName, deals:0 };
+      cur.deals += 1;
+      reps.set(repId, cur);
+    });
+
+    // build list of reps visible: from reps map, plus (if manager) all agents
+    const allowAll = canSeeAllInbox() || canSeeSettings();
+    let repList = Array.from(reps.values());
+
+    if(allowAll){
+      try{
+        agentsMap?.forEach((a,id)=>{
+          const aid = id;
+          if(!aid) return;
+          if(!reps.has(aid)){
+            const v = a?.data ? a.data : (a || {});
+            repList.push({ repId: aid, repName: v.name || v.email || aid, deals:0 });
+          }
+        });
+      }catch(e){}
+    }else{
+      // only me
+      repList = repList.filter(r=>r.repId===currentUser.uid);
+      if(!repList.length){
+        repList = [{ repId: currentUser.uid, repName: currentProfile?.name || currentUser.email || currentUser.uid, deals:0 }];
+      }
+    }
+
+    // load local targets/commissions for current monthKey
+    const monthKey = scMonthKey();
+    const store = scLoadLocalSettings();
+    const per = store[monthKey] || {};
+
+    // compute
+    const rowsOut = repList.map(r=>{
+      const target = Number(per[r.repId]?.target || 0);
+      const comPerDeal = Number(per[r.repId]?.commission || 0);
+      const actual = Number(r.deals || 0);
+      const ach = target > 0 ? Math.round((actual/target)*100) : (actual>0 ? 100 : 0);
+      const rem = Math.max(0, target - actual);
+      const com = actual * comPerDeal;
+      return { ...r, target, actual, ach, rem, comPerDeal, com };
+    }).sort((a,b)=> (b.ach - a.ach) || (b.actual - a.actual));
+
+    scLastRows = rowsOut;
+
+    // KPIs
+    $("#scKpiReps").textContent = rowsOut.length;
+    $("#scKpiDeals").textContent = rowsOut.reduce((s,x)=>s+x.actual,0);
+    $("#scKpiCommission").textContent = rowsOut.reduce((s,x)=>s+x.com,0).toLocaleString("ar-SA") + " ر.س";
+    const achieved = rowsOut.filter(x=> x.target>0 && x.actual >= x.target).length;
+    $("#scKpiAchieved").textContent = achieved;
+
+    // render
+    if(!rowsOut.length){
+      tb.innerHTML = `<tr><td colspan="7" class="mzj-empty">لا توجد بيانات.</td></tr>`;
+      return;
+    }
+
+    tb.innerHTML = rowsOut.map(x=>{
+      return `
+        <tr data-rep="${esc(x.repId)}">
+          <td>${esc(x.repName||x.repId)}</td>
+          <td><input class="input scTarget" type="number" min="0" value="${esc(String(x.target||0))}" /></td>
+          <td>${esc(String(x.actual||0))}</td>
+          <td>${esc(String(x.ach||0))}%</td>
+          <td>${esc(String(x.rem||0))}</td>
+          <td><input class="input scCommission" type="number" min="0" value="${esc(String(x.comPerDeal||0))}" /></td>
+          <td>${esc((x.com||0).toLocaleString("ar-SA"))} ر.س</td>
+        </tr>
+      `;
+    }).join("");
+
+    // keep saved
+    persistSalesCommissionsInputs();
+  };
+
+  if(lsmCache && lsmCache.length){
+    compute(lsmCache);
+  }else{
+    // one-shot read (same query as lsm)
+    getDocs(query(collection(db,"leads"), orderBy("updatedAt","desc"), limit(300))).then(snap=>{
+      const rows = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+      compute(rows);
+    }).catch(err=>{
+      console.warn(err);
+      tb.innerHTML = `<tr><td colspan="7" class="mzj-empty">تعذر تجهيز التقرير.</td></tr>`;
+    });
+  }
+}
+
+function exportSalesCommissionsCSV(){
+  if(!scLastRows || !scLastRows.length){
+    toast("لا توجد بيانات للتصدير", "warn");
+    return;
+  }
+  const from = ($("#scFrom")?.value || "").trim();
+  const to = ($("#scTo")?.value || "").trim();
+
+  const header = ["المندوب","التارجت","المحقق","نسبة الإنجاز","المتبقي","عمولة/صفقة","العمولة"];
+  const lines = [header.join(",")].concat(scLastRows.map(x=>{
+    return [
+      `"${String(x.repName||x.repId).replace(/"/g,'""')}"`,
+      x.target||0,
+      x.actual||0,
+      (x.ach||0)+"%",
+      x.rem||0,
+      x.comPerDeal||0,
+      x.com||0
+    ].join(",");
+  }));
+
+  const csv = "\uFEFF" + lines.join("\n");
+  const blob = new Blob([csv], { type:"text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  const name = `Sales_Commissions_${(from||"")}_${(to||"")}.csv`.replace(/[:\s]/g,"_");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  toast("تم تصدير الملف");
+}
+
+function exportSalesCommissionsPDF(){
+  if(!scLastRows || !scLastRows.length){
+    toast("لا توجد بيانات للطباعة", "warn");
+    return;
+  }
+  const from = ($("#scFrom")?.value || "").trim();
+  const to = ($("#scTo")?.value || "").trim();
+  const w = window.open("", "_blank");
+  if(!w){ toast("تعذر فتح نافذة الطباعة", "warn"); return; }
+  const rows = scLastRows.map(x=>`
+    <tr>
+      <td>${esc(x.repName||x.repId)}</td>
+      <td>${esc(String(x.target||0))}</td>
+      <td>${esc(String(x.actual||0))}</td>
+      <td>${esc(String(x.ach||0))}%</td>
+      <td>${esc(String(x.rem||0))}</td>
+      <td>${esc(String(x.comPerDeal||0))}</td>
+      <td>${esc(String(x.com||0))}</td>
+    </tr>
+  `).join("");
+  w.document.write(`
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="utf-8"/>
+      <title>تقرير التقييم والعمولات</title>
+      <style>
+        body{font-family:Tajawal,Arial; padding:18px;}
+        h2{margin:0 0 8px;}
+        .muted{color:#555;margin-bottom:12px}
+        table{width:100%;border-collapse:collapse;font-size:14px}
+        th,td{border:1px solid #ddd;padding:8px;text-align:right}
+        th{background:#f5f5f5}
+      </style>
+    </head>
+    <body>
+      <h2>تقرير تقييم المناديب والعمولات</h2>
+      <div class="muted">الفترة: ${esc(from||"—")} إلى ${esc(to||"—")}</div>
+      <table>
+        <thead>
+          <tr>
+            <th>المندوب</th><th>التارجت</th><th>المحقق</th><th>% الإنجاز</th><th>المتبقي</th><th>عمولة/صفقة</th><th>العمولة</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </body>
+    </html>
+  `);
+  w.document.close();
+  try{ w.focus(); }catch(e){}
+  w.onload = () => { try{ w.print(); }catch(e){} };
+}
+
   async function ensureLeadsLive(){
     if(unsubLeads) return;
 
@@ -6477,7 +7678,7 @@ function bindTasksUI(){
     if(!tb) return;
 
     if(!currentUser){
-      tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">سجّل الدخول لعرض العملاء المحتملين.</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">سجّل الدخول لعرض العملاء المحتملين.</td></tr>`;
       return;
     }
 
@@ -6502,37 +7703,12 @@ function bindTasksUI(){
         setBadgeConnected(true);
       }catch(e){
         setBadgeConnected(false);
-        tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">تعذر تحميل العملاء: ${esc(err?.message || err)}</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">تعذر تحميل العملاء: ${esc(err?.message || err)}</td></tr>`;
       }
     });
 
     // open details by clicking name
     const tableWrap = tb.closest(".mzj-tableWrap") || tb.parentElement;
-
-    // ✅ فتح مودال العميل من تبويب "قاعدة البيانات" أيضاً
-    const dbTb = $("#dbTbody");
-    const dbWrap = dbTb ? (dbTb.closest(".mzj-tableWrap") || dbTb.parentElement) : null;
-    if(dbWrap && !window.__dbLeadClickBound){
-      window.__dbLeadClickBound = true;
-      dbWrap.addEventListener("click", (e)=>{
-        const ph = e.target.closest(".leadPhoneLink");
-        if(ph){
-          const p = String(ph.dataset.openinboxphone||"").trim();
-          if(p){
-            openInboxForPhone(p, ph.dataset.openinboxname || "");
-          }else{
-            toast("رقم غير موجود", "warn");
-          }
-          return;
-        }
-        const a = e.target.closest("[data-openlead]");
-        if(!a) return;
-        const id = a.dataset.openlead;
-        const found = (leadsCache||[]).find(x=>x.id===id);
-        if(!found) return;
-        openLeadModal(id, found.data);
-      });
-    }
     (tableWrap || document).addEventListener("click", (e)=>{
       const ph = e.target.closest(".leadPhoneLink");
       if(ph){
@@ -6608,18 +7784,21 @@ function bindTasksUI(){
     // Database filters bind (مرة واحدة)
     if(!window.__dbFiltersBound){
       window.__dbFiltersBound = true;
-      ["dbSearch","dbFilterSource","dbFilterCar","dbFilterPay","dbFilterStatus","dbFilterCampaign"].forEach(id=>{
+      ["dbSearch","dbFilterSource","dbFilterCar","dbFilterPay","dbFilterStatus","dbFilterCampaign","dbDateFrom","dbDateTo"].forEach(id=>{
         $("#"+id)?.addEventListener("input", applyDatabaseFilters);
         $("#"+id)?.addEventListener("change", applyDatabaseFilters);
       });
       $("#dbRefresh")?.addEventListener("click", ()=>{
         try{ applyDatabaseFilters(); }catch(e){}
       });
-    }
+      $("#dbExportExcel")?.addEventListener("click", ()=>{
+        try{ exportDatabaseToExcel(); }catch(e){}
+      });
+}
 
 
 
-    tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">جاري تحميل العملاء المحتملين من Firebase...</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">جاري تحميل العملاء المحتملين من Firebase...</td></tr>`;
   }
 
   function openAssignPrompt(leadId, leadData){
@@ -7608,7 +8787,7 @@ $("#dashRefresh")?.addEventListener("click", ()=> renderDashboard());
 $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
 
 
-<script/>
+</script>
 
 
 
@@ -7641,12 +8820,39 @@ $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
             <input id="cd_commitment" placeholder="مثال: 1500" />
           </div>
 
-          
+          <div class="mzjField">
+            <label>نوع التمويل (الحاسبة المبدئية)</label>
+            <select id="cd_finType">
+              <option value="">— اختر (45% / 65%) —</option>
+              <option value="general">عام (45%)</option>
+              <option value="realestate">عقاري (65%)</option>
+            </select>
+          </div>
+
+          <div class="mzjField">
+            <label>حالة العميل</label>
+            <select id="cd_statusSelect">
+              <option value="">جارٍ التحميل…</option>
+            </select>
+          </div>
+
+          <div class="mzjField" id="cd_calcBox" style="grid-column:1/-1;display:none;border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(192,122,74,.06)">
+            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+              <div><b>الحد الائتماني:</b> <span id="cd_limit">—</span> ريال</div>
+              <div><b>النتيجة:</b> <span id="cd_eligStatus">—</span></div>
+            </div>
+            <div style="margin-top:8px;font-size:12.5px;color:rgba(28,28,28,.64);line-height:1.7">
+              المعادلة: (الراتب × 45% أو 65%) − الالتزامات
+            </div>
+          </div>
+
           <div class="mzjField">
             <label>المكان</label>
-            <input id="cd_location" placeholder="مثال: الرياض" />
+            <input id="cd_place" placeholder="مثال: الرياض" />
           </div>
-<div class="mzjField">
+
+
+          <div class="mzjField">
             <label>العمر</label>
             <input id="cd_age" placeholder="مثال: 32" />
           </div>
@@ -7656,7 +8862,7 @@ $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
           </div>
 
           <div class="mzjField" style="grid-column:1/-1">
-            <label>السيارة</label>
+            <label>نوع السيارة</label>
             <input id="cd_car_type" placeholder="مثال: سيدان / SUV / إلخ" />
           </div>
 
