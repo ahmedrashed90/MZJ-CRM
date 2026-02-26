@@ -5,6 +5,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3884,20 +3885,66 @@ let unsubInboxLive = null; // live updates for first page only
     return d.toLocaleDateString("ar-SA", { day:"2-digit", month:"2-digit" });
   }
 
-  function convChannelPill(ch){
-    const svgWA = `<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M19.1 17.5c-.2-.1-1.1-.6-1.3-.6s-.3-.1-.5.1-.5.6-.6.7-.2.2-.4.1c-.2-.1-.8-.3-1.6-1-.6-.5-1-1.2-1.1-1.4s0-.3.1-.4l.3-.4c.1-.1.1-.2.2-.4.1-.1 0-.3 0-.4s-.5-1.2-.7-1.6c-.2-.4-.4-.4-.5-.4h-.4c-.1 0-.4.1-.6.3s-.8.7-.8 1.8.8 2.1.9 2.2c.1.2 1.6 2.5 3.9 3.5.5.2.9.3 1.2.4.5.1.9.1 1.2.1.4-.1 1.1-.5 1.3-.9.2-.4.2-.8.1-.9 0-.1-.2-.2-.4-.3z"/><path fill="currentColor" d="M26.9 5.1A14.9 14.9 0 0 0 4.4 23.7L3 29l5.4-1.4A14.9 14.9 0 0 0 29 16c0-4-1.6-7.8-4.1-10.9zM16 28.1c-2.1 0-4.2-.6-6-1.6l-.4-.2-3.2.8.8-3.1-.2-.4c-1.1-1.9-1.7-4.1-1.7-6.3C5.3 9.7 10.1 4.9 16 4.9S26.7 9.7 26.7 16 21.9 28.1 16 28.1z"/></svg>`;
+  
+  // ===== Display Name Resolver (WA/FB/IG) =====
+  function getConvDisplayName(c){
+    const obj = c || {};
+    const pick = (...vals)=>{
+      for(const v of vals){
+        const s = String(v ?? "").trim();
+        if(s) return s;
+      }
+      return "";
+    };
+    let name = pick(
+      obj.displayName, obj.name,
+      obj.contact_name, obj.contactName,
+      obj.customerName, obj.customer_name,
+      obj.fullName, obj.full_name,
+      obj.username, obj.userName, obj.user_name,
+      obj.participantName, obj.participant_name
+    );
+    if(!name) name = pick(obj.waId, obj.participantId);
+
+    const rawPlatform = String(obj.channel || obj.platform || "").toLowerCase();
+    const isIG = rawPlatform.includes("instagram") || rawPlatform === "ig";
+    const isDigits = (s)=> /^\d{6,}$/.test(String(s||"").replace(/\D/g,""));
+
+    // If IG name is missing and we only have numeric id, show a friendly fallback
+    if(isIG && isDigits(name)){
+      const suffixSrc = pick(obj.participantId, obj.waId, name);
+      const suf = String(suffixSrc).replace(/\D/g,"").slice(-4);
+      return suf ? `عميل انستجرام ${suf}` : "عميل انستجرام";
+    }
+
+    return name || "—";
+  }
+
+function convChannelPill(ch){
+    // Normalize channel / platform / source variations to a small set
+    let k = String(ch||"").trim().toLowerCase();
+    // handle arabic labels coming from worker
+    if(k === "واتساب") k = "whatsapp";
+    if(k === "انستجرام" || k === "انستغرام") k = "instagram";
+    if(k === "فيسبوك") k = "facebook";
+    if(k === "ماسنجر" || k === "مسنجر" || k === "messenger") k = "messenger";
+    if(k === "تيك توك" || k === "تيكتوك" || k === "tiktok") k = "tiktok";
+
+    const svgWA = `<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M19.1 17.5c-.2-.1-1.1-.6-1.3-.6s-.3-.1-.5.1-.5.6-.6.7-.2.2-.4.1c-.2-.1-.8-.3-1.6-1-.6-.5-1-1.2-1.1-1.4s0-.3.1-.4l.3-.4c.1-.1.1-.2.2-.4.1-.1 0-.3 0-.4s-.5-1.2-.7-1.6c-.2-.4-.4-.4-.5-.4h-.4c-.1 0-.4.1-.6.3s-.8.7-.8 1.8.8 2.1.9 2.2c.1.2 1.6 2.5 3.9 3.5.5.2.9.3 1.2.4.5.1.9.1 1.2.1.4-.1 1.1-.5 1.3-.9.2-.4.2-.8.1-.9 0-.1-.2-.2-.4-.3z"/><path fill="currentColor" d="M26.9 5.1A14.9 14.9 0 0 0 5.2 26.8L3 29l5.4-1.4A14.9 14.9 0 0 0 29 16c0-4-1.6-7.8-4.1-10.9zM16 28.1c-2.1 0-4.2-.6-6-1.6l-.4-.2-3.2.8.8-3.1-.2-.4c-1.1-1.9-1.7-4.1-1.7-6.3C5.3 9.7 10.1 4.9 16 4.9S26.7 9.7 26.7 16 21.9 28.1 16 28.1z"/></svg>`;
     const svgIG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9A5.5 5.5 0 0 1 16.5 22h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4h-9z"/><path fill="currentColor" d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/><path fill="currentColor" d="M17.8 6.2a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>`;
     const svgFB = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.5 22v-8h2.7l.4-3H13.5V9.1c0-.9.3-1.6 1.6-1.6h1.7V4.8c-.3 0-1.5-.1-2.8-.1-2.8 0-4.7 1.7-4.7 4.8V11H7v3h2.6v8h3.9z"/></svg>`;
+    const svgTT = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M14 3v10.3c0 2.2-1.8 4-4 4s-4-1.8-4-4 1.8-4 4-4c.7 0 1.4.2 2 .6V3h2zm2 0h3c.3 2.3 1.6 4.2 3 5.5v3c-1.9-.8-3.4-2.1-4.1-3.4V17c0 3.9-3.1 7-7 7s-7-3.1-7-7 3.1-7 7-7c.7 0 1.4.1 2 .3v3.2c-.6-.4-1.3-.6-2-.6-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4V3z"/></svg>`;
 
-    if(ch === "whatsapp" || ch === "wa") return `<span class="pill wa">${svgWA}واتساب</span>`;
-    if(ch === "instagram" || ch === "ig") return `<span class="pill ig">${svgIG}انستجرام</span>`;
-    if(ch === "facebook" || ch === "fb") return `<span class="pill fb">${svgFB}فيسبوك</span>`;
-    return `<span class="pill">قناة</span>`;
+    if(k === "whatsapp" || k === "wa") return `<span class="pill wa">${svgWA}واتساب</span>`;
+    if(k === "instagram" || k === "ig") return `<span class="pill ig">${svgIG}انستجرام</span>`;
+    if(k === "facebook" || k === "fb" || k === "messenger") return `<span class="pill fb">${svgFB}ماسنجر</span>`;
+    if(k === "tiktok" || k === "tt") return `<span class="pill tt">${svgTT}تيك توك</span>`;
+    return `<span class="pill">مصدر</span>`;
   }
 
   function renderConvItem(id, c){
     // ✅ دعم واتساب + فيسبوك بنفس الهيكل
-    const name = c.name || c.displayName || c.waId || c.participantId || "—";
+    const name = getConvDisplayName(c);
     const last = c.last_message_text || c.lastMessageText || c.lastMessage || "";
     const tms = fsToMs(c.last_message_at || c.lastMessageAt);
     const u = Number(c.unreadCount || c.unread_count || 0);
@@ -3992,7 +4039,7 @@ const c = data || {};
       if(fBranch && (c.branchId || "") !== fBranch) return false;
 
       if(qText){
-        const name = String(c.displayName || c.name || "").toLowerCase();
+        const name = String(getConvDisplayName(c) || "").toLowerCase();
         const waId = String(c.waId || c.participantId || "").toLowerCase();
         const last = String(c.lastMessageText || c.last_message_text || "").toLowerCase();
         if(!name.includes(qText) && !waId.includes(qText) && !last.includes(qText)) return false;
@@ -4021,7 +4068,7 @@ const c = data || {};
   }
 
   function setChatHeader(conv){
-    const name = conv?.displayName || conv?.waId || "—";
+    const name = getConvDisplayName(conv);
     $("#chatName") && ($("#chatName").textContent = name);
 
     const metaEl = $("#chatMeta");
@@ -5407,7 +5454,12 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
     // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال (لو عندك Worker إرسال منفصل)
     // مثال: https://YOUR-SEND-WORKER.workers.dev/send
     const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // ضع رابط Worker الإرسال هنا أو عبر window
-    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://manychat.next-erp-mzj.workers.dev/send/facebook"; // إرسال فيسبوك ماسنجر.MERSAL_SEND_ENDPOINT 
+    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://manychat.next-erp-mzj.workers.dev/send/facebook"; // إرسال فيسبوك ماسنجر
+
+    const SOCIAL_SEND_BASE = window.SOCIAL_SEND_BASE || "https://insta-crm.next-erp-mzj.workers.dev/send";
+    const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || (SOCIAL_SEND_BASE + "/instagram");
+    const TT_SEND_ENDPOINT = window.TT_SEND_ENDPOINT || (SOCIAL_SEND_BASE + "/tiktok");
+
 
     
 async function sendOutboundMessage(text){
@@ -5430,17 +5482,31 @@ async function sendOutboundMessage(text){
     toast("المحادثة غير موجودة", "err");
     return;
   }
-  const conv = convSnap.data() || {};
-  const platform = String(conv.platform || conv.channel || conv.source || "").toLowerCase();
-  const isFB = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || String(conv.source||"").includes("فيسبوك");
-  const waId = String(conv.waId || "").trim();
-  const fbPsid = String(conv.participantId || conv.senderId || "").trim();
-  const fbPageId = String(conv.pageId || "").trim();
-  if(!isFB && !waId){ toast("رقم العميل غير موجود", "err"); return; }
-  if(isFB && !fbPsid){ toast("معرّف فيسبوك غير موجود", "err"); return; }
 
-  const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
-  const displayText = isTemplate
+  const conv = convSnap.data() || {};
+  const platformRaw = String(conv.channelKey || conv.platform || conv.channel || conv.sourceKey || conv.source || "").trim();
+  const platform = platformRaw.toLowerCase();
+
+  const isWA = platform.includes("whatsapp") || platform.includes("wa") || platformRaw.includes("واتساب");
+  const isIG = platform.includes("instagram") || platform.includes("ig") || platformRaw.includes("انستجرام") || platformRaw.includes("انستغرام");
+  const isTT = platform.includes("tiktok") || platform.includes("tt") || platformRaw.includes("تيك");
+  const isMSN = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || platformRaw.includes("فيسبوك") || platformRaw.includes("ماسنجر") || platformRaw.includes("مسنجر");
+
+  const useTemplate = isTemplate && isWA;
+
+  const waId = String(conv.waId || "").trim();
+  const recipientId = String(conv.participantId || conv.senderId || conv.contactId || "").trim();
+  const pageId = String(conv.pageId || conv.igPageId || conv.ttPageId || "").trim();
+
+  if(isWA){
+    if(!waId){ toast("رقم العميل غير موجود", "err"); return; }
+  }else{
+    if(!clean){ toast("اكتب رسالة لإرسالها", "warn"); return; }
+    if(!recipientId){ toast("معرّف العميل على المنصة غير موجود", "err"); return; }
+  }
+
+const tpl = useTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
+  const displayText = useTemplate
     ? (String(tpl.previewText || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
     : clean;
 
@@ -5448,11 +5514,11 @@ async function sendOutboundMessage(text){
   const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
   const localMsgId = msgRef.id;
 
-  const outTo = isFB ? `fb:${fbPsid}` : `wa:${waId}`;
-  const outProvider = isFB ? "facebook" : "mersal";
+  const outTo = isWA ? `wa:${waId}` : (isIG ? `ig:${recipientId}` : (isTT ? `tt:${recipientId}` : `fb:${recipientId}`));
+  const outProvider = isWA ? "mersal" : "manychat";
   await setDoc(msgRef, {
     direction: "out",
-    type: isTemplate ? "template" : "text",
+    type: useTemplate ? "template" : "text",
     text: displayText,
     from: "crm",
     to: outTo,
@@ -5461,8 +5527,8 @@ async function sendOutboundMessage(text){
     sentAt: serverTimestamp(),
     receivedAt: serverTimestamp(),
     status: "pending",
-    templateName: isTemplate ? String(tpl.name || "") : "",
-    templateLang: isTemplate ? String(tpl.lang || "ar") : ""
+    templateName: useTemplate ? String(tpl.name || "") : "",
+    templateLang: useTemplate ? String(tpl.lang || "ar") : ""
   });
 
   await updateDoc(convRef, {
@@ -5475,9 +5541,19 @@ async function sendOutboundMessage(text){
 
   try{
     let resp, data;
-    if(isFB){
-      const payload = { convId: activeConvId, recipientId: fbPsid, pageId: fbPageId, message: clean, agent: (currentProfile?.name || currentUser?.displayName || currentUser?.email || "") };
-      resp = await fetch(FB_SEND_ENDPOINT, {
+    if(!isWA){
+      // Messenger / Instagram / TikTok via worker (ManyChat or your gateway)
+      const endpoint = isIG ? IG_SEND_ENDPOINT : (isTT ? TT_SEND_ENDPOINT : FB_SEND_ENDPOINT);
+      const platformKey = isIG ? "instagram" : (isTT ? "tiktok" : "messenger");
+      const payload = {
+        convId: activeConvId,
+        platform: platformKey,
+        recipientId: recipientId,
+        pageId: pageId,
+        message: clean,
+        agent: (currentProfile?.name || currentUser?.displayName || currentUser?.email || "")
+      };
+      resp = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -5487,7 +5563,7 @@ async function sendOutboundMessage(text){
       if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
       if(data && data.ok === undefined) data.ok = resp.ok;
     }else{
-      const payload = isTemplate
+      const payload = useTemplate
         ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: Array.isArray(tpl.params)?tpl.params:[] } }
         : { waId, text: clean };
 
@@ -5498,6 +5574,8 @@ async function sendOutboundMessage(text){
       });
       data = await resp.json().catch(()=> ({}));
     }
+
+
 
     if(!resp.ok || data.ok === false){
       await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
