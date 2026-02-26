@@ -5458,7 +5458,9 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
     const SOCIAL_SEND_BASE = window.SOCIAL_SEND_BASE || "https://insta-crm.next-erp-mzj.workers.dev/send";
     const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || (SOCIAL_SEND_BASE + "/instagram");
-    const TT_SEND_ENDPOINT = window.TT_SEND_ENDPOINT || (SOCIAL_SEND_BASE + "/tiktok");
+    const TT_SEND_ENDPOINT = window.TT_SEND_ENDPOINT || (SOCIAL_SEND_BASE + "/tiktok")
+    const SOCIAL_SEND_SECRET = window.SOCIAL_SEND_SECRET || "mzj-secret-2026"; // سر التحقق لإرسال المنصات (IG/FB/TT)
+;
 
 
     
@@ -5551,6 +5553,7 @@ const tpl = useTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
         recipientId: recipientId,
         pageId: pageId,
         message: clean,
+        secret: SOCIAL_SEND_SECRET,
         agent: (currentProfile?.name || currentUser?.displayName || currentUser?.email || "")
       };
       resp = await fetch(endpoint, {
