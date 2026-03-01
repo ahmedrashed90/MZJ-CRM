@@ -5009,16 +5009,17 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
 
     // ===== Outbound send (Inbox only) =====
-    // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال (لو عندك Worker إرسال منفصل)
+    // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال
     // مثال: https://YOUR-SEND-WORKER.workers.dev/send
-    const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // واتساب (مرسال)
-    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://facebook.next-erp-mzj.workers.dev/crm/send"; // Facebook Worker
-    const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/crm/send"; // Instagram Worker (هنفعّله بعد ما نعمله)
+    window.MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
+    // Facebook (CRM -> FB Worker)
+    window.FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://facebook.next-erp-mzj.workers.dev/crm/send";
+    // Instagram (هنتفعّله لاحقاً)
+    window.IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/crm/send";
 
-    // expose for debugging in console
-    window.MERSAL_SEND_ENDPOINT = MERSAL_SEND_ENDPOINT;
-    window.FB_SEND_ENDPOINT = FB_SEND_ENDPOINT;
-    window.IG_SEND_ENDPOINT = IG_SEND_ENDPOINT;
+    const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT;
+    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT;
+    const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT;
 
     
 async function sendOutboundMessage(text){
@@ -5047,13 +5048,11 @@ async function sendOutboundMessage(text){
   const waId = String(conv.waId || "").trim();
   const fbPsid = String(conv.fbId || conv.participantId || conv.senderId || "").trim();
   const fbPageId = String(conv.pageId || "").trim();
-  const igUserId = String(conv.igId || conv.participantId || conv.senderId || "").trim();
-  const igAccountId = String(conv.igAccountId || conv.pageId || "").trim();
-  if(!isFB && !isIG && !waId){ toast("رقم العميل غير موجود", "err"); return; }
-  if(isFB && !fbPsid){ toast("معرّف فيسبوك غير موجود", "err"); return; }
-  if(isIG && !igUserId){ toast("معرّف انستجرام غير موجود", "err"); return; }
+  if(!isFB && !waId){ toast("رقم العميل غير موجود", "err"); return; }
+  if(isFB && !fbPsid){ toast("fbId غير موجود داخل المحادثة", "err"); return; }
 
   const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
+  if(isFB && isTemplate){ toast("قوالب مرسال للواتساب فقط", "warn"); return; }
   const displayText = isTemplate
     ? (String(tpl.previewText || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
     : clean;
@@ -5062,8 +5061,8 @@ async function sendOutboundMessage(text){
   const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
   const localMsgId = msgRef.id;
 
-  const outTo = isFB ? `fb:${fbPsid}` : (isIG ? `ig:${igUserId}` : `wa:${waId}`);
-  const outProvider = isFB ? "facebook" : (isIG ? "instagram" : "mersal");
+  const outTo = isFB ? `fb:${fbPsid}` : `wa:${waId}`;
+  const outProvider = isFB ? "facebook" : "mersal";
   await setDoc(msgRef, {
     direction: "out",
     type: isTemplate ? "template" : "text",
@@ -5089,11 +5088,6 @@ async function sendOutboundMessage(text){
 
   try{
     let resp, data;
-    if(isTemplate && (isFB || isIG)){
-      toast("القوالب متاحة للواتساب فقط", "warn");
-      throw new Error("WA templates only");
-    }
-
     if(isFB){
       const payload = { convId: activeConvId, text: clean };
       resp = await fetch(FB_SEND_ENDPOINT, {
@@ -5102,21 +5096,11 @@ async function sendOutboundMessage(text){
         body: JSON.stringify(payload)
       });
       data = await resp.json().catch(()=> ({}));
+      // normalize
+      if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
       if(data && data.ok === undefined) data.ok = resp.ok;
-
-    }else if(isIG){
-      const payload = { convId: activeConvId, text: clean };
-      resp = await fetch(IG_SEND_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      data = await resp.json().catch(()=> ({}));
-      if(data && data.ok === undefined) data.ok = resp.ok;
-
     }else{
       const payload = isTemplate
-
         ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: Array.isArray(tpl.params)?tpl.params:[] } }
         : { waId, text: clean };
 
