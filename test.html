@@ -5012,9 +5012,13 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
     // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال (لو عندك Worker إرسال منفصل)
     // مثال: https://YOUR-SEND-WORKER.workers.dev/send
     const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // واتساب (مرسال)
-    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://facebook.next-erp-mzj.workers.dev/crm/send"; // فيسبوك ماسنجر
-    const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || "https://ig-crm.next-erp-mzj.workers.dev/crm/send"; // إنستجرام
+    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://facebook.next-erp-mzj.workers.dev/crm/send"; // Facebook Worker
+    const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/crm/send"; // Instagram Worker (هنفعّله بعد ما نعمله)
 
+    // expose for debugging in console
+    window.MERSAL_SEND_ENDPOINT = MERSAL_SEND_ENDPOINT;
+    window.FB_SEND_ENDPOINT = FB_SEND_ENDPOINT;
+    window.IG_SEND_ENDPOINT = IG_SEND_ENDPOINT;
 
     
 async function sendOutboundMessage(text){
@@ -5037,32 +5041,17 @@ async function sendOutboundMessage(text){
     toast("المحادثة غير موجودة", "err");
     return;
   }
-
   const conv = convSnap.data() || {};
   const platform = String(conv.platform || conv.channel || conv.source || "").toLowerCase();
-
-  const isFB = platform === "fb" || platform.includes("facebook") || platform.includes("messenger");
-  const isIG = platform === "ig" || platform.includes("instagram");
-
-  // Templates are WA only
-  if(isTemplate && (isFB || isIG)){
-    toast("القوالب متاحة للواتساب فقط", "warn");
-    return;
-  }
-
+  const isFB = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || String(conv.source||"").includes("فيسبوك");
   const waId = String(conv.waId || "").trim();
-
-  // Facebook identifiers
   const fbPsid = String(conv.fbId || conv.participantId || conv.senderId || "").trim();
   const fbPageId = String(conv.pageId || "").trim();
-
-  // Instagram identifiers
   const igUserId = String(conv.igId || conv.participantId || conv.senderId || "").trim();
-  const igAccountId = String(conv.igAccountId || "").trim();
-
+  const igAccountId = String(conv.igAccountId || conv.pageId || "").trim();
   if(!isFB && !isIG && !waId){ toast("رقم العميل غير موجود", "err"); return; }
-  if(isFB && (!fbPsid || !fbPageId)){ toast("بيانات فيسبوك ناقصة (fbId/pageId)", "err"); return; }
-  if(isIG && (!igUserId || !igAccountId)){ toast("بيانات إنستجرام ناقصة (igId/igAccountId)", "err"); return; }
+  if(isFB && !fbPsid){ toast("معرّف فيسبوك غير موجود", "err"); return; }
+  if(isIG && !igUserId){ toast("معرّف انستجرام غير موجود", "err"); return; }
 
   const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
   const displayText = isTemplate
@@ -5075,7 +5064,6 @@ async function sendOutboundMessage(text){
 
   const outTo = isFB ? `fb:${fbPsid}` : (isIG ? `ig:${igUserId}` : `wa:${waId}`);
   const outProvider = isFB ? "facebook" : (isIG ? "instagram" : "mersal");
-
   await setDoc(msgRef, {
     direction: "out",
     type: isTemplate ? "template" : "text",
@@ -5101,43 +5089,34 @@ async function sendOutboundMessage(text){
 
   try{
     let resp, data;
+    if(isTemplate && (isFB || isIG)){
+      toast("القوالب متاحة للواتساب فقط", "warn");
+      throw new Error("WA templates only");
+    }
 
     if(isFB){
-      const payload = {
-        convId: activeConvId,
-        recipientId: fbPsid,
-        pageId: fbPageId,
-        message: clean,
-        agent: (currentProfile?.name || currentUser?.displayName || currentUser?.email || "")
-      };
+      const payload = { convId: activeConvId, text: clean };
       resp = await fetch(FB_SEND_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       data = await resp.json().catch(()=> ({}));
-      if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
       if(data && data.ok === undefined) data.ok = resp.ok;
 
     }else if(isIG){
-      const payload = {
-        convId: activeConvId,
-        recipientId: igUserId,
-        igAccountId: igAccountId,
-        message: clean,
-        agent: (currentProfile?.name || currentUser?.displayName || currentUser?.email || "")
-      };
+      const payload = { convId: activeConvId, text: clean };
       resp = await fetch(IG_SEND_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       data = await resp.json().catch(()=> ({}));
-      if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
       if(data && data.ok === undefined) data.ok = resp.ok;
 
     }else{
       const payload = isTemplate
+
         ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: Array.isArray(tpl.params)?tpl.params:[] } }
         : { waId, text: clean };
 
@@ -5182,7 +5161,8 @@ async function sendOutboundMessage(text){
     if(btn){ btn.disabled = false; btn.textContent = "إرسال"; }
   }
 }
-// ===== Outbound media (attachments) =====
+
+    // ===== Outbound media (attachments) =====
     async function sendOutboundMedia(file, caption=""){
       if(!activeConvId){
         toast("اختر محادثة أولاً", "warn");
