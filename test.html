@@ -2,7 +2,6 @@
 
 
 
-
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -4540,72 +4539,6 @@ scroller.addEventListener("scroll", ()=>{
       cdOverlay.setAttribute("aria-hidden","false");
       document.body.style.overflow = "hidden";
     };
-    // ===== Client Modal: Eligibility calculator (inline) =====
-    function cdApplyEligibilityStyles(statusText){
-      const limEl = $("#cd_limit");
-      const stEl  = $("#cd_eligStatus");
-      if(!limEl || !stEl) return;
-
-      const s = String(statusText || "").trim();
-      // reset
-      limEl.style.color = "";
-      stEl.style.color = "";
-
-      if(s === "مؤهل"){
-        limEl.style.color = "#0f7a2a";
-        stEl.style.color  = "#0f7a2a";
-      }else if(s === "غير مؤهل"){
-        limEl.style.color = "#b00020";
-        stEl.style.color  = "#b00020";
-      }
-    }
-
-    function calcClientEligibility(){
-      const type = String($("#cd_finType")?.value || "");
-      const sal  = Number(($("#cd_salary")?.value || "").toString().replace(/[^\d.]/g,"")) || 0;
-      const com  = Number(($("#cd_commitment")?.value || "").toString().replace(/[^\d.]/g,"")) || 0;
-
-      const box = $("#cd_calcBox");
-      const outLimit = $("#cd_limit");
-      const outStatus = $("#cd_eligStatus");
-
-      if(!box || !outLimit || !outStatus) return;
-
-      if(!type){
-        box.style.display = "none";
-        outLimit.textContent = "—";
-        outStatus.textContent = "—";
-        cdApplyEligibilityStyles("");
-        return;
-      }
-
-      const rate = (type === "realestate") ? 0.65 : 0.45;
-      const limit = Math.round((sal * rate) - com);
-
-      box.style.display = "";
-      outLimit.textContent = isFinite(limit) ? String(limit) : "—";
-
-      // Eligibility rule
-      if(!isFinite(limit)){
-        outStatus.textContent = "—";
-      }else if(limit < 650){
-        outStatus.textContent = "غير مؤهل";
-      }else{
-        outStatus.textContent = "مؤهل";
-      }
-
-      cdApplyEligibilityStyles(outStatus.textContent);
-    }
-
-    // bind once
-    (function bindClientEligibility(){
-      try{
-        $("#cd_finType")?.addEventListener("change", ()=> calcClientEligibility());
-        $("#cd_salary")?.addEventListener("input", ()=> { if($("#cd_finType")?.value) calcClientEligibility(); });
-        $("#cd_commitment")?.addEventListener("input", ()=> { if($("#cd_finType")?.value) calcClientEligibility(); });
-      }catch(e){ console.warn("bindClientEligibility", e); }
-    })();
-
 
     // close events
     document.addEventListener("click", (e)=>{
@@ -4670,42 +4603,6 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
       $("#cd_bank") && ($("#cd_bank").value = data?.bank || data?.salaryBank || "");
       $("#cd_car_type") && ($("#cd_car_type").value = data?.carType || data?.car || "");
       $("#cd_notes") && ($("#cd_notes").value = data?.notes || "");
-      // fill lead status dropdown from settings_lead_statuses (map)
-      try{
-        const sel = $("#cd_statusSelect");
-        if(sel){
-          const curId = String(data?.leadStatusId || "");
-          sel.innerHTML = leadStatusOptionsHtml(curId);
-        }
-      }catch(e){ console.warn("cd status options", e); }
-
-      // load saved eligibility (if any) + compute eligibility box (uses salary + commitment)
-      try{
-        const ft = String(data?.financeType || data?.finType || data?.eligibilityType || "");
-        if($("#cd_finType")) $("#cd_finType").value = ft;
-
-        const salV = String($("#cd_salary")?.value || "").trim();
-        const comV = String($("#cd_commitment")?.value || "").trim();
-        const savedLimitRaw = (data && (data.creditLimit ?? data.credit_limit ?? (data.eligibility && data.eligibility.limit))) ;
-        const savedStatus = String(data?.eligibilityStatus || data?.eligibility_status || (data?.eligibility && data.eligibility.status) || "").trim();
-
-        // If we don't have inputs but have saved result, show it as-is
-        if(ft && (salV==="" && comV==="") && (savedLimitRaw!=null || savedStatus)){
-          const box = $("#cd_calcBox");
-          const outLimit = $("#cd_limit");
-          const outStatus = $("#cd_eligStatus");
-          if(box && outLimit && outStatus){
-            box.style.display = "";
-            const n = Number(savedLimitRaw);
-            outLimit.textContent = (savedLimitRaw!=="" && isFinite(n)) ? String(Math.round(n)) : "—";
-            outStatus.textContent = savedStatus || "—";
-            try{ cdApplyEligibilityStyles(outStatus.textContent); }catch(e){}
-          }
-        }else{
-          calcClientEligibility();
-        }
-      }catch(e){}
-
 
       // load existing attachments list
       const list = $("#cd_files_list");
@@ -4787,25 +4684,6 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
         const prevAtt = Array.isArray(existing.attachments) ? existing.attachments : [];
         const attachments = [...prevAtt, ...newFiles];
 
-
-        const selectedLeadStatusId = String($("#cd_statusSelect")?.value || "").trim();
-        const selectedLeadStatusName = selectedLeadStatusId ? (leadStatusesMap.get(selectedLeadStatusId)?.name || "") : "";
-
-        // --- Eligibility (persist in contact + lead) ---
-        const finType = String($("#cd_finType")?.value || "").trim(); // general / realestate / ""
-        const salNum  = Number(($("#cd_salary")?.value || "").toString().replace(/[^\d.]/g,"")) || 0;
-        const comNum  = Number(($("#cd_commitment")?.value || "").toString().replace(/[^\d.]/g,"")) || 0;
-        let creditLimit = null;
-        let eligibilityStatus = "";
-        if(finType){
-          const pct = (finType === "realestate") ? 0.65 : 0.45;
-          const lim = Math.round((salNum * pct) - comNum);
-          if(isFinite(lim)){
-            creditLimit = lim;
-            eligibilityStatus = (lim < 650) ? "غير مؤهل" : "مؤهل";
-          }
-        }
-
         const payload = {
           name: ($("#cd_name")?.value || "").trim(),
           phone: "+" + phoneNorm,
@@ -4815,10 +4693,6 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           channel: channel || existing.channel || "",
           salary: ($("#cd_salary")?.value || "").trim(),
           commitment: ($("#cd_commitment")?.value || "").trim(),
-          financeType: finType,
-          creditLimit: (creditLimit==null ? "" : creditLimit),
-          eligibilityStatus: eligibilityStatus,
-
           place: ($("#cd_place")?.value || "").trim(),
           age: ($("#cd_age")?.value || "").trim(),
           bank: ($("#cd_bank")?.value || "").trim(),
@@ -4866,15 +4740,11 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
             channel: channel,
             salary: payload.salary,
             commitment: payload.commitment,
-            financeType: payload.financeType,
-            creditLimit: payload.creditLimit,
-            eligibilityStatus: payload.eligibilityStatus,
             place: payload.place,
             age: payload.age,
             bank: payload.bank,
             carType: payload.carType,
             notes: payload.notes,
-            ...(selectedLeadStatusId ? { leadStatusId: selectedLeadStatusId, leadStatusName: selectedLeadStatusName } : {}),
             attachments: attachments || [],
             updatedAt: new Date().toISOString()
           }, { merge:true });
@@ -7827,32 +7697,6 @@ $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
           <div class="mzjField">
             <label>الالتزام (إن وجد)</label>
             <input id="cd_commitment" placeholder="مثال: 1500" />
-          </div>
-
-          <div class="mzjField">
-            <label>نوع التمويل (الحاسبة المبدئية)</label>
-            <select id="cd_finType">
-              <option value="">— اختر (45% / 65%) —</option>
-              <option value="general">عام (45%)</option>
-              <option value="realestate">عقاري (65%)</option>
-            </select>
-          </div>
-
-          <div class="mzjField">
-            <label>حالة العميل</label>
-            <select id="cd_statusSelect">
-              <option value="">جارٍ التحميل…</option>
-            </select>
-          </div>
-
-          <div class="mzjField" id="cd_calcBox" style="grid-column:1/-1;display:none;border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(192,122,74,.06)">
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
-              <div><b>الحد الائتماني:</b> <span id="cd_limit">—</span> ريال</div>
-              <div><b>النتيجة:</b> <span id="cd_eligStatus">—</span></div>
-            </div>
-            <div style="margin-top:8px;font-size:12.5px;color:rgba(28,28,28,.64);line-height:1.7">
-              المعادلة: (الراتب × 45% أو 65%) − الالتزامات
-            </div>
           </div>
 
           <div class="mzjField">
