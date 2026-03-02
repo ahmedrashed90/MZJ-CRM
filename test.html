@@ -5,6 +5,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -5045,14 +5046,17 @@ async function sendOutboundMessage(text){
   const conv = convSnap.data() || {};
   const platform = String(conv.platform || conv.channel || conv.source || "").toLowerCase();
   const isFB = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || String(conv.source||"").includes("فيسبوك");
+  const isIG = platform.includes("instagram") || platform.includes("ig") || String(conv.source||"").includes("انستجرام") || String(activeConvId||"").startsWith("instagram:");
   const waId = String(conv.waId || "").trim();
   const fbPsid = String(conv.fbId || conv.participantId || conv.senderId || "").trim();
+  const igRecipientId = String(conv.igId || conv.igUserId || conv.participantId || conv.senderId || conv.fbId || "").trim();
   const fbPageId = String(conv.pageId || "").trim();
-  if(!isFB && !waId){ toast("رقم العميل غير موجود", "err"); return; }
-  if(isFB && !fbPsid){ toast("fbId غير موجود داخل المحادثة", "err"); return; }
 
-  const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
-  if(isFB && isTemplate){ toast("قوالب مرسال للواتساب فقط", "warn"); return; }
+  // Validation per channel
+  if(isFB && !fbPsid){ toast("fbId غير موجود داخل المحادثة", "err"); return; }
+  if(isIG && !igRecipientId){ toast("معرّف انستجرام غير موجود داخل المحادثة", "err"); return; }
+  if(!isFB && !isIG && !waId){ toast("رقم العميل غير موجود", "err"); return; }const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
+  if((isFB || isIG) && isTemplate){ toast("قوالب مرسال للواتساب فقط", "warn"); return; }
   const displayText = isTemplate
     ? (String(tpl.previewText || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
     : clean;
@@ -5061,8 +5065,8 @@ async function sendOutboundMessage(text){
   const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
   const localMsgId = msgRef.id;
 
-  const outTo = isFB ? `fb:${fbPsid}` : `wa:${waId}`;
-  const outProvider = isFB ? "facebook" : "mersal";
+  const outTo = isFB ? `fb:${fbPsid}` : (isIG ? `ig:${igRecipientId}` : `wa:${waId}`);
+  const outProvider = isFB ? "facebook" : (isIG ? "instagram" : "mersal");
   await setDoc(msgRef, {
     direction: "out",
     type: isTemplate ? "template" : "text",
@@ -5091,6 +5095,17 @@ async function sendOutboundMessage(text){
     if(isFB){
       const payload = { convId: activeConvId, text: clean };
       resp = await fetch(FB_SEND_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      data = await resp.json().catch(()=> ({}));
+      // normalize
+      if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
+      if(data && data.ok === undefined) data.ok = resp.ok;
+    }else if(isIG){
+      const payload = { convId: activeConvId, text: clean };
+      resp = await fetch(IG_SEND_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
