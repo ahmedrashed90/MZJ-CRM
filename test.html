@@ -7,6 +7,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1978,6 +1979,16 @@ body.auth-locked #authModal{ pointer-events:auto; }
 <option value="wa:approval_result">✅ تمت الموافقة</option>
 <option value="wa:rejection_result">❌ تعذر رفع الطلب</option>
 </select>
+
+                    <select id="metaTemplateSelect" class="miniSelect" style="width:170px;flex:0 0 auto" title="قوالب ميتا (فيسبوك/انستجرام)">
+                      <option value="">قوالب ميتا</option>
+                      <option value="meta:request_received_simple">تم استلام طلبك</option>
+                      <option value="meta:request_received_filled">تم استلام طلبك</option>
+                      <option value="meta:no_reply">لم يتم الرد</option>
+                      <option value="meta:approved">تمت الموافقة</option>
+                      <option value="meta:failed">تعذر رفع الطلب</option>
+                    </select>
+
                     <input type="file" id="chatFileInput" multiple hidden />
                     <button class="toolBtn" id="btnAttach" type="button" title="إرفاق ملفات">📎</button>
                     <textarea id="composer" placeholder="اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)"></textarea>
@@ -5315,7 +5326,7 @@ if(isTemplate){
 
 
 
-    // templates (quick replies) - local only (Firestore version later)
+        // templates (quick replies) - local only (Firestore version later)
     const QUICK_TEMPLATES = {
       welcome: `مرحباً بك في مجموعة محمد ذعار العجمي للسيارات
 تم استلام طلبك بنجاح`,
@@ -5325,16 +5336,70 @@ if(isTemplate){
 البنك:
 الراتب:
 الالتزام:
-وجاري العمل على الطلب`,
-      no_reply: `تم التواصل معك بخصوص طلبك المقدم ونرجو الإفادة بالتالي:
+وجاري العمل على الطلب ✅`,
+      no_reply: `تم التواصل معك بخصوص طلبك المقدم ونرجو إفادتنا بالبيانات التالية:
 نوع السيارة:
 العمر:
 جهة تمويل الراتب:
 الراتب:
-هل يوجد إلتزام؟ وكم ان وجد؟:`,
+هل يوجد التزام؟ وكم إن وجد؟`,
       approved: `تمت الموافقة على طلبك.`,
-      rejected: `تعذر رفع الطلب الى جهة التمويل`
+      rejected: `تعذر رفع الطلب إلى جهة التمويل.`
     };
+
+    // ===== Meta Templates (Facebook/Instagram) =====
+    // NOTE: هذه قوالب "نصية" للـ Meta (FB/IG). يتم ملؤها من بيانات العميل في قاعدة البيانات (leads) إن وجدت.
+    const META_TEMPLATES = {
+      request_received_simple: {
+        name: "تم استلام طلبك",
+        text: `مرحباً بك في مجموعة محمد ذعار العجمي للسيارات
+تم استلام طلبك بنجاح`
+      },
+      request_received_filled: {
+        name: "تم استلام طلبك",
+        // placeholders: {{1}}..{{5}}
+        text: `تم استلام طلبك بخصوص :
+السيارة: {{1}}
+العمر: {{2}}
+البنك: {{3}}
+الراتب: {{4}}
+الالتزام: {{5}}
+وجاري العمل على الطلب ✅`
+      },
+      no_reply: {
+        name: "لم يتم الرد",
+        text: `تم التواصل معك بخصوص طلبك المقدم ونرجو إفادتنا بالبيانات التالية:
+نوع السيارة:
+العمر:
+جهة تمويل الراتب:
+الراتب:
+هل يوجد التزام؟ وكم إن وجد؟`
+      },
+      approved: {
+        name: "تم الموافقة",
+        text: `تمت الموافقة على طلبك.`
+      },
+      failed: {
+        name: "تعذر رفع الطلب",
+        text: `تعذر رفع الطلب إلى جهة التمويل.`
+      }
+    };
+
+    function replaceMetaVars(tplText, lead){
+      const car = pickLeadField(lead, ["car","carName","car_name","vehicle","vehicleName","model","modelName","carModel"], "");
+      const age = pickLeadField(lead, ["age","clientAge","customerAge"], "");
+      const bank = pickLeadField(lead, ["bank","bankName","financeBank","salaryBank","salary_bank"], "");
+      const salary = pickLeadField(lead, ["salary","netSalary","monthlySalary","salaryAmount","salary_amount"], "");
+      const commitment = pickLeadField(lead, ["commitment","commit","monthlyCommitment","commitmentAmount","commitment_amount","installments","liabilities"], "");
+
+      return String(tplText||"")
+        .replace(/\{\{1\}\}/g, car)
+        .replace(/\{\{2\}\}/g, age)
+        .replace(/\{\{3\}\}/g, bank)
+        .replace(/\{\{4\}\}/g, salary)
+        .replace(/\{\{5\}\}/g, commitment);
+    }
+
 
     
 document.getElementById("templateSelect")?.addEventListener("change", async (e)=>{
@@ -5374,6 +5439,35 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
   }
 
   // keep selected label visible? we reset to placeholder after preview is set
+  e.target.value = "";
+});
+
+document.getElementById("metaTemplateSelect")?.addEventListener("change", async (e)=>{
+  const v = String(e.target?.value || "");
+  if(!v) return;
+
+  const ta = document.getElementById("composer");
+  // meta templates are plain text => editable
+  __selectedWaTemplateKey = null;
+  if(ta) ta.readOnly = false;
+
+  if(v.startsWith("meta:")){
+    const key = v.slice(5);
+    const tpl = META_TEMPLATES?.[key];
+    if(tpl && ta){
+      let msg = String(tpl.text || "");
+      if(key === "request_received_filled"){
+        const leadWrap = await getActiveLeadForConversation();
+        const lead = leadWrap?.data || null;
+        msg = replaceMetaVars(msg, lead || {});
+      }
+      ta.value = msg.trim();
+      ta.dispatchEvent(new Event("input", { bubbles:true }));
+      ta.placeholder = "تم اختيار قالب ميتا — يمكنك التعديل ثم اضغط إرسال.";
+      ta.focus();
+    }
+  }
+
   e.target.value = "";
 });
 // send button
