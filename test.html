@@ -8,6 +8,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1983,7 +1984,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
                     <select id="metaTemplateSelect" class="miniSelect" style="width:170px;flex:0 0 auto" title="قوالب ميتا (فيسبوك/انستجرام)">
                       <option value="">قوالب ميتا</option>
                       <option value="meta:request_received_simple">تم استلام طلبك</option>
-                      <option value="meta:request_received_filled">تم استلام طلبك</option>
+                      <option value="meta:request_received_filled">تم استلام طلب تمويل</option>
                       <option value="meta:no_reply">لم يتم الرد</option>
                       <option value="meta:approved">تمت الموافقة</option>
                       <option value="meta:failed">تعذر رفع الطلب</option>
@@ -3594,6 +3595,17 @@ function applyInboxFilters(){
     const filtered = baseList.filter(({id,data})=>{
       // ✅ Show conversations for everyone (no assignedTo filter)
 const c = data || {};
+
+      // 🚫 Hide "self echo" conversations created by outbound webhooks (e.g. mzjcars appearing as a separate chat)
+      try{
+        const selfNames = (window.MZJ_SELF_ACCOUNTS || ["mzjcars"]).map(s=>String(s||"").trim().toLowerCase()).filter(Boolean);
+        const nm = String(c.displayName || c.name || "").trim().toLowerCase();
+        const chRaw0 = String(c.channel || "").toLowerCase();
+        const pfRaw0 = String(c.platform || "").toLowerCase();
+        if(selfNames.includes(nm) && (pfRaw0.includes("instagram") || pfRaw0.includes("facebook") || chRaw0.includes("instagram") || chRaw0.includes("facebook") || chRaw0 === "ig" || chRaw0 === "fb")){
+          return false;
+        }
+      }catch(_e){}
       // archive filter
       const isArch = !!c.archived;
       if(inboxShowArchived ? !isArch : isArch) return false;
