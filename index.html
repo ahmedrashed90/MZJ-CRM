@@ -3155,11 +3155,86 @@ let __selectedWaTemplateKey = null;
     return null;
   }
 
-  function getConversationAssignedUid(conv){
-    const direct = String(conv?.assignedTo || "").trim();
+  function getSalesAssignedUidFromLead(data){
+    return String((data && (data.salesAssignedTo || data.assignedTo || data.assigneeTo)) || "").trim();
+  }
+
+  function getCallCenterAssignedUidFromLead(data){
+    return String((data && (data.callCenterAssignedTo || data.callcenterAssignedTo || data.customerAssignedTo || "")) || "").trim();
+  }
+
+  function getLeadServiceKey(data, leadId=""){
+    try{
+      const d = data || {};
+      const explicit = String(d.autoService || d.serviceKey || d.department || d.service || "").trim().toLowerCase();
+      if(["finance","cash","cs"].includes(explicit)) return explicit;
+      const branchValue = String(d.branchId || d.branchName || "").trim();
+      if(branchMatchesKey(branchValue, "finance")) return "finance";
+      if(branchMatchesKey(branchValue, "cash")) return "cash";
+      if(branchMatchesKey(branchValue, "cs")) return "cs";
+      const payType = String(getLeadPayType(d) || "").trim();
+      if(payType === "تمويل") return "finance";
+      if(payType === "كاش") return "cash";
+      const src = String(getNormalizedSourceForLead(d, leadId) || "").trim();
+      if(src === "حاسبة التقسيط") return "finance";
+    }catch(e){}
+    return "";
+  }
+
+  function getConversationServiceKey(conv){
+    const explicit = String(conv?.autoService || conv?.serviceKey || conv?.department || conv?.service || "").trim().toLowerCase();
+    if(["finance","cash","cs"].includes(explicit)) return explicit;
+    const branchValue = String(conv?.branchId || conv?.branchName || "").trim();
+    if(branchMatchesKey(branchValue, "finance")) return "finance";
+    if(branchMatchesKey(branchValue, "cash")) return "cash";
+    if(branchMatchesKey(branchValue, "cs")) return "cs";
+    const leadEntry = findLeadEntryForConversation(conv);
+    return getLeadServiceKey(leadEntry?.data || {}, leadEntry?.id || "");
+  }
+
+  function getConversationSalesAssignedUid(conv){
+    const direct = String(conv?.salesAssignedTo || conv?.assignedTo || "").trim();
     if(direct) return direct;
     const leadEntry = findLeadEntryForConversation(conv);
-    return String(leadEntry?.data?.assignedTo || leadEntry?.data?.assigneeTo || "").trim();
+    return getSalesAssignedUidFromLead(leadEntry?.data || {});
+  }
+
+  function getConversationCallCenterAssignedUid(conv){
+    const direct = String(conv?.callCenterAssignedTo || conv?.callcenterAssignedTo || conv?.customerAssignedTo || "").trim();
+    if(direct) return direct;
+    const leadEntry = findLeadEntryForConversation(conv);
+    return getCallCenterAssignedUidFromLead(leadEntry?.data || {});
+  }
+
+  function getConversationAssignedUid(conv){
+    const branchId = getCurrentBranchId();
+    if(branchMatchesKey(branchId, "callcenter")) return getConversationCallCenterAssignedUid(conv);
+    return getConversationSalesAssignedUid(conv);
+  }
+
+  function isConversationVisibleToCurrentUser(conv){
+    if(canSeeAllInbox()) return true;
+    const myUid = String(currentUser?.uid || "").trim();
+    if(!myUid) return false;
+
+    const branchId = getCurrentBranchId();
+    const serviceKey = getConversationServiceKey(conv);
+    if(branchMatchesKey(branchId, "callcenter")){
+      return getConversationCallCenterAssignedUid(conv) === myUid;
+    }
+    if(branchMatchesKey(branchId, "finance")){
+      if(serviceKey && serviceKey !== "finance") return false;
+      return getConversationSalesAssignedUid(conv) === myUid;
+    }
+    if(branchMatchesKey(branchId, "cash")){
+      if(serviceKey && serviceKey !== "cash") return false;
+      return getConversationSalesAssignedUid(conv) === myUid;
+    }
+    if(branchMatchesKey(branchId, "cs")){
+      if(serviceKey && serviceKey !== "cs") return false;
+      return getConversationSalesAssignedUid(conv) === myUid;
+    }
+    return getConversationAssignedUid(conv) === myUid;
   }
 
   function getConversationBranchValue(conv){
@@ -3932,11 +4007,8 @@ function applyInboxFilters(){
       const convAssignedUid = getConversationAssignedUid(c);
       const convBranchValue = getConversationBranchValue(c);
 
-      // غير الإدارة: يشوف فقط العملاء المربوطين عليه داخل الليدز/المحادثات
-      if(usesOwnInboxScope()){
-        const myUid = String(currentUser?.uid || "").trim();
-        if(!myUid || convAssignedUid !== myUid) return false;
-      }
+      // غير الإدارة: يشوف فقط العملاء المربوطين عليه وعلى قسمه
+      if(usesOwnInboxScope() && !isConversationVisibleToCurrentUser(c)) return false;
 
       // archive filter
       const isArch = !!c.archived;
@@ -4175,32 +4247,17 @@ try{
 
   const _autoAssignSeen = new Set();
   async function autoAssignUnassignedConversations(){
-    // Finance Sales only
-    const agents = getEligibleAgents();
-    if(!agents.length) return;
-    const updates = [];
     for(const x of inboxCache){
       const c = x.data || {};
-      if(c.assignedTo) continue;
-      // don't re-process same conv within this session
+      if(c.salesAssignedTo || c.assignedTo) continue;
       if(_autoAssignSeen.has(x.id)) continue;
+      const serviceKey = getConversationServiceKey(c);
+      if(!serviceKey) continue;
       _autoAssignSeen.add(x.id);
-
-      const pick = agents[Math.floor(Math.random()*agents.length)];
-      const pickId = pick.uid || pick.id;
-      if(!pickId) continue;
-
-      updates.push(updateDoc(doc(db,"wa_conversations", x.id), {
-        assignedTo: pickId,
-        assignedName: pick.name || pick.email || pickId,
-        branchId: pick.branchId || "",
-        assignedAt: new Date().toISOString(),
-        assignedBy: "auto",
-        updatedAt: new Date().toISOString()
-      }));
-    }
-    if(updates.length){
-      await Promise.allSettled(updates);
+      const branchName = serviceKey === "finance" ? "مبيعات التمويل" : serviceKey === "cash" ? "مبيعات الكاش" : serviceKey === "cs" ? "خدمة العملاء" : "";
+      if(!branchName) continue;
+      await assignConversationToBranchRandom(x.id, branchName).catch(()=>{});
+      await ensureLeadIdForConversationId(x.id).catch(()=>"");
     }
   }
 
@@ -4210,7 +4267,7 @@ try{
   const _waAutoSeenLastInbound = new Map(); // convId -> lastInboundMsgId
   const _waAutoRunning = new Set(); // convId currently processing
   // ⚠️ تعطيل الرد الآلي داخل صندوق الوارد (حسب طلبك)
-  window.WA_AUTO_REPLY_ENABLED = false;
+  window.WA_AUTO_REPLY_ENABLED = true;
 
 
   function _normChoiceTxt(s){
@@ -4242,9 +4299,13 @@ try{
 
   function getEligibleAgentsForBranch(branchName){
     const ids = getBranchIdsByNameExact(branchName);
-    if(!ids.size) return [];
     return Array.from(agentsUidMap.values())
-      .filter(a=>a && a.isActive && !isExcludedAssignee(a) && ids.has(String(a?.branchId||"").trim()))
+      .filter(a=>{
+        if(!(a && a.isActive) || isExcludedAssignee(a)) return false;
+        const bid = String(a?.branchId || "").trim();
+        if(ids.size && ids.has(bid)) return true;
+        return branchMatchesKey(bid, branchName === "مبيعات التمويل" ? "finance" : branchName === "مبيعات الكاش" ? "cash" : branchName === "خدمة العملاء" ? "cs" : branchName === "كول سنتر" ? "callcenter" : bid);
+      })
       .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||""), "ar"));
   }
 
@@ -4397,39 +4458,64 @@ try{
   }
 
 async function assignConversationToBranchRandom(convId, branchName){
-    const agents = getEligibleAgentsForBranch(branchName);
-    if(!agents.length) return { ok:false, reason:"no_agents" };
-    const pick = agents[Math.floor(Math.random()*agents.length)];
-    const pickId = pick.uid || pick.id;
-    if(!pickId) return { ok:false, reason:"bad_agent" };
+    const serviceKey = branchName === "مبيعات التمويل" ? "finance" : branchName === "مبيعات الكاش" ? "cash" : branchName === "خدمة العملاء" ? "cs" : "";
+    const salesAgents = getEligibleAgentsForBranch(branchName);
+    if(!salesAgents.length) return { ok:false, reason:"no_agents" };
+    const salesPick = salesAgents[Math.floor(Math.random()*salesAgents.length)];
+    const salesUid = salesPick.uid || salesPick.id;
+    if(!salesUid) return { ok:false, reason:"bad_agent" };
 
-    // Update conversation
-    await updateDoc(doc(db,"wa_conversations", convId), {
-      assignedTo: pickId,
-      assignedName: pick.name || pick.email || pickId,
-      branchId: pick.branchId || "",
-      assignedAt: new Date().toISOString(),
+    const callcenterAgents = getEligibleAgentsForBranch("كول سنتر");
+    const callPick = callcenterAgents.length ? callcenterAgents[Math.floor(Math.random()*callcenterAgents.length)] : null;
+    const callUid = callPick ? (callPick.uid || callPick.id) : "";
+
+    const nowIso = new Date().toISOString();
+    const convPatch = {
+      autoService: serviceKey || "",
+      serviceKey: serviceKey || "",
+      salesAssignedTo: salesUid,
+      salesAssignedName: salesPick.name || salesPick.email || salesUid,
+      assignedTo: salesUid,
+      assignedName: salesPick.name || salesPick.email || salesUid,
+      branchId: salesPick.branchId || "",
+      assignedAt: nowIso,
       assignedBy: "auto_service_menu",
-      updatedAt: new Date().toISOString()
-    }).catch(()=>{});
+      updatedAt: nowIso
+    };
+    if(callUid){
+      convPatch.callCenterAssignedTo = callUid;
+      convPatch.callCenterAssignedName = callPick.name || callPick.email || callUid;
+      convPatch.callCenterAssignedAt = nowIso;
+    }
 
-    // If linked lead exists -> keep assignment consistent
+    await updateDoc(doc(db,"wa_conversations", convId), convPatch).catch(()=>{});
+
     try{
       const convSnap = await getDoc(doc(db,"wa_conversations", convId));
       const conv = convSnap.exists() ? (convSnap.data()||{}) : {};
       const leadId = String(conv.leadId || "").trim();
       if(leadId){
-        await updateDoc(doc(db,"leads", leadId), {
-          assignedTo: pickId,
-          assignedName: pick.name || pick.email || pickId,
-          branchId: pick.branchId || "",
-          assignedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }).catch(()=>{});
+        const leadPatch = {
+          autoService: serviceKey || "",
+          serviceKey: serviceKey || "",
+          salesAssignedTo: salesUid,
+          salesAssignedName: salesPick.name || salesPick.email || salesUid,
+          assignedTo: salesUid,
+          assignedName: salesPick.name || salesPick.email || salesUid,
+          branchId: salesPick.branchId || "",
+          assignedAt: nowIso,
+          updatedAt: nowIso
+        };
+        if(callUid){
+          leadPatch.callCenterAssignedTo = callUid;
+          leadPatch.callCenterAssignedName = callPick.name || callPick.email || callUid;
+          leadPatch.callCenterAssignedAt = nowIso;
+        }
+        await updateDoc(doc(db,"leads", leadId), leadPatch).catch(()=>{});
       }
     }catch(e){}
 
-    return { ok:true, agentId: pickId };
+    return { ok:true, agentId: salesUid, callCenterAgentId: callUid };
   }
 
   const WA_AUTO_MSG_MENU =
@@ -4448,11 +4534,12 @@ const WA_AUTO_MSG_MENU_FALLBACK =
   const WA_AUTO_MSG_FINANCE_FORM =
 `برجاء تزويدنا بالمعلومات التالية :
 الاسم:
+نوع السيارة المطلوبة:
+رقم الجوال:
 كم الراتب:
-الالتزامات ان وجدت:
+الالتزامات إن وجدت:
 كم العمر:
-نزول الراتب على اي بنك:
-نوع السيارة المطلوبة:`;
+نزول الراتب على أي بنك:`;
 
   const WA_AUTO_MSG_FINANCE_OK =
 `تم استلام طلب التمويل الخاص بك بنجاح ✅
@@ -4537,12 +4624,14 @@ const WA_AUTO_MSG_MENU_FALLBACK =
         if(svc === "cash"){
           await assignConversationToBranchRandom(convId, "مبيعات الكاش");
           await updateDoc(convRef, { autoFlowState: "routed_cash", autoService: "cash", autoLastInboundId: lastId, updatedAt: new Date().toISOString() }).catch(()=>{});
+          await ensureLeadIdForConversationId(convId).catch(()=>"");
           return;
         }
 
         if(svc === "cs"){
           await assignConversationToBranchRandom(convId, "خدمة العملاء");
           await updateDoc(convRef, { autoFlowState: "routed_cs", autoService: "cs", autoLastInboundId: lastId, updatedAt: new Date().toISOString() }).catch(()=>{});
+          await ensureLeadIdForConversationId(convId).catch(()=>"");
           return;
         }
 
@@ -4550,6 +4639,7 @@ const WA_AUTO_MSG_MENU_FALLBACK =
           await assignConversationToBranchRandom(convId, "مبيعات التمويل");
           await sendBotTextToConv(convId, WA_AUTO_MSG_FINANCE_FORM);
           await updateDoc(convRef, { autoFlowState: "awaiting_finance_details", autoService: "finance", autoLastInboundId: lastId, updatedAt: new Date().toISOString() }).catch(()=>{});
+          await ensureLeadIdForConversationId(convId).catch(()=>"");
           return;
         }
       }
@@ -4565,6 +4655,7 @@ const WA_AUTO_MSG_MENU_FALLBACK =
         }
         await sendBotTextToConv(convId, WA_AUTO_MSG_FINANCE_OK);
         await updateDoc(convRef, { autoFlowState: "done", autoLastInboundId: lastId, autoFinanceDoneAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).catch(()=>{});
+        await ensureLeadIdForConversationId(convId).catch(()=>"");
         return;
       }
 
@@ -4758,7 +4849,7 @@ async function loadInboxFirstPage(){
       // auto-open first visible conversation if none selected
       const visibleFirst = dedupeInboxConversations(inboxCache).find(x => {
         const c = x?.data || {};
-        if(usesOwnInboxScope()) return getConversationAssignedUid(c) === String(currentUser?.uid || "").trim();
+        if(usesOwnInboxScope()) return isConversationVisibleToCurrentUser(c);
         return true;
       });
       if(!activeConvId && visibleFirst?.id){
@@ -5721,8 +5812,14 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
   let leadsCache = [];
 
 
-  function getAssignedUidFromLead(data){
-    return String((data && (data.assignedTo || data.assigneeTo)) || "");
+  function getAssignedUidFromLead(data, mode=""){
+    const d = data || {};
+    const m = String(mode || window.__leadsViewMode || "").trim();
+    if(m === "customers") return getCallCenterAssignedUidFromLead(d);
+    if(m === "leads_cash" || m === "leads_finance" || m === "leads_cs") return getSalesAssignedUidFromLead(d);
+    const branchId = getCurrentBranchId();
+    if(branchMatchesKey(branchId, "callcenter")) return getCallCenterAssignedUidFromLead(d);
+    return getSalesAssignedUidFromLead(d);
   }
 
   function canViewAllLeads(){
@@ -6684,9 +6781,8 @@ function applyLeadFilters(){
     const fcar = $("#leadsFilterCar")?.value || "";
     const fpay = $("#leadsFilterPay")?.value || "";
 
-    const base = canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser.uid||""));
-
     const viewMode = window.__leadsViewMode || "customers";
+    const base = canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data, viewMode) === String(currentUser.uid||""));
 
     const filtered = base.filter(({id,data})=>{
       // Views (Tabs) تحت "العملاء"
@@ -6704,7 +6800,7 @@ function applyLeadFilters(){
         if(payType === "كاش" || payType === "تمويل" || src === "حاسبة التقسيط") return false;
       }
 
-      if(fa && getAssignedUidFromLead(data) !== fa) return false;
+      if(fa && getAssignedUidFromLead(data, viewMode) !== fa) return false;
       if(fs && data.stageId !== fs) return false;
       if(fstat && (data.leadStatusId || "") !== fstat) return false;
       if(fsrc && String(getNormalizedSourceForLead(data,id)||"").trim() !== fsrc) return false;
@@ -6718,8 +6814,9 @@ function applyLeadFilters(){
       }
 
       if(fb){
-        const agentBranch = data.assignedTo ? (agentsMap.get(data.assignedTo)?.branchId || "") : "";
-        if(agentBranch !== fb) return false;
+        const ownerUid = getAssignedUidFromLead(data, viewMode);
+        const agentBranch = ownerUid ? (agentsUidMap.get(ownerUid)?.branchId || agentsMap.get(ownerUid)?.branchId || "") : "";
+        if(!branchMatchesKey(agentBranch, fb)) return false;
       }
 
       if(qText){
@@ -7948,24 +8045,22 @@ function bindTasksUI(){
       return "";
     }
 
-    async function ensureLeadIdForActiveConversation(){
-      const convObj = await getActiveConv();
-      if(!convObj) return "";
-      const conv = convObj.data || {};
-      const convRef = doc(db,"wa_conversations", convObj.id);
+    async function ensureLeadIdForConversationId(convId){
+      if(!convId) return "";
+      const sConv = await getDoc(doc(db,"wa_conversations", convId)).catch(()=>null);
+      if(!(sConv && sConv.exists())) return "";
+      const conv = sConv.data() || {};
+      const convRef = doc(db,"wa_conversations", convId);
 
-      // Normalize phone if exists (WhatsApp usually)
       const phoneRaw = String(conv.waId || conv.phone || conv.phoneNormalized || "").trim();
       const phoneNorm = normalizePhone(phoneRaw).replace(/^\+/, "");
 
-      // 1) If conversation already linked to a lead, verify it exists
       let leadId = String(conv.leadId || "").trim();
       if(leadId){
         const s = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
         if(!(s && s.exists())) leadId = "";
       }
 
-      // 2) If not linked, try find lead by phoneNormalized (only if we have phone)
       if(!leadId && phoneNorm){
         const found = await findLeadByPhoneNormalized(phoneNorm);
         if(found){
@@ -7974,43 +8069,70 @@ function bindTasksUI(){
         }
       }
 
-      // 3) If still not found and we have phone, optionally create a lead (deterministic id = phoneNorm)
       if(!leadId && phoneNorm){
-        // Create only when routing happened OR assigned already (avoids creating garbage leads)
-        const shouldCreate = !!(conv.assignedTo || conv.autoService || conv.autoFlowState || conv.createdBy || conv.source);
+        const shouldCreate = !!(conv.salesAssignedTo || conv.assignedTo || conv.callCenterAssignedTo || conv.autoService || conv.autoFlowState || conv.createdBy || conv.source);
         if(!shouldCreate) return "";
 
         leadId = phoneNorm;
         const leadRef = doc(db,"leads", leadId);
         const exists = await getDoc(leadRef).catch(()=>null);
+        const source = normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp");
+        const defaultStageId = (typeof getDefaultStageId === "function") ? getDefaultStageId() : (Array.from(stagesMap.keys())[0] || "");
+        const salesUid = String(conv.salesAssignedTo || conv.assignedTo || "");
+        const salesName = String(conv.salesAssignedName || conv.assignedName || "");
+        const branchId = salesUid ? (agentsUidMap.get(salesUid)?.branchId || conv.branchId || "") : String(conv.branchId || "");
+        const leadPayload = {
+          name: (conv.displayName || conv.name || conv.participantName || conv.participant_name || "-"),
+          phone: phoneNorm ? ("+" + phoneNorm) : "",
+          phoneNormalized: phoneNorm,
+          contactKey: String(conv.contactKey || phoneNorm),
+          participantId: String(conv.participantId || conv.participant_id || ""),
+          source: source,
+          channel: (conv.channel || conv.platform || "whatsapp"),
+          stageId: defaultStageId,
+          autoService: String(conv.autoService || conv.serviceKey || ""),
+          serviceKey: String(conv.serviceKey || conv.autoService || ""),
+          salesAssignedTo: salesUid,
+          salesAssignedName: salesName,
+          assignedTo: salesUid,
+          assignedName: salesName,
+          callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
+          callCenterAssignedName: String(conv.callCenterAssignedName || ""),
+          branchId: branchId,
+          convId: convId,
+          leadStatusId: getDefaultLeadStatus().id,
+          leadStatusName: getDefaultLeadStatus().name,
+          updatedAt: new Date().toISOString()
+        };
         if(!(exists && exists.exists())){
-          const source = normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp");
-          const defaultStageId = (typeof getDefaultStageId === "function") ? getDefaultStageId() : (Array.from(stagesMap.keys())[0] || "");
-          const assignedTo = conv.assignedTo || "";
-          const branchId = assignedTo ? (agentsUidMap.get(assignedTo)?.branchId || "") : "";
-
-          await setDoc(leadRef, {
-            name: (conv.displayName || conv.name || conv.participantName || conv.participant_name || "-"),
-            phone: phoneNorm ? ("+" + phoneNorm) : "",
-            phoneNormalized: phoneNorm,
-            contactKey: String(conv.contactKey || phoneNorm),
-            participantId: String(conv.participantId || conv.participant_id || ""),
-            source: source,
-            channel: (conv.channel || conv.platform || "whatsapp"),
-            stageId: defaultStageId,
-            assignedTo: assignedTo,
-            branchId: branchId,
-            convId: convObj.id,
-            leadStatusId: getDefaultLeadStatus().id,
-            leadStatusName: getDefaultLeadStatus().name,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }, { merge:true });
+          leadPayload.createdAt = new Date().toISOString();
         }
+        await setDoc(leadRef, leadPayload, { merge:true });
         await updateDoc(convRef, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
       }
 
+      if(leadId){
+        const patch = {
+          autoService: String(conv.autoService || conv.serviceKey || ""),
+          serviceKey: String(conv.serviceKey || conv.autoService || ""),
+          salesAssignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
+          salesAssignedName: String(conv.salesAssignedName || conv.assignedName || ""),
+          assignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
+          assignedName: String(conv.salesAssignedName || conv.assignedName || ""),
+          callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
+          callCenterAssignedName: String(conv.callCenterAssignedName || ""),
+          branchId: String(conv.branchId || ""),
+          convId: convId,
+          updatedAt: new Date().toISOString()
+        };
+        await setDoc(doc(db,"leads", leadId), patch, { merge:true }).catch(()=>{});
+      }
+
       return leadId;
+    }
+
+    async function ensureLeadIdForActiveConversation(){
+      return ensureLeadIdForConversationId(activeConvId);
     }
 
 
