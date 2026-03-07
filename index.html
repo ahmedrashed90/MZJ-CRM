@@ -5810,7 +5810,228 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
   // ===== Leads =====
   let unsubLeads = null;
   let leadsCache = [];
+  let firestoreLeadsCache = [];
+  let externalLeadsCache = [];
+  let externalLeadsLoadedAt = 0;
 
+  const SNAPCHAT_TSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQQrcN3fUX1ORg8BgmxrJ35vcDCKSbRyUyNn9Z149iT0faNSv8ETZkSMd8asLakX-QvNrbiCYOhgqfm/pub?output=tsv";
+  const GOOGLE_ADS_TSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vROsNJtznfKtkvypI98jW9wN8bKET_9eHq3FwA8bg_6OwI_3f3c6uYHsdnEssW7julhWWuUA-oQR6Ca/pub?output=tsv";
+  const EXTERNAL_LEADS_TTL_MS = 2 * 60 * 1000;
+
+
+  function normalizeTsvHeader(v){
+    return String(v||"")
+      .trim()
+      .replace(/^\ufeff/,"")
+      .replace(/[\s_\-]+/g,"")
+      .toLowerCase();
+  }
+
+  function parseTSV(text){
+    const src = String(text||"").replace(/^\ufeff/,"").replace(/\r/g, "");
+    const lines = src.split("\n").filter(Boolean);
+    if(!lines.length) return [];
+    const headers = lines[0].split("\t");
+    const rows = [];
+    for(let i=1;i<lines.length;i++){
+      const cols = lines[i].split("\t");
+      const row = {};
+      headers.forEach((h, idx)=>{ row[h] = cols[idx] != null ? String(cols[idx]).trim() : ""; });
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  function getRowVal(row, keys){
+    const map = new Map();
+    Object.keys(row||{}).forEach(k=> map.set(normalizeTsvHeader(k), row[k]));
+    for(const key of (Array.isArray(keys)?keys:[keys])){
+      const hit = map.get(normalizeTsvHeader(key));
+      if(hit != null && String(hit).trim() !== "") return String(hit).trim();
+    }
+    return "";
+  }
+
+  function buildExternalLeadId(prefix, phone, name, campaign, idx){
+    const raw = [prefix, phone, name, campaign, idx].join("|");
+    let out = "";
+    for(let i=0;i<raw.length;i++){
+      out += raw.charCodeAt(i).toString(16);
+    }
+    return `${prefix}_${out.slice(0, 64)}`;
+  }
+
+  function mapSnapchatRowToLead(row, idx){
+    const firstName = getRowVal(row, ["firstName", "firstname"]);
+    const lastName = getRowVal(row, ["lastName", "lastname"]);
+    const fullName = [firstName, lastName].filter(Boolean).join(" ").trim() || getRowVal(row, ["name", "fullName"]);
+    const phoneRaw = getRowVal(row, ["phoneNumber", "phonenumber", "phone"]);
+    const phoneNormalized = normalizeSaudiPhone(phoneRaw || normalizePhone(phoneRaw));
+    const campaignName = getRowVal(row, ["campaignName", "campaign"]);
+    const createTime = getRowVal(row, ["createTime", "createtime", "createdAt", "date"]);
+    const formName = getRowVal(row, ["formName", "form"]);
+    const customField1 = getRowVal(row, ["customField1", "car", "carName"]);
+    return {
+      id: buildExternalLeadId("snap", phoneNormalized || phoneRaw, fullName, campaignName, idx),
+      data: {
+        externalImport: true,
+        externalSourceKind: "snapchat",
+        source: "سناب شات",
+        formName,
+        campaignName,
+        campaignDate: createTime,
+        createTime,
+        createdAt: createTime || new Date().toISOString(),
+        updatedAt: createTime || new Date().toISOString(),
+        name: fullName || "—",
+        firstName,
+        lastName,
+        phone: phoneNormalized ? ("+" + phoneNormalized) : phoneRaw,
+        phoneNormalized: phoneNormalized || normalizePhone(phoneRaw).replace(/^\+/, ""),
+        customField1,
+        carName: customField1 || "",
+        place: "",
+        city: "",
+        paymentType: "تمويل",
+        payType: "تمويل",
+        leadStatusName: "جديد",
+        importedAt: new Date().toISOString(),
+        rawSource: row
+      }
+    };
+  }
+
+  function mapGoogleAdsRowToLead(row, idx){
+    const source = getRowVal(row, ["Source"]) || "جوجل أدز";
+    const fullName = getRowVal(row, ["FullName", "Name"]);
+    const phoneRaw = getRowVal(row, ["Phone", "PhoneNumber"]);
+    const phoneNormalized = normalizeSaudiPhone(phoneRaw || normalizePhone(phoneRaw));
+    const car = getRowVal(row, ["Car", "CarName", "Vehicle"]);
+    const campaign = getRowVal(row, ["Campaign", "CampaignName"]);
+    const email = getRowVal(row, ["Email", "Mail"]);
+    const city = getRowVal(row, ["City", "Location"]);
+    return {
+      id: buildExternalLeadId("gads", phoneNormalized || phoneRaw, fullName, campaign, idx),
+      data: {
+        externalImport: true,
+        externalSourceKind: "googleads",
+        source: normalizeSourceLabel(source) || "جوجل أدز",
+        campaignName: campaign,
+        campaignDate: "",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        name: fullName || "—",
+        email,
+        phone: phoneNormalized ? ("+" + phoneNormalized) : phoneRaw,
+        phoneNormalized: phoneNormalized || normalizePhone(phoneRaw).replace(/^\+/, ""),
+        carName: car || "",
+        customField1: car || "",
+        place: city || "",
+        city: city || "",
+        paymentType: "تمويل",
+        payType: "تمويل",
+        leadStatusName: "جديد",
+        importedAt: new Date().toISOString(),
+        rawSource: row
+      }
+    };
+  }
+
+  function dedupeCombinedLeads(list){
+    const out = [];
+    const seen = new Set();
+    (Array.isArray(list)?list:[]).forEach(item=>{
+      const d = item?.data || {};
+      const phone = String(d.phoneNormalized || normalizePhone(d.phone||"").replace(/^\+/, "") || "").trim();
+      const key = phone ? `phone:${phone}` : `id:${item.id}`;
+      if(seen.has(key)) return;
+      seen.add(key);
+      out.push(item);
+    });
+    return out;
+  }
+
+  function rebuildLeadsCache(){
+    const firestoreList = Array.isArray(firestoreLeadsCache) ? firestoreLeadsCache.slice() : [];
+    const externalList = Array.isArray(externalLeadsCache) ? externalLeadsCache.slice() : [];
+    const byPhone = new Map();
+    externalList.forEach(item=>{
+      const d = item?.data || {};
+      const phone = String(d.phoneNormalized || normalizePhone(d.phone||"").replace(/^\+/, "") || "").trim();
+      if(phone) byPhone.set(phone, item);
+    });
+
+    const enrichedFirestore = firestoreList.map(item=>{
+      const d = item?.data || {};
+      const phone = String(d.phoneNormalized || normalizePhone(d.phone||"").replace(/^\+/, "") || "").trim();
+      const ext = phone ? byPhone.get(phone) : null;
+      if(!ext) return item;
+      const extData = ext.data || {};
+      return {
+        id: item.id,
+        data: {
+          ...extData,
+          ...d,
+          campaignName: d.campaignName || extData.campaignName || "",
+          campaignDate: d.campaignDate || extData.campaignDate || extData.createTime || "",
+          createTime: d.createTime || extData.createTime || "",
+          email: d.email || extData.email || "",
+          city: d.city || extData.city || d.place || extData.place || "",
+          place: d.place || d.location || d.city || extData.place || extData.city || "",
+          carName: d.carName || extData.carName || d.customField1 || extData.customField1 || "",
+          source: normalizeSourceLabel(d.source || extData.source || "") || d.source || extData.source || "",
+          importedAt: extData.importedAt || d.importedAt || ""
+        }
+      };
+    });
+
+    const merged = dedupeCombinedLeads([...enrichedFirestore, ...externalList]);
+    merged.sort((a,b)=> (fsToMs(b?.data?.updatedAt) || fsToMs(b?.data?.createdAt) || 0) - (fsToMs(a?.data?.updatedAt) || fsToMs(a?.data?.createdAt) || 0));
+    leadsCache = merged;
+  }
+
+  async function refreshExternalLeadSheets(force=false){
+    const now = Date.now();
+    if(!force && externalLeadsLoadedAt && (now - externalLeadsLoadedAt) < EXTERNAL_LEADS_TTL_MS){
+      return externalLeadsCache;
+    }
+    try{
+      const [snapRes, gadsRes] = await Promise.all([
+        fetch(SNAPCHAT_TSV_URL, { cache: "no-store" }),
+        fetch(GOOGLE_ADS_TSV_URL, { cache: "no-store" })
+      ]);
+      const [snapTxt, gadsTxt] = await Promise.all([
+        snapRes.ok ? snapRes.text() : Promise.resolve(""),
+        gadsRes.ok ? gadsRes.text() : Promise.resolve("")
+      ]);
+      const snapRows = parseTSV(snapTxt).map(mapSnapchatRowToLead).filter(x=> String(x?.data?.phoneNormalized || x?.data?.name || "").trim());
+      const gadsRows = parseTSV(gadsTxt).map(mapGoogleAdsRowToLead).filter(x=> String(x?.data?.phoneNormalized || x?.data?.name || "").trim());
+      externalLeadsCache = dedupeCombinedLeads([...(snapRows||[]), ...(gadsRows||[])]);
+      externalLeadsLoadedAt = now;
+      rebuildLeadsCache();
+      return externalLeadsCache;
+    }catch(err){
+      console.warn("refreshExternalLeadSheets", err);
+      externalLeadsCache = [];
+      externalLeadsLoadedAt = now;
+      rebuildLeadsCache();
+      return externalLeadsCache;
+    }
+  }
+
+  function isExternalFinanceLead(data){
+    const d = data || {};
+    return !!d.externalImport && (["snapchat","googleads"].includes(String(d.externalSourceKind || "").trim().toLowerCase()));
+  }
+
+  function canCurrentUserSeeLeadEntry(entry, viewMode=""){
+    if(canViewAllLeads()) return true;
+    const data = entry?.data || {};
+    const uid = String(currentUser?.uid || "");
+    if(uid && getAssignedUidFromLead(data, viewMode) === uid) return true;
+    if(String(viewMode || "") === "leads_finance" && isExternalFinanceLead(data) && userCanSeeTab("leads_finance")) return true;
+    return false;
+  }
 
   function getAssignedUidFromLead(data, mode=""){
     const d = data || {};
@@ -6313,7 +6534,7 @@ function sortStatusesByCustomOrder(list){
     const car = pipeState.car || "";
     const pay = pipeState.pay || "";
 
-    const base = canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser?.uid||""));
+    const base = (Array.isArray(leadsCache) ? leadsCache : []).filter(entry=> canCurrentUserSeeLeadEntry(entry, window.__leadsViewMode || "database"));
 
     return base.filter(({data})=>{
       if(car){
@@ -6782,7 +7003,7 @@ function applyLeadFilters(){
     const fpay = $("#leadsFilterPay")?.value || "";
 
     const viewMode = window.__leadsViewMode || "customers";
-    const base = canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data, viewMode) === String(currentUser.uid||""));
+    const base = (Array.isArray(leadsCache) ? leadsCache : []).filter(entry=> canCurrentUserSeeLeadEntry(entry, viewMode));
 
     const filtered = base.filter(({id,data})=>{
       // Views (Tabs) تحت "العملاء"
@@ -6866,7 +7087,7 @@ const total = base.length;
 
 function customerStatusesBaseList(){
   const arr = Array.isArray(leadsCache) ? leadsCache : [];
-  return canViewAllLeads() ? arr : arr.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser?.uid||""));
+  return arr.filter(entry=> canCurrentUserSeeLeadEntry(entry, window.__leadsViewMode || "customers"));
 }
 
 function uniqueSortedValues(list, picker){
@@ -7011,7 +7232,7 @@ function bindCustomerStatusesUI(){
     $("#" + id)?.addEventListener("change", ()=> renderCustomerStatusesTab());
   });
 
-  $("#customerStatusesRefresh")?.addEventListener("click", ()=> renderCustomerStatusesTab());
+  $("#customerStatusesRefresh")?.addEventListener("click", async ()=>{ await refreshExternalLeadSheets(true); renderCustomerStatusesTab(); try{ applyLeadFilters(); }catch(e){} });
 
   document.addEventListener("click", async (e)=>{
     const btn = e.target.closest("[data-status-save]");
@@ -7051,7 +7272,7 @@ function getLeadCampaignName(lead){
 }
 function getLeadCampaignDate(lead){
   // supports ISO string or Firestore timestamp
-  const v = lead?.campaignDate || lead?.campaignAt || lead?.utm_date || lead?.utmDate || "";
+  const v = lead?.campaignDate || lead?.campaignAt || lead?.createTime || lead?.createdAt || lead?.utm_date || lead?.utmDate || "";
   const ms = fsToMs(v) || (v ? Date.parse(v) : 0);
   if(!ms) return "";
   try{ return new Date(ms).toISOString().slice(0,10); }catch{ return ""; }
@@ -7240,7 +7461,7 @@ function localYMD(d){
 }
 
 function getTasksBase(){
-  return canViewAllLeads() ? leadsCache : leadsCache.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser?.uid||""));
+  return (Array.isArray(leadsCache) ? leadsCache : []).filter(entry=> canCurrentUserSeeLeadEntry(entry, window.__leadsViewMode || "tasks"));
 }
 
 function computeTasksBuckets(){
@@ -7353,8 +7574,10 @@ function bindTasksUI(){
 
     const qRef = query(collection(db,"leads"), orderBy("updatedAt","desc"), limit(300));
 
-    unsubLeads = onSnapshot(qRef, (snap)=>{
-      leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+    unsubLeads = onSnapshot(qRef, async (snap)=>{
+      firestoreLeadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+      rebuildLeadsCache();
+      await refreshExternalLeadSheets();
       applyLeadFilters();
       try{ renderCustomerStatusesTab(); }catch(e){}
       try{ applyDatabaseFilters(); }catch(e){}
@@ -7365,7 +7588,9 @@ function bindTasksUI(){
       console.warn("leads snapshot error", err);
       try{
         const snap = await getDocs(query(collection(db,"leads"), limit(300)));
-        leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+        firestoreLeadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
+        rebuildLeadsCache();
+        await refreshExternalLeadSheets(true);
         applyLeadFilters();
         try{ renderCustomerStatusesTab(); }catch(e){}
       try{ applyDatabaseFilters(); }catch(e){}
@@ -7459,7 +7684,8 @@ function bindTasksUI(){
         $("#"+id)?.addEventListener("input", applyDatabaseFilters);
         $("#"+id)?.addEventListener("change", applyDatabaseFilters);
       });
-      $("#dbRefresh")?.addEventListener("click", ()=>{
+      $("#dbRefresh")?.addEventListener("click", async ()=>{
+        try{ await refreshExternalLeadSheets(true); }catch(e){}
         try{ applyDatabaseFilters(); }catch(e){}
       });
       $("#dbExportExcel")?.addEventListener("click", ()=>{
@@ -8489,7 +8715,7 @@ function renderDashboardStatusLeads(statusId){
 
 }
 
-$("#dashRefresh")?.addEventListener("click", ()=> renderDashboard());
+$("#dashRefresh")?.addEventListener("click", async ()=>{ await refreshExternalLeadSheets(true); renderDashboard(); });
 $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
 
 
