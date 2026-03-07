@@ -4,6 +4,11 @@
 
 
 
+
+
+
+
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1975,6 +1980,16 @@ body.auth-locked #authModal{ pointer-events:auto; }
 <option value="wa:approval_result">✅ تمت الموافقة</option>
 <option value="wa:rejection_result">❌ تعذر رفع الطلب</option>
 </select>
+
+                    <select id="metaTemplateSelect" class="miniSelect" style="width:170px;flex:0 0 auto" title="قوالب ميتا (فيسبوك/انستجرام)">
+                      <option value="">قوالب ميتا</option>
+                      <option value="meta:request_received_simple">تم استلام طلبك</option>
+                      <option value="meta:request_received_filled">تم استلام طلب تمويل</option>
+                      <option value="meta:no_reply">لم يتم الرد</option>
+                      <option value="meta:approved">تمت الموافقة</option>
+                      <option value="meta:failed">تعذر رفع الطلب</option>
+                    </select>
+
                     <input type="file" id="chatFileInput" multiple hidden />
                     <button class="toolBtn" id="btnAttach" type="button" title="إرفاق ملفات">📎</button>
                     <textarea id="composer" placeholder="اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)"></textarea>
@@ -3580,6 +3595,17 @@ function applyInboxFilters(){
     const filtered = baseList.filter(({id,data})=>{
       // ✅ Show conversations for everyone (no assignedTo filter)
 const c = data || {};
+
+      // 🚫 Hide "self echo" conversations created by outbound webhooks (e.g. mzjcars appearing as a separate chat)
+      try{
+        const selfNames = (window.MZJ_SELF_ACCOUNTS || ["mzjcars"]).map(s=>String(s||"").trim().toLowerCase()).filter(Boolean);
+        const nm = String(c.displayName || c.name || "").trim().toLowerCase();
+        const chRaw0 = String(c.channel || "").toLowerCase();
+        const pfRaw0 = String(c.platform || "").toLowerCase();
+        if(selfNames.includes(nm) && (pfRaw0.includes("instagram") || pfRaw0.includes("facebook") || chRaw0.includes("instagram") || chRaw0.includes("facebook") || chRaw0 === "ig" || chRaw0 === "fb")){
+          return false;
+        }
+      }catch(_e){}
       // archive filter
       const isArch = !!c.archived;
       if(inboxShowArchived ? !isArch : isArch) return false;
@@ -5008,10 +5034,22 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
 
     // ===== Outbound send (Inbox only) =====
-    // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال (لو عندك Worker إرسال منفصل)
+    // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال
     // مثال: https://YOUR-SEND-WORKER.workers.dev/send
-    const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // ضع رابط Worker الإرسال هنا أو عبر window
-    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://manychat.next-erp-mzj.workers.dev/send/facebook"; // إرسال فيسبوك ماسنجر.MERSAL_SEND_ENDPOINT 
+    window.MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
+    // WhatsApp Templates (direct to Mersal API) — requires token on client side.
+    // ضع WA_TOKEN هنا كـ window.MERSAL_WA_TOKEN (يفضّل حقنه من السيرفر/إعدادات) بدون تغييرات في باقى النظام.
+    window.MERSAL_WA_TEMPLATE_ENDPOINT = window.MERSAL_WA_TEMPLATE_ENDPOINT || "";
+    window.MERSAL_WA_TOKEN = "";
+
+    // Facebook (CRM -> FB Worker)
+    window.FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://facebook.next-erp-mzj.workers.dev/crm/send";
+    // Instagram (هنتفعّله لاحقاً)
+    window.IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/crm/send";
+
+    const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT;
+    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT;
+    const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT;
 
     
 async function sendOutboundMessage(text){
@@ -5037,13 +5075,17 @@ async function sendOutboundMessage(text){
   const conv = convSnap.data() || {};
   const platform = String(conv.platform || conv.channel || conv.source || "").toLowerCase();
   const isFB = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || String(conv.source||"").includes("فيسبوك");
+  const isIG = platform.includes("instagram") || platform.includes("ig") || String(conv.source||"").includes("انستجرام") || String(activeConvId||"").startsWith("instagram:");
   const waId = String(conv.waId || "").trim();
-  const fbPsid = String(conv.participantId || conv.senderId || "").trim();
+  const fbPsid = String(conv.fbId || conv.participantId || conv.senderId || "").trim();
+  const igRecipientId = String(conv.igId || conv.igUserId || conv.participantId || conv.senderId || conv.fbId || "").trim();
   const fbPageId = String(conv.pageId || "").trim();
-  if(!isFB && !waId){ toast("رقم العميل غير موجود", "err"); return; }
-  if(isFB && !fbPsid){ toast("معرّف فيسبوك غير موجود", "err"); return; }
 
-  const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
+  // Validation per channel
+  if(isFB && !fbPsid){ toast("fbId غير موجود داخل المحادثة", "err"); return; }
+  if(isIG && !igRecipientId){ toast("معرّف انستجرام غير موجود داخل المحادثة", "err"); return; }
+  if(!isFB && !isIG && !waId){ toast("رقم العميل غير موجود", "err"); return; }const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
+  if((isFB || isIG) && isTemplate){ toast("قوالب مرسال للواتساب فقط", "warn"); return; }
   const displayText = isTemplate
     ? (String(tpl.previewText || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
     : clean;
@@ -5052,8 +5094,8 @@ async function sendOutboundMessage(text){
   const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
   const localMsgId = msgRef.id;
 
-  const outTo = isFB ? `fb:${fbPsid}` : `wa:${waId}`;
-  const outProvider = isFB ? "facebook" : "mersal";
+  const outTo = isFB ? `fb:${fbPsid}` : (isIG ? `ig:${igRecipientId}` : `wa:${waId}`);
+  const outProvider = isFB ? "facebook" : (isIG ? "instagram" : "mersal");
   await setDoc(msgRef, {
     direction: "out",
     type: isTemplate ? "template" : "text",
@@ -5080,7 +5122,7 @@ async function sendOutboundMessage(text){
   try{
     let resp, data;
     if(isFB){
-      const payload = { convId: activeConvId, recipientId: fbPsid, pageId: fbPageId, message: clean, agent: (currentProfile?.name || currentUser?.displayName || currentUser?.email || "") };
+      const payload = { convId: activeConvId, text: clean };
       resp = await fetch(FB_SEND_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -5090,19 +5132,66 @@ async function sendOutboundMessage(text){
       // normalize
       if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
       if(data && data.ok === undefined) data.ok = resp.ok;
-    }else{
-      const payload = isTemplate
-        ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: Array.isArray(tpl.params)?tpl.params:[] } }
-        : { waId, text: clean };
-
-      resp = await fetch(MERSAL_SEND_ENDPOINT, {
+    }else if(isIG){
+      const payload = { convId: activeConvId, text: clean };
+      resp = await fetch(IG_SEND_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       data = await resp.json().catch(()=> ({}));
-    }
+      // normalize
+      if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
+      if(data && data.ok === undefined) data.ok = resp.ok;
+    }else{
+      // WhatsApp:
+      // - نص حر -> يرسل عبر Worker (sendmessage)
+      // - قالب -> يرسل مباشرة عبر Mersal Templates API (sendtemplatemessage)
+      
+if(isTemplate){
+        // ✅ WhatsApp Template: send to Worker only (no client token, no direct w-mersal.com call)
+        // Worker routes to sendtemplatemessage server-side using WA_TOKEN secret.
+        const payload = {
+          waId,
+          phone: waId,
+          type: "template",
+          templateName: String(tpl?.name || ""),
+          templateLang: String(tpl?.lang || "ar"),
+          params: Array.isArray(tpl?.params) ? tpl.params : [],
+          // optional passthrough if your CRM builds components already
+          components: Array.isArray(tpl?.components) ? tpl.components : undefined
+        };
 
+        resp = await fetch(MERSAL_SEND_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        data = await resp.json().catch(()=> ({}));
+
+        // normalize
+        if(data && data.ok === undefined) data.ok = resp.ok;
+        if(data && data.status === "success") data.ok = true;
+        if(data && (data.providerMessageId || data.message_wamid || data.message_id) && !data.providerMessageId){
+          data.providerMessageId = data.message_wamid || data.message_id;
+        }
+      }else{
+        const payload = { waId, text: clean };
+
+        resp = await fetch(MERSAL_SEND_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        data = await resp.json().catch(()=> ({}));
+
+        // normalize
+        if(data && data.ok === undefined) data.ok = resp.ok;
+        if(data && data.status === "success") data.ok = true;
+        if(data && data.message_wamid && !data.providerMessageId) data.providerMessageId = data.message_wamid;
+        if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
+      }
+    }
     if(!resp.ok || data.ok === false){
       await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
         status: "failed",
@@ -5249,7 +5338,7 @@ async function sendOutboundMessage(text){
 
 
 
-    // templates (quick replies) - local only (Firestore version later)
+        // templates (quick replies) - local only (Firestore version later)
     const QUICK_TEMPLATES = {
       welcome: `مرحباً بك في مجموعة محمد ذعار العجمي للسيارات
 تم استلام طلبك بنجاح`,
@@ -5259,16 +5348,70 @@ async function sendOutboundMessage(text){
 البنك:
 الراتب:
 الالتزام:
-وجاري العمل على الطلب`,
-      no_reply: `تم التواصل معك بخصوص طلبك المقدم ونرجو الإفادة بالتالي:
+وجاري العمل على الطلب ✅`,
+      no_reply: `تم التواصل معك بخصوص طلبك المقدم ونرجو إفادتنا بالبيانات التالية:
 نوع السيارة:
 العمر:
 جهة تمويل الراتب:
 الراتب:
-هل يوجد إلتزام؟ وكم ان وجد؟:`,
+هل يوجد التزام؟ وكم إن وجد؟`,
       approved: `تمت الموافقة على طلبك.`,
-      rejected: `تعذر رفع الطلب الى جهة التمويل`
+      rejected: `تعذر رفع الطلب إلى جهة التمويل.`
     };
+
+    // ===== Meta Templates (Facebook/Instagram) =====
+    // NOTE: هذه قوالب "نصية" للـ Meta (FB/IG). يتم ملؤها من بيانات العميل في قاعدة البيانات (leads) إن وجدت.
+    const META_TEMPLATES = {
+      request_received_simple: {
+        name: "تم استلام طلبك",
+        text: `مرحباً بك في مجموعة محمد ذعار العجمي للسيارات
+تم استلام طلبك بنجاح`
+      },
+      request_received_filled: {
+        name: "تم استلام طلبك",
+        // placeholders: {{1}}..{{5}}
+        text: `تم استلام طلبك بخصوص :
+السيارة: {{1}}
+العمر: {{2}}
+البنك: {{3}}
+الراتب: {{4}}
+الالتزام: {{5}}
+وجاري العمل على الطلب ✅`
+      },
+      no_reply: {
+        name: "لم يتم الرد",
+        text: `تم التواصل معك بخصوص طلبك المقدم ونرجو إفادتنا بالبيانات التالية:
+نوع السيارة:
+العمر:
+جهة تمويل الراتب:
+الراتب:
+هل يوجد التزام؟ وكم إن وجد؟`
+      },
+      approved: {
+        name: "تم الموافقة",
+        text: `تمت الموافقة على طلبك.`
+      },
+      failed: {
+        name: "تعذر رفع الطلب",
+        text: `تعذر رفع الطلب إلى جهة التمويل.`
+      }
+    };
+
+    function replaceMetaVars(tplText, lead){
+      const car = pickLeadField(lead, ["car","carName","car_name","vehicle","vehicleName","model","modelName","carModel"], "");
+      const age = pickLeadField(lead, ["age","clientAge","customerAge"], "");
+      const bank = pickLeadField(lead, ["bank","bankName","financeBank","salaryBank","salary_bank"], "");
+      const salary = pickLeadField(lead, ["salary","netSalary","monthlySalary","salaryAmount","salary_amount"], "");
+      const commitment = pickLeadField(lead, ["commitment","commit","monthlyCommitment","commitmentAmount","commitment_amount","installments","liabilities"], "");
+
+      return String(tplText||"")
+        .replace(/\{\{1\}\}/g, car)
+        .replace(/\{\{2\}\}/g, age)
+        .replace(/\{\{3\}\}/g, bank)
+        .replace(/\{\{4\}\}/g, salary)
+        .replace(/\{\{5\}\}/g, commitment);
+    }
+
 
     
 document.getElementById("templateSelect")?.addEventListener("change", async (e)=>{
@@ -5308,6 +5451,35 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
   }
 
   // keep selected label visible? we reset to placeholder after preview is set
+  e.target.value = "";
+});
+
+document.getElementById("metaTemplateSelect")?.addEventListener("change", async (e)=>{
+  const v = String(e.target?.value || "");
+  if(!v) return;
+
+  const ta = document.getElementById("composer");
+  // meta templates are plain text => editable
+  __selectedWaTemplateKey = null;
+  if(ta) ta.readOnly = false;
+
+  if(v.startsWith("meta:")){
+    const key = v.slice(5);
+    const tpl = META_TEMPLATES?.[key];
+    if(tpl && ta){
+      let msg = String(tpl.text || "");
+      if(key === "request_received_filled"){
+        const leadWrap = await getActiveLeadForConversation();
+        const lead = leadWrap?.data || null;
+        msg = replaceMetaVars(msg, lead || {});
+      }
+      ta.value = msg.trim();
+      ta.dispatchEvent(new Event("input", { bubbles:true }));
+      ta.placeholder = "تم اختيار قالب ميتا — يمكنك التعديل ثم اضغط إرسال.";
+      ta.focus();
+    }
+  }
+
   e.target.value = "";
 });
 // send button
