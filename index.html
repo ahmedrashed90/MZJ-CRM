@@ -3047,6 +3047,29 @@ let __selectedWaTemplateKey = null;
     cash: "LeT6pRNIW2VCVIkxs6O5"
   };
 
+  const BRANCH_LABELS = {
+    cs: ["خدمة العملاء"],
+    callcenter: ["كول سنتر", "الكول سنتر", "call center", "callcenter"],
+    finance: ["مبيعات التمويل", "التمويل"],
+    cash: ["مبيعات الكاش", "الكاش", "كاش"]
+  };
+
+  function normalizeBranchValue(v){
+    return String(v || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ");
+  }
+
+  function branchMatchesKey(value, key){
+    const val = normalizeBranchValue(value);
+    if(!val || !key) return false;
+    if(val === normalizeBranchValue(BRANCH_IDS[key])) return true;
+    const labels = Array.isArray(BRANCH_LABELS[key]) ? BRANCH_LABELS[key] : [];
+    return labels.some(label => val === normalizeBranchValue(label));
+  }
+
   function getCurrentRoleId(){
     return String(currentProfile?.roleId || "").trim();
   }
@@ -3086,18 +3109,18 @@ let __selectedWaTemplateKey = null;
     const branchId = getCurrentBranchId();
     switch(String(tabId || "")){
       case "customers":
-        return branchId === BRANCH_IDS.callcenter;
+        return branchMatchesKey(branchId, "callcenter");
       case "leads_cash":
-        return branchId === BRANCH_IDS.cash;
+        return branchMatchesKey(branchId, "cash");
       case "leads_finance":
-        return branchId === BRANCH_IDS.finance;
+        return branchMatchesKey(branchId, "finance");
       case "leads_cs":
-        return branchId === BRANCH_IDS.cs;
+        return branchMatchesKey(branchId, "cs");
       case "database":
         return false;
       case "dashboard":
       case "tasks":
-        return branchId === BRANCH_IDS.finance;
+        return branchMatchesKey(branchId, "finance");
       default:
         return true;
     }
@@ -7251,6 +7274,9 @@ function bindTasksUI(){
         if(a.canReceiveLeads === false) return false;
         if(isExcludedAssignee(a)) return false;
         const bid = String(a.branchId||"").trim();
+        if(targetBranchName === "مبيعات التمويل" && branchMatchesKey(bid, "finance")) return true;
+        if(targetBranchName === "مبيعات الكاش" && branchMatchesKey(bid, "cash")) return true;
+        if(targetBranchName === "خدمة العملاء" && branchMatchesKey(bid, "cs")) return true;
         return ids.size ? ids.has(bid) : (bid === targetBranchName);
       })
       .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||""), "ar"));
@@ -7328,9 +7354,11 @@ function bindTasksUI(){
     return ids;
   }
   function isFinanceSalesAgent(a){
+    const bid = String(a?.branchId || "").trim();
+    if(branchMatchesKey(bid, "finance")) return true;
     const ids = getFinanceSalesBranchIds();
     if(!ids.size) return false;
-    return ids.has(String(a?.branchId || "").trim());
+    return ids.has(bid);
   }
 
   function getEligibleAgents(){
