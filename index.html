@@ -3040,22 +3040,87 @@ let __selectedWaTemplateKey = null;
     }, 4500);
   }
 
+  const BRANCH_IDS = {
+    cs: "HRw69xDJKbWxtpQRtoME",
+    callcenter: "cUoURXJQMGJvn5ZQS0PJ",
+    finance: "QcQF88MYbiYJGLu83kVQ",
+    cash: "LeT6pRNIW2VCVIkxs6O5"
+  };
+
+  function getCurrentRoleId(){
+    return String(currentProfile?.roleId || "").trim();
+  }
+
+  function getCurrentRoleName(){
+    const roleId = getCurrentRoleId();
+    return String(rolesMap.get(roleId) || roleId || "").trim().toLowerCase();
+  }
+
+  function getCurrentBranchId(){
+    return String(currentProfile?.branchId || "").trim();
+  }
+
+  function isManagementRole(){
+    const roleId = getCurrentRoleId();
+    const roleName = getCurrentRoleName();
+    if(["admin","system_manager","branch_manager","marketing_admin","marketing_manager"].includes(roleId)) return true;
+    if(roleName.includes("admin") || roleName.includes("system") || roleName.includes("owner") || roleName.includes("manager") || roleName.includes("مدير") || roleName.includes("مشرف")) return true;
+    return false;
+  }
+
   function canSeeSettings(){
-    const roleId = currentProfile?.roleId;
+    const roleId = getCurrentRoleId();
     return roleId === "admin" || roleId === "marketing_admin";
   }
 
 
   function canSeeAllInbox(){
-    const roleId = currentProfile?.roleId;
+    const roleId = getCurrentRoleId();
     return roleId === "admin" || roleId === "branch_manager" || roleId === "marketing_admin";
   }
 
+  function canAccessTab(tabId){
+    if(!currentUser) return false;
+    if(isManagementRole()) return true;
+
+    const branchId = getCurrentBranchId();
+    switch(String(tabId || "")){
+      case "customers":
+        return branchId === BRANCH_IDS.callcenter;
+      case "leads_cash":
+        return branchId === BRANCH_IDS.cash;
+      case "leads_finance":
+        return branchId === BRANCH_IDS.finance;
+      case "leads_cs":
+        return branchId === BRANCH_IDS.cs;
+      case "database":
+        return false;
+      case "dashboard":
+      case "tasks":
+        return branchId === BRANCH_IDS.finance;
+      default:
+        return true;
+    }
+  }
 
   function applyRoleGuards(){
     const settingsNav = document.querySelector('[data-tab="settings"]');
     if(settingsNav){
       settingsNav.style.display = canSeeSettings() ? "" : "none";
+    }
+
+    const guardedTabs = ["customers","leads_cash","leads_finance","leads_cs","database","dashboard","tasks"];
+    guardedTabs.forEach((tabId)=>{
+      const navEl = document.querySelector(`[data-tab="${tabId}"]`);
+      if(navEl){
+        navEl.style.display = canAccessTab(tabId) ? "" : "none";
+      }
+    });
+
+    const activeNav = document.querySelector('.navItem.active[data-tab]');
+    const activeTab = activeNav?.dataset?.tab || "inbox";
+    if(activeTab && !canAccessTab(activeTab)){
+      try{ showTab("inbox"); }catch(e){ console.warn("role guard redirect", e); }
     }
   }
 
@@ -3132,6 +3197,10 @@ let __selectedWaTemplateKey = null;
         const t = el.dataset.tab;
         if(t === "settings" && !canSeeSettings()){
           toast("ليس لديك صلاحية لفتح الإعدادات", "warn");
+          return;
+        }
+        if(t !== "settings" && !canAccessTab(t)){
+          toast("ليس لديك صلاحية لفتح هذا التاب", "warn");
           return;
         }
         showTab(t);
