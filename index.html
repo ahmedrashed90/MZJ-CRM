@@ -5,10 +5,6 @@
 
 
 
-
-
-
-
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1684,6 +1680,95 @@
 body.auth-locked .app{ pointer-events:none; user-select:none; }
 body.auth-locked #authModal{ pointer-events:auto; }
 
+    /* ===== Customer Statuses ===== */
+    .statusBoardCard{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      overflow:hidden;
+      box-shadow:0 12px 30px rgba(0,0,0,.05);
+    }
+    .statusBoardTop{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(43,26,23,.03), transparent);
+      flex-wrap:wrap;
+    }
+    .statusBoardTop h3{ margin:0; font-size:15px; font-weight:900; }
+    .statusBoardTop p{ margin:6px 0 0; font-size:12.5px; color:var(--muted); line-height:1.8; }
+    .statusQuickStats{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0,1fr));
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .statusQuickStat{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      padding:14px;
+    }
+    .statusQuickStat b{ display:block; font-size:12.5px; color:var(--muted); }
+    .statusQuickStat strong{ display:block; margin-top:6px; font-size:24px; font-weight:900; color:var(--b); }
+    .statusFilters{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0,1fr));
+      gap:10px;
+      padding:14px;
+      border-bottom:1px solid var(--line);
+      background:rgba(247,245,242,.45);
+    }
+    .statusFilters .miniInput,
+    .statusFilters select{ width:100%; }
+    .statusFilters .statusSearchWide{ grid-column: span 2; }
+    .statusTableWrap{
+      overflow:auto;
+      background:#fff;
+    }
+    .statusTable{ width:100%; min-width:1280px; border-collapse:separate; border-spacing:0; }
+    .statusTable thead th{
+      position:sticky; top:0; z-index:1;
+      background:#fff;
+      color:var(--muted);
+      font-size:12.5px;
+      padding:12px;
+      text-align:right;
+      border-bottom:1px solid var(--line);
+      white-space:nowrap;
+    }
+    .statusTable tbody td{
+      padding:12px;
+      border-bottom:1px solid var(--line);
+      vertical-align:middle;
+      white-space:nowrap;
+      font-size:13px;
+    }
+    .statusNameCell{
+      display:flex; align-items:center; gap:10px; min-width:0;
+    }
+    .statusNameCell .avatar{ flex:0 0 auto; }
+    .statusNameInfo{ min-width:0; }
+    .statusNameInfo b{ display:block; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .statusNameInfo span{ display:block; margin-top:3px; font-size:11.5px; color:var(--muted); }
+    .statusInlineAction{ display:flex; align-items:center; gap:8px; }
+    .statusInlineAction select{ min-width:220px; }
+    .statusEmpty{ padding:24px 14px; text-align:center; color:var(--muted); }
+    @media (max-width: 1100px){
+      .statusQuickStats{ grid-template-columns:1fr; }
+      .statusFilters{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+      .statusFilters .statusSearchWide{ grid-column: span 2; }
+    }
+    @media (max-width: 640px){
+      .statusFilters{ grid-template-columns:1fr; }
+      .statusFilters .statusSearchWide{ grid-column: span 1; }
+      .statusInlineAction{ flex-direction:column; align-items:stretch; }
+      .statusInlineAction select, .statusInlineAction button{ width:100%; }
+    }
+
     /* ===== Nested nav (sub tabs) ===== */
     .navItem.subNav{
       padding-right: 18px;
@@ -1734,6 +1819,17 @@ body.auth-locked #authModal{ pointer-events:auto; }
             </div>
           </div>
           <div class="badge" id="navUnread">0</div>
+        </div>
+
+        <div class="navItem" data-tab="customer-statuses">
+          <div class="navLeft">
+            <div class="ico">📋</div>
+            <div class="navTitle">
+              <b>حالات العملاء</b>
+              <span>تغيير ومتابعة حالات العملاء</span>
+            </div>
+          </div>
+          <div class="badge neutral" id="customerStatusesCount">—</div>
         </div>
 
         <div class="navItem" data-tab="customers">
@@ -1980,16 +2076,6 @@ body.auth-locked #authModal{ pointer-events:auto; }
 <option value="wa:approval_result">✅ تمت الموافقة</option>
 <option value="wa:rejection_result">❌ تعذر رفع الطلب</option>
 </select>
-
-                    <select id="metaTemplateSelect" class="miniSelect" style="width:170px;flex:0 0 auto" title="قوالب ميتا (فيسبوك/انستجرام)">
-                      <option value="">قوالب ميتا</option>
-                      <option value="meta:request_received_simple">تم استلام طلبك</option>
-                      <option value="meta:request_received_filled">تم استلام طلب تمويل</option>
-                      <option value="meta:no_reply">لم يتم الرد</option>
-                      <option value="meta:approved">تمت الموافقة</option>
-                      <option value="meta:failed">تعذر رفع الطلب</option>
-                    </select>
-
                     <input type="file" id="chatFileInput" multiple hidden />
                     <button class="toolBtn" id="btnAttach" type="button" title="إرفاق ملفات">📎</button>
                     <textarea id="composer" placeholder="اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)"></textarea>
@@ -2001,6 +2087,65 @@ body.auth-locked #authModal{ pointer-events:auto; }
           </div>
 
           
+          <!-- Panel: Customer Statuses -->
+          <div class="panel" id="panel-customer-statuses">
+            <div class="statusQuickStats">
+              <div class="statusQuickStat">
+                <b>إجمالي العملاء</b>
+                <strong id="customerStatusesTotal">0</strong>
+              </div>
+              <div class="statusQuickStat">
+                <b>نتائج الفلاتر</b>
+                <strong id="customerStatusesFiltered">0</strong>
+              </div>
+              <div class="statusQuickStat">
+                <b>قابلون لتغيير الحالة</b>
+                <strong id="customerStatusesEditable">0</strong>
+              </div>
+            </div>
+
+            <div class="statusBoardCard">
+              <div class="statusBoardTop">
+                <div>
+                  <h3>حالات العملاء</h3>
+                  <p>من هذا التاب تقدر تراجع العملاء وتفلترهم بنفس الحقول المطلوبة وتغيّر الحالة مباشرة بدون الدخول على كل عميل بشكل منفصل.</p>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <button class="miniBtn" id="customerStatusesRefresh" type="button">تحديث</button>
+                </div>
+              </div>
+
+              <div class="statusFilters">
+                <input class="miniInput statusSearchWide" id="customerStatusesSearch" placeholder="بحث بالاسم / الجوال / السيارة / المكان / المصدر..." />
+                                <select id="customerStatusesFilterPlace"><option value="">كل الأماكن</option></select>
+                <select id="customerStatusesFilterSource"><option value="">كل المصادر</option></select>
+                <select id="customerStatusesFilterCar"><option value="">كل السيارات</option></select>
+                <select id="customerStatusesFilterPay"><option value="">كل طرق الدفع</option></select>
+                <select id="customerStatusesFilterStatus"><option value="">كل الحالات</option></select>
+              </div>
+
+              <div class="statusTableWrap">
+                <table class="statusTable">
+                  <thead>
+                    <tr>
+                      <th>اسم العميل</th>
+                      <th>الجوال</th>
+                      <th>المكان</th>
+                      <th>المصدر</th>
+                      <th>اسم السيارة</th>
+                      <th>الدفع</th>
+                      <th>الحالة الحالية</th>
+                      <th>تغيير الحالة</th>
+                    </tr>
+                  </thead>
+                  <tbody id="customerStatusesTbody">
+                    <tr><td colspan="8" class="statusEmpty">جاري تحميل العملاء...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
           <!-- Panel: Leads -->
           <div class="panel" id="panel-leads">
             <div class="grid">
@@ -2928,6 +3073,7 @@ let __selectedWaTemplateKey = null;
     // تحديث عنوان/وصف الصفحة حسب التاب
     const tabMeta = {
       inbox:         { title:"صندوق الوارد", desc:"تاب واحد للرد على كل الرسائل والتعليقات — مع تسجيل كل تفاعل وإشعارات فورية." },
+      "customer-statuses": { title:"حالات العملاء", desc:"فلترة احترافية بكل الحقول المطلوبة مع إمكانية تغيير حالة العميل مباشرة من نفس الجدول." },
 
       customers:     { title:"العملاء", desc:"كل العملاء — بحث + فلترة + تحديث بيانات بسرعة." },
       leads_cash:    { title:"العملاء المحتملون - كاش", desc:"عرض العملاء المحتملين للدفع كاش فقط." },
@@ -2970,6 +3116,11 @@ let __selectedWaTemplateKey = null;
     if(panelKey === "database"){
       try{ ensureLeadsLive(); }catch(e){}
       try{ applyDatabaseFilters(); }catch(e){}
+    }
+
+    if(panelKey === "customer-statuses"){
+      try{ ensureLeadsLive(); }catch(e){}
+      try{ renderCustomerStatusesTab(); }catch(e){}
     }
   }
 
@@ -3595,17 +3746,6 @@ function applyInboxFilters(){
     const filtered = baseList.filter(({id,data})=>{
       // ✅ Show conversations for everyone (no assignedTo filter)
 const c = data || {};
-
-      // 🚫 Hide "self echo" conversations created by outbound webhooks (e.g. mzjcars appearing as a separate chat)
-      try{
-        const selfNames = (window.MZJ_SELF_ACCOUNTS || ["mzjcars"]).map(s=>String(s||"").trim().toLowerCase()).filter(Boolean);
-        const nm = String(c.displayName || c.name || "").trim().toLowerCase();
-        const chRaw0 = String(c.channel || "").toLowerCase();
-        const pfRaw0 = String(c.platform || "").toLowerCase();
-        if(selfNames.includes(nm) && (pfRaw0.includes("instagram") || pfRaw0.includes("facebook") || chRaw0.includes("instagram") || chRaw0.includes("facebook") || chRaw0 === "ig" || chRaw0 === "fb")){
-          return false;
-        }
-      }catch(_e){}
       // archive filter
       const isArch = !!c.archived;
       if(inboxShowArchived ? !isArch : isArch) return false;
@@ -5034,22 +5174,10 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
 
     // ===== Outbound send (Inbox only) =====
-    // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال
+    // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال (لو عندك Worker إرسال منفصل)
     // مثال: https://YOUR-SEND-WORKER.workers.dev/send
-    window.MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
-    // WhatsApp Templates (direct to Mersal API) — requires token on client side.
-    // ضع WA_TOKEN هنا كـ window.MERSAL_WA_TOKEN (يفضّل حقنه من السيرفر/إعدادات) بدون تغييرات في باقى النظام.
-    window.MERSAL_WA_TEMPLATE_ENDPOINT = window.MERSAL_WA_TEMPLATE_ENDPOINT || "";
-    window.MERSAL_WA_TOKEN = "";
-
-    // Facebook (CRM -> FB Worker)
-    window.FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://facebook.next-erp-mzj.workers.dev/crm/send";
-    // Instagram (هنتفعّله لاحقاً)
-    window.IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/crm/send";
-
-    const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT;
-    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT;
-    const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT;
+    const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // ضع رابط Worker الإرسال هنا أو عبر window
+    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://manychat.next-erp-mzj.workers.dev/send/facebook"; // إرسال فيسبوك ماسنجر.MERSAL_SEND_ENDPOINT 
 
     
 async function sendOutboundMessage(text){
@@ -5075,17 +5203,13 @@ async function sendOutboundMessage(text){
   const conv = convSnap.data() || {};
   const platform = String(conv.platform || conv.channel || conv.source || "").toLowerCase();
   const isFB = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || String(conv.source||"").includes("فيسبوك");
-  const isIG = platform.includes("instagram") || platform.includes("ig") || String(conv.source||"").includes("انستجرام") || String(activeConvId||"").startsWith("instagram:");
   const waId = String(conv.waId || "").trim();
-  const fbPsid = String(conv.fbId || conv.participantId || conv.senderId || "").trim();
-  const igRecipientId = String(conv.igId || conv.igUserId || conv.participantId || conv.senderId || conv.fbId || "").trim();
+  const fbPsid = String(conv.participantId || conv.senderId || "").trim();
   const fbPageId = String(conv.pageId || "").trim();
+  if(!isFB && !waId){ toast("رقم العميل غير موجود", "err"); return; }
+  if(isFB && !fbPsid){ toast("معرّف فيسبوك غير موجود", "err"); return; }
 
-  // Validation per channel
-  if(isFB && !fbPsid){ toast("fbId غير موجود داخل المحادثة", "err"); return; }
-  if(isIG && !igRecipientId){ toast("معرّف انستجرام غير موجود داخل المحادثة", "err"); return; }
-  if(!isFB && !isIG && !waId){ toast("رقم العميل غير موجود", "err"); return; }const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
-  if((isFB || isIG) && isTemplate){ toast("قوالب مرسال للواتساب فقط", "warn"); return; }
+  const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
   const displayText = isTemplate
     ? (String(tpl.previewText || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
     : clean;
@@ -5094,8 +5218,8 @@ async function sendOutboundMessage(text){
   const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
   const localMsgId = msgRef.id;
 
-  const outTo = isFB ? `fb:${fbPsid}` : (isIG ? `ig:${igRecipientId}` : `wa:${waId}`);
-  const outProvider = isFB ? "facebook" : (isIG ? "instagram" : "mersal");
+  const outTo = isFB ? `fb:${fbPsid}` : `wa:${waId}`;
+  const outProvider = isFB ? "facebook" : "mersal";
   await setDoc(msgRef, {
     direction: "out",
     type: isTemplate ? "template" : "text",
@@ -5122,7 +5246,7 @@ async function sendOutboundMessage(text){
   try{
     let resp, data;
     if(isFB){
-      const payload = { convId: activeConvId, text: clean };
+      const payload = { convId: activeConvId, recipientId: fbPsid, pageId: fbPageId, message: clean, agent: (currentProfile?.name || currentUser?.displayName || currentUser?.email || "") };
       resp = await fetch(FB_SEND_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -5132,66 +5256,19 @@ async function sendOutboundMessage(text){
       // normalize
       if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
       if(data && data.ok === undefined) data.ok = resp.ok;
-    }else if(isIG){
-      const payload = { convId: activeConvId, text: clean };
-      resp = await fetch(IG_SEND_ENDPOINT, {
+    }else{
+      const payload = isTemplate
+        ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: Array.isArray(tpl.params)?tpl.params:[] } }
+        : { waId, text: clean };
+
+      resp = await fetch(MERSAL_SEND_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       data = await resp.json().catch(()=> ({}));
-      // normalize
-      if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
-      if(data && data.ok === undefined) data.ok = resp.ok;
-    }else{
-      // WhatsApp:
-      // - نص حر -> يرسل عبر Worker (sendmessage)
-      // - قالب -> يرسل مباشرة عبر Mersal Templates API (sendtemplatemessage)
-      
-if(isTemplate){
-        // ✅ WhatsApp Template: send to Worker only (no client token, no direct w-mersal.com call)
-        // Worker routes to sendtemplatemessage server-side using WA_TOKEN secret.
-        const payload = {
-          waId,
-          phone: waId,
-          type: "template",
-          templateName: String(tpl?.name || ""),
-          templateLang: String(tpl?.lang || "ar"),
-          params: Array.isArray(tpl?.params) ? tpl.params : [],
-          // optional passthrough if your CRM builds components already
-          components: Array.isArray(tpl?.components) ? tpl.components : undefined
-        };
-
-        resp = await fetch(MERSAL_SEND_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        data = await resp.json().catch(()=> ({}));
-
-        // normalize
-        if(data && data.ok === undefined) data.ok = resp.ok;
-        if(data && data.status === "success") data.ok = true;
-        if(data && (data.providerMessageId || data.message_wamid || data.message_id) && !data.providerMessageId){
-          data.providerMessageId = data.message_wamid || data.message_id;
-        }
-      }else{
-        const payload = { waId, text: clean };
-
-        resp = await fetch(MERSAL_SEND_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        data = await resp.json().catch(()=> ({}));
-
-        // normalize
-        if(data && data.ok === undefined) data.ok = resp.ok;
-        if(data && data.status === "success") data.ok = true;
-        if(data && data.message_wamid && !data.providerMessageId) data.providerMessageId = data.message_wamid;
-        if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
-      }
     }
+
     if(!resp.ok || data.ok === false){
       await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
         status: "failed",
@@ -5338,7 +5415,7 @@ if(isTemplate){
 
 
 
-        // templates (quick replies) - local only (Firestore version later)
+    // templates (quick replies) - local only (Firestore version later)
     const QUICK_TEMPLATES = {
       welcome: `مرحباً بك في مجموعة محمد ذعار العجمي للسيارات
 تم استلام طلبك بنجاح`,
@@ -5348,70 +5425,16 @@ if(isTemplate){
 البنك:
 الراتب:
 الالتزام:
-وجاري العمل على الطلب ✅`,
-      no_reply: `تم التواصل معك بخصوص طلبك المقدم ونرجو إفادتنا بالبيانات التالية:
+وجاري العمل على الطلب`,
+      no_reply: `تم التواصل معك بخصوص طلبك المقدم ونرجو الإفادة بالتالي:
 نوع السيارة:
 العمر:
 جهة تمويل الراتب:
 الراتب:
-هل يوجد التزام؟ وكم إن وجد؟`,
+هل يوجد إلتزام؟ وكم ان وجد؟:`,
       approved: `تمت الموافقة على طلبك.`,
-      rejected: `تعذر رفع الطلب إلى جهة التمويل.`
+      rejected: `تعذر رفع الطلب الى جهة التمويل`
     };
-
-    // ===== Meta Templates (Facebook/Instagram) =====
-    // NOTE: هذه قوالب "نصية" للـ Meta (FB/IG). يتم ملؤها من بيانات العميل في قاعدة البيانات (leads) إن وجدت.
-    const META_TEMPLATES = {
-      request_received_simple: {
-        name: "تم استلام طلبك",
-        text: `مرحباً بك في مجموعة محمد ذعار العجمي للسيارات
-تم استلام طلبك بنجاح`
-      },
-      request_received_filled: {
-        name: "تم استلام طلبك",
-        // placeholders: {{1}}..{{5}}
-        text: `تم استلام طلبك بخصوص :
-السيارة: {{1}}
-العمر: {{2}}
-البنك: {{3}}
-الراتب: {{4}}
-الالتزام: {{5}}
-وجاري العمل على الطلب ✅`
-      },
-      no_reply: {
-        name: "لم يتم الرد",
-        text: `تم التواصل معك بخصوص طلبك المقدم ونرجو إفادتنا بالبيانات التالية:
-نوع السيارة:
-العمر:
-جهة تمويل الراتب:
-الراتب:
-هل يوجد التزام؟ وكم إن وجد؟`
-      },
-      approved: {
-        name: "تم الموافقة",
-        text: `تمت الموافقة على طلبك.`
-      },
-      failed: {
-        name: "تعذر رفع الطلب",
-        text: `تعذر رفع الطلب إلى جهة التمويل.`
-      }
-    };
-
-    function replaceMetaVars(tplText, lead){
-      const car = pickLeadField(lead, ["car","carName","car_name","vehicle","vehicleName","model","modelName","carModel"], "");
-      const age = pickLeadField(lead, ["age","clientAge","customerAge"], "");
-      const bank = pickLeadField(lead, ["bank","bankName","financeBank","salaryBank","salary_bank"], "");
-      const salary = pickLeadField(lead, ["salary","netSalary","monthlySalary","salaryAmount","salary_amount"], "");
-      const commitment = pickLeadField(lead, ["commitment","commit","monthlyCommitment","commitmentAmount","commitment_amount","installments","liabilities"], "");
-
-      return String(tplText||"")
-        .replace(/\{\{1\}\}/g, car)
-        .replace(/\{\{2\}\}/g, age)
-        .replace(/\{\{3\}\}/g, bank)
-        .replace(/\{\{4\}\}/g, salary)
-        .replace(/\{\{5\}\}/g, commitment);
-    }
-
 
     
 document.getElementById("templateSelect")?.addEventListener("change", async (e)=>{
@@ -5451,35 +5474,6 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
   }
 
   // keep selected label visible? we reset to placeholder after preview is set
-  e.target.value = "";
-});
-
-document.getElementById("metaTemplateSelect")?.addEventListener("change", async (e)=>{
-  const v = String(e.target?.value || "");
-  if(!v) return;
-
-  const ta = document.getElementById("composer");
-  // meta templates are plain text => editable
-  __selectedWaTemplateKey = null;
-  if(ta) ta.readOnly = false;
-
-  if(v.startsWith("meta:")){
-    const key = v.slice(5);
-    const tpl = META_TEMPLATES?.[key];
-    if(tpl && ta){
-      let msg = String(tpl.text || "");
-      if(key === "request_received_filled"){
-        const leadWrap = await getActiveLeadForConversation();
-        const lead = leadWrap?.data || null;
-        msg = replaceMetaVars(msg, lead || {});
-      }
-      ta.value = msg.trim();
-      ta.dispatchEvent(new Event("input", { bubbles:true }));
-      ta.placeholder = "تم اختيار قالب ميتا — يمكنك التعديل ثم اضغط إرسال.";
-      ta.focus();
-    }
-  }
-
   e.target.value = "";
 });
 // send button
@@ -6557,6 +6551,186 @@ const total = base.length;
 
 
 
+function customerStatusesBaseList(){
+  const arr = Array.isArray(leadsCache) ? leadsCache : [];
+  return canViewAllLeads() ? arr : arr.filter(({data})=> getAssignedUidFromLead(data) === String(currentUser?.uid||""));
+}
+
+function uniqueSortedValues(list, picker){
+  const set = new Set();
+  (Array.isArray(list)?list:[]).forEach(item=>{
+    const v = String(picker(item) || "").trim();
+    if(v) set.add(v);
+  });
+  return Array.from(set).sort((a,b)=> a.localeCompare(b, "ar"));
+}
+
+function refillCustomerStatusesFilters(base){
+  const conf = [
+    ["#customerStatusesFilterPlace", "كل الأماكن", x=> String(x.data?.place || x.data?.location || x.data?.city || "").trim()],
+    ["#customerStatusesFilterSource", "كل المصادر", x=> String(getNormalizedSourceForLead(x.data, x.id) || "").trim()],
+    ["#customerStatusesFilterCar", "كل السيارات", x=> String(getLeadCarName(x.data) || "").trim()],
+    ["#customerStatusesFilterPay", "كل طرق الدفع", x=> String(getLeadPayType(x.data) || "").trim()],
+    ["#customerStatusesFilterStatus", "كل الحالات", x=> String(getEffectiveLeadStatusName(x.data) || "").trim()]
+  ];
+
+  conf.forEach(([sel, first, picker])=>{
+    const el = $(sel);
+    if(!el) return;
+    const current = el.value || "";
+    const values = uniqueSortedValues(base, picker);
+    el.innerHTML = `<option value="">${esc(first)}</option>` + values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join("");
+    if(current && values.includes(current)) el.value = current;
+  });
+}
+
+function getCustomerStatusesFiltered(){
+  const base = customerStatusesBaseList();
+  refillCustomerStatusesFilters(base);
+
+  const q = String($("#customerStatusesSearch")?.value || "").trim().toLowerCase();
+  const fplace = String($("#customerStatusesFilterPlace")?.value || "").trim();
+  const fsource = String($("#customerStatusesFilterSource")?.value || "").trim();
+  const fcar = String($("#customerStatusesFilterCar")?.value || "").trim();
+  const fpay = String($("#customerStatusesFilterPay")?.value || "").trim();
+  const fstatus = String($("#customerStatusesFilterStatus")?.value || "").trim();
+
+  return base.filter(({id,data})=>{
+    const name = String(data?.name || "").trim();
+    const phone = normalizePhone(data?.phone || data?.phoneNormalized || "");
+    const place = String(data?.place || data?.location || data?.city || "").trim();
+    const source = String(getNormalizedSourceForLead(data,id) || "").trim();
+    const car = String(getLeadCarName(data) || "").trim();
+    const pay = String(getLeadPayType(data) || "").trim();
+    const status = String(getEffectiveLeadStatusName(data) || "").trim();
+
+    if(fplace && place !== fplace) return false;
+    if(fsource && source !== fsource) return false;
+    if(fcar && car !== fcar) return false;
+    if(fpay && pay !== fpay) return false;
+    if(fstatus && status !== fstatus) return false;
+
+    if(q){
+      const hay = [name, phone, place, source, car, pay, status].join(" ").toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderCustomerStatusesTab(){
+  const tb = $("#customerStatusesTbody");
+  if(!tb) return;
+  if(!currentUser){
+    tb.innerHTML = `<tr><td colspan="8" class="statusEmpty">سجّل الدخول لعرض حالات العملاء.</td></tr>`;
+    return;
+  }
+
+  const base = customerStatusesBaseList();
+  const filtered = getCustomerStatusesFiltered();
+  const editable = filtered.filter(x=> canEditLeadStatus(x.data)).length;
+
+  $("#customerStatusesTotal") && ($("#customerStatusesTotal").textContent = String(base.length));
+  $("#customerStatusesFiltered") && ($("#customerStatusesFiltered").textContent = String(filtered.length));
+  $("#customerStatusesEditable") && ($("#customerStatusesEditable").textContent = String(editable));
+  $("#customerStatusesCount") && ($("#customerStatusesCount").textContent = String(filtered.length));
+
+  if(!filtered.length){
+    tb.innerHTML = `<tr><td colspan="8" class="statusEmpty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+    return;
+  }
+
+  tb.innerHTML = filtered.map(({id,data})=>{
+    const name = String(data?.name || "—").trim() || "—";
+    const phone = normalizePhone(data?.phone || data?.phoneNormalized || "");
+    const place = String(data?.place || data?.location || data?.city || "").trim() || "—";
+    const source = String(getNormalizedSourceForLead(data,id) || "—").trim() || "—";
+    const car = String(getLeadCarName(data) || "—").trim() || "—";
+    const pay = String(getLeadPayType(data) || "—").trim() || "—";
+    const statusName = String(getEffectiveLeadStatusName(data) || "—").trim() || "—";
+    const canEdit = canEditLeadStatus(data);
+    const avatar = (name[0] || "؟").toUpperCase();
+    const currentStatusId = String(data?.leadStatusId || "").trim();
+
+    return `
+      <tr data-status-lead="${esc(id)}">
+        <td>
+          <div class="statusNameCell">
+            <div class="avatar">${esc(avatar)}</div>
+            <div class="statusNameInfo">
+              <b>${esc(name)}</b>
+              <span>${esc(fsToHuman(data?.updatedAt || data?.timestamp || data?.createdAt))}</span>
+            </div>
+          </div>
+        </td>
+        <td>${phone ? ("+" + esc(phone)) : "—"}</td>
+        <td>${esc(place)}</td>
+        <td>${esc(source)}</td>
+        <td title="${esc(car)}">${esc(car)}</td>
+        <td>${esc(pay)}</td>
+        <td><span class="tag">${esc(statusName)}</span></td>
+        <td>
+          <div class="statusInlineAction">
+            <select data-status-select="${esc(id)}" ${canEdit ? "" : "disabled"}>
+              ${leadStatusOptionsHtml(currentStatusId)}
+            </select>
+            <button class="mzj-miniBtn primary" type="button" data-status-save="${esc(id)}" ${canEdit ? "" : "disabled"}>حفظ</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function bindCustomerStatusesUI(){
+  if(window.__customerStatusesBound) return;
+  window.__customerStatusesBound = true;
+
+  [
+    "customerStatusesSearch",
+    "customerStatusesFilterPlace",
+    "customerStatusesFilterSource",
+    "customerStatusesFilterCar",
+    "customerStatusesFilterPay",
+    "customerStatusesFilterStatus"
+  ].forEach(id=>{
+    $("#" + id)?.addEventListener("input", ()=> renderCustomerStatusesTab());
+    $("#" + id)?.addEventListener("change", ()=> renderCustomerStatusesTab());
+  });
+
+  $("#customerStatusesRefresh")?.addEventListener("click", ()=> renderCustomerStatusesTab());
+
+  document.addEventListener("click", async (e)=>{
+    const btn = e.target.closest("[data-status-save]");
+    if(!btn) return;
+    const leadId = String(btn.getAttribute("data-status-save") || "").trim();
+    if(!leadId) return;
+    const found = (Array.isArray(leadsCache) ? leadsCache : []).find(x=> x.id === leadId);
+    if(!found){ toast("العميل غير موجود", "warn"); return; }
+    if(!canEditLeadStatus(found.data)){ toast("ليس لديك صلاحية تعديل الحالة", "warn"); return; }
+
+    const sel = document.querySelector(`[data-status-select="${CSS.escape(leadId)}"]`);
+    const statusId = String(sel?.value || getDefaultLeadStatus().id).trim() || getDefaultLeadStatus().id;
+    const statusName = String((leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name)).trim();
+
+    try{
+      await updateDoc(doc(db, "leads", leadId), {
+        leadStatusId: statusId,
+        leadStatusName: statusName,
+        updatedAt: new Date().toISOString()
+      });
+      toast("تم تحديث الحالة", "ok");
+      renderCustomerStatusesTab();
+      try{ applyLeadFilters(); }catch(e){}
+      try{ applyDatabaseFilters(); }catch(e){}
+      try{ renderDashboard(); }catch(e){}
+    }catch(err){
+      console.warn(err);
+      toast("تعذر تحديث الحالة", "warn");
+    }
+  });
+}
+
 
 // ===== Database (Tab قاعدة البيانات) =====
 function getLeadCampaignName(lead){
@@ -6869,6 +7043,7 @@ function bindTasksUI(){
     unsubLeads = onSnapshot(qRef, (snap)=>{
       leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
       applyLeadFilters();
+      try{ renderCustomerStatusesTab(); }catch(e){}
       try{ applyDatabaseFilters(); }catch(e){}
       try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
       try{ renderPipeline(); }catch(e){}
@@ -6879,6 +7054,7 @@ function bindTasksUI(){
         const snap = await getDocs(query(collection(db,"leads"), limit(300)));
         leadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
         applyLeadFilters();
+        try{ renderCustomerStatusesTab(); }catch(e){}
       try{ applyDatabaseFilters(); }catch(e){}
         try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
         try{ renderPipeline(); }catch(e){}
@@ -7278,6 +7454,7 @@ function bindTasksUI(){
 
       // re-render table labels (status column) if leads already loaded
       applyLeadFilters();
+      try{ renderCustomerStatusesTab(); }catch(e){}
       try{ applyDatabaseFilters(); }catch(e){}
       // refresh kanban
       try{ renderPipeline(); }catch(e){}
@@ -7442,6 +7619,7 @@ function bindTasksUI(){
   bindSettingsRealtime();
   bindLeadStatusesRealtime();
   bindLeadStatusesAdminUI();
+  bindCustomerStatusesUI();
   bindPipelineUI();
   bindTasksUI();
 
