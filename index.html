@@ -3102,6 +3102,95 @@ let __selectedWaTemplateKey = null;
     return roleId === "admin" || roleId === "branch_manager" || roleId === "marketing_admin";
   }
 
+  function usesOwnInboxScope(){
+    if(!currentUser) return false;
+    if(isManagementRole()) return false;
+    const branchId = getCurrentBranchId();
+    return branchMatchesKey(branchId, "cash")
+      || branchMatchesKey(branchId, "finance")
+      || branchMatchesKey(branchId, "cs")
+      || branchMatchesKey(branchId, "callcenter");
+  }
+
+  function getCurrentBranchDisplayName(){
+    const branchId = getCurrentBranchId();
+    if(!branchId) return "";
+    const exact = branchesMap.get(branchId);
+    if(exact?.name) return String(exact.name).trim();
+    for(const item of branchesMap.values()){
+      if(branchMatchesKey(branchId, item?.id) || branchMatchesKey(branchId, item?.name)){
+        return String(item?.name || branchId).trim();
+      }
+    }
+    if(branchMatchesKey(branchId, "finance")) return "مبيعات التمويل";
+    if(branchMatchesKey(branchId, "cash")) return "مبيعات الكاش";
+    if(branchMatchesKey(branchId, "cs")) return "خدمة العملاء";
+    if(branchMatchesKey(branchId, "callcenter")) return "كول سنتر";
+    return String(branchId).trim();
+  }
+
+  function findLeadEntryForConversation(conv){
+    try{
+      const c = conv || {};
+      const leadId = String(c.leadId || "").trim();
+      if(leadId){
+        const byId = (Array.isArray(leadsCache) ? leadsCache : []).find(x => x.id === leadId);
+        if(byId) return byId;
+      }
+      const phone = normalizePhone(c.waId || c.phoneNormalized || c.phone || "").replace(/^\+/,"");
+      if(phone){
+        const byPhone = (Array.isArray(leadsCache) ? leadsCache : []).find(x => {
+          const d = x?.data || {};
+          const pn = normalizePhone(d.phoneNormalized || d.phone || d.waId || "").replace(/^\+/,"");
+          return pn && pn === phone;
+        });
+        if(byPhone) return byPhone;
+      }
+      const pid = String(c.participantId || c.participant_id || c.senderId || "").trim();
+      if(pid){
+        const byPid = (Array.isArray(leadsCache) ? leadsCache : []).find(x => String(x?.data?.participantId || "").trim() === pid);
+        if(byPid) return byPid;
+      }
+    }catch(e){}
+    return null;
+  }
+
+  function getConversationAssignedUid(conv){
+    const direct = String(conv?.assignedTo || "").trim();
+    if(direct) return direct;
+    const leadEntry = findLeadEntryForConversation(conv);
+    return String(leadEntry?.data?.assignedTo || leadEntry?.data?.assigneeTo || "").trim();
+  }
+
+  function getConversationBranchValue(conv){
+    const direct = String(conv?.branchId || "").trim();
+    if(direct) return direct;
+    const assignedUid = getConversationAssignedUid(conv);
+    if(assignedUid){
+      const agentBranch = String(agentsUidMap.get(assignedUid)?.branchId || "").trim();
+      if(agentBranch) return agentBranch;
+    }
+    const leadEntry = findLeadEntryForConversation(conv);
+    return String(leadEntry?.data?.branchId || "").trim();
+  }
+
+  function configureInboxScopeUI(){
+    const branchSel = $("#fBranch");
+    if(!branchSel) return;
+    const firstOpt = branchSel.querySelector('option[value=""]');
+    if(usesOwnInboxScope()){
+      const label = getCurrentBranchDisplayName() || "قسمي";
+      branchSel.value = "";
+      branchSel.disabled = true;
+      if(firstOpt) firstOpt.textContent = label;
+      branchSel.title = label;
+    }else{
+      branchSel.disabled = false;
+      if(firstOpt) firstOpt.textContent = "كل الأقسام";
+      branchSel.title = "";
+    }
+  }
+
   function canAccessTab(tabId){
     if(!currentUser) return false;
     if(isManagementRole()) return true;
@@ -3139,6 +3228,8 @@ let __selectedWaTemplateKey = null;
         navEl.style.display = canAccessTab(tabId) ? "" : "none";
       }
     });
+
+    try{ configureInboxScopeUI(); }catch(e){}
 
     const activeNav = document.querySelector('.navItem.active[data-tab]');
     const activeTab = activeNav?.dataset?.tab || "inbox";
@@ -3266,6 +3357,7 @@ let __selectedWaTemplateKey = null;
       const branchItems = Array.from(branchesMap.values()).filter(b=>b.isActive).map(b=>({value:b.id,label:b.name}));
       fillSelect($("#fBranch"), branchItems);
       fillSelect($("#leadsFilterBranch"), branchItems);
+      try{ configureInboxScopeUI(); }catch(e){}
       refreshSettingsTables();
     });
 
@@ -3836,8 +3928,16 @@ function applyInboxFilters(){
     const baseList = dedupeInboxConversations(inboxCache);
 
     const filtered = baseList.filter(({id,data})=>{
-      // ✅ Show conversations for everyone (no assignedTo filter)
-const c = data || {};
+      const c = data || {};
+      const convAssignedUid = getConversationAssignedUid(c);
+      const convBranchValue = getConversationBranchValue(c);
+
+      // غير الإدارة: يشوف فقط العملاء المربوطين عليه داخل الليدز/المحادثات
+      if(usesOwnInboxScope()){
+        const myUid = String(currentUser?.uid || "").trim();
+        if(!myUid || convAssignedUid !== myUid) return false;
+      }
+
       // archive filter
       const isArch = !!c.archived;
       if(inboxShowArchived ? !isArch : isArch) return false;
@@ -3850,8 +3950,8 @@ const c = data || {};
         if(fChannel === "ig" && ch !== "instagram" && ch !== "ig") return false;
         if(fChannel === "fb" && ch !== "facebook" && ch !== "fb" && ch !== "facebook_messenger") return false;
       }
-      // branch filter (optional field)
-      if(fBranch && (c.branchId || "") !== fBranch) return false;
+      // branch filter
+      if(fBranch && !branchMatchesKey(convBranchValue, fBranch)) return false;
 
       if(qText){
         const name = String(c.displayName || c.name || "").toLowerCase();
@@ -3876,10 +3976,20 @@ const c = data || {};
       listEl.innerHTML = filtered.map(x=>renderConvItem(x.id, x.data)).join("");
     }
 
-    // nav unread + bell
-    const totalUnread = inboxCache.reduce((sum,x)=> sum + Number(x.data?.unreadCount||0), 0);
+    // nav unread + bell (حسب المحادثات الظاهرة للمستخدم)
+    const totalUnread = filtered.reduce((sum,x)=> sum + Number(x.data?.unreadCount||0), 0);
     $("#navUnread") && ($("#navUnread").textContent = String(totalUnread || 0));
     $("#bellCount") && ($("#bellCount").textContent = String(totalUnread || 0));
+
+    // لو المحادثة المفتوحة ليست ضمن صلاحية المستخدم الحالية، افتح أول محادثة متاحة أو فرّغ الشات
+    if(activeConvId && !filtered.some(x => x.id === activeConvId)){
+      activeConvId = filtered[0]?.id || null;
+      if(activeConvId) openConversation(activeConvId);
+      else{
+        setChatHeader(null);
+        renderMessages([]);
+      }
+    }
   }
 
   function setChatHeader(conv){
@@ -4001,12 +4111,21 @@ try{
   }
 
   async function openConversation(convId){
+    const convObj = inboxCache.find(x=>x.id===convId)?.data || null;
+    if(usesOwnInboxScope()){
+      const ownerUid = getConversationAssignedUid(convObj || {});
+      const myUid = String(currentUser?.uid || "").trim();
+      if(!ownerUid || ownerUid !== myUid){
+        toast("هذه المحادثة ليست ضمن العملاء المخصصين لك", "warn");
+        return;
+      }
+    }
+
     activeConvId = convId;
 
     // highlight list immediately
     applyInboxFilters();
 
-    const convObj = inboxCache.find(x=>x.id===convId)?.data || null;
     setChatHeader(convObj);
 
     // mark read if needed
@@ -4636,9 +4755,14 @@ async function loadInboxFirstPage(){
         runWhatsAppAutomationOnInbox().catch(e=>console.warn("wa automation failed", e));
       }
 
-      // auto-open first conversation if none selected
-      if(!activeConvId && inboxCache.length){
-        openConversation(inboxCache[0].id);
+      // auto-open first visible conversation if none selected
+      const visibleFirst = dedupeInboxConversations(inboxCache).find(x => {
+        const c = x?.data || {};
+        if(usesOwnInboxScope()) return getConversationAssignedUid(c) === String(currentUser?.uid || "").trim();
+        return true;
+      });
+      if(!activeConvId && visibleFirst?.id){
+        openConversation(visibleFirst.id);
       }
     }, (err)=>{
       console.warn("inbox snapshot error", err);
@@ -7743,7 +7867,9 @@ function bindTasksUI(){
       // stop inbox listeners
       try{ stopLiveNotifications(); }catch(e){}
       try{ if(unsubInbox){unsubInbox();} }catch{} unsubInbox=null;
+      try{ if(unsubInboxLive){unsubInboxLive();} }catch{} unsubInboxLive=null;
       try{ if(unsubMsgs){unsubMsgs();} }catch{} unsubMsgs=null;
+      window.__inboxBooted = false;
       activeConvId=null;
       inboxCache=[];
       applyInboxFilters?.();
@@ -7756,6 +7882,7 @@ function bindTasksUI(){
     try{ closeAuthModal(); }catch{}
     setAuthHeader(currentProfile);
     applyRoleGuards();
+    try{ configureInboxScopeUI(); }catch(e){}
     renderLeadStatusesAdminTable();
     setBadgeConnected(true);
     try{ startLiveNotifications(); }catch(e){}
