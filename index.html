@@ -5,6 +5,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -8840,6 +8841,84 @@ $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
       </div>
     </div>
   </div>
+
+
+<style>
+table th{
+  position:relative;
+}
+
+.table-resize-handle{
+  position:absolute;
+  top:0;
+  left:0;
+  width:6px;
+  height:100%;
+  cursor:col-resize;
+}
+
+td,th{
+  max-width:200px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+</style>
+
+<script>
+(function(){
+
+const tables=document.querySelectorAll("table");
+
+tables.forEach((table,tIndex)=>{
+
+  const ths=table.querySelectorAll("th");
+
+  ths.forEach((th,i)=>{
+
+    const handle=document.createElement("div");
+    handle.className="table-resize-handle";
+    th.appendChild(handle);
+
+    let startX,startWidth;
+
+    handle.addEventListener("mousedown",e=>{
+      startX=e.pageX;
+      startWidth=th.offsetWidth;
+
+      document.addEventListener("mousemove",resize);
+      document.addEventListener("mouseup",stop);
+    });
+
+    function resize(e){
+      const w=startWidth+(startX-e.pageX);
+      th.style.width=w+"px";
+
+      localStorage.setItem(
+        "table_"+tIndex+"_col_"+i,
+        w
+      );
+    }
+
+    function stop(){
+      document.removeEventListener("mousemove",resize);
+      document.removeEventListener("mouseup",stop);
+    }
+
+    const saved=localStorage.getItem(
+      "table_"+tIndex+"_col_"+i
+    );
+
+    if(saved){
+      th.style.width=saved+"px";
+    }
+
+  });
+
+});
+
+})();
+</script>
 
 </body>
 </html>
