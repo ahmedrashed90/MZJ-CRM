@@ -3322,20 +3322,15 @@ let __selectedWaTemplateKey = null;
   function updateLeadFiltersVisibility(){
     const viewMode = String(window.__leadsViewMode || "customers").trim();
     const branchEl = $("#leadsFilterBranch");
-    const agentEl = $("#leadsFilterAgent");
     const stageEl = $("#leadsFilterStage");
-    const isSalesQueueView = (viewMode === "leads_cash" || viewMode === "leads_finance" || viewMode === "leads_cs");
 
-    const showBranch = !isSalesQueueView;
-    const showAgent = !(isSalesQueueView && !canViewAllLeads());
-    const showStage = !(viewMode === "customers" || isSalesQueueView);
+    const showBranch = !(viewMode === "leads_cash" || viewMode === "leads_finance" || viewMode === "leads_cs");
+    const showStage = !(viewMode === "customers" || viewMode === "leads_cash" || viewMode === "leads_finance" || viewMode === "leads_cs");
 
     if(branchEl && !showBranch) branchEl.value = "";
-    if(agentEl && !showAgent) agentEl.value = "";
     if(stageEl && !showStage) stageEl.value = "";
 
     if(branchEl) branchEl.style.display = showBranch ? "" : "none";
-    if(agentEl) agentEl.style.display = showAgent ? "" : "none";
     if(stageEl) stageEl.style.display = showStage ? "" : "none";
   }
 
@@ -7213,11 +7208,11 @@ function applyLeadFilters(){
     const filtered = base.filter(({id,data})=>{
       // Views (Tabs) تحت "العملاء"
       if(viewMode === "leads_cash"){
-        if(!isLeadInQueue(data, "cash", id)) return false;
+        if(!isLeadInQueue(data, "cash", id) && getLeadPayType(data) !== "كاش") return false;
       }else if(viewMode === "leads_finance"){
-        if(!isLeadInQueue(data, "finance", id)) return false;
+        if(!isLeadInQueue(data, "finance", id) && getLeadPayType(data) !== "تمويل") return false;
       }else if(viewMode === "leads_cs"){
-        if(!isLeadInQueue(data, "cs", id)) return false;
+        if(!isLeadInQueue(data, "cs", id) && getLeadPayType(data) !== "خدمة عملاء") return false;
       }
 
       if(fa && getAssignedUidFromLead(data, viewMode) !== fa) return false;
@@ -7399,15 +7394,7 @@ function getCustomerStatusesFiltered(){
   });
 }
 
-function updateCustomerStatusesFiltersVisibility(){
-  const payEl = $("#customerStatusesFilterPay");
-  const showPay = canViewAllLeads();
-  if(payEl && !showPay) payEl.value = "";
-  if(payEl) payEl.style.display = showPay ? "" : "none";
-}
-
 function renderCustomerStatusesTab(){
-  try{ updateCustomerStatusesFiltersVisibility(); }catch(e){}
   const tb = $("#customerStatusesTbody");
   if(!tb) return;
   if(!currentUser){
