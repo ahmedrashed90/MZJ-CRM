@@ -8,6 +8,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -5456,6 +5457,8 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           leadId = await ensureLeadIdForConversationId(activeConvId).catch(()=> "");
         }
         if(leadId){
+          const convServiceKey = String(conv.autoService || conv.serviceKey || "").trim().toLowerCase();
+          const convPayType = getPayTypeLabelByServiceKey(convServiceKey);
           await setDoc(doc(db,"leads", leadId), {
             name: payload.name || "",
             phone: payload.phone,
@@ -5476,6 +5479,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
             notes: payload.notes,
             autoService: String(conv.autoService || conv.serviceKey || ""),
             serviceKey: String(conv.serviceKey || conv.autoService || ""),
+            ...(convPayType ? { paymentType: convPayType, payType: convPayType } : {}),
             salesAssignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
             salesAssignedName: String(conv.salesAssignedName || conv.assignedName || ""),
             assignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
@@ -7290,7 +7294,30 @@ function getCustomerStatusesViewMode(){
 function customerStatusesBaseList(){
   const arr = Array.isArray(leadsCache) ? leadsCache : [];
   const mode = getCustomerStatusesViewMode();
-  return arr.filter(entry=> canCurrentUserSeeLeadEntry(entry, mode));
+  if(canViewAllLeads()) return arr;
+
+  const uid = String(currentUser?.uid || "").trim();
+  if(!uid) return [];
+
+  return arr.filter(({id,data})=>{
+    const d = data || {};
+    if(mode === "customers"){
+      return getCallCenterAssignedUidFromLead(d) === uid;
+    }
+    if(mode === "leads_finance"){
+      if(!isLeadInQueue(d, "finance", id) && getLeadPayType(d) !== "تمويل") return false;
+      return getSalesAssignedUidFromLead(d) === uid;
+    }
+    if(mode === "leads_cash"){
+      if(!isLeadInQueue(d, "cash", id) && getLeadPayType(d) !== "كاش") return false;
+      return getSalesAssignedUidFromLead(d) === uid;
+    }
+    if(mode === "leads_cs"){
+      if(!isLeadInQueue(d, "cs", id) && getLeadPayType(d) !== "خدمة عملاء") return false;
+      return getSalesAssignedUidFromLead(d) === uid;
+    }
+    return canCurrentUserSeeLeadEntry({id, data:d}, mode);
+  });
 }
 
 function uniqueSortedValues(list, picker){
