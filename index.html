@@ -12,6 +12,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -7895,7 +7896,19 @@ function getTasksViewMode(){
 
 function getTasksBase(){
   const mode = getTasksViewMode();
-  return (Array.isArray(leadsCache) ? leadsCache : []).filter(entry=> canCurrentUserSeeLeadEntry(entry, mode));
+  const arr = Array.isArray(leadsCache) ? leadsCache : [];
+  if(canViewAllLeads()) return arr;
+
+  const myUid = String(currentUser?.uid || "").trim();
+  if(!myUid) return [];
+
+  return arr.filter(entry=>{
+    const data = entry?.data || {};
+    const salesUid = String(data.salesAssignedTo || data.assignedTo || data.assigneeTo || "").trim();
+    const callUid = String(data.callCenterAssignedTo || data.callcenterAssignedTo || data.customerAssignedTo || "").trim();
+    if(salesUid === myUid || callUid === myUid) return true;
+    return canCurrentUserSeeLeadEntry(entry, mode);
+  });
 }
 
 function pickDefaultTasksFilter(){
@@ -7907,8 +7920,14 @@ function pickDefaultTasksFilter(){
 }
 
 function ensureTasksAutoFilter(){
-  if(tasksFilterKey && tasksBuckets[tasksFilterKey]) return;
+  if(tasksFilterKey && tasksBuckets[tasksFilterKey] && tasksBuckets[tasksFilterKey].length) return;
   tasksFilterKey = pickDefaultTasksFilter();
+}
+
+function getFollowUpLocalYMD(value){
+  const ms = fsToMs(value);
+  if(!ms) return "";
+  return localYMD(new Date(ms));
 }
 
 function computeTasksBuckets(){
@@ -7921,9 +7940,12 @@ function computeTasksBuckets(){
 
   const withFollow = base.filter(x=> String(x.data?.followUpDate||"").trim());
 
-  tasksBuckets.today = withFollow.filter(x=> String(x.data.followUpDate).slice(0,10) === today && !isDone(x.data));
-  tasksBuckets.late  = withFollow.filter(x=> String(x.data.followUpDate).slice(0,10) <  today && !isDone(x.data));
-  tasksBuckets.soon  = withFollow.filter(x=> String(x.data.followUpDate).slice(0,10) === tomorrow && !isDone(x.data));
+  tasksBuckets.today = withFollow.filter(x=> getFollowUpLocalYMD(x.data.followUpDate) === today && !isDone(x.data));
+  tasksBuckets.late  = withFollow.filter(x=> {
+    const ymd = getFollowUpLocalYMD(x.data.followUpDate);
+    return ymd && ymd < today && !isDone(x.data);
+  });
+  tasksBuckets.soon  = withFollow.filter(x=> getFollowUpLocalYMD(x.data.followUpDate) === tomorrow && !isDone(x.data));
 
   // "تم انجازة" = بحالة
   tasksBuckets.done  = base.filter(x=> isDone(x.data));
@@ -7970,7 +7992,10 @@ function renderTasksList(){
     const lead = x.data || {};
     const d = getLeadDisplay(lead);
     const follow = fsToHuman(lead.followUpDate || "") || "—";
-    const assigned = d.assignedName || "—";
+    const myBranch = getCurrentBranchId();
+    const assigned = branchMatchesKey(myBranch, "callcenter")
+      ? String(lead.callCenterAssignedName || agentsUidMap.get(String(lead.callCenterAssignedTo || lead.callcenterAssignedTo || "").trim())?.name || d.assignedName || "—")
+      : String(lead.salesAssignedName || agentsUidMap.get(String(lead.salesAssignedTo || lead.assignedTo || "").trim())?.name || d.assignedName || "—");
     return `
       <tr>
         <td>${esc(d.name||"—")}</td>
