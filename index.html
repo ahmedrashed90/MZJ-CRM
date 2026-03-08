@@ -3412,11 +3412,6 @@ let __selectedWaTemplateKey = null;
       try{ ensureLeadsLive(); }catch(e){}
       try{ renderCustomerStatusesTab(); }catch(e){}
     }
-
-    if(panelKey === "tasks"){
-      try{ ensureLeadsLive(); }catch(e){}
-      try{ renderTasksList(); }catch(e){}
-    }
   }
 
 
@@ -6270,67 +6265,92 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
     return !!d.externalImport && (["snapchat","googleads"].includes(String(d.externalSourceKind || "").trim().toLowerCase()));
   }
 
-  function getCurrentUserMatchTokens(){
-    const tokens = new Set();
-    const push = (val)=>{
-      const raw = String(val || "").trim();
-      if(!raw) return;
-      tokens.add(raw);
-      tokens.add(raw.toLowerCase());
-    };
-    push(currentUser?.uid || "");
-    push(currentUser?.email || "");
-    push(currentProfile?.uid || "");
-    push(currentProfile?.email || "");
-    push(currentProfile?.name || "");
-    push(currentProfile?.displayName || "");
-    const agent = agentsUidMap.get(String(currentUser?.uid || "").trim()) || null;
-    if(agent){
-      push(agent.uid || agent.id || "");
-      push(agent.email || "");
-      push(agent.name || "");
-    }
-    return tokens;
+  function normalizeAgentIdentityValue(v){
+    return String(v || "").trim().toLowerCase();
   }
 
-  function leadMatchesCurrentUser(data, viewMode=""){
-    const d = data || {};
-    const tokens = getCurrentUserMatchTokens();
-    if(!tokens.size) return false;
+  function getCurrentAgentIdentitySet(){
+    const out = new Set();
+    const add = (v)=>{
+      const s = normalizeAgentIdentityValue(v);
+      if(s) out.add(s);
+    };
 
-    const assignedUid = String(getAssignedUidFromLead(d, viewMode) || "").trim();
-    if(assignedUid && (tokens.has(assignedUid) || tokens.has(assignedUid.toLowerCase()))) return true;
+    add(currentUser?.uid);
+    add(currentUser?.email);
+    add(currentProfile?.uid);
+    add(currentProfile?.email);
+    add(currentProfile?.name);
 
-    const fields = [
-      d.assignedTo,
-      d.salesAssignedTo,
-      d.callCenterAssignedTo,
-      d.callcenterAssignedTo,
-      d.customerAssignedTo,
-      d.assignedName,
-      d.salesAssignedName,
-      d.callCenterAssignedName,
-      d.callcenterAssignedName,
-      d.customerAssignedName,
-      d.assignedEmail,
-      d.salesAssignedEmail,
-      d.callCenterAssignedEmail,
-      d.callcenterAssignedEmail
-    ];
+    const uid = String(currentUser?.uid || "").trim();
+    const email = String(currentUser?.email || currentProfile?.email || "").trim().toLowerCase();
+    const name = String(currentProfile?.name || "").trim().toLowerCase();
 
-    for(const field of fields){
-      const raw = String(field || "").trim();
-      if(!raw) continue;
-      if(tokens.has(raw) || tokens.has(raw.toLowerCase())) return true;
+    for (const [docId, agent] of agentsMap.entries()) {
+      const a = agent || {};
+      const agentUid = String(a.uid || "").trim();
+      const agentEmail = String(a.email || "").trim().toLowerCase();
+      const agentName = String(a.name || "").trim().toLowerCase();
+      if((uid && (docId === uid || agentUid === uid)) || (email && agentEmail === email) || (name && agentName === name)){
+        add(docId);
+        add(agentUid);
+        add(agentEmail);
+        add(agentName);
+      }
     }
 
+    return out;
+  }
+
+  function getLeadAssignmentIdentitySet(data){
+    const d = data || {};
+    const out = new Set();
+    const add = (v)=>{
+      const s = normalizeAgentIdentityValue(v);
+      if(s) out.add(s);
+    };
+    const addAgentByKey = (key)=>{
+      const k = String(key || "").trim();
+      if(!k) return;
+      add(k);
+      const byUid = agentsUidMap.get(k);
+      const byDoc = agentsMap.get(k);
+      const a = byUid || byDoc || null;
+      if(a){
+        add(a.uid);
+        add(a.email);
+        add(a.name);
+      }
+    };
+
+    [d.assignedTo, d.salesAssignedTo, d.callCenterAssignedTo, d.callcenterAssignedTo, d.customerAssignedTo, d.assigneeTo].forEach(addAgentByKey);
+    [d.assignedName, d.salesAssignedName, d.callCenterAssignedName, d.callcenterAssignedName, d.customerAssignedName].forEach(add);
+    return out;
+  }
+
+  function currentUserMatchesLeadAssignment(data, viewMode=""){
+    if(canViewAllLeads()) return true;
+    const mine = getCurrentAgentIdentitySet();
+    if(!mine.size) return false;
+
+    const d = data || {};
+    const mode = String(viewMode || "").trim();
+    const leadIds = getLeadAssignmentIdentitySet(d);
+    const directAssigned = getAssignedUidFromLead(d, mode);
+    if(directAssigned){
+      leadIds.add(normalizeAgentIdentityValue(directAssigned));
+    }
+
+    for(const v of mine){
+      if(leadIds.has(v)) return true;
+    }
     return false;
   }
 
   function canCurrentUserSeeLeadEntry(entry, viewMode=""){
     if(canViewAllLeads()) return true;
     const data = entry?.data || {};
-    if(leadMatchesCurrentUser(data, viewMode)) return true;
+    if(currentUserMatchesLeadAssignment(data, viewMode)) return true;
     if(String(viewMode || "") === "leads_finance" && isExternalFinanceLead(data) && userCanSeeTab("leads_finance")) return true;
     return false;
   }
@@ -7951,8 +7971,6 @@ function renderTasksList(){
 
   computeTasksBuckets();
 
-  const preferredKey = tasksFilterKey || ["today","late","soon","done"].find(k=> (tasksBuckets[k]||[]).length) || "";
-  if(preferredKey !== tasksFilterKey) tasksFilterKey = preferredKey;
   const key = tasksFilterKey || "";
   const labelMap = {
     today: "متابعة اليوم",
@@ -8587,8 +8605,8 @@ function bindTasksUI(){
 
   async function loadProfileForUser(user){
     if(!user) return null;
-    const uid = String(user.uid || "").trim();
-    const email = String(user.email || "").trim();
+    const uid = user.uid;
+    const email = String(user.email || "").trim().toLowerCase();
 
     let prof = null;
     try{
@@ -8596,18 +8614,24 @@ function bindTasksUI(){
       if(aSnap.exists()) prof = aSnap.data();
     }catch(e){ console.warn("settings_agents read", e); }
 
-    if(!prof && email){
+    if(!prof){
       try{
-        const byUid = await getDocs(query(collection(db,"settings_agents"), where("uid","==", uid), limit(1)));
-        if(!byUid.empty) prof = byUid.docs[0].data();
-      }catch(e){ console.warn("settings_agents uid query", e); }
+        const exactAgent = agentsUidMap.get(uid);
+        if(exactAgent) prof = exactAgent;
+      }catch(e){}
     }
 
     if(!prof && email){
       try{
-        const byEmail = await getDocs(query(collection(db,"settings_agents"), where("email","==", email), limit(1)));
-        if(!byEmail.empty) prof = byEmail.docs[0].data();
-      }catch(e){ console.warn("settings_agents email query", e); }
+        for(const [docId, agent] of agentsMap.entries()){
+          const a = agent || {};
+          const aEmail = String(a.email || "").trim().toLowerCase();
+          if(aEmail && aEmail === email){
+            prof = { ...(a||{}), id: docId };
+            break;
+          }
+        }
+      }catch(e){}
     }
 
     if(!prof){
@@ -8617,18 +8641,11 @@ function bindTasksUI(){
       }catch(e){ console.warn("users read", e); }
     }
 
-    if(!prof && email){
-      try{
-        const byUserEmail = await getDocs(query(collection(db,"users"), where("email","==", email), limit(1)));
-        if(!byUserEmail.empty) prof = byUserEmail.docs[0].data();
-      }catch(e){ console.warn("users email query", e); }
-    }
-
     prof = prof || {};
     return {
       uid,
-      email: email || prof.email || "",
-      name: prof.name || user.displayName || (email ? email.split("@")[0] : "مستخدم"),
+      email: user.email || prof.email || "",
+      name: prof.name || user.displayName || (user.email ? user.email.split("@")[0] : "مستخدم"),
       roleId: prof.roleId || "sales",
       branchId: prof.branchId || "",
       isActive: prof.isActive !== false
