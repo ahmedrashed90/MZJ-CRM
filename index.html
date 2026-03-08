@@ -13,6 +13,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6274,8 +6275,22 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
   function canCurrentUserSeeLeadEntry(entry, viewMode=""){
     if(canViewAllLeads()) return true;
     const data = entry?.data || {};
-    const uid = String(currentUser?.uid || "");
-    if(uid && getAssignedUidFromLead(data, viewMode) === uid) return true;
+    const assignedUid = getAssignedUidFromLead(data, viewMode);
+    if(matchesCurrentUserIdentity(assignedUid)) return true;
+
+    const extraAssigned = [
+      data?.assignedTo,
+      data?.assigneeTo,
+      data?.assignedName,
+      data?.salesAssignedTo,
+      data?.salesAssignedName,
+      data?.callCenterAssignedTo,
+      data?.callcenterAssignedTo,
+      data?.callCenterAssignedName,
+      data?.customerAssignedTo
+    ];
+    if(extraAssigned.some(matchesCurrentUserIdentity)) return true;
+
     if(String(viewMode || "") === "leads_finance" && isExternalFinanceLead(data) && userCanSeeTab("leads_finance")) return true;
     return false;
   }
@@ -6299,6 +6314,64 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
     if(roleName.includes("admin") || roleName.includes("مدير") || roleName.includes("مشرف") || roleName.includes("system") || roleName.includes("owner")) return true;
     if(email.includes("admin")) return true;
     return false;
+  }
+
+  function getCurrentUserIdentitySet(){
+    const out = new Set();
+    const push = (v)=>{
+      const raw = String(v || "").trim();
+      if(!raw) return;
+      out.add(raw);
+      out.add(raw.toLowerCase());
+    };
+
+    push(currentUser?.uid);
+    push(currentUser?.email);
+    push(currentProfile?.uid);
+    push(currentProfile?.email);
+    push(currentProfile?.name);
+    push(currentUser?.displayName);
+
+    try{
+      const email = String(currentUser?.email || currentProfile?.email || "").trim();
+      if(email){
+        const local = email.split("@")[0] || "";
+        push(local);
+      }
+    }catch(e){}
+
+    try{
+      const uid = String(currentUser?.uid || "").trim();
+      const byUid = agentsUidMap.get(uid);
+      if(byUid){
+        push(byUid.id);
+        push(byUid.uid);
+        push(byUid.email);
+        push(byUid.name);
+      }
+    }catch(e){}
+
+    try{
+      for(const [docId, agent] of agentsMap.entries()){
+        const agentEmail = String(agent?.email || "").trim().toLowerCase();
+        const userEmail = String(currentUser?.email || currentProfile?.email || "").trim().toLowerCase();
+        if(userEmail && agentEmail && userEmail === agentEmail){
+          push(docId);
+          push(agent?.uid);
+          push(agent?.email);
+          push(agent?.name);
+        }
+      }
+    }catch(e){}
+
+    return out;
+  }
+
+  function matchesCurrentUserIdentity(value){
+    const raw = String(value || "").trim();
+    if(!raw) return false;
+    const ids = getCurrentUserIdentitySet();
+    return ids.has(raw) || ids.has(raw.toLowerCase());
   }
 
   // حالات العملاء (من installment_calculator وغيرها) — إدارة داخل Tab العملاء المحتملون
@@ -8564,6 +8637,37 @@ function bindTasksUI(){
   }
 
 
+  function scheduleSoftReconnect(reason=""){
+    clearTimeout(window.__softReconnectT);
+    window.__softReconnectT = setTimeout(async ()=>{
+      try{ if(currentUser){ await loadProfileForUser(currentUser).then(p=>{ if(p) currentProfile = p; }); } }catch(e){}
+      try{ applyRoleGuards(); }catch(e){}
+      try{ configureInboxScopeUI(); }catch(e){}
+      try{ ensureLeadsLive(); }catch(e){}
+      try{ if(currentUser && $("#panel-inbox")?.classList.contains("active")){ applyInboxFilters(); } }catch(e){}
+      try{ applyLeadFilters(); }catch(e){}
+      try{ renderCustomerStatusesTab(); }catch(e){}
+      try{ renderTasksList(); }catch(e){}
+      try{ applyDatabaseFilters(); }catch(e){}
+      try{ setBadgeConnected(true); }catch(e){}
+    }, 250);
+  }
+
+  function bindConnectionGuards(){
+    try{
+      window.addEventListener("online", ()=>{ scheduleSoftReconnect("online"); });
+      window.addEventListener("focus", ()=>{ scheduleSoftReconnect("focus"); });
+      document.addEventListener("visibilitychange", ()=>{
+        if(document.visibilityState === "visible") scheduleSoftReconnect("visible");
+      });
+      setInterval(()=>{
+        if(document.visibilityState !== "visible") return;
+        if(!currentUser) return;
+        scheduleSoftReconnect("heartbeat");
+      }, 90000);
+    }catch(e){ console.warn("bindConnectionGuards", e); }
+  }
+
   // ===== Auth UI =====
   function bindAuthUI(){
     $("#btnLogin")?.addEventListener("click", openAuthModal);
@@ -8611,6 +8715,20 @@ function bindTasksUI(){
 
     if(!prof){
       try{
+        const byUid = await getDocs(query(collection(db,"settings_agents"), where("uid","==", uid), limit(1)));
+        if(!byUid.empty) prof = byUid.docs[0].data() || null;
+      }catch(e){ console.warn("settings_agents query uid", e); }
+    }
+
+    if(!prof && user.email){
+      try{
+        const byEmail = await getDocs(query(collection(db,"settings_agents"), where("email","==", user.email), limit(1)));
+        if(!byEmail.empty) prof = byEmail.docs[0].data() || null;
+      }catch(e){ console.warn("settings_agents query email", e); }
+    }
+
+    if(!prof){
+      try{
         const uSnap = await getDoc(doc(db,"users", uid));
         if(uSnap.exists()) prof = uSnap.data();
       }catch(e){ console.warn("users read", e); }
@@ -8630,6 +8748,7 @@ function bindTasksUI(){
   // ===== Boot =====
   bindTabs();
   bindAuthUI();
+  bindConnectionGuards();
   bindSettingsUI();
   bindSettingsRealtime();
   bindLeadStatusesRealtime();
@@ -8683,6 +8802,7 @@ function bindTasksUI(){
     try{ ensureLeadsLive(); }catch(e){ console.warn("ensureLeadsLive on auth", e); }
     try{ renderCustomerStatusesTab(); }catch(e){}
     try{ renderTasksList(); }catch(e){}
+    try{ scheduleSoftReconnect("auth-login"); }catch(e){}
 
     // start inbox listeners if inbox tab is open
     try{ if($("#panel-inbox")?.classList.contains("active")) ensureInboxLive(); }catch{}
