@@ -12,6 +12,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3409,6 +3410,7 @@ let __selectedWaTemplateKey = null;
     }
 
     if(panelKey === "customer-statuses"){
+      try{ renderCustomerStatusesTab(); }catch(e){}
       try{ ensureLeadsLive(); }catch(e){}
       try{ renderCustomerStatusesTab(); }catch(e){}
     }
@@ -7971,25 +7973,51 @@ function bindTasksUI(){
     unsubLeads = onSnapshot(qRef, async (snap)=>{
       firestoreLeadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
       rebuildLeadsCache();
-      await refreshExternalLeadSheets();
+
+      // render immediately from Firestore so حالات العملاء تظهر مباشرة
       applyLeadFilters();
       try{ renderCustomerStatusesTab(); }catch(e){}
       try{ applyDatabaseFilters(); }catch(e){}
       try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
       try{ renderPipeline(); }catch(e){}
       setBadgeConnected(true);
+
+      // sync external sheets in background only, then refresh once more
+      try{
+        await refreshExternalLeadSheets();
+        applyLeadFilters();
+        try{ renderCustomerStatusesTab(); }catch(e){}
+        try{ applyDatabaseFilters(); }catch(e){}
+        try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
+        try{ renderPipeline(); }catch(e){}
+      }catch(e){
+        console.warn("refreshExternalLeadSheets background", e);
+      }
     }, async (err)=>{
       console.warn("leads snapshot error", err);
       try{
         const snap = await getDocs(query(collection(db,"leads"), limit(300)));
         firestoreLeadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
         rebuildLeadsCache();
-        await refreshExternalLeadSheets(true);
+
+        // fallback render immediately
         applyLeadFilters();
         try{ renderCustomerStatusesTab(); }catch(e){}
-      try{ applyDatabaseFilters(); }catch(e){}
+        try{ applyDatabaseFilters(); }catch(e){}
         try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
         try{ renderPipeline(); }catch(e){}
+
+        try{
+          await refreshExternalLeadSheets(true);
+          applyLeadFilters();
+          try{ renderCustomerStatusesTab(); }catch(e){}
+          try{ applyDatabaseFilters(); }catch(e){}
+          try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
+          try{ renderPipeline(); }catch(e){}
+        }catch(e){
+          console.warn("refreshExternalLeadSheets fallback", e);
+        }
+
         setBadgeConnected(true);
       }catch(e){
         setBadgeConnected(false);
