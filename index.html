@@ -1736,23 +1736,23 @@ body.auth-locked #authModal{ pointer-events:auto; }
       overflow:auto;
       background:#fff;
     }
-    .statusTable{ width:100%; min-width:1280px; border-collapse:separate; border-spacing:0; }
+    .statusTable{ width:100%; min-width:1100px; border-collapse:separate; border-spacing:0; }
     .statusTable thead th{
       position:sticky; top:0; z-index:1;
       background:#fff;
       color:var(--muted);
-      font-size:12.5px;
-      padding:12px;
+      font-size:12px;
+      padding:10px 8px;
       text-align:right;
       border-bottom:1px solid var(--line);
       white-space:nowrap;
     }
     .statusTable tbody td{
-      padding:12px;
+      padding:10px 8px;
       border-bottom:1px solid var(--line);
       vertical-align:middle;
       white-space:nowrap;
-      font-size:13px;
+      font-size:12.5px;
     }
     .statusNameCell{
       display:flex; align-items:center; gap:10px; min-width:0;
@@ -1761,8 +1761,14 @@ body.auth-locked #authModal{ pointer-events:auto; }
     .statusNameInfo{ min-width:0; }
     .statusNameInfo b{ display:block; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .statusNameInfo span{ display:block; margin-top:3px; font-size:11.5px; color:var(--muted); }
-    .statusInlineAction{ display:flex; align-items:center; gap:8px; }
-    .statusInlineAction select{ min-width:220px; }
+    .statusInlineAction{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .statusInlineAction select{ min-width:160px; max-width:190px; }
+    .statusInlineAction input[type="datetime-local"]{ min-width:170px; width:170px; }
+    .statusInlineAction .mzj-miniBtn{ padding:8px 10px; white-space:nowrap; flex:0 0 auto; }
+    .statusTable thead th:nth-child(8),
+    .statusTable tbody td:nth-child(8){ min-width:210px; white-space:normal; }
+    .statusTable thead th:nth-child(10),
+    .statusTable tbody td:nth-child(10){ min-width:220px; white-space:normal; }
     .statusEmpty{ padding:24px 14px; text-align:center; color:var(--muted); }
     @media (max-width: 1100px){
       .statusQuickStats{ grid-template-columns:1fr; }
@@ -2143,10 +2149,12 @@ body.auth-locked #authModal{ pointer-events:auto; }
                       <th>الدفع</th>
                       <th>الحالة الحالية</th>
                       <th>تغيير الحالة</th>
+                      <th>موعد المتابعة</th>
+                      <th>تحديد موعد</th>
                     </tr>
                   </thead>
                   <tbody id="customerStatusesTbody">
-                    <tr><td colspan="8" class="statusEmpty">جاري تحميل العملاء...</td></tr>
+                    <tr><td colspan="10" class="statusEmpty">جاري تحميل العملاء...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -2374,7 +2382,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
       </tr>
     </thead>
     <tbody id="tasksTbody">
-      <tr><td colspan="6" class="mzj-empty">اضغط على بطاقة بالأعلى لعرض الليدات.</td></tr>
+      <tr><td colspan="5" class="mzj-empty">اضغط على بطاقة بالأعلى لعرض الليدات.</td></tr>
     </tbody>
   </table>
 </div>
@@ -3403,6 +3411,11 @@ let __selectedWaTemplateKey = null;
     if(panelKey === "customer-statuses"){
       try{ ensureLeadsLive(); }catch(e){}
       try{ renderCustomerStatusesTab(); }catch(e){}
+    }
+
+    if(panelKey === "tasks"){
+      try{ ensureLeadsLive(); }catch(e){}
+      try{ renderTasksList(); }catch(e){}
     }
   }
 
@@ -6261,15 +6274,7 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
     if(canViewAllLeads()) return true;
     const data = entry?.data || {};
     const uid = String(currentUser?.uid || "");
-    if(uid){
-      if(getAssignedUidFromLead(data, viewMode) === uid) return true;
-      if(String(viewMode || "") === "tasks"){
-        const salesUid = getSalesAssignedUidFromLead(data);
-        const callUid = getCallCenterAssignedUidFromLead(data);
-        const genericUid = String(data?.assignedTo || data?.assigneeTo || "").trim();
-        if([salesUid, callUid, genericUid].includes(uid)) return true;
-      }
-    }
+    if(uid && getAssignedUidFromLead(data, viewMode) === uid) return true;
     if(String(viewMode || "") === "leads_finance" && isExternalFinanceLead(data) && userCanSeeTab("leads_finance")) return true;
     return false;
   }
@@ -6338,15 +6343,7 @@ function sortStatusesByCustomOrder(list){
     // الإدمن/مدير الفرع يقدر يعدّل
     if(canSeeAllInbox() || canSeeSettings()) return true;
     // المندوب يعدّل لو العميل عليه
-    const uid = String(currentUser.uid || "").trim();
-    return [
-      String(lead?.assignedTo || "").trim(),
-      String(lead?.salesAssignedTo || "").trim(),
-      String(lead?.assigneeTo || "").trim(),
-      String(lead?.callCenterAssignedTo || "").trim(),
-      String(lead?.callcenterAssignedTo || "").trim(),
-      String(lead?.customerAssignedTo || "").trim()
-    ].includes(uid);
+    return (lead?.assignedTo || "") === currentUser.uid;
   }
 
   function normalizePhone(val){
@@ -6373,12 +6370,30 @@ function sortStatusesByCustomOrder(list){
     return { name, phone, stage, assignedName, statusName };
   }
 
+  function isHiddenTestVehicleValue(val){
+    const s = String(val || "").trim().toLowerCase();
+    if(!s) return false;
+    return s === "test: custom question answer 1" || s.includes("custom question answer 1") || s.startsWith("test:");
+  }
+
   function getLeadCarName(lead){
-    const raw = (lead?.carName || lead?.calculator?.carName || lead?.payload?.carName || lead?.calculator?.car || lead?.payload?.car || "");
-    const val = String(raw || "").trim();
-    if(!val) return "—";
-    if(/custom\s*question\s*answer\s*1/i.test(val) || /^test\s*:/i.test(val)) return "—";
-    return val;
+    const candidates = [
+      lead?.carName,
+      lead?.calculator?.carName,
+      lead?.payload?.carName,
+      lead?.calculator?.car,
+      lead?.payload?.car,
+      lead?.car,
+      lead?.vehicle,
+      lead?.vehicleName
+    ];
+    for(const raw of candidates){
+      const v = String(raw || "").trim();
+      if(!v) continue;
+      if(isHiddenTestVehicleValue(v)) return "—";
+      return v;
+    }
+    return "—";
   }
   function getPayTypeLabelByServiceKey(serviceKey){
     const key = String(serviceKey || "").trim().toLowerCase();
@@ -7508,12 +7523,24 @@ function getCustomerStatusesFiltered(){
   });
 }
 
+function toDatetimeLocalValue(v){
+  const ms = fsToMs(v);
+  if(!ms) return "";
+  try{
+    const d = new Date(ms);
+    const pad = (n)=> String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }catch(e){
+    return "";
+  }
+}
+
 function renderCustomerStatusesTab(){
   try{ updateCustomerStatusesFiltersVisibility(); }catch(e){}
   const tb = $("#customerStatusesTbody");
   if(!tb) return;
   if(!currentUser){
-    tb.innerHTML = `<tr><td colspan="8" class="statusEmpty">سجّل الدخول لعرض حالات العملاء.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10" class="statusEmpty">سجّل الدخول لعرض حالات العملاء.</td></tr>`;
     return;
   }
 
@@ -7527,7 +7554,7 @@ function renderCustomerStatusesTab(){
   $("#customerStatusesCount") && ($("#customerStatusesCount").textContent = String(filtered.length));
 
   if(!filtered.length){
-    tb.innerHTML = `<tr><td colspan="8" class="statusEmpty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10" class="statusEmpty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
     return;
   }
 
@@ -7542,6 +7569,8 @@ function renderCustomerStatusesTab(){
     const canEdit = canEditLeadStatus(data);
     const avatar = (name[0] || "؟").toUpperCase();
     const currentStatusId = String(data?.leadStatusId || "").trim();
+    const followUpHuman = String(fsToHuman(data?.followUpDate) || "—").trim() || "—";
+    const followUpValue = toDatetimeLocalValue(data?.followUpDate);
 
     return `
       <tr data-status-lead="${esc(id)}">
@@ -7568,6 +7597,13 @@ function renderCustomerStatusesTab(){
             <button class="mzj-miniBtn primary" type="button" data-status-save="${esc(id)}" ${canEdit ? "" : "disabled"}>حفظ</button>
           </div>
         </td>
+        <td>${esc(followUpHuman)}</td>
+        <td>
+          <div class="statusInlineAction">
+            <input class="miniInput" type="datetime-local" data-follow-input="${esc(id)}" value="${esc(followUpValue)}" ${canEdit ? "" : "disabled"} />
+            <button class="mzj-miniBtn primary" type="button" data-follow-save="${esc(id)}" ${canEdit ? "" : "disabled"}>تحديد موعد</button>
+          </div>
+        </td>
       </tr>
     `;
   }).join("");
@@ -7592,6 +7628,35 @@ function bindCustomerStatusesUI(){
   $("#customerStatusesRefresh")?.addEventListener("click", async ()=>{ await refreshExternalLeadSheets(true); renderCustomerStatusesTab(); try{ applyLeadFilters(); }catch(e){} });
 
   document.addEventListener("click", async (e)=>{
+    const followBtn = e.target.closest("[data-follow-save]");
+    if(followBtn){
+      const leadId = String(followBtn.getAttribute("data-follow-save") || "").trim();
+      if(!leadId) return;
+      const found = (Array.isArray(leadsCache) ? leadsCache : []).find(x=> x.id === leadId);
+      if(!found){ toast("العميل غير موجود", "warn"); return; }
+      if(!canEditLeadStatus(found.data)){ toast("ليس لديك صلاحية تحديد الموعد", "warn"); return; }
+
+      const input = document.querySelector(`[data-follow-input="${CSS.escape(leadId)}"]`);
+      const raw = String(input?.value || "").trim();
+      if(!raw){ toast("اختر اليوم والتاريخ والوقت أولاً", "warn"); return; }
+
+      try{
+        await updateDoc(doc(db, "leads", leadId), {
+          followUpDate: new Date(raw).toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        toast("تم حفظ الموعد", "ok");
+        renderCustomerStatusesTab();
+        try{ applyLeadFilters(); }catch(e){}
+        try{ applyDatabaseFilters(); }catch(e){}
+        try{ renderTasksList(); }catch(e){}
+      }catch(err){
+        console.warn(err);
+        toast("تعذر حفظ الموعد", "warn");
+      }
+      return;
+    }
+
     const btn = e.target.closest("[data-status-save]");
     if(!btn) return;
     const leadId = String(btn.getAttribute("data-status-save") || "").trim();
@@ -7615,6 +7680,7 @@ function bindCustomerStatusesUI(){
       try{ applyLeadFilters(); }catch(e){}
       try{ applyDatabaseFilters(); }catch(e){}
       try{ renderDashboard(); }catch(e){}
+      try{ renderTasksList(); }catch(e){}
     }catch(err){
       console.warn(err);
       toast("تعذر تحديث الحالة", "warn");
@@ -7817,8 +7883,32 @@ function localYMD(d){
   }catch{ return ""; }
 }
 
+function getTasksViewMode(){
+  if(canViewAllLeads()) return "tasks";
+  const branchId = getCurrentBranchId();
+  if(branchMatchesKey(branchId, "callcenter")) return "customers";
+  if(branchMatchesKey(branchId, "finance")) return "leads_finance";
+  if(branchMatchesKey(branchId, "cash")) return "leads_cash";
+  if(branchMatchesKey(branchId, "cs")) return "leads_cs";
+  return "tasks";
+}
+
 function getTasksBase(){
-  return (Array.isArray(leadsCache) ? leadsCache : []).filter(entry=> canCurrentUserSeeLeadEntry(entry, window.__leadsViewMode || "tasks"));
+  const mode = getTasksViewMode();
+  return (Array.isArray(leadsCache) ? leadsCache : []).filter(entry=> canCurrentUserSeeLeadEntry(entry, mode));
+}
+
+function pickDefaultTasksFilter(){
+  const order = ["late", "today", "soon", "done"];
+  for(const key of order){
+    if(Array.isArray(tasksBuckets[key]) && tasksBuckets[key].length) return key;
+  }
+  return "today";
+}
+
+function ensureTasksAutoFilter(){
+  if(tasksFilterKey && tasksBuckets[tasksFilterKey]) return;
+  tasksFilterKey = pickDefaultTasksFilter();
 }
 
 function computeTasksBuckets(){
@@ -7850,13 +7940,7 @@ function renderTasksList(){
   if(!tb) return;
 
   computeTasksBuckets();
-
-  if(!tasksFilterKey){
-    if(tasksBuckets.today.length) tasksFilterKey = "today";
-    else if(tasksBuckets.late.length) tasksFilterKey = "late";
-    else if(tasksBuckets.soon.length) tasksFilterKey = "soon";
-    else if(tasksBuckets.done.length) tasksFilterKey = "done";
-  }
+  ensureTasksAutoFilter();
 
   const key = tasksFilterKey || "";
   const labelMap = {
@@ -7871,13 +7955,13 @@ function renderTasksList(){
   }
 
   if(!key || !tasksBuckets[key]){
-    tb.innerHTML = `<tr><td colspan="6" class="mzj-empty">اضغط على بطاقة بالأعلى لعرض الليدات.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="5" class="mzj-empty">اضغط على بطاقة بالأعلى لعرض الليدات.</td></tr>`;
     return;
   }
 
-  const rows = tasksBuckets[key].slice().sort((a,b)=> String(a.data.followUpDate||"").localeCompare(String(b.data.followUpDate||"")));
+  const rows = tasksBuckets[key].slice().sort((a,b)=> (fsToMs(a.data.followUpDate||0) - fsToMs(b.data.followUpDate||0)));
   if(!rows.length){
-    tb.innerHTML = `<tr><td colspan="6" class="mzj-empty">لا توجد ليدات داخل هذا القسم.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="5" class="mzj-empty">لا توجد ليدات داخل هذا القسم.</td></tr>`;
     return;
   }
 
@@ -7885,8 +7969,7 @@ function renderTasksList(){
     const id = x.id;
     const lead = x.data || {};
     const d = getLeadDisplay(lead);
-    const stage = stagesMap.get(lead.stageId)?.name || lead.stageId || "—";
-    const follow = lead.followUpDate ? fsToHuman(lead.followUpDate) : "—";
+    const follow = fsToHuman(lead.followUpDate || "") || "—";
     const assigned = d.assignedName || "—";
     return `
       <tr>
@@ -7894,7 +7977,6 @@ function renderTasksList(){
         <td><a class="leadPhoneLink" data-openinboxphone="${esc(lead.phoneNormalized || lead.phone || lead.waId || "")}" data-openinboxname="${esc(d.name)}" href="javascript:void(0)">${esc(d.phone||"—")}</a></td>
         <td>${esc(follow)}</td>
         <td>${esc(d.statusName||"—")}</td>
-        <td>${esc(stage)}</td>
         <td>${esc(assigned)}</td>
       </tr>
     `;
@@ -8573,6 +8655,9 @@ function bindTasksUI(){
     renderLeadStatusesAdminTable();
     setBadgeConnected(true);
     try{ startLiveNotifications(); }catch(e){}
+    try{ ensureLeadsLive(); }catch(e){ console.warn("ensureLeadsLive on auth", e); }
+    try{ renderCustomerStatusesTab(); }catch(e){}
+    try{ renderTasksList(); }catch(e){}
 
     // start inbox listeners if inbox tab is open
     try{ if($("#panel-inbox")?.classList.contains("active")) ensureInboxLive(); }catch{}
@@ -8878,8 +8963,6 @@ $("#inboxLeadBarClose")?.addEventListener("click", ()=> setLeadBarVisible(false)
           followUpDate: iso || "",
           updatedAt: new Date().toISOString()
         });
-        try{ renderTasksList(); }catch(e){}
-        try{ renderCustomerStatusesTab(); }catch(e){}
         toast("تم حفظ الموعد", "ok");
       }catch(e){
         console.warn(e);
