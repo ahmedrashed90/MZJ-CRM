@@ -10,6 +10,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3323,15 +3324,27 @@ let __selectedWaTemplateKey = null;
     const viewMode = String(window.__leadsViewMode || "customers").trim();
     const branchEl = $("#leadsFilterBranch");
     const stageEl = $("#leadsFilterStage");
+    const agentEl = $("#leadsFilterAgent");
 
-    const showBranch = !(viewMode === "leads_cash" || viewMode === "leads_finance" || viewMode === "leads_cs");
-    const showStage = !(viewMode === "customers" || viewMode === "leads_cash" || viewMode === "leads_finance" || viewMode === "leads_cs");
+    const isQueueView = (viewMode === "leads_cash" || viewMode === "leads_finance" || viewMode === "leads_cs");
+    const showBranch = !isQueueView;
+    const showStage = !(viewMode === "customers" || isQueueView);
+    const showAgent = !(isQueueView && !canViewAllLeads());
 
     if(branchEl && !showBranch) branchEl.value = "";
     if(stageEl && !showStage) stageEl.value = "";
+    if(agentEl && !showAgent) agentEl.value = "";
 
     if(branchEl) branchEl.style.display = showBranch ? "" : "none";
     if(stageEl) stageEl.style.display = showStage ? "" : "none";
+    if(agentEl) agentEl.style.display = showAgent ? "" : "none";
+  }
+
+  function updateCustomerStatusesFiltersVisibility(){
+    const payEl = $("#customerStatusesFilterPay");
+    const showPay = canViewAllLeads();
+    if(payEl && !showPay) payEl.value = "";
+    if(payEl) payEl.style.display = showPay ? "" : "none";
   }
 
   function showTab(tabId){
@@ -7363,6 +7376,7 @@ function refillCustomerStatusesFilters(base){
 function getCustomerStatusesFiltered(){
   const base = customerStatusesBaseList();
   refillCustomerStatusesFilters(base);
+  try{ updateCustomerStatusesFiltersVisibility(); }catch(e){}
 
   const q = String($("#customerStatusesSearch")?.value || "").trim().toLowerCase();
   const fplace = String($("#customerStatusesFilterPlace")?.value || "").trim();
@@ -7395,6 +7409,7 @@ function getCustomerStatusesFiltered(){
 }
 
 function renderCustomerStatusesTab(){
+  try{ updateCustomerStatusesFiltersVisibility(); }catch(e){}
   const tb = $("#customerStatusesTbody");
   if(!tb) return;
   if(!currentUser){
