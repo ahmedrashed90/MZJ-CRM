@@ -3484,11 +3484,13 @@ let __selectedWaTemplateKey = null;
       agentsUidMap = new Map();
       snap.forEach(d=>{
         const v=d.data()||{};
-        const uidKey = v.uid || d.id;
+        const uidKey = String(v.uid || d.id || "").trim();
+        const emailKey = String(v.email || "").trim().toLowerCase();
+        const nameKey = String(v.name || v.email || uidKey || d.id || "").trim();
         const obj = {
           id: d.id,
           uid: uidKey,
-          name: v.name || v.email || uidKey,
+          name: nameKey,
           email: v.email || "",
           roleId: v.roleId || "",
           branchId: v.branchId || "",
@@ -3496,8 +3498,11 @@ let __selectedWaTemplateKey = null;
         };
         // keep by doc id (for settings table)
         agentsMap.set(d.id, obj);
-        // also index by uid (for assignment lookups)
-        agentsUidMap.set(uidKey, obj);
+        // also index by multiple aliases (for assignment lookups by uid/email/name/doc id)
+        if(d.id) agentsUidMap.set(String(d.id).trim(), obj);
+        if(uidKey) agentsUidMap.set(uidKey, obj);
+        if(emailKey) agentsUidMap.set(emailKey, obj);
+        if(nameKey) agentsUidMap.set(nameKey, obj);
       });
       const activeAgents = Array.from(agentsUidMap.values()).filter(a=>a.isActive);
       fillSelect($("#leadsFilterAgent"), activeAgents.map(a=>({value:a.uid,label:a.name})));
@@ -6275,22 +6280,9 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
   function canCurrentUserSeeLeadEntry(entry, viewMode=""){
     if(canViewAllLeads()) return true;
     const data = entry?.data || {};
-    const assignedUid = getAssignedUidFromLead(data, viewMode);
-    if(matchesCurrentUserIdentity(assignedUid)) return true;
-
-    const extraAssigned = [
-      data?.assignedTo,
-      data?.assigneeTo,
-      data?.assignedName,
-      data?.salesAssignedTo,
-      data?.salesAssignedName,
-      data?.callCenterAssignedTo,
-      data?.callcenterAssignedTo,
-      data?.callCenterAssignedName,
-      data?.customerAssignedTo
-    ];
-    if(extraAssigned.some(matchesCurrentUserIdentity)) return true;
-
+    const uid = String(currentUser?.uid || "");
+    if(uid && getAssignedUidFromLead(data, viewMode) === uid) return true;
+    if(doesLeadBelongToCurrentUser(data)) return true;
     if(String(viewMode || "") === "leads_finance" && isExternalFinanceLead(data) && userCanSeeTab("leads_finance")) return true;
     return false;
   }
@@ -6314,64 +6306,6 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
     if(roleName.includes("admin") || roleName.includes("مدير") || roleName.includes("مشرف") || roleName.includes("system") || roleName.includes("owner")) return true;
     if(email.includes("admin")) return true;
     return false;
-  }
-
-  function getCurrentUserIdentitySet(){
-    const out = new Set();
-    const push = (v)=>{
-      const raw = String(v || "").trim();
-      if(!raw) return;
-      out.add(raw);
-      out.add(raw.toLowerCase());
-    };
-
-    push(currentUser?.uid);
-    push(currentUser?.email);
-    push(currentProfile?.uid);
-    push(currentProfile?.email);
-    push(currentProfile?.name);
-    push(currentUser?.displayName);
-
-    try{
-      const email = String(currentUser?.email || currentProfile?.email || "").trim();
-      if(email){
-        const local = email.split("@")[0] || "";
-        push(local);
-      }
-    }catch(e){}
-
-    try{
-      const uid = String(currentUser?.uid || "").trim();
-      const byUid = agentsUidMap.get(uid);
-      if(byUid){
-        push(byUid.id);
-        push(byUid.uid);
-        push(byUid.email);
-        push(byUid.name);
-      }
-    }catch(e){}
-
-    try{
-      for(const [docId, agent] of agentsMap.entries()){
-        const agentEmail = String(agent?.email || "").trim().toLowerCase();
-        const userEmail = String(currentUser?.email || currentProfile?.email || "").trim().toLowerCase();
-        if(userEmail && agentEmail && userEmail === agentEmail){
-          push(docId);
-          push(agent?.uid);
-          push(agent?.email);
-          push(agent?.name);
-        }
-      }
-    }catch(e){}
-
-    return out;
-  }
-
-  function matchesCurrentUserIdentity(value){
-    const raw = String(value || "").trim();
-    if(!raw) return false;
-    const ids = getCurrentUserIdentitySet();
-    return ids.has(raw) || ids.has(raw.toLowerCase());
   }
 
   // حالات العملاء (من installment_calculator وغيرها) — إدارة داخل Tab العملاء المحتملون
@@ -7944,6 +7878,53 @@ function exportDatabaseToExcel(){
 
 }
 
+function getCurrentUserMatchKeys(){
+  const keys = new Set();
+  const push = (v)=>{
+    const raw = String(v || "").trim();
+    if(!raw) return;
+    keys.add(raw);
+    keys.add(raw.toLowerCase());
+  };
+  push(currentUser?.uid);
+  push(currentUser?.email);
+  push(currentProfile?.uid);
+  push(currentProfile?.email);
+  push(currentProfile?.name);
+
+  const aliasList = [
+    agentsUidMap.get(String(currentUser?.uid || "").trim()),
+    agentsUidMap.get(String(currentUser?.email || "").trim().toLowerCase()),
+    agentsMap.get(String(currentUser?.uid || "").trim())
+  ].filter(Boolean);
+
+  aliasList.forEach(agent=>{
+    push(agent?.id);
+    push(agent?.uid);
+    push(agent?.email);
+    push(agent?.name);
+  });
+
+  return keys;
+}
+
+function doesValueMatchCurrentUser(value){
+  const raw = String(value || "").trim();
+  if(!raw) return false;
+  const keys = getCurrentUserMatchKeys();
+  return keys.has(raw) || keys.has(raw.toLowerCase());
+}
+
+function doesLeadBelongToCurrentUser(data){
+  const d = data || {};
+  const candidates = [
+    d.salesAssignedTo, d.assignedTo, d.assigneeTo, d.salesAssignedName, d.assignedName,
+    d.callCenterAssignedTo, d.callcenterAssignedTo, d.customerAssignedTo, d.callCenterAssignedName,
+    d.customerAssignedName, d.assignedEmail, d.salesAssignedEmail, d.callCenterAssignedEmail
+  ];
+  return candidates.some(v => doesValueMatchCurrentUser(v));
+}
+
 // ===== Tasks / Follow-ups (Tab المتابعات) =====
 let tasksFilterKey = "";
 let tasksBuckets = { today:[], late:[], done:[], soon:[] };
@@ -7972,14 +7953,11 @@ function getTasksBase(){
   const arr = Array.isArray(leadsCache) ? leadsCache : [];
   if(canViewAllLeads()) return arr;
 
-  const myUid = String(currentUser?.uid || "").trim();
-  if(!myUid) return [];
+  if(!currentUser) return [];
 
   return arr.filter(entry=>{
     const data = entry?.data || {};
-    const salesUid = String(data.salesAssignedTo || data.assignedTo || data.assigneeTo || "").trim();
-    const callUid = String(data.callCenterAssignedTo || data.callcenterAssignedTo || data.customerAssignedTo || "").trim();
-    if(salesUid === myUid || callUid === myUid) return true;
+    if(doesLeadBelongToCurrentUser(data)) return true;
     return canCurrentUserSeeLeadEntry(entry, mode);
   });
 }
@@ -8637,37 +8615,6 @@ function bindTasksUI(){
   }
 
 
-  function scheduleSoftReconnect(reason=""){
-    clearTimeout(window.__softReconnectT);
-    window.__softReconnectT = setTimeout(async ()=>{
-      try{ if(currentUser){ await loadProfileForUser(currentUser).then(p=>{ if(p) currentProfile = p; }); } }catch(e){}
-      try{ applyRoleGuards(); }catch(e){}
-      try{ configureInboxScopeUI(); }catch(e){}
-      try{ ensureLeadsLive(); }catch(e){}
-      try{ if(currentUser && $("#panel-inbox")?.classList.contains("active")){ applyInboxFilters(); } }catch(e){}
-      try{ applyLeadFilters(); }catch(e){}
-      try{ renderCustomerStatusesTab(); }catch(e){}
-      try{ renderTasksList(); }catch(e){}
-      try{ applyDatabaseFilters(); }catch(e){}
-      try{ setBadgeConnected(true); }catch(e){}
-    }, 250);
-  }
-
-  function bindConnectionGuards(){
-    try{
-      window.addEventListener("online", ()=>{ scheduleSoftReconnect("online"); });
-      window.addEventListener("focus", ()=>{ scheduleSoftReconnect("focus"); });
-      document.addEventListener("visibilitychange", ()=>{
-        if(document.visibilityState === "visible") scheduleSoftReconnect("visible");
-      });
-      setInterval(()=>{
-        if(document.visibilityState !== "visible") return;
-        if(!currentUser) return;
-        scheduleSoftReconnect("heartbeat");
-      }, 90000);
-    }catch(e){ console.warn("bindConnectionGuards", e); }
-  }
-
   // ===== Auth UI =====
   function bindAuthUI(){
     $("#btnLogin")?.addEventListener("click", openAuthModal);
@@ -8706,6 +8653,7 @@ function bindTasksUI(){
   async function loadProfileForUser(user){
     if(!user) return null;
     const uid = user.uid;
+    const email = String(user.email || "").trim().toLowerCase();
 
     let prof = null;
     try{
@@ -8713,16 +8661,16 @@ function bindTasksUI(){
       if(aSnap.exists()) prof = aSnap.data();
     }catch(e){ console.warn("settings_agents read", e); }
 
-    if(!prof){
+    if(!prof && email){
       try{
         const byUid = await getDocs(query(collection(db,"settings_agents"), where("uid","==", uid), limit(1)));
         if(!byUid.empty) prof = byUid.docs[0].data() || null;
       }catch(e){ console.warn("settings_agents query uid", e); }
     }
 
-    if(!prof && user.email){
+    if(!prof && email){
       try{
-        const byEmail = await getDocs(query(collection(db,"settings_agents"), where("email","==", user.email), limit(1)));
+        const byEmail = await getDocs(query(collection(db,"settings_agents"), where("email","==", email), limit(1)));
         if(!byEmail.empty) prof = byEmail.docs[0].data() || null;
       }catch(e){ console.warn("settings_agents query email", e); }
     }
@@ -8748,7 +8696,6 @@ function bindTasksUI(){
   // ===== Boot =====
   bindTabs();
   bindAuthUI();
-  bindConnectionGuards();
   bindSettingsUI();
   bindSettingsRealtime();
   bindLeadStatusesRealtime();
@@ -8766,6 +8713,39 @@ function bindTasksUI(){
   try{ showSettingsPane("branches"); }catch(e){ console.warn("showSettingsPane", e); }
   try{ showTab("inbox"); }catch(e){ console.warn("showTab", e); }
 
+
+  function softReconnectLiveData(){
+    try{ if(unsubInboxLive){ unsubInboxLive(); unsubInboxLive = null; } }catch{}
+    try{ if(unsubMsgs){ unsubMsgs(); unsubMsgs = null; } }catch{}
+    try{ if(unsubLeads){ unsubLeads(); unsubLeads = null; } }catch{}
+    window.__inboxBooted = false;
+    try{ ensureLeadsLive(); }catch(e){ console.warn("soft reconnect leads", e); }
+    try{ if($("#panel-inbox")?.classList.contains("active")) ensureInboxLive(); }catch(e){ console.warn("soft reconnect inbox", e); }
+    try{ renderTasksList(); }catch(e){}
+  }
+
+  try{
+    document.addEventListener("visibilitychange", ()=>{
+      if(document.hidden) return;
+      try{ softReconnectLiveData(); }catch(e){}
+    });
+    window.addEventListener("online", ()=>{
+      try{ softReconnectLiveData(); }catch(e){}
+    });
+    window.addEventListener("focus", ()=>{
+      try{ softReconnectLiveData(); }catch(e){}
+    });
+  }catch(e){ console.warn("reconnect bind", e); }
+
+  try{
+    if(!window.__mzjKeepAliveTimer){
+      window.__mzjKeepAliveTimer = setTimeout(function tick(){
+        try{ if(currentUser && !document.hidden) softReconnectLiveData(); }catch(e){}
+        window.__mzjKeepAliveTimer = setTimeout(tick, 90000);
+      }, 90000);
+    }
+  }catch(e){}
+
   onAuthStateChanged(auth, async (user)=>{
     try{ clearTimeout(window.__authGuardT); }catch{}
 
@@ -8782,6 +8762,7 @@ function bindTasksUI(){
       try{ if(unsubInbox){unsubInbox();} }catch{} unsubInbox=null;
       try{ if(unsubInboxLive){unsubInboxLive();} }catch{} unsubInboxLive=null;
       try{ if(unsubMsgs){unsubMsgs();} }catch{} unsubMsgs=null;
+      try{ if(unsubLeads){unsubLeads();} }catch{} unsubLeads=null;
       window.__inboxBooted = false;
       activeConvId=null;
       inboxCache=[];
@@ -8802,7 +8783,6 @@ function bindTasksUI(){
     try{ ensureLeadsLive(); }catch(e){ console.warn("ensureLeadsLive on auth", e); }
     try{ renderCustomerStatusesTab(); }catch(e){}
     try{ renderTasksList(); }catch(e){}
-    try{ scheduleSoftReconnect("auth-login"); }catch(e){}
 
     // start inbox listeners if inbox tab is open
     try{ if($("#panel-inbox")?.classList.contains("active")) ensureInboxLive(); }catch{}
