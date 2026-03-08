@@ -11,6 +11,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1735,23 +1736,23 @@ body.auth-locked #authModal{ pointer-events:auto; }
       overflow:auto;
       background:#fff;
     }
-    .statusTable{ width:100%; min-width:1280px; border-collapse:separate; border-spacing:0; }
+    .statusTable{ width:100%; min-width:1100px; border-collapse:separate; border-spacing:0; }
     .statusTable thead th{
       position:sticky; top:0; z-index:1;
       background:#fff;
       color:var(--muted);
-      font-size:12.5px;
-      padding:12px;
+      font-size:12px;
+      padding:10px 8px;
       text-align:right;
       border-bottom:1px solid var(--line);
       white-space:nowrap;
     }
     .statusTable tbody td{
-      padding:12px;
+      padding:10px 8px;
       border-bottom:1px solid var(--line);
       vertical-align:middle;
       white-space:nowrap;
-      font-size:13px;
+      font-size:12.5px;
     }
     .statusNameCell{
       display:flex; align-items:center; gap:10px; min-width:0;
@@ -1760,8 +1761,14 @@ body.auth-locked #authModal{ pointer-events:auto; }
     .statusNameInfo{ min-width:0; }
     .statusNameInfo b{ display:block; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .statusNameInfo span{ display:block; margin-top:3px; font-size:11.5px; color:var(--muted); }
-    .statusInlineAction{ display:flex; align-items:center; gap:8px; }
-    .statusInlineAction select{ min-width:220px; }
+    .statusInlineAction{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .statusInlineAction select{ min-width:160px; max-width:190px; }
+    .statusInlineAction input[type="datetime-local"]{ min-width:170px; width:170px; }
+    .statusInlineAction .mzj-miniBtn{ padding:8px 10px; white-space:nowrap; flex:0 0 auto; }
+    .statusTable thead th:nth-child(8),
+    .statusTable tbody td:nth-child(8){ min-width:210px; white-space:normal; }
+    .statusTable thead th:nth-child(10),
+    .statusTable tbody td:nth-child(10){ min-width:220px; white-space:normal; }
     .statusEmpty{ padding:24px 14px; text-align:center; color:var(--muted); }
     @media (max-width: 1100px){
       .statusQuickStats{ grid-template-columns:1fr; }
@@ -1942,7 +1949,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
         <div class="topLeft">
           <div class="search" role="search">
             <span style="font-weight:900;color:var(--b)">🔎</span>
-            <input id="globalSearch" type="text" placeholder="ابحث: اسم العميل، رقم الجوال، اسم السيارة، مرحلة البيع..." />
+            <input id="globalSearch" type="text" placeholder="ابحث: اسم العميل، رقم الجوال، اسم السيارة..." />
             <span class="chip" id="activeTabChip">صندوق الوارد</span>
           </div>
         </div>
@@ -2142,10 +2149,12 @@ body.auth-locked #authModal{ pointer-events:auto; }
                       <th>الدفع</th>
                       <th>الحالة الحالية</th>
                       <th>تغيير الحالة</th>
+                      <th>موعد المتابعة</th>
+                      <th>تحديد موعد</th>
                     </tr>
                   </thead>
                   <tbody id="customerStatusesTbody">
-                    <tr><td colspan="8" class="statusEmpty">جاري تحميل العملاء...</td></tr>
+                    <tr><td colspan="10" class="statusEmpty">جاري تحميل العملاء...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -2178,8 +2187,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
                 <div class="filters" style="padding:0 0 10px;border:0">
                   <select id="leadsFilterBranch"><option value="">كل الفروع</option></select>
                   <select id="leadsFilterAgent"><option value="">كل المندوبين</option></select>
-                  <select id="leadsFilterStage"><option value="">كل المراحل</option></select>
-                  <select id="leadsFilterStatus"><option value="">كل الحالات</option></select>
+                                    <select id="leadsFilterStatus"><option value="">كل الحالات</option></select>
                                     <select id="leadsFilterSource"><option value="">كل المصادر</option></select>
 <select id="leadsFilterCar"><option value="">كل السيارات</option></select>
                   <select id="leadsFilterPay"><option value="">كل طرق الدفع</option></select>
@@ -2187,7 +2195,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
                 </div>
 
                 <div class="mzj-tableWrap">
-                  <table class="mzj-table" style="min-width: 1260px;">
+                  <table class="mzj-table" style="min-width: 1160px;">
                     <thead>
                       <tr>
                         <th>اسم العميل</th>
@@ -2197,13 +2205,12 @@ body.auth-locked #authModal{ pointer-events:auto; }
                         <th>اسم السيارة</th>
                         <th>الدفع</th>
                         <th>الحالة</th>
-                        <th>المرحلة</th>
-                        <th>المسؤول</th>
+                                                <th>المسؤول</th>
                         <th>آخر تحديث</th>
                       </tr>
                     </thead>
                     <tbody id="leadsTbody">
-                      <tr><td colspan="10" class="mzj-empty">لا توجد بيانات بعد. سيتم جلب العملاء المحتملين من Firebase.</td></tr>
+                      <tr><td colspan="9" class="mzj-empty">لا توجد بيانات بعد. سيتم جلب العملاء المحتملين من Firebase.</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -2371,12 +2378,11 @@ body.auth-locked #authModal{ pointer-events:auto; }
         <th>الجوال</th>
         <th>تاريخ المتابعة</th>
         <th>الحالة</th>
-        <th>المرحلة</th>
-        <th>المسؤول</th>
+                <th>المسؤول</th>
       </tr>
     </thead>
     <tbody id="tasksTbody">
-      <tr><td colspan="6" class="mzj-empty">اضغط على بطاقة بالأعلى لعرض الليدات.</td></tr>
+      <tr><td colspan="5" class="mzj-empty">اضغط على بطاقة بالأعلى لعرض الليدات.</td></tr>
     </tbody>
   </table>
 </div>
@@ -3323,20 +3329,16 @@ let __selectedWaTemplateKey = null;
   function updateLeadFiltersVisibility(){
     const viewMode = String(window.__leadsViewMode || "customers").trim();
     const branchEl = $("#leadsFilterBranch");
-    const stageEl = $("#leadsFilterStage");
     const agentEl = $("#leadsFilterAgent");
 
     const isQueueView = (viewMode === "leads_cash" || viewMode === "leads_finance" || viewMode === "leads_cs");
     const showBranch = !isQueueView;
-    const showStage = !(viewMode === "customers" || isQueueView);
     const showAgent = !(isQueueView && !canViewAllLeads());
 
     if(branchEl && !showBranch) branchEl.value = "";
-    if(stageEl && !showStage) stageEl.value = "";
     if(agentEl && !showAgent) agentEl.value = "";
 
     if(branchEl) branchEl.style.display = showBranch ? "" : "none";
-    if(stageEl) stageEl.style.display = showStage ? "" : "none";
     if(agentEl) agentEl.style.display = showAgent ? "" : "none";
   }
 
@@ -3514,7 +3516,6 @@ let __selectedWaTemplateKey = null;
       });
       const stageItems = Array.from(stagesMap.values()).map(s=>({value:s.id,label:s.name}));
       fillSelect($("#fStage"), stageItems);
-      fillSelect($("#leadsFilterStage"), stageItems);
       refreshSettingsTables();
     });
   }
@@ -4343,6 +4344,63 @@ try{
       .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||""), "ar"));
   }
 
+
+  function pickRandomAgentFromBranch(branchName){
+    const agents = getEligibleAgentsForBranch(branchName);
+    if(!agents.length) return null;
+    return agents[Math.floor(Math.random() * agents.length)] || null;
+  }
+
+  async function assignLeadRandomByServiceKey(leadId, leadData={}, serviceKey=""){
+    const key = String(serviceKey || leadData?.autoService || leadData?.serviceKey || getLeadQueueKey(leadData, leadId) || "").trim().toLowerCase();
+    if(!leadId || !key) return { ok:false, reason:"missing_service" };
+
+    const targetBranchName = key === "finance"
+      ? "مبيعات التمويل"
+      : key === "cash"
+        ? "مبيعات الكاش"
+        : key === "cs"
+          ? "خدمة العملاء"
+          : "";
+    if(!targetBranchName) return { ok:false, reason:"bad_service" };
+
+    const salesPick = pickRandomAgentFromBranch(targetBranchName);
+    if(!salesPick) return { ok:false, reason:"no_sales_agents" };
+    const salesUid = String(salesPick.uid || salesPick.id || "").trim();
+    if(!salesUid) return { ok:false, reason:"bad_sales_agent" };
+
+    let callPick = null;
+    let callUid = "";
+    if(key === "finance"){
+      callPick = pickRandomAgentFromBranch("كول سنتر");
+      callUid = String(callPick?.uid || callPick?.id || "").trim();
+    }
+
+    const nowIso = new Date().toISOString();
+    const salesName = String(salesPick.name || salesPick.email || salesUid).trim();
+    const patch = {
+      autoService: key,
+      serviceKey: key,
+      ...(getPayTypeLabelByServiceKey(key) ? { paymentType: getPayTypeLabelByServiceKey(key), payType: getPayTypeLabelByServiceKey(key) } : {}),
+      salesAssignedTo: salesUid,
+      salesAssignedName: salesName,
+      assignedTo: salesUid,
+      assignedName: salesName,
+      branchId: String(salesPick.branchId || "").trim(),
+      assignedAt: nowIso,
+      assignedBy: "auto_random",
+      updatedAt: nowIso
+    };
+    if(callUid){
+      patch.callCenterAssignedTo = callUid;
+      patch.callCenterAssignedName = String(callPick?.name || callPick?.email || callUid).trim();
+      patch.callCenterAssignedAt = nowIso;
+    }
+
+    await setDoc(doc(db, "leads", leadId), patch, { merge:true });
+    return { ok:true, salesUid, callUid };
+  }
+
   async function sendBotTextToConv(convId, text){
     const convRef = doc(db, "wa_conversations", convId);
     const convSnap = await getDoc(convRef);
@@ -5118,7 +5176,6 @@ scroller.addEventListener("scroll", ()=>{
           participantId: pid || "",
           source: source,
           channel: conv.channel || (isIG?"instagram":(isFB?"facebook":"whatsapp")),
-          stageId: defaultStageId,
           assignedTo: assignedTo,
           branchId: branchId,
           convId: activeConvId,
@@ -5609,8 +5666,12 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
               leadStatusName: targetName,
               ...(targetId ? { leadStatusId: targetId } : {}),
               paymentType: "تمويل",
+              payType: "تمويل",
+              autoService: "finance",
+              serviceKey: "finance",
               updatedAt: new Date().toISOString()
             }).catch(()=>{});
+            try{ await assignLeadRandomByServiceKey(leadId, { paymentType:"تمويل", autoService:"finance", serviceKey:"finance" }, "finance"); }catch(e){ console.warn("eligibility random assign", e); }
           }
         }catch(e){
           console.warn("eligibility->update lead", e);
@@ -6160,6 +6221,33 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
       const snapRows = parseTSV(snapTxt).map(mapSnapchatRowToLead).filter(x=> String(x?.data?.phoneNormalized || x?.data?.name || "").trim());
       const gadsRows = parseTSV(gadsTxt).map(mapGoogleAdsRowToLead).filter(x=> String(x?.data?.phoneNormalized || x?.data?.name || "").trim());
       externalLeadsCache = dedupeCombinedLeads([...(snapRows||[]), ...(gadsRows||[])]);
+      try{
+        for(const item of externalLeadsCache){
+          const leadId = String(item?.id || "").trim();
+          const data = item?.data || {};
+          if(!leadId) continue;
+          const serviceKey = "finance";
+          const existing = await getDoc(doc(db, "leads", leadId)).catch(()=>null);
+          const existingData = existing?.exists() ? (existing.data() || {}) : {};
+          const mergedData = {
+            ...data,
+            ...existingData,
+            source: normalizeSourceLabel(existingData.source || data.source || "") || existingData.source || data.source || "",
+            paymentType: getPayTypeLabelByServiceKey(serviceKey) || existingData.paymentType || data.paymentType || "تمويل",
+            payType: getPayTypeLabelByServiceKey(serviceKey) || existingData.payType || data.payType || "تمويل",
+            autoService: serviceKey,
+            serviceKey: serviceKey,
+            updatedAt: new Date().toISOString()
+          };
+          if(!(existing && existing.exists())) mergedData.createdAt = data.createdAt || new Date().toISOString();
+          await setDoc(doc(db, "leads", leadId), mergedData, { merge:true }).catch(()=>{});
+          const needSales = !String(existingData.salesAssignedTo || existingData.assignedTo || mergedData.salesAssignedTo || "").trim();
+          const needCall = !String(existingData.callCenterAssignedTo || existingData.callcenterAssignedTo || mergedData.callCenterAssignedTo || "").trim();
+          if(needSales || needCall){
+            try{ await assignLeadRandomByServiceKey(leadId, mergedData, serviceKey); }catch(e){ console.warn("external lead assign", e); }
+          }
+        }
+      }catch(e){ console.warn("external lead sync", e); }
       externalLeadsLoadedAt = now;
       rebuildLeadsCache();
       return externalLeadsCache;
@@ -6367,7 +6455,6 @@ function sortStatusesByCustomOrder(list){
         <td title="${esc(carName)}">${esc(carName)}</td>
         <td>${esc(payType || "—")}</td>
         <td>${esc(d.statusName || "—")}</td>
-        <td>${esc(d.stage)}</td>
         <td>${esc(d.assignedName)}</td>
         <td>${esc(fsToHuman(lead.updatedAt || lead.timestamp || lead.createdAt))}</td>
       </tr>
@@ -6489,7 +6576,6 @@ function sortStatusesByCustomOrder(list){
       ["المصدر", (getNormalizedSourceForLead(lead,id) || "—")],
       ["اسم السيارة", carName],
       ["الدفع", payType],
-      ["المرحلة", d.stage],
       ["الحالة", d.statusName || "—"],
       ["المسؤول", d.assignedName],
       ["آخر تحديث", fsToHuman(lead.updatedAt || lead.timestamp || lead.createdAt)],
@@ -7209,7 +7295,6 @@ function applyLeadFilters(){
     const qText = ($("#leadsSearch")?.value || "").trim().toLowerCase();
     const fb = $("#leadsFilterBranch")?.value || "";
     const fa = $("#leadsFilterAgent")?.value || "";
-    const fs = $("#leadsFilterStage")?.value || "";
     const fstat = $("#leadsFilterStatus")?.value || "";
     const fsrc = $("#leadsFilterSource")?.value || "";
     const fcar = $("#leadsFilterCar")?.value || "";
@@ -7229,7 +7314,6 @@ function applyLeadFilters(){
       }
 
       if(fa && getAssignedUidFromLead(data, viewMode) !== fa) return false;
-      if(fs && data.stageId !== fs) return false;
       if(fstat && (data.leadStatusId || "") !== fstat) return false;
       if(fsrc && String(getNormalizedSourceForLead(data,id)||"").trim() !== fsrc) return false;
       if(fcar){
@@ -7295,7 +7379,7 @@ const total = base.length;
     $("#statLeadsClosed") && ($("#statLeadsClosed").textContent = String(closedWon));
 
     if(!filtered.length){
-      tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
     }else{
       tb.innerHTML = filtered.map(x=>renderLeadTr(x.id, x.data)).join("");
     }
@@ -7412,12 +7496,24 @@ function getCustomerStatusesFiltered(){
   });
 }
 
+function toDatetimeLocalValue(v){
+  const ms = fsToMs(v);
+  if(!ms) return "";
+  try{
+    const d = new Date(ms);
+    const pad = (n)=> String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }catch(e){
+    return "";
+  }
+}
+
 function renderCustomerStatusesTab(){
   try{ updateCustomerStatusesFiltersVisibility(); }catch(e){}
   const tb = $("#customerStatusesTbody");
   if(!tb) return;
   if(!currentUser){
-    tb.innerHTML = `<tr><td colspan="8" class="statusEmpty">سجّل الدخول لعرض حالات العملاء.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10" class="statusEmpty">سجّل الدخول لعرض حالات العملاء.</td></tr>`;
     return;
   }
 
@@ -7431,7 +7527,7 @@ function renderCustomerStatusesTab(){
   $("#customerStatusesCount") && ($("#customerStatusesCount").textContent = String(filtered.length));
 
   if(!filtered.length){
-    tb.innerHTML = `<tr><td colspan="8" class="statusEmpty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10" class="statusEmpty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
     return;
   }
 
@@ -7446,6 +7542,8 @@ function renderCustomerStatusesTab(){
     const canEdit = canEditLeadStatus(data);
     const avatar = (name[0] || "؟").toUpperCase();
     const currentStatusId = String(data?.leadStatusId || "").trim();
+    const followUpHuman = String(fsToHuman(data?.followUpDate) || "—").trim() || "—";
+    const followUpValue = toDatetimeLocalValue(data?.followUpDate);
 
     return `
       <tr data-status-lead="${esc(id)}">
@@ -7472,6 +7570,13 @@ function renderCustomerStatusesTab(){
             <button class="mzj-miniBtn primary" type="button" data-status-save="${esc(id)}" ${canEdit ? "" : "disabled"}>حفظ</button>
           </div>
         </td>
+        <td>${esc(followUpHuman)}</td>
+        <td>
+          <div class="statusInlineAction">
+            <input class="miniInput" type="datetime-local" data-follow-input="${esc(id)}" value="${esc(followUpValue)}" ${canEdit ? "" : "disabled"} />
+            <button class="mzj-miniBtn primary" type="button" data-follow-save="${esc(id)}" ${canEdit ? "" : "disabled"}>تحديد موعد</button>
+          </div>
+        </td>
       </tr>
     `;
   }).join("");
@@ -7496,6 +7601,35 @@ function bindCustomerStatusesUI(){
   $("#customerStatusesRefresh")?.addEventListener("click", async ()=>{ await refreshExternalLeadSheets(true); renderCustomerStatusesTab(); try{ applyLeadFilters(); }catch(e){} });
 
   document.addEventListener("click", async (e)=>{
+    const followBtn = e.target.closest("[data-follow-save]");
+    if(followBtn){
+      const leadId = String(followBtn.getAttribute("data-follow-save") || "").trim();
+      if(!leadId) return;
+      const found = (Array.isArray(leadsCache) ? leadsCache : []).find(x=> x.id === leadId);
+      if(!found){ toast("العميل غير موجود", "warn"); return; }
+      if(!canEditLeadStatus(found.data)){ toast("ليس لديك صلاحية تحديد الموعد", "warn"); return; }
+
+      const input = document.querySelector(`[data-follow-input="${CSS.escape(leadId)}"]`);
+      const raw = String(input?.value || "").trim();
+      if(!raw){ toast("اختر اليوم والتاريخ والوقت أولاً", "warn"); return; }
+
+      try{
+        await updateDoc(doc(db, "leads", leadId), {
+          followUpDate: new Date(raw).toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        toast("تم حفظ الموعد", "ok");
+        renderCustomerStatusesTab();
+        try{ applyLeadFilters(); }catch(e){}
+        try{ applyDatabaseFilters(); }catch(e){}
+        try{ renderTasksList(); }catch(e){}
+      }catch(err){
+        console.warn(err);
+        toast("تعذر حفظ الموعد", "warn");
+      }
+      return;
+    }
+
     const btn = e.target.closest("[data-status-save]");
     if(!btn) return;
     const leadId = String(btn.getAttribute("data-status-save") || "").trim();
@@ -7519,6 +7653,7 @@ function bindCustomerStatusesUI(){
       try{ applyLeadFilters(); }catch(e){}
       try{ applyDatabaseFilters(); }catch(e){}
       try{ renderDashboard(); }catch(e){}
+      try{ renderTasksList(); }catch(e){}
     }catch(err){
       console.warn(err);
       toast("تعذر تحديث الحالة", "warn");
@@ -7654,7 +7789,7 @@ function applyDatabaseFilters(){
   window.__dbLastFiltered = filtered;
 
   if(!filtered.length){
-    tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
   }else{
     tb.innerHTML = filtered.map(x=>renderDbTr(x.id, x.data)).join("");
   }
@@ -7768,13 +7903,13 @@ function renderTasksList(){
   }
 
   if(!key || !tasksBuckets[key]){
-    tb.innerHTML = `<tr><td colspan="6" class="mzj-empty">اضغط على بطاقة بالأعلى لعرض الليدات.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="5" class="mzj-empty">اضغط على بطاقة بالأعلى لعرض الليدات.</td></tr>`;
     return;
   }
 
-  const rows = tasksBuckets[key].slice().sort((a,b)=> String(a.data.followUpDate||"").localeCompare(String(b.data.followUpDate||"")));
+  const rows = tasksBuckets[key].slice().sort((a,b)=> (fsToMs(a.data.followUpDate||0) - fsToMs(b.data.followUpDate||0)));
   if(!rows.length){
-    tb.innerHTML = `<tr><td colspan="6" class="mzj-empty">لا توجد ليدات داخل هذا القسم.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="5" class="mzj-empty">لا توجد ليدات داخل هذا القسم.</td></tr>`;
     return;
   }
 
@@ -7782,8 +7917,7 @@ function renderTasksList(){
     const id = x.id;
     const lead = x.data || {};
     const d = getLeadDisplay(lead);
-    const stage = stagesMap.get(lead.stageId)?.name || lead.stageId || "—";
-    const follow = (lead.followUpDate || "").slice(0,10) || "—";
+    const follow = fsToHuman(lead.followUpDate || "") || "—";
     const assigned = d.assignedName || "—";
     return `
       <tr>
@@ -7791,7 +7925,6 @@ function renderTasksList(){
         <td><a class="leadPhoneLink" data-openinboxphone="${esc(lead.phoneNormalized || lead.phone || lead.waId || "")}" data-openinboxname="${esc(d.name)}" href="javascript:void(0)">${esc(d.phone||"—")}</a></td>
         <td>${esc(follow)}</td>
         <td>${esc(d.statusName||"—")}</td>
-        <td>${esc(stage)}</td>
         <td>${esc(assigned)}</td>
       </tr>
     `;
@@ -7829,7 +7962,7 @@ function bindTasksUI(){
     if(!tb) return;
 
     if(!currentUser){
-      tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">سجّل الدخول لعرض العملاء المحتملين.</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">سجّل الدخول لعرض العملاء المحتملين.</td></tr>`;
       return;
     }
 
@@ -7860,7 +7993,7 @@ function bindTasksUI(){
         setBadgeConnected(true);
       }catch(e){
         setBadgeConnected(false);
-        tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">تعذر تحميل العملاء: ${esc(err?.message || err)}</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">تعذر تحميل العملاء: ${esc(err?.message || err)}</td></tr>`;
       }
     });
 
@@ -7933,7 +8066,7 @@ function bindTasksUI(){
       });
     });
 
-    ["leadsSearch","leadsFilterBranch","leadsFilterAgent","leadsFilterStage","leadsFilterStatus","leadsFilterSource","leadsFilterCar","leadsFilterPay"].forEach(id=>{
+    ["leadsSearch","leadsFilterBranch","leadsFilterAgent","leadsFilterStatus","leadsFilterSource","leadsFilterCar","leadsFilterPay"].forEach(id=>{
       $("#"+id)?.addEventListener("input", applyLeadFilters);
       $("#"+id)?.addEventListener("change", applyLeadFilters);
     });
@@ -7956,7 +8089,7 @@ function bindTasksUI(){
 
 
 
-    tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">جاري تحميل العملاء المحتملين من Firebase...</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">جاري تحميل العملاء المحتملين من Firebase...</td></tr>`;
   }
 
   function openAssignPrompt(leadId, leadData){
@@ -8564,7 +8697,6 @@ function bindTasksUI(){
         const leadRef = doc(db,"leads", leadId);
         const exists = await getDoc(leadRef).catch(()=>null);
         const source = normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp");
-        const defaultStageId = (typeof getDefaultStageId === "function") ? getDefaultStageId() : (Array.from(stagesMap.keys())[0] || "");
         const salesUid = String(conv.salesAssignedTo || conv.assignedTo || "");
         const salesName = String(conv.salesAssignedName || conv.assignedName || "");
         const branchId = salesUid ? (agentsUidMap.get(salesUid)?.branchId || conv.branchId || "") : String(conv.branchId || "");
@@ -8578,7 +8710,6 @@ function bindTasksUI(){
           participantId: String(conv.participantId || conv.participant_id || ""),
           source: source,
           channel: (conv.channel || conv.platform || "whatsapp"),
-          stageId: defaultStageId,
           autoService: serviceKey,
           serviceKey: serviceKey,
           ...(payTypeByService ? { paymentType: payTypeByService, payType: payTypeByService } : {}),
@@ -8598,6 +8729,28 @@ function bindTasksUI(){
           leadPayload.createdAt = new Date().toISOString();
         }
         await setDoc(leadRef, leadPayload, { merge:true });
+        if(serviceKey && (!salesUid || (serviceKey === "finance" && !String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || "").trim()))){
+          try{
+            const assignRes = await assignLeadRandomByServiceKey(leadId, leadPayload, serviceKey);
+            if(assignRes?.ok){
+              const convPatch = {
+                autoService: serviceKey,
+                serviceKey: serviceKey,
+                salesAssignedTo: assignRes.salesUid || "",
+                salesAssignedName: String(agentsUidMap.get(assignRes.salesUid || "")?.name || leadPayload.salesAssignedName || assignRes.salesUid || ""),
+                assignedTo: assignRes.salesUid || "",
+                assignedName: String(agentsUidMap.get(assignRes.salesUid || "")?.name || leadPayload.salesAssignedName || assignRes.salesUid || ""),
+                branchId: String(agentsUidMap.get(assignRes.salesUid || "")?.branchId || leadPayload.branchId || ""),
+                updatedAt: new Date().toISOString()
+              };
+              if(assignRes.callUid){
+                convPatch.callCenterAssignedTo = assignRes.callUid;
+                convPatch.callCenterAssignedName = String(agentsUidMap.get(assignRes.callUid || "")?.name || assignRes.callUid || "");
+              }
+              await updateDoc(convRef, convPatch).catch(()=>{});
+            }
+          }catch(e){ console.warn("ensureLeadId random assign", e); }
+        }
         await updateDoc(convRef, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
       }
 
@@ -8619,6 +8772,32 @@ function bindTasksUI(){
           updatedAt: new Date().toISOString()
         };
         await setDoc(doc(db,"leads", leadId), patch, { merge:true }).catch(()=>{});
+        if(patchServiceKey){
+          try{
+            const leadSnap = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
+            const leadDataNow = leadSnap?.exists() ? (leadSnap.data()||{}) : patch;
+            const needSales = !String(leadDataNow.salesAssignedTo || leadDataNow.assignedTo || "").trim();
+            const needCall = patchServiceKey === "finance" && !String(leadDataNow.callCenterAssignedTo || leadDataNow.callcenterAssignedTo || "").trim();
+            if(needSales || needCall){
+              const assignRes = await assignLeadRandomByServiceKey(leadId, leadDataNow, patchServiceKey);
+              if(assignRes?.ok){
+                const convPatch = {
+                  salesAssignedTo: assignRes.salesUid || "",
+                  salesAssignedName: String(agentsUidMap.get(assignRes.salesUid || "")?.name || assignRes.salesUid || ""),
+                  assignedTo: assignRes.salesUid || "",
+                  assignedName: String(agentsUidMap.get(assignRes.salesUid || "")?.name || assignRes.salesUid || ""),
+                  branchId: String(agentsUidMap.get(assignRes.salesUid || "")?.branchId || ""),
+                  updatedAt: new Date().toISOString()
+                };
+                if(assignRes.callUid){
+                  convPatch.callCenterAssignedTo = assignRes.callUid;
+                  convPatch.callCenterAssignedName = String(agentsUidMap.get(assignRes.callUid || "")?.name || assignRes.callUid || "");
+                }
+                await updateDoc(convRef, convPatch).catch(()=>{});
+              }
+            }
+          }catch(e){ console.warn("ensureLeadId patch assign", e); }
+        }
       }
 
       return leadId;
