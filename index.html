@@ -7216,7 +7216,7 @@ function applyLeadFilters(){
     const fpay = $("#leadsFilterPay")?.value || "";
 
     const viewMode = window.__leadsViewMode || "customers";
-    const base = (Array.isArray(leadsCache) ? leadsCache : []).filter(entry=> canCurrentUserSeeLeadEntry(entry, viewMode));
+    const base = getScopedLeadBaseList(viewMode);
 
     const filtered = base.filter(({id,data})=>{
       // Views (Tabs) تحت "العملاء"
@@ -7316,9 +7316,9 @@ function getCustomerStatusesViewMode(){
   return "customers";
 }
 
-function customerStatusesBaseList(){
+function getScopedLeadBaseList(viewMode="customers"){
   const arr = Array.isArray(leadsCache) ? leadsCache : [];
-  const mode = getCustomerStatusesViewMode();
+  const mode = String(viewMode || "customers").trim();
   if(canViewAllLeads()) return arr;
 
   const uid = String(currentUser?.uid || "").trim();
@@ -7343,6 +7343,10 @@ function customerStatusesBaseList(){
     }
     return canCurrentUserSeeLeadEntry({id, data:d}, mode);
   });
+}
+
+function customerStatusesBaseList(){
+  return getScopedLeadBaseList(getCustomerStatusesViewMode());
 }
 
 function uniqueSortedValues(list, picker){
