@@ -6,6 +6,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -4559,6 +4560,69 @@ const WA_AUTO_MSG_MENU_FALLBACK =
     return "";
   }
 
+  function extractFinanceLeadFieldsFromText(rawText, convData={}){
+    const text = String(rawText || "").replace(/\r/g, "").trim();
+    const lines = text.split("\n").map(x=> String(x || "").trim()).filter(Boolean);
+    const out = {
+      name: "",
+      carName: "",
+      phoneNormalized: normalizeSaudiPhone(String(convData?.waId || convData?.phoneNormalized || convData?.phone || "")),
+      phone: "",
+      salary: "",
+      commitment: "",
+      age: "",
+      bank: ""
+    };
+
+    const fieldMatchers = [
+      { key: "name", labels: ["الاسم", "اسم العميل", "العميل"] },
+      { key: "carName", labels: ["نوع السيارة المطلوبة", "نوع السيارة", "السيارة", "السياره", "اسم السيارة", "اسم السياره"] },
+      { key: "phoneNormalized", labels: ["رقم الجوال", "الجوال", "رقم التواصل", "رقم الهاتف", "الهاتف"] },
+      { key: "salary", labels: ["كم الراتب", "الراتب", "صافي الراتب"] },
+      { key: "commitment", labels: ["الالتزامات إن وجدت", "الالتزامات", "الالتزام", "الاقساط", "الأقساط"] },
+      { key: "age", labels: ["كم العمر", "العمر"] },
+      { key: "bank", labels: ["نزول الراتب على أي بنك", "بنك الراتب", "البنك", "جهة نزول الراتب"] }
+    ];
+
+    function cleanValue(v){
+      return String(v || "").replace(/^[-:：\s]+/, "").trim();
+    }
+
+    for(const line of lines){
+      const normalizedLine = String(line || "").trim();
+      for(const item of fieldMatchers){
+        for(const label of item.labels){
+          const safeLabel = String(label || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const rx = new RegExp("^" + safeLabel + "\\s*[:：-]?\\s*(.*)$", "i");
+          const m = normalizedLine.match(rx);
+          if(!m) continue;
+          let value = cleanValue(m[1] || "");
+          if(item.key === "phoneNormalized"){
+            value = normalizeSaudiPhone(value || out.phoneNormalized || "");
+            if(value) out.phone = "+" + value;
+          }
+          if(value) out[item.key] = value;
+        }
+      }
+    }
+
+    if((!out.name || !out.carName) && lines.length >= 3){
+      const stripped = lines.map(x=> x.replace(/^\s*[-•\d.)]+\s*/, "").trim()).filter(Boolean);
+      if(!out.name && stripped[0]) out.name = stripped[0];
+      if(!out.carName && stripped[1]) out.carName = stripped[1];
+      if(!out.phoneNormalized && stripped[2]){
+        const pn = normalizeSaudiPhone(stripped[2]);
+        if(pn){
+          out.phoneNormalized = pn;
+          out.phone = "+" + pn;
+        }
+      }
+    }
+
+    if(out.phoneNormalized && !out.phone) out.phone = "+" + out.phoneNormalized;
+    return out;
+  }
+
   async function getLastMessage(convId){
     const qLast = query(
       collection(db,"wa_conversations", convId, "messages"),
@@ -4624,14 +4688,14 @@ const WA_AUTO_MSG_MENU_FALLBACK =
 
         if(svc === "cash"){
           await assignConversationToBranchRandom(convId, "مبيعات الكاش");
-          await updateDoc(convRef, { autoFlowState: "routed_cash", autoService: "cash", autoLastInboundId: lastId, updatedAt: new Date().toISOString() }).catch(()=>{});
+          await updateDoc(convRef, { autoFlowState: "routed_cash", autoService: "cash", serviceKey: "cash", autoLastInboundId: lastId, updatedAt: new Date().toISOString() }).catch(()=>{});
           await ensureLeadIdForConversationId(convId).catch(()=>"");
           return;
         }
 
         if(svc === "cs"){
           await assignConversationToBranchRandom(convId, "خدمة العملاء");
-          await updateDoc(convRef, { autoFlowState: "routed_cs", autoService: "cs", autoLastInboundId: lastId, updatedAt: new Date().toISOString() }).catch(()=>{});
+          await updateDoc(convRef, { autoFlowState: "routed_cs", autoService: "cs", serviceKey: "cs", autoLastInboundId: lastId, updatedAt: new Date().toISOString() }).catch(()=>{});
           await ensureLeadIdForConversationId(convId).catch(()=>"");
           return;
         }
@@ -4639,8 +4703,7 @@ const WA_AUTO_MSG_MENU_FALLBACK =
         if(svc === "finance"){
           await assignConversationToBranchRandom(convId, "مبيعات التمويل");
           await sendBotTextToConv(convId, WA_AUTO_MSG_FINANCE_FORM);
-          await updateDoc(convRef, { autoFlowState: "awaiting_finance_details", autoService: "finance", autoLastInboundId: lastId, updatedAt: new Date().toISOString() }).catch(()=>{});
-          await ensureLeadIdForConversationId(convId).catch(()=>"");
+          await updateDoc(convRef, { autoFlowState: "awaiting_finance_details", autoService: "finance", serviceKey: "finance", autoLastInboundId: lastId, updatedAt: new Date().toISOString() }).catch(()=>{});
           return;
         }
       }
@@ -4654,9 +4717,49 @@ const WA_AUTO_MSG_MENU_FALLBACK =
           await updateDoc(convRef, { autoLastInboundId: lastId, updatedAt: new Date().toISOString() }).catch(()=>{});
           return;
         }
+
+        const financeData = extractFinanceLeadFieldsFromText(m.text || m.body || m.message || "", conv);
+        const hasFinanceLeadMinimum = !!(financeData.name && financeData.carName && financeData.phoneNormalized);
+        if(hasFinanceLeadMinimum){
+          const leadId = await ensureLeadIdForConversationId(convId).catch(()=>"");
+          const leadPatch = {
+            name: financeData.name,
+            phone: financeData.phone || (financeData.phoneNormalized ? ("+" + financeData.phoneNormalized) : ""),
+            phoneNormalized: financeData.phoneNormalized,
+            carName: financeData.carName,
+            carType: financeData.carName,
+            age: financeData.age,
+            bank: financeData.bank,
+            salary: financeData.salary,
+            commitment: financeData.commitment,
+            autoService: "finance",
+            serviceKey: "finance",
+            paymentType: "finance",
+            payType: "finance",
+            updatedAt: new Date().toISOString()
+          };
+          if(leadId){
+            await setDoc(doc(db,"leads", leadId), leadPatch, { merge:true }).catch(()=>{});
+            await updateDoc(convRef, {
+              leadId,
+              displayName: financeData.name,
+              waId: financeData.phoneNormalized,
+              autoService: "finance",
+              serviceKey: "finance",
+              updatedAt: new Date().toISOString()
+            }).catch(()=>{});
+          }else{
+            await updateDoc(convRef, {
+              displayName: financeData.name,
+              waId: financeData.phoneNormalized,
+              autoService: "finance",
+              serviceKey: "finance",
+              updatedAt: new Date().toISOString()
+            }).catch(()=>{});
+          }
+        }
         await sendBotTextToConv(convId, WA_AUTO_MSG_FINANCE_OK);
         await updateDoc(convRef, { autoFlowState: "done", autoLastInboundId: lastId, autoFinanceDoneAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).catch(()=>{});
-        await ensureLeadIdForConversationId(convId).catch(()=>"");
         return;
       }
 
@@ -5331,6 +5434,9 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
             try{ showTab("leads_finance"); }catch(e){}
           }
         }
+        if(!leadId){
+          leadId = await ensureLeadIdForConversationId(activeConvId).catch(()=> "");
+        }
         if(leadId){
           await setDoc(doc(db,"leads", leadId), {
             name: payload.name || "",
@@ -5348,7 +5454,17 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
             age: payload.age,
             bank: payload.bank,
             carType: payload.carType,
+            carName: payload.carType,
             notes: payload.notes,
+            autoService: String(conv.autoService || conv.serviceKey || ""),
+            serviceKey: String(conv.serviceKey || conv.autoService || ""),
+            salesAssignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
+            salesAssignedName: String(conv.salesAssignedName || conv.assignedName || ""),
+            assignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
+            assignedName: String(conv.salesAssignedName || conv.assignedName || ""),
+            callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
+            callCenterAssignedName: String(conv.callCenterAssignedName || ""),
+            branchId: String(conv.branchId || ""),
             ...(selectedLeadStatusId ? { leadStatusId: selectedLeadStatusId, leadStatusName: selectedLeadStatusName } : {}),
             attachments: attachments || [],
             updatedAt: new Date().toISOString()
@@ -6135,12 +6251,48 @@ function sortStatusesByCustomOrder(list){
       if(/finance|تمويل|قسط/i.test(v)) return "تمويل";
       return v;
     }
-    // استنتاج بسيط
+    const queueKey = getLeadQueueKey(lead || {});
+    if(queueKey === "finance") return "تمويل";
+    if(queueKey === "cash") return "كاش";
     const src = String(lead?.source||"");
     const p = lead?.calculator || lead?.payload || lead || {};
     const hasFinance = ("monthlyInstallment" in p) || ("totalFinance" in p) || ("months" in p);
     if(hasFinance || src === "installment_calculator") return "تمويل";
     return "كاش";
+  }
+
+  function getLeadPayTypeFromRawOnly(lead){
+    const v = (lead?.paymentType || lead?.payType || lead?.cashOrFinance || lead?.calculator?.paymentType || lead?.payload?.paymentType || "").toString().trim();
+    if(v){
+      if(/cash|كاش/i.test(v)) return "كاش";
+      if(/finance|تمويل|قسط/i.test(v)) return "تمويل";
+      return v;
+    }
+    const src = String(lead?.source||"");
+    const p = lead?.calculator || lead?.payload || lead || {};
+    const hasFinance = ("monthlyInstallment" in p) || ("totalFinance" in p) || ("months" in p);
+    if(hasFinance || src === "installment_calculator") return "تمويل";
+    return "";
+  }
+
+  function getLeadQueueKey(lead, leadId=""){
+    const d = lead || {};
+    const explicit = String(d.autoService || d.serviceKey || d.department || d.service || "").trim().toLowerCase();
+    if(["cash","finance","cs"].includes(explicit)) return explicit;
+    const branchValue = String(d.branchId || d.branchName || "").trim();
+    if(branchMatchesKey(branchValue, "finance")) return "finance";
+    if(branchMatchesKey(branchValue, "cash")) return "cash";
+    if(branchMatchesKey(branchValue, "cs")) return "cs";
+    const source = String(getNormalizedSourceForLead(d, leadId) || "").trim();
+    if(source === "حاسبة التقسيط") return "finance";
+    const payType = String(getLeadPayTypeFromRawOnly(d) || "").trim();
+    if(payType === "تمويل") return "finance";
+    if(payType === "كاش") return "cash";
+    return "";
+  }
+
+  function isLeadInQueue(lead, queueKey, leadId=""){
+    return getLeadQueueKey(lead, leadId) === String(queueKey || "").trim().toLowerCase();
   }
 
   function renderLeadTr(id, lead){
@@ -7009,17 +7161,11 @@ function applyLeadFilters(){
     const filtered = base.filter(({id,data})=>{
       // Views (Tabs) تحت "العملاء"
       if(viewMode === "leads_cash"){
-        if(getLeadPayType(data) !== "كاش") return false;
+        if(!isLeadInQueue(data, "cash", id)) return false;
       }else if(viewMode === "leads_finance"){
-        const payType = getLeadPayType(data);
-        const stName = String(data.leadStatusName || "").trim();
-        const src = String(getNormalizedSourceForLead(data,id)||"").trim();
-        if(payType !== "تمويل" && src !== "حاسبة التقسيط" && !stName.startsWith("مؤهل")) return false;
+        if(!isLeadInQueue(data, "finance", id)) return false;
       }else if(viewMode === "leads_cs"){
-        const payType = getLeadPayType(data);
-        const src = String(getNormalizedSourceForLead(data,id)||"").trim();
-        // خدمة العملاء = ليس كاش/تمويل صريح + ليس حاسبة تقسيط
-        if(payType === "كاش" || payType === "تمويل" || src === "حاسبة التقسيط") return false;
+        if(!isLeadInQueue(data, "cs", id)) return false;
       }
 
       if(fa && getAssignedUidFromLead(data, viewMode) !== fa) return false;
