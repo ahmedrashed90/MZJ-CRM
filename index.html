@@ -13,6 +13,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6202,7 +6203,7 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
     });
 
     const merged = dedupeCombinedLeads([...enrichedFirestore, ...externalList]);
-    merged.sort((a,b)=> (fsToMs(b?.data?.updatedAt) || fsToMs(b?.data?.createdAt) || 0) - (fsToMs(a?.data?.updatedAt) || fsToMs(a?.data?.createdAt) || 0));
+    merged.sort((a,b)=> getLeadCreateTimeValue(b?.data || {}) - getLeadCreateTimeValue(a?.data || {}));
     leadsCache = merged;
   }
 
@@ -6358,6 +6359,16 @@ function sortStatusesByCustomOrder(list){
     }catch{ return String(v||"—"); }
   }
 
+  function getLeadCreateTimeValue(lead){
+    const v = lead?.createTime || lead?.campaignDate || lead?.createdAt || lead?.updatedAt || lead?.timestamp || "";
+    return fsToMs(v) || (v ? Date.parse(v) : 0) || 0;
+  }
+
+  function getLeadCreateTimeHuman(lead){
+    const v = lead?.createTime || lead?.campaignDate || lead?.createdAt || lead?.updatedAt || lead?.timestamp || "";
+    return fsToHuman(v);
+  }
+
   function getLeadDisplay(lead){
     const name = lead.name && lead.name !== "-" ? lead.name : "—";
     const phone = lead.phone || lead.phoneNormalized || "—";
@@ -6458,7 +6469,7 @@ function sortStatusesByCustomOrder(list){
         <td>${esc(payType || "—")}</td>
         <td>${esc(d.statusName || "—")}</td>
         <td>${esc(d.assignedName)}</td>
-        <td>${esc(fsToHuman(lead.updatedAt || lead.timestamp || lead.createdAt))}</td>
+        <td>${esc(getLeadCreateTimeHuman(lead))}</td>
       </tr>
     `;
   }
@@ -7380,6 +7391,8 @@ const total = base.length;
     $("#statLeadsActive") && ($("#statLeadsActive").textContent = String(filtered.length));
     $("#statLeadsClosed") && ($("#statLeadsClosed").textContent = String(closedWon));
 
+    filtered.sort((a,b)=> getLeadCreateTimeValue(b?.data || {}) - getLeadCreateTimeValue(a?.data || {}));
+
     if(!filtered.length){
       tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
     }else{
@@ -7528,6 +7541,8 @@ function renderCustomerStatusesTab(){
   $("#customerStatusesEditable") && ($("#customerStatusesEditable").textContent = String(editable));
   $("#customerStatusesCount") && ($("#customerStatusesCount").textContent = String(filtered.length));
 
+  filtered.sort((a,b)=> getLeadCreateTimeValue(b?.data || {}) - getLeadCreateTimeValue(a?.data || {}));
+
   if(!filtered.length){
     tb.innerHTML = `<tr><td colspan="10" class="statusEmpty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
     return;
@@ -7554,7 +7569,7 @@ function renderCustomerStatusesTab(){
             <div class="avatar">${esc(avatar)}</div>
             <div class="statusNameInfo">
               <b>${esc(name)}</b>
-              <span>${esc(fsToHuman(data?.updatedAt || data?.timestamp || data?.createdAt))}</span>
+              <span>${esc(getLeadCreateTimeHuman(data))}</span>
             </div>
           </div>
         </td>
