@@ -7,6 +7,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3316,6 +3317,21 @@ let __selectedWaTemplateKey = null;
   }
 
   // ===== Tabs =====
+  function updateLeadFiltersVisibility(){
+    const viewMode = String(window.__leadsViewMode || "customers").trim();
+    const branchEl = $("#leadsFilterBranch");
+    const stageEl = $("#leadsFilterStage");
+
+    const showBranch = !(viewMode === "leads_cash" || viewMode === "leads_finance" || viewMode === "leads_cs");
+    const showStage = !(viewMode === "customers" || viewMode === "leads_cash" || viewMode === "leads_finance" || viewMode === "leads_cs");
+
+    if(branchEl && !showBranch) branchEl.value = "";
+    if(stageEl && !showStage) stageEl.value = "";
+
+    if(branchEl) branchEl.style.display = showBranch ? "" : "none";
+    if(stageEl) stageEl.style.display = showStage ? "" : "none";
+  }
+
   function showTab(tabId){
     // بعض التابات هي Views لنفس Panel (العملاء)
     const leadViews = ["customers","leads_cash","leads_finance","leads_cs"];
@@ -3363,6 +3379,7 @@ let __selectedWaTemplateKey = null;
     // ✅ Lead views presets
     if(panelKey === "leads"){
       window.__leadsViewMode = tabId; // used inside applyLeadFilters
+      try{ updateLeadFiltersVisibility(); }catch(e){}
       // تأكد أن العملاء يتم تحميلهم حتى لو فتحت أي View غير قاعدة البيانات
       try{ ensureLeadsLive(); }catch(e){}
       try{ applyLeadFilters(); }catch(e){}
@@ -4500,6 +4517,7 @@ async function assignConversationToBranchRandom(convId, branchName){
         const leadPatch = {
           autoService: serviceKey || "",
           serviceKey: serviceKey || "",
+          ...(getPayTypeLabelByServiceKey(serviceKey) ? { paymentType: getPayTypeLabelByServiceKey(serviceKey), payType: getPayTypeLabelByServiceKey(serviceKey) } : {}),
           salesAssignedTo: salesUid,
           salesAssignedName: salesPick.name || salesPick.email || salesUid,
           assignedTo: salesUid,
@@ -6244,16 +6262,25 @@ function sortStatusesByCustomOrder(list){
   function getLeadCarName(lead){
     return (lead?.carName || lead?.calculator?.carName || lead?.payload?.carName || lead?.calculator?.car || lead?.payload?.car || "") || "—";
   }
+  function getPayTypeLabelByServiceKey(serviceKey){
+    const key = String(serviceKey || "").trim().toLowerCase();
+    if(key === "finance") return "تمويل";
+    if(key === "cash") return "كاش";
+    if(key === "cs") return "خدمة عملاء";
+    return "";
+  }
   function getLeadPayType(lead){
     const v = (lead?.paymentType || lead?.payType || lead?.cashOrFinance || lead?.calculator?.paymentType || lead?.payload?.paymentType || "").toString().trim();
     if(v){
       if(/cash|كاش/i.test(v)) return "كاش";
       if(/finance|تمويل|قسط/i.test(v)) return "تمويل";
+      if(/خدمة\s*عملاء|service\s*customer|customer\s*service/i.test(v)) return "خدمة عملاء";
       return v;
     }
     const queueKey = getLeadQueueKey(lead || {});
     if(queueKey === "finance") return "تمويل";
     if(queueKey === "cash") return "كاش";
+    if(queueKey === "cs") return "خدمة عملاء";
     const src = String(lead?.source||"");
     const p = lead?.calculator || lead?.payload || lead || {};
     const hasFinance = ("monthlyInstallment" in p) || ("totalFinance" in p) || ("months" in p);
@@ -6266,8 +6293,11 @@ function sortStatusesByCustomOrder(list){
     if(v){
       if(/cash|كاش/i.test(v)) return "كاش";
       if(/finance|تمويل|قسط/i.test(v)) return "تمويل";
+      if(/خدمة\s*عملاء|service\s*customer|customer\s*service/i.test(v)) return "خدمة عملاء";
       return v;
     }
+    const queueKey = String(lead?.autoService || lead?.serviceKey || "").trim().toLowerCase();
+    if(queueKey === "cs") return "خدمة عملاء";
     const src = String(lead?.source||"");
     const p = lead?.calculator || lead?.payload || lead || {};
     const hasFinance = ("monthlyInstallment" in p) || ("totalFinance" in p) || ("months" in p);
@@ -7141,6 +7171,7 @@ function enableKanbanDragScroll(board){
   }
 
 function applyLeadFilters(){
+    try{ updateLeadFiltersVisibility(); }catch(e){}
     refreshLeadCarPayFilters();
     refreshLeadSourceFilter();
     const tb = $("#leadsTbody");
@@ -7182,9 +7213,23 @@ function applyLeadFilters(){
       }
 
       if(fb){
-        const ownerUid = getAssignedUidFromLead(data, viewMode);
-        const agentBranch = ownerUid ? (agentsUidMap.get(ownerUid)?.branchId || agentsMap.get(ownerUid)?.branchId || "") : "";
-        if(!branchMatchesKey(agentBranch, fb)) return false;
+        if(viewMode === "customers"){
+          if(branchMatchesKey(fb, "cs")){
+            if(!isLeadInQueue(data, "cs", id) && getLeadPayType(data) !== "خدمة عملاء") return false;
+          }else if(branchMatchesKey(fb, "cash")){
+            if(getLeadPayType(data) !== "كاش") return false;
+          }else if(branchMatchesKey(fb, "finance")){
+            if(getLeadPayType(data) !== "تمويل") return false;
+          }else{
+            const ownerUid = getAssignedUidFromLead(data, viewMode);
+            const agentBranch = ownerUid ? (agentsUidMap.get(ownerUid)?.branchId || agentsMap.get(ownerUid)?.branchId || "") : "";
+            if(!branchMatchesKey(agentBranch, fb)) return false;
+          }
+        }else{
+          const ownerUid = getAssignedUidFromLead(data, viewMode);
+          const agentBranch = ownerUid ? (agentsUidMap.get(ownerUid)?.branchId || agentsMap.get(ownerUid)?.branchId || "") : "";
+          if(!branchMatchesKey(agentBranch, fb)) return false;
+        }
       }
 
       if(qText){
@@ -7232,9 +7277,20 @@ const total = base.length;
 
 
 
+function getCustomerStatusesViewMode(){
+  if(canViewAllLeads()) return "customers";
+  const branchId = getCurrentBranchId();
+  if(branchMatchesKey(branchId, "callcenter")) return "customers";
+  if(branchMatchesKey(branchId, "finance")) return "leads_finance";
+  if(branchMatchesKey(branchId, "cash")) return "leads_cash";
+  if(branchMatchesKey(branchId, "cs")) return "leads_cs";
+  return "customers";
+}
+
 function customerStatusesBaseList(){
   const arr = Array.isArray(leadsCache) ? leadsCache : [];
-  return arr.filter(entry=> canCurrentUserSeeLeadEntry(entry, window.__leadsViewMode || "customers"));
+  const mode = getCustomerStatusesViewMode();
+  return arr.filter(entry=> canCurrentUserSeeLeadEntry(entry, mode));
 }
 
 function uniqueSortedValues(list, picker){
@@ -8454,6 +8510,8 @@ function bindTasksUI(){
         const salesUid = String(conv.salesAssignedTo || conv.assignedTo || "");
         const salesName = String(conv.salesAssignedName || conv.assignedName || "");
         const branchId = salesUid ? (agentsUidMap.get(salesUid)?.branchId || conv.branchId || "") : String(conv.branchId || "");
+        const serviceKey = String(conv.autoService || conv.serviceKey || "");
+        const payTypeByService = getPayTypeLabelByServiceKey(serviceKey);
         const leadPayload = {
           name: (conv.displayName || conv.name || conv.participantName || conv.participant_name || "-"),
           phone: phoneNorm ? ("+" + phoneNorm) : "",
@@ -8463,8 +8521,9 @@ function bindTasksUI(){
           source: source,
           channel: (conv.channel || conv.platform || "whatsapp"),
           stageId: defaultStageId,
-          autoService: String(conv.autoService || conv.serviceKey || ""),
-          serviceKey: String(conv.serviceKey || conv.autoService || ""),
+          autoService: serviceKey,
+          serviceKey: serviceKey,
+          ...(payTypeByService ? { paymentType: payTypeByService, payType: payTypeByService } : {}),
           salesAssignedTo: salesUid,
           salesAssignedName: salesName,
           assignedTo: salesUid,
@@ -8485,9 +8544,12 @@ function bindTasksUI(){
       }
 
       if(leadId){
+        const patchServiceKey = String(conv.autoService || conv.serviceKey || "");
+        const patchPayType = getPayTypeLabelByServiceKey(patchServiceKey);
         const patch = {
-          autoService: String(conv.autoService || conv.serviceKey || ""),
-          serviceKey: String(conv.serviceKey || conv.autoService || ""),
+          autoService: patchServiceKey,
+          serviceKey: patchServiceKey,
+          ...(patchPayType ? { paymentType: patchPayType, payType: patchPayType } : {}),
           salesAssignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
           salesAssignedName: String(conv.salesAssignedName || conv.assignedName || ""),
           assignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
