@@ -6313,15 +6313,26 @@ function sortStatusesByCustomOrder(list){
     const d = lead || {};
     const explicit = String(d.autoService || d.serviceKey || d.department || d.service || "").trim().toLowerCase();
     if(["cash","finance","cs"].includes(explicit)) return explicit;
-    const branchValue = String(d.branchId || d.branchName || "").trim();
-    if(branchMatchesKey(branchValue, "finance")) return "finance";
-    if(branchMatchesKey(branchValue, "cash")) return "cash";
-    if(branchMatchesKey(branchValue, "cs")) return "cs";
-    const source = String(getNormalizedSourceForLead(d, leadId) || "").trim();
-    if(source === "حاسبة التقسيط") return "finance";
+
     const payType = String(getLeadPayTypeFromRawOnly(d) || "").trim();
     if(payType === "تمويل") return "finance";
     if(payType === "كاش") return "cash";
+    if(payType === "خدمة عملاء") return "cs";
+
+    const branchCandidates = [
+      String(d.branchId || d.branchName || "").trim(),
+      String(agentsUidMap.get(String(d.salesAssignedTo || d.assignedTo || "").trim())?.branchId || "").trim(),
+      String(agentsUidMap.get(String(d.assigneeTo || "").trim())?.branchId || "").trim()
+    ].filter(Boolean);
+
+    for(const branchValue of branchCandidates){
+      if(branchMatchesKey(branchValue, "finance")) return "finance";
+      if(branchMatchesKey(branchValue, "cash")) return "cash";
+      if(branchMatchesKey(branchValue, "cs")) return "cs";
+    }
+
+    const source = String(getNormalizedSourceForLead(d, leadId) || "").trim();
+    if(source === "حاسبة التقسيط") return "finance";
     return "";
   }
 
