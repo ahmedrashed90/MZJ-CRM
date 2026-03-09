@@ -15,6 +15,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1837,23 +1838,12 @@ body.auth-locked #authModal{ pointer-events:auto; }
           <div class="badge" id="navUnread">0</div>
         </div>
 
-        <div class="navItem" data-tab="customer-statuses">
-          <div class="navLeft">
-            <div class="ico">📋</div>
-            <div class="navTitle">
-              <b>حالات العملاء</b>
-              <span>تغيير ومتابعة حالات العملاء</span>
-            </div>
-          </div>
-          <div class="badge neutral" id="customerStatusesCount">—</div>
-        </div>
-
         <div class="navItem" data-tab="customers">
           <div class="navLeft">
             <div class="ico">👥</div>
             <div class="navTitle">
-              <b>العملاء</b>
-              <span>كل العملاء (بحث + فلترة)</span>
+              <b>الكول سنتر</b>
+              <span>فلترة ليدات التمويل الجديدة</span>
             </div>
           </div>
           <div class="badge neutral">—</div>
@@ -2103,67 +2093,6 @@ body.auth-locked #authModal{ pointer-events:auto; }
           </div>
 
           
-          <!-- Panel: Customer Statuses -->
-          <div class="panel" id="panel-customer-statuses">
-            <div class="statusQuickStats">
-              <div class="statusQuickStat">
-                <b>إجمالي العملاء</b>
-                <strong id="customerStatusesTotal">0</strong>
-              </div>
-              <div class="statusQuickStat">
-                <b>نتائج الفلاتر</b>
-                <strong id="customerStatusesFiltered">0</strong>
-              </div>
-              <div class="statusQuickStat">
-                <b>قابلون لتغيير الحالة</b>
-                <strong id="customerStatusesEditable">0</strong>
-              </div>
-            </div>
-
-            <div class="statusBoardCard">
-              <div class="statusBoardTop">
-                <div>
-                  <h3>حالات العملاء</h3>
-                  <p>من هذا التاب تقدر تراجع العملاء وتفلترهم بنفس الحقول المطلوبة وتغيّر الحالة مباشرة بدون الدخول على كل عميل بشكل منفصل.</p>
-                </div>
-                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                  <button class="miniBtn" id="customerStatusesRefresh" type="button">تحديث</button>
-                </div>
-              </div>
-
-              <div class="statusFilters">
-                <input class="miniInput statusSearchWide" id="customerStatusesSearch" placeholder="بحث بالاسم / الجوال / السيارة / المكان / المصدر..." />
-                                <select id="customerStatusesFilterPlace"><option value="">كل الأماكن</option></select>
-                <select id="customerStatusesFilterSource"><option value="">كل المصادر</option></select>
-                <select id="customerStatusesFilterCar"><option value="">كل السيارات</option></select>
-                <select id="customerStatusesFilterPay"><option value="">كل طرق الدفع</option></select>
-                <select id="customerStatusesFilterStatus"><option value="">كل الحالات</option></select>
-              </div>
-
-              <div class="statusTableWrap">
-                <table class="statusTable">
-                  <thead>
-                    <tr>
-                      <th>اسم العميل</th>
-                      <th>الجوال</th>
-                      <th>المكان</th>
-                      <th>المصدر</th>
-                      <th>اسم السيارة</th>
-                      <th>الدفع</th>
-                      <th>الحالة الحالية</th>
-                      <th>تغيير الحالة</th>
-                      <th>موعد المتابعة</th>
-                      <th>تحديد موعد</th>
-                    </tr>
-                  </thead>
-                  <tbody id="customerStatusesTbody">
-                    <tr><td colspan="10" class="statusEmpty">جاري تحميل العملاء...</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
           <!-- Panel: Leads -->
           <div class="panel" id="panel-leads">
             <div class="grid">
@@ -3296,7 +3225,7 @@ let __selectedWaTemplateKey = null;
       case "leads_cs":
         return branchMatchesKey(branchId, "cs");
       case "database":
-        return false;
+        return branchMatchesKey(branchId, "callcenter") || isManagementRole();
       case "dashboard":
       case "tasks":
         return branchMatchesKey(branchId, "finance");
@@ -3310,6 +3239,9 @@ let __selectedWaTemplateKey = null;
     if(settingsNav){
       settingsNav.style.display = canSeeSettings() ? "" : "none";
     }
+
+    const customerStatusesNav = document.querySelector('[data-tab="customer-statuses"]');
+    if(customerStatusesNav) customerStatusesNav.style.display = "none";
 
     const guardedTabs = ["customers","leads_cash","leads_finance","leads_cs","database","dashboard","tasks"];
     guardedTabs.forEach((tabId)=>{
@@ -3365,9 +3297,8 @@ let __selectedWaTemplateKey = null;
     // تحديث عنوان/وصف الصفحة حسب التاب
     const tabMeta = {
       inbox:         { title:"صندوق الوارد", desc:"تاب واحد للرد على كل الرسائل والتعليقات — مع تسجيل كل تفاعل وإشعارات فورية." },
-      "customer-statuses": { title:"حالات العملاء", desc:"فلترة احترافية بكل الحقول المطلوبة مع إمكانية تغيير حالة العميل مباشرة من نفس الجدول." },
 
-      customers:     { title:"العملاء", desc:"كل العملاء — بحث + فلترة + تحديث بيانات بسرعة." },
+      customers:     { title:"الكول سنتر", desc:"ليدات التمويل الجديدة قبل التحويل الكامل لفريق التمويل — فلترة وتحديد حالة العميل." },
       leads_cash:    { title:"العملاء المحتملون - كاش", desc:"عرض العملاء المحتملين للدفع كاش فقط." },
       leads_finance: { title:"العملاء المحتملون - تمويل", desc:"عرض العملاء المحتملين للتمويل فقط." },
       leads_cs:      { title:"العملاء المحتملون - خدمة عملاء", desc:"عرض العملاء المحتملين لخدمة العملاء." },
@@ -3411,11 +3342,6 @@ let __selectedWaTemplateKey = null;
       try{ applyDatabaseFilters(); }catch(e){}
     }
 
-    if(panelKey === "customer-statuses"){
-      try{ renderCustomerStatusesTab(); }catch(e){}
-      try{ ensureLeadsLive(); }catch(e){}
-      try{ renderCustomerStatusesTab(); }catch(e){}
-    }
   }
 
 
@@ -6208,6 +6134,41 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
     leadsCache = merged;
   }
 
+  const __autoAssignedCallCenterLeadIds = new Set();
+  async function autoAssignMissingFinanceCallCenterLeads(list){
+    if(!canViewAllLeads()) return;
+    const rows = Array.isArray(list) ? list : [];
+    for(const item of rows){
+      const leadId = String(item?.id || "").trim();
+      const data = item?.data || {};
+      if(!leadId || __autoAssignedCallCenterLeadIds.has(leadId)) continue;
+      if(!isFinanceLeadForRouting(data, leadId)) continue;
+      const hasCall = String(getCallCenterAssignedUidFromLead(data) || "").trim();
+      if(hasCall){ __autoAssignedCallCenterLeadIds.add(leadId); continue; }
+      try{
+        const salesUid = String(getSalesAssignedUidFromLead(data) || "").trim();
+        const salesName = String(data?.salesAssignedName || data?.assignedName || agentsUidMap.get(salesUid)?.name || "").trim();
+        const callPick = pickRandomAgentFromBranch("كول سنتر");
+        const callUid = String(callPick?.uid || callPick?.id || "").trim();
+        if(salesUid && callUid){
+          await updateDoc(doc(db, "leads", leadId), {
+            callCenterAssignedTo: callUid,
+            callCenterAssignedName: String(callPick?.name || callPick?.email || callUid),
+            salesAssignedTo: salesUid,
+            salesAssignedName: salesName,
+            assignedTo: salesUid,
+            assignedName: salesName,
+            updatedAt: new Date().toISOString()
+          });
+          __autoAssignedCallCenterLeadIds.add(leadId);
+          continue;
+        }
+        const res = await assignLeadRandomByServiceKey(leadId, data, "finance");
+        if(res?.ok) __autoAssignedCallCenterLeadIds.add(leadId);
+      }catch(e){ console.warn("autoAssignMissingFinanceCallCenterLeads", e); }
+    }
+  }
+
   async function refreshExternalLeadSheets(force=false){
     // تم تعطيل الاستيراد التلقائي من الشيتات الخارجية نهائياً.
     // أي ليد جديد يجب أن يدخل فقط من خلال الـ Worker / Postman.
@@ -6294,8 +6255,8 @@ function sortStatusesByCustomOrder(list){
     if(!currentUser) return false;
     // الإدمن/مدير الفرع يقدر يعدّل
     if(canSeeAllInbox() || canSeeSettings()) return true;
-    // المندوب يعدّل لو العميل عليه
-    return (lead?.assignedTo || "") === currentUser.uid;
+    // المندوب يعدّل لو العميل عليه أو معيّن عليه بالكول سنتر
+    return (lead?.assignedTo || "") === currentUser.uid || getCallCenterAssignedUidFromLead(lead) === currentUser.uid;
   }
 
   function normalizePhone(val){
@@ -7262,10 +7223,12 @@ function applyLeadFilters(){
 
     const filtered = base.filter(({id,data})=>{
       // Views (Tabs) تحت "العملاء"
-      if(viewMode === "leads_cash"){
+      if(viewMode === "customers"){
+        if(!isFinanceLeadForRouting(data, id) || !isCallCenterFinanceStatusVisible(data)) return false;
+      }else if(viewMode === "leads_cash"){
         if(!isLeadInQueue(data, "cash", id) && getLeadPayType(data) !== "كاش") return false;
       }else if(viewMode === "leads_finance"){
-        if(!isLeadInQueue(data, "finance", id) && getLeadPayType(data) !== "تمويل") return false;
+        if(!isFinanceLeadForRouting(data, id) || !isFinanceSalesStatusVisible(data)) return false;
       }else if(viewMode === "leads_cs"){
         if(!isLeadInQueue(data, "cs", id) && getLeadPayType(data) !== "خدمة عملاء") return false;
       }
@@ -7284,17 +7247,7 @@ function applyLeadFilters(){
 
       if(fb){
         if(viewMode === "customers"){
-          if(branchMatchesKey(fb, "cs")){
-            if(!isLeadInQueue(data, "cs", id) && getLeadPayType(data) !== "خدمة عملاء") return false;
-          }else if(branchMatchesKey(fb, "cash")){
-            if(getLeadPayType(data) !== "كاش") return false;
-          }else if(branchMatchesKey(fb, "finance")){
-            if(getLeadPayType(data) !== "تمويل") return false;
-          }else{
-            const ownerUid = getAssignedUidFromLead(data, viewMode);
-            const agentBranch = ownerUid ? (agentsUidMap.get(ownerUid)?.branchId || agentsMap.get(ownerUid)?.branchId || "") : "";
-            if(!branchMatchesKey(agentBranch, fb)) return false;
-          }
+          if(!branchMatchesKey(fb, "callcenter") && !branchMatchesKey(fb, "finance")) return false;
         }else{
           const ownerUid = getAssignedUidFromLead(data, viewMode);
           const agentBranch = ownerUid ? (agentsUidMap.get(ownerUid)?.branchId || agentsMap.get(ownerUid)?.branchId || "") : "";
@@ -7348,40 +7301,76 @@ const total = base.length;
 
 
 function getCustomerStatusesViewMode(){
-  if(canViewAllLeads()) return "customers";
-  const branchId = getCurrentBranchId();
-  if(branchMatchesKey(branchId, "callcenter")) return "customers";
-  if(branchMatchesKey(branchId, "finance")) return "leads_finance";
-  if(branchMatchesKey(branchId, "cash")) return "leads_cash";
-  if(branchMatchesKey(branchId, "cs")) return "leads_cs";
   return "customers";
+}
+
+function normalizeLeadStatusNameForRouting(lead){
+  return String(getEffectiveLeadStatusName(lead || {}) || "").trim();
+}
+
+function isFinanceLeadForRouting(lead, leadId="") {
+  const pay = String(getLeadPayType(lead || {}) || "").trim();
+  if(pay === "تمويل") return true;
+  return isLeadInQueue(lead || {}, "finance", leadId);
+}
+
+function isCallCenterFinanceStatusVisible(lead){
+  const statusName = normalizeLeadStatusNameForRouting(lead);
+  if(!statusName || statusName === "جديد") return true;
+  return [
+    "تم الإتصال (للفلترة + طلب الأوراق)",
+    "مؤهل - لم يتم إرسال الأوراق"
+  ].includes(statusName);
+}
+
+function isFinanceSalesStatusVisible(lead){
+  const statusName = normalizeLeadStatusNameForRouting(lead);
+  if(!statusName || statusName === "جديد") return false;
+  if(statusName === "غير مؤهل") return false;
+  return true;
 }
 
 function getScopedLeadBaseList(viewMode="customers"){
   const arr = Array.isArray(leadsCache) ? leadsCache : [];
   const mode = String(viewMode || "customers").trim();
-  if(canViewAllLeads()) return arr;
-
+  const canAll = canViewAllLeads();
   const uid = String(currentUser?.uid || "").trim();
-  if(!uid) return [];
 
   return arr.filter(({id,data})=>{
     const d = data || {};
+
     if(mode === "customers"){
+      if(!isFinanceLeadForRouting(d, id)) return false;
+      if(!isCallCenterFinanceStatusVisible(d)) return false;
+      if(canAll) return true;
+      if(!uid) return false;
       return getCallCenterAssignedUidFromLead(d) === uid;
     }
+
     if(mode === "leads_finance"){
-      if(!isLeadInQueue(d, "finance", id) && getLeadPayType(d) !== "تمويل") return false;
+      if(!isFinanceLeadForRouting(d, id)) return false;
+      if(!isFinanceSalesStatusVisible(d)) return false;
+      if(canAll) return true;
+      if(!uid) return false;
       return getSalesAssignedUidFromLead(d) === uid;
     }
+
     if(mode === "leads_cash"){
       if(!isLeadInQueue(d, "cash", id) && getLeadPayType(d) !== "كاش") return false;
+      if(canAll) return true;
+      if(!uid) return false;
       return getSalesAssignedUidFromLead(d) === uid;
     }
+
     if(mode === "leads_cs"){
       if(!isLeadInQueue(d, "cs", id) && getLeadPayType(d) !== "خدمة عملاء") return false;
+      if(canAll) return true;
+      if(!uid) return false;
       return getSalesAssignedUidFromLead(d) === uid;
     }
+
+    if(canAll) return true;
+    if(!uid) return false;
     return canCurrentUserSeeLeadEntry({id, data:d}, mode);
   });
 }
@@ -7928,8 +7917,9 @@ function bindTasksUI(){
     unsubLeads = onSnapshot(qRef, async (snap)=>{
       firestoreLeadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
       rebuildLeadsCache();
+      try{ await autoAssignMissingFinanceCallCenterLeads(firestoreLeadsCache); }catch(e){}
 
-      // render immediately from Firestore so حالات العملاء تظهر مباشرة
+      // render immediately from Firestore
       applyLeadFilters();
       try{ renderCustomerStatusesTab(); }catch(e){}
       try{ applyDatabaseFilters(); }catch(e){}
@@ -7954,6 +7944,7 @@ function bindTasksUI(){
         const snap = await getDocs(query(collection(db,"leads"), limit(300)));
         firestoreLeadsCache = snap.docs.map(d=>({id:d.id, data:d.data()||{}}));
         rebuildLeadsCache();
+        try{ await autoAssignMissingFinanceCallCenterLeads(firestoreLeadsCache); }catch(e){}
 
         // fallback render immediately
         applyLeadFilters();
