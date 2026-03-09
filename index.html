@@ -17,6 +17,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -2138,12 +2139,13 @@ body.auth-locked #authModal{ pointer-events:auto; }
                         <th>اسم السيارة</th>
                         <th>الدفع</th>
                         <th>الحالة</th>
-                                                <th>المسؤول</th>
+                        <th>المسؤول</th>
+                        <th>الكول سنتر</th>
                         <th>آخر تحديث</th>
                       </tr>
                     </thead>
                     <tbody id="leadsTbody">
-                      <tr><td colspan="9" class="mzj-empty">لا توجد بيانات بعد. سيتم جلب العملاء المحتملين من Firebase.</td></tr>
+                      <tr><td colspan="10" class="mzj-empty">لا توجد بيانات بعد. سيتم جلب العملاء المحتملين من Firebase.</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -6533,13 +6535,26 @@ function sortStatusesByCustomOrder(list){
     }catch{ return String(v||"—"); }
   }
 
+  function getSalesAssignedNameDisplay(lead){
+    const salesUid = String(lead?.salesAssignedTo || lead?.assignedTo || "").trim();
+    if(salesUid) return String(lead?.salesAssignedName || lead?.assignedName || agentsUidMap.get(salesUid)?.name || salesUid).trim() || "غير موزع";
+    return String(lead?.salesAssignedName || lead?.assignedName || "").trim() || "غير موزع";
+  }
+
+  function getCallCenterAssignedNameDisplay(lead){
+    const callUid = String(lead?.callCenterAssignedTo || lead?.callcenterAssignedTo || "").trim();
+    if(callUid) return String(lead?.callCenterAssignedName || agentsUidMap.get(callUid)?.name || callUid).trim() || "—";
+    return String(lead?.callCenterAssignedName || "").trim() || "—";
+  }
+
   function getLeadDisplay(lead){
     const name = lead.name && lead.name !== "-" ? lead.name : "—";
     const phone = lead.phone || lead.phoneNormalized || "—";
     const stage = stagesMap.get(lead.stageId)?.name || lead.stageId || "—";
-    const assignedName = lead.assignedTo ? (lead.assignedName || agentsUidMap.get(lead.assignedTo)?.name || lead.assignedTo) : (lead.assignedName || "غير موزع");
+    const assignedName = getSalesAssignedNameDisplay(lead);
+    const callCenterName = getCallCenterAssignedNameDisplay(lead);
     const statusName = getEffectiveLeadStatusName(lead);
-    return { name, phone, stage, assignedName, statusName };
+    return { name, phone, stage, assignedName, callCenterName, statusName };
   }
 
   function getLeadCarName(lead){
@@ -6633,6 +6648,7 @@ function sortStatusesByCustomOrder(list){
         <td>${esc(payType || "—")}</td>
         <td>${esc(d.statusName || "—")}</td>
         <td>${esc(d.assignedName)}</td>
+        <td>${esc(d.callCenterName || "—")}</td>
         <td>${esc(fsToHuman(lead.updatedAt || lead.timestamp || lead.createdAt))}</td>
       </tr>
     `;
@@ -6760,6 +6776,7 @@ function sortStatusesByCustomOrder(list){
       ["الدفع", payType],
       ["الحالة", d.statusName || "—"],
       ["المسؤول", d.assignedName],
+      ["الكول سنتر", d.callCenterName || "—"],
       ["آخر تحديث", fsToHuman(lead.updatedAt || lead.timestamp || lead.createdAt)],
     ];
 
@@ -6893,6 +6910,7 @@ function sortStatusesByCustomOrder(list){
         try{
           const statusName = (leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name);
           await updateDoc(doc(db,"leads", leadId), { leadStatusId: statusId, leadStatusName: statusName, updatedAt: new Date().toISOString() });
+          try{ await ensureFinanceLeadRoutingVisibility(leadId, { ...leadData, leadStatusId: statusId, leadStatusName: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(leadModal)", e); }
           toast("تم تحديث الحالة");
         }catch(err){
           console.warn(err);
@@ -7469,6 +7487,14 @@ function enableKanbanDragScroll(board){
     await loadLeadActivityGeneric(leadId, lead, "#leadActivity");
   }
 
+function updateLeadsTableColumns(viewMode="customers"){
+  const table = document.querySelector('#leadsTbody')?.closest('table');
+  if(!table) return;
+  const ths = table.querySelectorAll('thead th');
+  if(ths && ths[7]) ths[7].textContent = 'المسؤول';
+  if(ths && ths[8]) ths[8].textContent = 'الكول سنتر';
+}
+
 function applyLeadFilters(){
     try{ updateLeadFiltersVisibility(); }catch(e){}
     refreshLeadCarPayFilters();
@@ -7485,6 +7511,7 @@ function applyLeadFilters(){
     const fpay = $("#leadsFilterPay")?.value || "";
 
     const viewMode = window.__leadsViewMode || "customers";
+    try{ updateLeadsTableColumns(viewMode); }catch(e){}
     const base = getScopedLeadBaseList(viewMode);
 
     const filtered = base.filter(({id,data})=>{
@@ -7555,7 +7582,7 @@ const total = base.length;
     $("#statLeadsClosed") && ($("#statLeadsClosed").textContent = String(closedWon));
 
     if(!filtered.length){
-      tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
     }else{
       tb.innerHTML = filtered.map(x=>renderLeadTr(x.id, x.data)).join("");
     }
@@ -7641,10 +7668,12 @@ async function ensureFinanceLeadRoutingVisibility(leadId, leadData={}, selectedS
   }
   await setDoc(doc(db, "leads", leadId), patch, { merge:true });
   try{ await normalizeLeadSalesAssignmentIfNeeded(leadId, { ...leadData, ...patch }); }catch(e){ console.warn("normalizeLeadSalesAssignmentIfNeeded(ensureFinanceLeadRoutingVisibility)", e); }
-  const needsSalesAssignment = !String(getSalesAssignedUidFromLead({ ...leadData, ...patch }) || "").trim();
-  if(needsSalesAssignment){
+  const mergedLead = { ...leadData, ...patch };
+  const needsSalesAssignment = !String(getSalesAssignedUidFromLead(mergedLead) || "").trim();
+  const needsCallAssignment = !String(getCallCenterAssignedUidFromLead(mergedLead) || "").trim();
+  if(needsSalesAssignment || needsCallAssignment){
     try{
-      await assignLeadRandomByServiceKey(leadId, { ...leadData, ...patch }, "finance");
+      await assignLeadRandomByServiceKey(leadId, mergedLead, "finance");
     }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility", e); }
   }
 }
@@ -8054,7 +8083,7 @@ function applyDatabaseFilters(){
   window.__dbLastFiltered = filtered;
 
   if(!filtered.length){
-    tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>`;
   }else{
     tb.innerHTML = filtered.map(x=>renderDbTr(x.id, x.data)).join("");
   }
@@ -8227,7 +8256,7 @@ function bindTasksUI(){
     if(!tb) return;
 
     if(!currentUser){
-      tb.innerHTML = `<tr><td colspan="9" class="mzj-empty">سجّل الدخول لعرض العملاء المحتملين.</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="10" class="mzj-empty">سجّل الدخول لعرض العملاء المحتملين.</td></tr>`;
       return;
     }
 
@@ -8351,6 +8380,7 @@ function bindTasksUI(){
             leadStatusName: statusName,
             updatedAt: new Date().toISOString()
           });
+          try{ await ensureFinanceLeadRoutingVisibility(id, { ...found.data, leadStatusId: statusId, leadStatusName: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(detailsCard)", e); }
           toast("تم تحديث الحالة");
         }catch(err){
           console.warn(err);
