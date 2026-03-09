@@ -16,6 +16,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3040,6 +3041,22 @@ let __selectedWaTemplateKey = null;
     return roleId === "admin" || roleId === "marketing_admin";
   }
 
+  function canOpenInboxNav(){
+    const roleId = getCurrentRoleId();
+    return roleId === "admin" || roleId === "system_manager";
+  }
+
+  function isInboxLockedMode(){
+    return !canOpenInboxNav() && !!String(inboxLockedPhone || "").trim();
+  }
+
+  function clearInboxLockedMode(){
+    temporaryInboxAccess = false;
+    inboxLockedPhone = "";
+    inboxLockedLeadName = "";
+    const s = $("#fSearch");
+    if(s && !canOpenInboxNav()) s.value = "";
+  }
 
   function canSeeAllInbox(){
     const roleId = getCurrentRoleId();
@@ -3212,6 +3229,7 @@ let __selectedWaTemplateKey = null;
 
   function canAccessTab(tabId){
     if(!currentUser) return false;
+    if(String(tabId || "") === "inbox") return canOpenInboxNav() || temporaryInboxAccess;
     if(isManagementRole()) return true;
 
     const branchId = getCurrentBranchId();
@@ -3240,6 +3258,11 @@ let __selectedWaTemplateKey = null;
       settingsNav.style.display = canSeeSettings() ? "" : "none";
     }
 
+    const inboxNav = document.querySelector('[data-tab="inbox"]');
+    if(inboxNav){
+      inboxNav.style.display = canOpenInboxNav() ? "" : "none";
+    }
+
     const customerStatusesNav = document.querySelector('[data-tab="customer-statuses"]');
     if(customerStatusesNav) customerStatusesNav.style.display = "none";
 
@@ -3254,9 +3277,10 @@ let __selectedWaTemplateKey = null;
     try{ configureInboxScopeUI(); }catch(e){}
 
     const activeNav = document.querySelector('.navItem.active[data-tab]');
-    const activeTab = activeNav?.dataset?.tab || "inbox";
+    const activeTab = activeNav?.dataset?.tab || (canOpenInboxNav() ? "inbox" : "customers");
     if(activeTab && !canAccessTab(activeTab)){
-      try{ showTab("inbox"); }catch(e){ console.warn("role guard redirect", e); }
+      const fallbackTab = canOpenInboxNav() ? "inbox" : (canAccessTab("customers") ? "customers" : (canAccessTab("leads_cash") ? "leads_cash" : (canAccessTab("leads_finance") ? "leads_finance" : (canAccessTab("leads_cs") ? "leads_cs" : "database"))));
+      try{ showTab(fallbackTab); }catch(e){ console.warn("role guard redirect", e); }
     }
   }
 
@@ -3350,6 +3374,7 @@ let __selectedWaTemplateKey = null;
     $$(".navItem[data-tab]").forEach(el=>{
       el.addEventListener("click", ()=>{
         const t = el.dataset.tab;
+        if(t !== "inbox" && isInboxLockedMode()) clearInboxLockedMode();
         if(t === "settings" && !canSeeSettings()){
           toast("ليس لديك صلاحية لفتح الإعدادات", "warn");
           return;
@@ -3852,6 +3877,9 @@ let inboxReachedEnd = false;
 let unsubInboxLive = null; // live updates for first page only
   let inboxCache = []; // [{id,data}]
   let activeConvId = null;
+  let temporaryInboxAccess = false;
+  let inboxLockedPhone = "";
+  let inboxLockedLeadName = "";
 
   function fsToMs(v){
     if(!v) return 0;
@@ -3959,6 +3987,8 @@ function applyInboxFilters(){
     const listEl = $("#convList");
     if(!listEl) return;
 
+    const lockedPhone = String(inboxLockedPhone || "").trim();
+    const lockedDigits = normalizePhone(lockedPhone).replace(/^\+/,"");
     const qText = ($("#fSearch")?.value || "").trim().toLowerCase();
     const fChannel = ($("#fChannel")?.value || "").trim(); // wa/ig/fb
     const fBranch = ($("#fBranch")?.value || "").trim();
@@ -3990,6 +4020,11 @@ function applyInboxFilters(){
       // branch filter
       if(fBranch && !branchMatchesKey(convBranchValue, fBranch)) return false;
 
+      if(lockedDigits){
+        const convPhone = normalizePhone(c.waId || c.phoneNormalized || c.phone || "").replace(/^\+/,"");
+        if(convPhone !== lockedDigits) return false;
+      }
+
       if(qText){
         const name = String(c.displayName || c.name || "").toLowerCase();
         const waId = String(c.waId || c.participantId || "").toLowerCase();
@@ -4006,7 +4041,7 @@ function applyInboxFilters(){
     if(!filtered.length){
       listEl.innerHTML = `
         <div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
-          لا توجد محادثات مطابقة للفلاتر الحالية.
+          ${lockedDigits ? "لا توجد محادثة لهذا العميل حتى الآن." : "لا توجد محادثات مطابقة للفلاتر الحالية."}
         </div>
       `;
     }else{
@@ -4030,7 +4065,7 @@ function applyInboxFilters(){
   }
 
   function setChatHeader(conv){
-    const name = conv?.displayName || conv?.waId || "—";
+    const name = conv?.displayName || inboxLockedLeadName || conv?.waId || "—";
     $("#chatName") && ($("#chatName").textContent = name);
 
     const metaEl = $("#chatMeta");
@@ -4046,6 +4081,11 @@ function applyInboxFilters(){
       metaEl.innerHTML = `${pill} <span style="color:rgba(28,28,28,.55);font-weight:800">•</span> <span style="direction:ltr;unicode-bidi:plaintext">${esc(conv.participantId)}</span>`;
     }else{
       metaEl.textContent = "—";
+    }
+
+    if(isInboxLockedMode() && metaEl){
+      const note = `<span style="color:rgba(28,28,28,.55);font-weight:800"> • عرض عميل واحد</span>`;
+      metaEl.innerHTML = (metaEl.innerHTML || esc(metaEl.textContent || "—")) + note;
     }
   }
 
@@ -5267,13 +5307,15 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
       $("#cd_age") && ($("#cd_age").value = data?.age || "");
       $("#cd_bank") && ($("#cd_bank").value = data?.bank || data?.salaryBank || "");
       $("#cd_car_type") && ($("#cd_car_type").value = data?.carType || data?.car || "");
+      $("#cd_car_model") && ($("#cd_car_model").value = data?.carModel || "");
+      $("#cd_car_color") && ($("#cd_car_color").value = data?.carColor || "");
       $("#cd_notes") && ($("#cd_notes").value = data?.notes || "");
       // fill lead status dropdown from settings_lead_statuses (map)
       try{
         const sel = $("#cd_statusSelect");
         if(sel){
           const curId = String(data?.leadStatusId || "");
-          sel.innerHTML = leadStatusOptionsHtml(curId);
+          sel.innerHTML = leadStatusOptionsHtml(curId, data || {});
         }
       }catch(e){ console.warn("cd status options", e); }
 
@@ -5421,6 +5463,8 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           age: ($("#cd_age")?.value || "").trim(),
           bank: ($("#cd_bank")?.value || "").trim(),
           carType: ($("#cd_car_type")?.value || "").trim(),
+          carModel: ($("#cd_car_model")?.value || "").trim(),
+          carColor: ($("#cd_car_color")?.value || "").trim(),
           notes: ($("#cd_notes")?.value || "").trim(),
           attachments,
           updatedAt: new Date().toISOString()
@@ -5476,6 +5520,8 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
             age: payload.age,
             bank: payload.bank,
             carType: payload.carType,
+            carModel: payload.carModel,
+            carColor: payload.carColor,
             carName: payload.carType,
             notes: payload.notes,
             autoService: String(conv.autoService || conv.serviceKey || ""),
@@ -6216,21 +6262,127 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
   // حالات العملاء (من installment_calculator وغيرها) — إدارة داخل Tab العملاء المحتملون
   let leadStatusesMap = new Map();
 
-// ===== Custom Status Order (Dashboard + Pipeline + Dropdowns) =====
-const CUSTOM_STATUS_ORDER = [
-  "تم الإتصال (للفلترة + طلب الأوراق)",
+// ===== Required Role Statuses =====
+const REQUIRED_LEAD_STATUS_NAMES = [
+  "لم يتم الرد",
+  "جاري العمل",
+  "تم الإنتهاء",
+  "تم الإتصال",
   "غير مؤهل",
   "مؤهل - لم يتم إرسال الأوراق",
+  "مؤهل - تأخر في إرسال الأوراق",
   "مؤهل - تم إرسال الأوراق",
+  "طلب الدعم من الكول سنتر الى المبيعات",
   "تم رفع الطلب الى جهة التمويل",
-  "تم رفع الطلب الى جهة التمويل - متقدم",
-  "طلبات تمت الموافقة",
-  "طلبات لم تتم الموافقة",
+  "طلب إستكمال أوراق",
+  "تم إختيار السيارة",
+  "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
+  "إستيفاء الطلب - متقدم",
+  "تم إصدار العقد",
   "تم الإتصال لتوقيع العقد",
   "تم توقيع العقد",
   "لم يتم توقيع العقد",
   "تم الإنتهاء - إنشاء طلب البيع"
 ];
+
+// ===== Custom Status Order (Dashboard + Pipeline + Dropdowns) =====
+const CUSTOM_STATUS_ORDER = [
+  "لم يتم الرد",
+  "جاري العمل",
+  "تم الإتصال",
+  "غير مؤهل",
+  "مؤهل - لم يتم إرسال الأوراق",
+  "مؤهل - تأخر في إرسال الأوراق",
+  "مؤهل - تم إرسال الأوراق",
+  "طلب الدعم من الكول سنتر الى المبيعات",
+  "تم رفع الطلب الى جهة التمويل",
+  "طلب إستكمال أوراق",
+  "تم إختيار السيارة",
+  "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
+  "إستيفاء الطلب - متقدم",
+  "تم إصدار العقد",
+  "تم الإتصال لتوقيع العقد",
+  "تم توقيع العقد",
+  "لم يتم توقيع العقد",
+  "تم الإنتهاء",
+  "تم الإنتهاء - إنشاء طلب البيع"
+];
+
+
+function getBuiltinLeadStatuses(){
+  return REQUIRED_LEAD_STATUS_NAMES.map((name, idx)=>({
+    id: "builtin_status_" + String(idx + 1),
+    name,
+    isActive: true,
+    builtin: true
+  }));
+}
+
+function getLeadStatusesCatalog(){
+  const merged = new Map();
+  getBuiltinLeadStatuses().forEach(s=> merged.set(String(s.name||"").trim(), s));
+  Array.from(leadStatusesMap.values()).forEach(s=>{
+    const key = String(s?.name || "").trim();
+    if(!key) return;
+    merged.set(key, { ...s, isActive: s?.isActive !== false });
+  });
+  return Array.from(merged.values());
+}
+
+function findLeadStatusByNameExact(name){
+  const target = String(name || "").trim();
+  if(!target) return null;
+  return getLeadStatusesCatalog().find(s=> String(s?.name || "").trim() === target) || null;
+}
+
+function getAllowedLeadStatusNamesForCurrentUser(lead){
+  if(canViewAllLeads()){
+    return getLeadStatusesCatalog().filter(s=>s?.isActive !== false).map(s=> String(s.name || "").trim()).filter(Boolean);
+  }
+
+  const branchId = getCurrentBranchId();
+  if(branchMatchesKey(branchId, "cash") || branchMatchesKey(branchId, "cs")){
+    return ["لم يتم الرد", "جاري العمل", "تم الإنتهاء"];
+  }
+
+  if(branchMatchesKey(branchId, "callcenter")){
+    return [
+      "تم الإتصال",
+      "غير مؤهل",
+      "مؤهل - لم يتم إرسال الأوراق",
+      "مؤهل - تأخر في إرسال الأوراق",
+      "مؤهل - تم إرسال الأوراق",
+      "طلب الدعم من الكول سنتر الى المبيعات"
+    ];
+  }
+
+  if(branchMatchesKey(branchId, "finance")){
+    return [
+      "تم رفع الطلب الى جهة التمويل",
+      "طلب إستكمال أوراق",
+      "طلب الدعم من الكول سنتر الى المبيعات",
+      "تم إختيار السيارة",
+      "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
+      "إستيفاء الطلب - متقدم",
+      "تم إصدار العقد",
+      "تم الإتصال لتوقيع العقد",
+      "تم توقيع العقد",
+      "لم يتم توقيع العقد",
+      "تم الإنتهاء - إنشاء طلب البيع"
+    ];
+  }
+
+  return getLeadStatusesCatalog().filter(s=>s?.isActive !== false).map(s=> String(s.name || "").trim()).filter(Boolean);
+}
+
+function getAllowedLeadStatusesForCurrentUser(lead){
+  const names = getAllowedLeadStatusNamesForCurrentUser(lead);
+  const currentName = String(getEffectiveLeadStatusName(lead || {}) || "").trim();
+  if(currentName && !names.includes(currentName)) names.unshift(currentName);
+  return sortStatusesByCustomOrder(
+    names.map(name => findLeadStatusByNameExact(name) || { id: "", name, isActive: true, builtin: true })
+  );
+}
 
 function sortStatusesByCustomOrder(list){
   const arr = Array.isArray(list) ? list.slice() : [];
@@ -6476,10 +6628,15 @@ function sortStatusesByCustomOrder(list){
     `;
   }
 
-  function leadStatusOptionsHtml(currentId){
-    const activeStatuses = Array.from(leadStatusesMap.values()).filter(s=>s.isActive !== false);
+  function leadStatusOptionsHtml(currentId, lead=null){
+    const options = getAllowedLeadStatusesForCurrentUser(lead);
+    const currentName = String(getEffectiveLeadStatusName(lead || { leadStatusId: currentId }) || "").trim();
     const opts = ['<option value="">— اختر الحالة —</option>']
-      .concat(activeStatuses.map(s=>`<option value="${esc(s.id)}"${s.id===currentId?' selected':''}>${esc(s.name)}</option>`));
+      .concat(options.map(s=>{
+        const sid = String(s?.id || "");
+        const selected = (sid && sid === currentId) || (!sid && String(s?.name || "").trim() === currentName);
+        return `<option value="${esc(sid)}"${selected ? ' selected' : ''}>${esc(s?.name || "")}</option>`;
+      }));
     return opts.join("");
   }
 
@@ -6505,6 +6662,8 @@ function sortStatusesByCustomOrder(list){
     if(lead.age) extra.push(["العمر", lead.age]);
     if(lead.bank) extra.push(["بنك الراتب", lead.bank]);
     if(lead.carType) extra.push(["نوع السيارة", lead.carType]);
+    if(lead.carModel) extra.push(["الموديل", lead.carModel]);
+    if(lead.carColor) extra.push(["اللون", lead.carColor]);
     if(lead.notes) extra.push(["ملاحظات", lead.notes]);
 
     const att = Array.isArray(lead.attachments) ? lead.attachments : [];
@@ -6560,7 +6719,7 @@ function sortStatusesByCustomOrder(list){
           <div class="leadInlineRow">
             <label for="leadStatusSelect">تحديد حالة العميل:</label>
             <select id="leadStatusSelect" ${canEdit ? "" : "disabled"}>
-              ${leadStatusOptionsHtml(lead.leadStatusId || "")}
+              ${leadStatusOptionsHtml(lead.leadStatusId || "", lead)}
             </select>
             <button class="toolBtn primary" id="btnSaveLeadStatus" type="button" ${canEdit ? "" : "disabled"}>حفظ الحالة</button>
             ${!canEdit ? `<span class="chip">لا تملك صلاحية تعديل الحالة</span>` : ``}
@@ -7318,16 +7477,34 @@ function isCallCenterFinanceStatusVisible(lead){
   const statusName = normalizeLeadStatusNameForRouting(lead);
   if(!statusName || statusName === "جديد") return true;
   return [
-    "تم الإتصال (للفلترة + طلب الأوراق)",
-    "مؤهل - لم يتم إرسال الأوراق"
+    "تم الإتصال",
+    "مؤهل - لم يتم إرسال الأوراق",
+    "مؤهل - تأخر في إرسال الأوراق",
+    "مؤهل - تم إرسال الأوراق",
+    "طلب الدعم من الكول سنتر الى المبيعات"
   ].includes(statusName);
 }
 
 function isFinanceSalesStatusVisible(lead){
   const statusName = normalizeLeadStatusNameForRouting(lead);
   if(!statusName || statusName === "جديد") return false;
-  if(statusName === "غير مؤهل") return false;
-  return true;
+  if(["غير مؤهل","تم الإتصال"].includes(statusName)) return false;
+  return [
+    "مؤهل - لم يتم إرسال الأوراق",
+    "مؤهل - تأخر في إرسال الأوراق",
+    "مؤهل - تم إرسال الأوراق",
+    "طلب الدعم من الكول سنتر الى المبيعات",
+    "تم رفع الطلب الى جهة التمويل",
+    "طلب إستكمال أوراق",
+    "تم إختيار السيارة",
+    "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
+    "إستيفاء الطلب - متقدم",
+    "تم إصدار العقد",
+    "تم الإتصال لتوقيع العقد",
+    "تم توقيع العقد",
+    "لم يتم توقيع العقد",
+    "تم الإنتهاء - إنشاء طلب البيع"
+  ].includes(statusName);
 }
 
 function getScopedLeadBaseList(viewMode="customers"){
@@ -8282,18 +8459,22 @@ function bindTasksUI(){
     const p = String(phone||"").trim();
     if(!p){ toast("رقم غير صالح", "warn"); return; }
 
+    temporaryInboxAccess = true;
+    inboxLockedPhone = normalizePhone(p).replace(/^\+/,"");
+    inboxLockedLeadName = String(leadName || "").trim();
+
     showTab("inbox");
 
     // wait for inbox DOM + data
     setTimeout(async ()=>{
       const s = $("#fSearch");
-      if(s) s.value = p;
+      if(s) s.value = inboxLockedPhone;
       try{ applyInboxFilters(); }catch(e){}
 
       const baseList = dedupeInboxConversations(inboxCache);
 
-      const exact = baseList.find(x=>String(x.data?.waId||"").trim() === p);
-      const partial = exact ? null : baseList.find(x=>String(x.data?.waId||"").includes(p) || String(x.data?.displayName||"").includes(p));
+      const exact = baseList.find(x=>normalizePhone(x.data?.waId || x.data?.phoneNormalized || x.data?.phone || "").replace(/^\+/,"") === inboxLockedPhone);
+      const partial = exact ? null : baseList.find(x=>String(x.data?.waId||"").includes(inboxLockedPhone) || String(x.data?.displayName||"").includes(inboxLockedLeadName));
       const hit = exact || partial;
 
       if(hit){
@@ -8306,7 +8487,7 @@ function bindTasksUI(){
         const nm = String(leadName||"").trim() || p;
         const newRef = doc(collection(db,"wa_conversations"));
         await setDoc(newRef, {
-          waId: p,
+          waId: inboxLockedPhone || p,
           channel: "whatsapp",
           displayName: nm,
           status: "open",
@@ -8356,9 +8537,13 @@ function bindTasksUI(){
         const v = d.data() || {};
         leadStatusesMap.set(d.id, { id:d.id, name: v.name || d.id, isActive: v.isActive !== false });
       });
+      getBuiltinLeadStatuses().forEach(s=>{
+        const exists = Array.from(leadStatusesMap.values()).some(x=> String(x?.name || "").trim() === String(s.name || "").trim());
+        if(!exists) leadStatusesMap.set(s.id, s);
+      });
 
       // fill filter select
-      const items = Array.from(leadStatusesMap.values()).filter(s=>s.isActive !== false).map(s=>({value:s.id, label:s.name}));
+      const items = sortStatusesByCustomOrder(Array.from(leadStatusesMap.values()).filter(s=>s.isActive !== false)).map(s=>({value:s.id, label:s.name}));
       fillSelect($("#leadsFilterStatus"), items);
 
       // refresh admin table
@@ -8542,7 +8727,7 @@ function bindTasksUI(){
 
   // لا تجعل أي خطأ UI يوقف auth
   try{ showSettingsPane("branches"); }catch(e){ console.warn("showSettingsPane", e); }
-  try{ showTab("inbox"); }catch(e){ console.warn("showTab", e); }
+  try{ showTab(canOpenInboxNav() ? "inbox" : (canAccessTab("customers") ? "customers" : (canAccessTab("leads_cash") ? "leads_cash" : (canAccessTab("leads_finance") ? "leads_finance" : "leads_cs")))); }catch(e){ console.warn("showTab", e); }
 
   onAuthStateChanged(auth, async (user)=>{
     try{ clearTimeout(window.__authGuardT); }catch{}
@@ -8782,11 +8967,11 @@ function bindTasksUI(){
     }
 
 
-    function fillInboxStatusSelect(currentId=""){
+    function fillInboxStatusSelect(currentId="", lead=null){
       const sel = $("#inboxLeadStatusSelect");
       if(!sel) return;
       try{
-        sel.innerHTML = leadStatusOptionsHtml(currentId || "");
+        sel.innerHTML = leadStatusOptionsHtml(currentId || "", lead || null);
       }catch{
         const arr = Array.from(leadStatusesMap.values()).filter(x=>x && x.isActive!==false);
         sel.innerHTML = `<option value="">الحالة الافتراضية</option>` + arr.map(x=>`<option value="${esc(x.id)}">${esc(x.name||"")}</option>`).join("");
@@ -8805,7 +8990,7 @@ function bindTasksUI(){
       }
 
       const statusId = (lead && lead.leadStatusId) ? String(lead.leadStatusId) : "";
-      fillInboxStatusSelect(statusId);
+      fillInboxStatusSelect(statusId, lead || null);
 
       const fu = (lead && lead.followUpDate) ? String(lead.followUpDate) : "";
       const fuEl = $("#inboxFollowUp");
@@ -8915,12 +9100,7 @@ $("#inboxLeadBarClose")?.addEventListener("click", ()=> setLeadBarVisible(false)
     }
 
     function findLeadStatusIdByNameExact(name){
-      const target = String(name || "").trim();
-      if(!target) return "";
-      for(const v of leadStatusesMap.values()){
-        if(String(v?.name||"").trim() === target) return v.id;
-      }
-      return "";
+      return String(findLeadStatusByNameExact(name)?.id || "");
     }
 
     async function applyCloseReason(reason){
@@ -9216,6 +9396,16 @@ $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
           <div class="mzjField" style="grid-column:1/-1">
             <label>نوع السيارة</label>
             <input id="cd_car_type" placeholder="مثال: سيدان / SUV / إلخ" />
+          </div>
+
+          <div class="mzjField">
+            <label>الموديل</label>
+            <input id="cd_car_model" placeholder="مثال: 2024" />
+          </div>
+
+          <div class="mzjField">
+            <label>اللون</label>
+            <input id="cd_car_color" placeholder="مثال: أبيض" />
           </div>
 
           <div class="mzjField" style="grid-column:1/-1">
