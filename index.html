@@ -3041,22 +3041,6 @@ let __selectedWaTemplateKey = null;
     return roleId === "admin" || roleId === "marketing_admin";
   }
 
-  function canOpenInboxNav(){
-    const roleId = getCurrentRoleId();
-    return roleId === "admin" || roleId === "system_manager";
-  }
-
-  function isInboxLockedMode(){
-    return !canOpenInboxNav() && !!String(inboxLockedPhone || "").trim();
-  }
-
-  function clearInboxLockedMode(){
-    temporaryInboxAccess = false;
-    inboxLockedPhone = "";
-    inboxLockedLeadName = "";
-    const s = $("#fSearch");
-    if(s && !canOpenInboxNav()) s.value = "";
-  }
 
   function canSeeAllInbox(){
     const roleId = getCurrentRoleId();
@@ -3229,7 +3213,6 @@ let __selectedWaTemplateKey = null;
 
   function canAccessTab(tabId){
     if(!currentUser) return false;
-    if(String(tabId || "") === "inbox") return canOpenInboxNav() || temporaryInboxAccess;
     if(isManagementRole()) return true;
 
     const branchId = getCurrentBranchId();
@@ -3260,7 +3243,7 @@ let __selectedWaTemplateKey = null;
 
     const inboxNav = document.querySelector('[data-tab="inbox"]');
     if(inboxNav){
-      inboxNav.style.display = canOpenInboxNav() ? "" : "none";
+      inboxNav.style.display = canSeeAllInbox() ? "" : "none";
     }
 
     const customerStatusesNav = document.querySelector('[data-tab="customer-statuses"]');
@@ -3277,10 +3260,9 @@ let __selectedWaTemplateKey = null;
     try{ configureInboxScopeUI(); }catch(e){}
 
     const activeNav = document.querySelector('.navItem.active[data-tab]');
-    const activeTab = activeNav?.dataset?.tab || (canOpenInboxNav() ? "inbox" : "customers");
+    const activeTab = activeNav?.dataset?.tab || "inbox";
     if(activeTab && !canAccessTab(activeTab)){
-      const fallbackTab = canOpenInboxNav() ? "inbox" : (canAccessTab("customers") ? "customers" : (canAccessTab("leads_cash") ? "leads_cash" : (canAccessTab("leads_finance") ? "leads_finance" : (canAccessTab("leads_cs") ? "leads_cs" : "database"))));
-      try{ showTab(fallbackTab); }catch(e){ console.warn("role guard redirect", e); }
+      try{ showTab("inbox"); }catch(e){ console.warn("role guard redirect", e); }
     }
   }
 
@@ -3309,6 +3291,11 @@ let __selectedWaTemplateKey = null;
   }
 
   function showTab(tabId){
+    if(tabId !== "inbox"){
+      clearInboxTempRestriction();
+    }else if(canSeeAllInbox()){
+      clearInboxTempRestriction();
+    }
     // بعض التابات هي Views لنفس Panel (العملاء)
     const leadViews = ["customers","leads_cash","leads_finance","leads_cs"];
     const panelKey = leadViews.includes(tabId) ? "leads" : tabId;
@@ -3374,7 +3361,6 @@ let __selectedWaTemplateKey = null;
     $$(".navItem[data-tab]").forEach(el=>{
       el.addEventListener("click", ()=>{
         const t = el.dataset.tab;
-        if(t !== "inbox" && isInboxLockedMode()) clearInboxLockedMode();
         if(t === "settings" && !canSeeSettings()){
           toast("ليس لديك صلاحية لفتح الإعدادات", "warn");
           return;
@@ -3877,9 +3863,8 @@ let inboxReachedEnd = false;
 let unsubInboxLive = null; // live updates for first page only
   let inboxCache = []; // [{id,data}]
   let activeConvId = null;
-  let temporaryInboxAccess = false;
-  let inboxLockedPhone = "";
-  let inboxLockedLeadName = "";
+  let inboxTempPhoneFilter = "";
+  let inboxTempLeadName = "";
 
   function fsToMs(v){
     if(!v) return 0;
@@ -3915,6 +3900,20 @@ let unsubInboxLive = null; // live updates for first page only
     if(ch === "instagram" || ch === "ig") return `<span class="pill ig">${svgIG}انستجرام</span>`;
     if(ch === "facebook" || ch === "fb") return `<span class="pill fb">${svgFB}فيسبوك</span>`;
     return `<span class="pill">قناة</span>`;
+  }
+
+  function isInboxRestrictedForCurrentUser(){
+    return !canSeeAllInbox();
+  }
+
+  function clearInboxTempRestriction(){
+    inboxTempPhoneFilter = "";
+    inboxTempLeadName = "";
+  }
+
+  function setInboxTempRestriction(phone, leadName){
+    inboxTempPhoneFilter = normalizePhone(phone).replace(/^\+/, "");
+    inboxTempLeadName = String(leadName || "").trim();
   }
 
   function renderConvItem(id, c){
@@ -3987,8 +3986,6 @@ function applyInboxFilters(){
     const listEl = $("#convList");
     if(!listEl) return;
 
-    const lockedPhone = String(inboxLockedPhone || "").trim();
-    const lockedDigits = normalizePhone(lockedPhone).replace(/^\+/,"");
     const qText = ($("#fSearch")?.value || "").trim().toLowerCase();
     const fChannel = ($("#fChannel")?.value || "").trim(); // wa/ig/fb
     const fBranch = ($("#fBranch")?.value || "").trim();
@@ -3996,8 +3993,17 @@ function applyInboxFilters(){
     inboxShowArchived = (fArchive === "archived");
 
     const baseList = dedupeInboxConversations(inboxCache);
+    const tempPhone = normalizePhone(inboxTempPhoneFilter || "").replace(/^\+/, "");
 
     const filtered = baseList.filter(({id,data})=>{
+      if(tempPhone){
+        const convPhone = normalizePhone(data?.waId || data?.phoneNormalized || data?.phone || "").replace(/^\+/, "");
+        const convName = String(data?.displayName || data?.name || "").trim();
+        const tempName = String(inboxTempLeadName || "").trim();
+        const phoneMatches = !!(convPhone && (convPhone === tempPhone || convPhone.includes(tempPhone) || tempPhone.includes(convPhone)));
+        const nameMatches = !!(tempName && convName && convName === tempName);
+        if(!phoneMatches && !nameMatches) return false;
+      }
       const c = data || {};
       const convAssignedUid = getConversationAssignedUid(c);
       const convBranchValue = getConversationBranchValue(c);
@@ -4020,11 +4026,6 @@ function applyInboxFilters(){
       // branch filter
       if(fBranch && !branchMatchesKey(convBranchValue, fBranch)) return false;
 
-      if(lockedDigits){
-        const convPhone = normalizePhone(c.waId || c.phoneNormalized || c.phone || "").replace(/^\+/,"");
-        if(convPhone !== lockedDigits) return false;
-      }
-
       if(qText){
         const name = String(c.displayName || c.name || "").toLowerCase();
         const waId = String(c.waId || c.participantId || "").toLowerCase();
@@ -4041,7 +4042,7 @@ function applyInboxFilters(){
     if(!filtered.length){
       listEl.innerHTML = `
         <div style="padding:16px;color:rgba(28,28,28,.68);font-size:13px;line-height:1.8">
-          ${lockedDigits ? "لا توجد محادثة لهذا العميل حتى الآن." : "لا توجد محادثات مطابقة للفلاتر الحالية."}
+          لا توجد محادثات مطابقة للفلاتر الحالية.
         </div>
       `;
     }else{
@@ -4065,7 +4066,7 @@ function applyInboxFilters(){
   }
 
   function setChatHeader(conv){
-    const name = conv?.displayName || inboxLockedLeadName || conv?.waId || "—";
+    const name = conv?.displayName || conv?.waId || "—";
     $("#chatName") && ($("#chatName").textContent = name);
 
     const metaEl = $("#chatMeta");
@@ -4081,11 +4082,6 @@ function applyInboxFilters(){
       metaEl.innerHTML = `${pill} <span style="color:rgba(28,28,28,.55);font-weight:800">•</span> <span style="direction:ltr;unicode-bidi:plaintext">${esc(conv.participantId)}</span>`;
     }else{
       metaEl.textContent = "—";
-    }
-
-    if(isInboxLockedMode() && metaEl){
-      const note = `<span style="color:rgba(28,28,28,.55);font-weight:800"> • عرض عميل واحد</span>`;
-      metaEl.innerHTML = (metaEl.innerHTML || esc(metaEl.textContent || "—")) + note;
     }
   }
 
@@ -4189,6 +4185,16 @@ try{
 
   async function openConversation(convId){
     const convObj = inboxCache.find(x=>x.id===convId)?.data || null;
+    const tempPhone = normalizePhone(inboxTempPhoneFilter || "").replace(/^\+/, "");
+    if(tempPhone){
+      const convPhone = normalizePhone(convObj?.waId || convObj?.phoneNormalized || convObj?.phone || "").replace(/^\+/, "");
+      const convName = String(convObj?.displayName || convObj?.name || "").trim();
+      const tempName = String(inboxTempLeadName || "").trim();
+      if(!(convPhone && (convPhone === tempPhone || convPhone.includes(tempPhone) || tempPhone.includes(convPhone))) && !(tempName && convName && convName === tempName)){
+        toast("يمكنك فتح العميل الذي ضغطت على رقمه فقط", "warn");
+        return;
+      }
+    }
     if(usesOwnInboxScope()){
       const ownerUid = getConversationAssignedUid(convObj || {});
       const myUid = String(currentUser?.uid || "").trim();
@@ -5538,6 +5544,24 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
             attachments: attachments || [],
             updatedAt: new Date().toISOString()
           }, { merge:true });
+          try{
+            await ensureFinanceLeadRoutingVisibility(leadId, {
+              ...payload,
+              autoService: String(conv.autoService || conv.serviceKey || ""),
+              serviceKey: String(conv.serviceKey || conv.autoService || ""),
+              paymentType: convPayType || payload.paymentType || "",
+              payType: convPayType || payload.payType || "",
+              salesAssignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
+              salesAssignedName: String(conv.salesAssignedName || conv.assignedName || ""),
+              assignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
+              assignedName: String(conv.salesAssignedName || conv.assignedName || ""),
+              callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
+              callCenterAssignedName: String(conv.callCenterAssignedName || ""),
+              branchId: String(conv.branchId || ""),
+              leadStatusId: selectedLeadStatusId,
+              leadStatusName: selectedLeadStatusName
+            }, selectedLeadStatusName);
+          }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(clientData)", e); }
         }
 
         toast("تم حفظ بيانات العميل", "ok");
@@ -6246,6 +6270,10 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
     const branchId = getCurrentBranchId();
     if(branchMatchesKey(branchId, "callcenter")) return getCallCenterAssignedUidFromLead(d);
     return getSalesAssignedUidFromLead(d);
+  }
+
+  function userCanSeeTab(tabId){
+    return canAccessTab(tabId);
   }
 
   function canViewAllLeads(){
@@ -7507,6 +7535,40 @@ function isFinanceSalesStatusVisible(lead){
   ].includes(statusName);
 }
 
+async function ensureFinanceLeadRoutingVisibility(leadId, leadData={}, selectedStatusName=""){
+  const statusName = String(selectedStatusName || getEffectiveLeadStatusName(leadData || {}) || "").trim();
+  if(statusName !== "مؤهل - لم يتم إرسال الأوراق") return;
+  const patch = {
+    paymentType: "تمويل",
+    payType: "تمويل",
+    autoService: "finance",
+    serviceKey: "finance",
+    updatedAt: new Date().toISOString()
+  };
+  const salesUid = String(getSalesAssignedUidFromLead(leadData) || "").trim();
+  const salesName = String(leadData?.salesAssignedName || leadData?.assignedName || agentsUidMap.get(salesUid)?.name || "").trim();
+  const callUid = String(getCallCenterAssignedUidFromLead(leadData) || "").trim();
+  const callName = String(leadData?.callCenterAssignedName || agentsUidMap.get(callUid)?.name || "").trim();
+  if(salesUid){
+    patch.salesAssignedTo = salesUid;
+    patch.salesAssignedName = salesName || agentsUidMap.get(salesUid)?.name || salesUid;
+    patch.assignedTo = salesUid;
+    patch.assignedName = salesName || agentsUidMap.get(salesUid)?.name || salesUid;
+    patch.branchId = String(leadData?.branchId || agentsUidMap.get(salesUid)?.branchId || "").trim();
+  }
+  if(callUid){
+    patch.callCenterAssignedTo = callUid;
+    patch.callCenterAssignedName = callName || agentsUidMap.get(callUid)?.name || callUid;
+  }
+  await setDoc(doc(db, "leads", leadId), patch, { merge:true });
+  const needsSalesAssignment = !String(getSalesAssignedUidFromLead({ ...leadData, ...patch }) || "").trim();
+  if(needsSalesAssignment){
+    try{
+      await assignLeadRandomByServiceKey(leadId, { ...leadData, ...patch }, "finance");
+    }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility", e); }
+  }
+}
+
 function getScopedLeadBaseList(viewMode="customers"){
   const arr = Array.isArray(leadsCache) ? leadsCache : [];
   const mode = String(viewMode || "customers").trim();
@@ -8455,26 +8517,40 @@ function bindTasksUI(){
     }
   }
 
-  function openInboxForPhone(phone, leadName){
-    const p = String(phone||"").trim();
+  async function openInboxForPhone(phone, leadName){
+    const p = normalizePhone(String(phone||"")).replace(/^\+/, "");
     if(!p){ toast("رقم غير صالح", "warn"); return; }
 
-    temporaryInboxAccess = true;
-    inboxLockedPhone = normalizePhone(p).replace(/^\+/,"");
-    inboxLockedLeadName = String(leadName || "").trim();
+    if(isInboxRestrictedForCurrentUser()){
+      setInboxTempRestriction(p, leadName);
+    }else{
+      clearInboxTempRestriction();
+    }
 
     showTab("inbox");
 
-    // wait for inbox DOM + data
     setTimeout(async ()=>{
       const s = $("#fSearch");
-      if(s) s.value = inboxLockedPhone;
+      if(s) s.value = isInboxRestrictedForCurrentUser() ? "" : p;
       try{ applyInboxFilters(); }catch(e){}
 
       const baseList = dedupeInboxConversations(inboxCache);
+      const pool = isInboxRestrictedForCurrentUser()
+        ? baseList.filter(x=>{
+            const conv = x?.data || {};
+            const convPhone = normalizePhone(conv.waId || conv.phoneNormalized || conv.phone || "").replace(/^\+/, "");
+            const convName = String(conv.displayName || conv.name || "").trim();
+            const nm = String(leadName || "").trim();
+            return !!((convPhone && (convPhone === p || convPhone.includes(p) || p.includes(convPhone))) || (nm && convName && convName === nm));
+          })
+        : baseList;
 
-      const exact = baseList.find(x=>normalizePhone(x.data?.waId || x.data?.phoneNormalized || x.data?.phone || "").replace(/^\+/,"") === inboxLockedPhone);
-      const partial = exact ? null : baseList.find(x=>String(x.data?.waId||"").includes(inboxLockedPhone) || String(x.data?.displayName||"").includes(inboxLockedLeadName));
+      const exact = pool.find(x=> normalizePhone(String(x.data?.waId || x.data?.phoneNormalized || x.data?.phone || "")).replace(/^\+/, "") === p);
+      const partial = exact ? null : pool.find(x=>{
+        const convPhone = normalizePhone(String(x.data?.waId || x.data?.phoneNormalized || x.data?.phone || "")).replace(/^\+/, "");
+        const convName = String(x.data?.displayName || x.data?.name || "").trim();
+        return (convPhone && (convPhone.includes(p) || p.includes(convPhone))) || (leadName && convName === String(leadName || "").trim());
+      });
       const hit = exact || partial;
 
       if(hit){
@@ -8482,12 +8558,24 @@ function bindTasksUI(){
         return;
       }
 
-      // لا توجد محادثة: أنشئ محادثة جديدة لبدء التواصل (حتى لو العميل لم يرسل سابقًا)
       try{
         const nm = String(leadName||"").trim() || p;
+        const leadEntry = (Array.isArray(leadsCache) ? leadsCache : []).find(x=>{
+          const d = x?.data || {};
+          const pn = normalizePhone(d.phoneNormalized || d.phone || d.waId || "").replace(/^\+/, "");
+          return pn && (pn === p || pn.includes(p) || p.includes(pn));
+        });
+        const leadData = leadEntry?.data || {};
+        const salesUid = String(getSalesAssignedUidFromLead(leadData) || currentUser?.uid || "").trim();
+        const salesName = String(leadData?.salesAssignedName || leadData?.assignedName || agentsUidMap.get(salesUid)?.name || currentProfile?.name || currentUser?.email || "").trim();
+        const callUid = String(getCallCenterAssignedUidFromLead(leadData) || (branchMatchesKey(getCurrentBranchId(), "callcenter") ? (currentUser?.uid || "") : "")).trim();
+        const callName = String(leadData?.callCenterAssignedName || agentsUidMap.get(callUid)?.name || currentProfile?.name || currentUser?.email || "").trim();
+        const serviceKey = String(getLeadQueueKey(leadData, leadEntry?.id || "") || getConversationServiceKey(leadData) || "").trim().toLowerCase();
         const newRef = doc(collection(db,"wa_conversations"));
         await setDoc(newRef, {
-          waId: inboxLockedPhone || p,
+          waId: p,
+          phoneNormalized: p,
+          phone: "+" + p,
           channel: "whatsapp",
           displayName: nm,
           status: "open",
@@ -8496,12 +8584,17 @@ function bindTasksUI(){
           lastMessageAt: serverTimestamp(),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-          // اربطها بالمستخدم الحالي (Model A)
-          assignedTo: currentUser?.uid || "",
-          assignedName: (currentProfile?.name || currentProfile?.displayName || currentUser?.displayName || currentUser?.email || "")
+          leadId: String(leadEntry?.id || ""),
+          autoService: serviceKey || "",
+          serviceKey: serviceKey || "",
+          salesAssignedTo: salesUid,
+          salesAssignedName: salesName,
+          assignedTo: salesUid,
+          assignedName: salesName,
+          branchId: String(leadData?.branchId || agentsUidMap.get(salesUid)?.branchId || ""),
+          ...(callUid ? { callCenterAssignedTo: callUid, callCenterAssignedName: callName } : {})
         }, { merge: true });
 
-        // أضف رسالة نظام بسيطة (اختياري) حتى تظهر الشاشة بشكل طبيعي
         try{
           const msgRef = doc(collection(db,"wa_conversations", newRef.id, "messages"));
           await setDoc(msgRef, {
@@ -8517,12 +8610,11 @@ function bindTasksUI(){
           });
         }catch(_e){}
 
-        // افتح المحادثة
         openConversation(newRef.id);
-        toast("تم فتح محادثة جديدة لهذا الرقم", "ok");
+        toast("تم فتح محادثة العميل", "ok");
       }catch(err){
         console.warn(err);
-        toast("تعذر إنشاء محادثة جديدة لهذا الرقم", "warn");
+        toast("تعذر فتح محادثة العميل", "warn");
       }
     }, 160);
   }
@@ -8727,7 +8819,7 @@ function bindTasksUI(){
 
   // لا تجعل أي خطأ UI يوقف auth
   try{ showSettingsPane("branches"); }catch(e){ console.warn("showSettingsPane", e); }
-  try{ showTab(canOpenInboxNav() ? "inbox" : (canAccessTab("customers") ? "customers" : (canAccessTab("leads_cash") ? "leads_cash" : (canAccessTab("leads_finance") ? "leads_finance" : "leads_cs")))); }catch(e){ console.warn("showTab", e); }
+  try{ showTab("inbox"); }catch(e){ console.warn("showTab", e); }
 
   onAuthStateChanged(auth, async (user)=>{
     try{ clearTimeout(window.__authGuardT); }catch{}
@@ -9048,6 +9140,7 @@ $("#inboxLeadBarClose")?.addEventListener("click", ()=> setLeadBarVisible(false)
           leadStatusName: statusName,
           updatedAt: new Date().toISOString()
         });
+        try{ await ensureFinanceLeadRoutingVisibility(leadId, { ...leadData, leadStatusId: statusId, leadStatusName: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(saveStatus)", e); }
         toast("تم تحديث الحالة", "ok");
         if($(".navItem.active")?.dataset?.tab === "dashboard") renderDashboard();
       }catch(e){
