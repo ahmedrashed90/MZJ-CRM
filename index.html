@@ -19,6 +19,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6915,8 +6916,10 @@ function sortStatusesByCustomOrder(list){
         }
         try{
           const statusName = (leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name);
+          const latestSnap = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
+          const latestLeadData = (latestSnap && latestSnap.exists()) ? (latestSnap.data()||{}) : (leadData || {});
           await updateDoc(doc(db,"leads", leadId), { leadStatusId: statusId, leadStatusName: statusName, updatedAt: new Date().toISOString() });
-          try{ await ensureFinanceLeadRoutingVisibility(leadId, { ...leadData, leadStatusId: statusId, leadStatusName: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(leadModal)", e); }
+          try{ await ensureFinanceLeadRoutingVisibility(leadId, { ...latestLeadData, leadStatusId: statusId, leadStatusName: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(leadModal)", e); }
           toast("تم تحديث الحالة");
         }catch(err){
           console.warn(err);
@@ -7616,9 +7619,11 @@ function isFinanceLeadForRouting(lead, leadId="") {
 function isCallCenterFinanceStatusVisible(lead){
   const statusName = normalizeLeadStatusNameForRouting(lead);
   if(!statusName || statusName === "جديد") return true;
+  // العميل يخرج من تاب الكول سنتر فقط عند الإنهاء النهائي للبيع
   if(statusName === "تم الإنتهاء - إنشاء طلب البيع") return false;
   return [
     "تم الإتصال",
+    "غير مؤهل",
     "مؤهل - لم يتم إرسال الأوراق",
     "مؤهل - تأخر في إرسال الأوراق",
     "مؤهل - تم إرسال الأوراق",
@@ -7630,7 +7635,10 @@ function isCallCenterFinanceStatusVisible(lead){
     "تم إصدار العقد",
     "تم الإتصال لتوقيع العقد",
     "تم توقيع العقد",
-    "لم يتم توقيع العقد"
+    "لم يتم توقيع العقد",
+    "تم رفع الطلب الى جهة التمويل",
+    "تم إختيار السيارة",
+    "تم رفع أوراق السيارة المطلوبة الى جهة التمويل"
   ].includes(statusName);
 }
 
@@ -7682,7 +7690,9 @@ async function ensureFinanceLeadRoutingVisibility(leadId, leadData={}, selectedS
     patch.callCenterAssignedName = callName || agentsUidMap.get(callUid)?.name || callUid;
   }
   await setDoc(doc(db, "leads", leadId), patch, { merge:true });
-  try{ await normalizeLeadSalesAssignmentIfNeeded(leadId, { ...leadData, ...patch }); }catch(e){ console.warn("normalizeLeadSalesAssignmentIfNeeded(ensureFinanceLeadRoutingVisibility)", e); }
+
+  // مهم: تغيير الحالة لا يجب أن يغيّر مندوب التمويل أو مندوب الكول سنتر.
+  // لذلك نسمح فقط بالتعيين التلقائي لو الحقول ناقصة من الأساس.
   const mergedLead = { ...leadData, ...patch };
   const needsSalesAssignment = !String(getSalesAssignedUidFromLead(mergedLead) || "").trim();
   const needsCallAssignment = !String(getCallCenterAssignedUidFromLead(mergedLead) || "").trim();
@@ -8390,12 +8400,14 @@ function bindTasksUI(){
         }
         try{
           const statusName = (leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name);
+          const latestSnap = await getDoc(doc(db,"leads", id)).catch(()=>null);
+          const latestLeadData = (latestSnap && latestSnap.exists()) ? (latestSnap.data()||{}) : (found.data || {});
           await updateDoc(doc(db,"leads", id), {
             leadStatusId: statusId,
             leadStatusName: statusName,
             updatedAt: new Date().toISOString()
           });
-          try{ await ensureFinanceLeadRoutingVisibility(id, { ...found.data, leadStatusId: statusId, leadStatusName: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(detailsCard)", e); }
+          try{ await ensureFinanceLeadRoutingVisibility(id, { ...latestLeadData, leadStatusId: statusId, leadStatusName: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(detailsCard)", e); }
           toast("تم تحديث الحالة");
         }catch(err){
           console.warn(err);
