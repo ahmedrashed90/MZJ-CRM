@@ -2079,13 +2079,24 @@ body.auth-locked #authModal{ pointer-events:auto; }
                 </div>
 
                   <div class="chatComposer">
-                    <select id="templateSelect" class="miniSelect" style="width:170px;flex:0 0 auto"><option value="">القوالب</option>
-<option value="wa:welcome_message">✅ تم استلام طلبك</option>
-<option value="wa:finance_request_received_v3">📩 تم استلام طلبك بخصوص (تمويل)</option>
-<option value="wa:no_reply_followup">⏳ لم يتم الرد</option>
-<option value="wa:approval_result">✅ تمت الموافقة</option>
-<option value="wa:rejection_result">❌ تعذر رفع الطلب</option>
+                    
+<select id="templateSelect" class="miniSelect" style="width:170px;flex:0 0 auto">
+<option value="">القوالب</option>
+<option value="wa:finance_request_received">استلام طلب التمويل</option>
+<option value="wa:finance_not_eligible">رفض الحسبة المبدئية</option>
+<option value="wa:finance_pre_approved_documents">قبول الحسبة وطلب الأوراق</option>
+<option value="wa:documents_received">تم استلام الأوراق</option>
+<option value="wa:sales_support_request">طلب الدعم لاختيار السيارة</option>
+<option value="wa:finance_approved">الموافقة</option>
+<option value="wa:finance_rejected">عدم الموافقة</option>
+<option value="wa:contract_issued">إصدار العقد</option>
+<option value="wa:contract_signed">تم توقيع العقد</option>
+<option value="wa:contract_not_signed">لم يتم توقيع العقد</option>
+<option value="wa:finance_application_submitted">رفع الطلب</option>
+<option value="wa:car_selected">اختيار السيارة</option>
+<option value="wa:car_documents_submitted">رفع أوراق السيارة وعرض السعر</option>
 </select>
+
                     <input type="file" id="chatFileInput" multiple hidden />
                     <button class="toolBtn" id="btnAttach" type="button" title="إرفاق ملفات">📎</button>
                     <textarea id="composer" placeholder="اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)"></textarea>
@@ -2499,53 +2510,77 @@ body.auth-locked #authModal{ pointer-events:auto; }
 /* ===========================
    WhatsApp Official Templates (Mersal Approved)
    =========================== */
-const WA_TEMPLATES = {
-  welcome_message: {
-    name: "welcome_message",
-    lang: "ar",
-    params: [],
-    previewText: "مرحباً بك في مجموعة محمد ذعار العجمي للسيارات\nتم استلام طلبك بنجاح"
-  },
-finance_request_received_v3: {
-  name: "finance_request_received_v3",
-  lang: "ar",
-  // will be filled automatically from lead when selected
-  params: [],
-  previewText:
-`تم استلام طلبك بخصوص :
-السيارة: {{1}}
-العمر: {{2}}
-البنك: {{3}}
-الراتب: {{4}}
-الالتزام: {{5}}
-وجاري العمل على الطلب ✅`
-},
 
-  no_reply_followup: {
-    name: "no_reply_followup",
-    lang: "ar",
-    params: [],
-    previewText:
-`تم التواصل معك بخصوص طلبك المقدم ونرجو إفادتنا بالبيانات التالية:
-نوع السيارة:
-العمر:
-جهة تمويل الراتب:
-الراتب:
-هل يوجد التزام؟ وكم إن وجد؟`
-  },
-  approval_result: {
-    name: "approval_result",
-    lang: "ar",
-    params: [],
-    previewText: "تمت الموافقة على طلبك."
-  },
-  rejection_result: {
-    name: "rejection_result",
-    lang: "ar",
-    params: [],
-    previewText: "تعذر رفع الطلب إلى جهة التمويل."
-  }
+const WA_TEMPLATES = {
+finance_request_received:{
+name:"finance_request_received",lang:"ar",params:[],
+previewText:`مرحباً بك في مجموعة محمد ذعار العجمي للسيارات
+تم استلام طلب التمويل الخاص بك بنجاح ✅
+سيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات.`
+},
+finance_not_eligible:{
+name:"finance_not_eligible",lang:"ar",params:["reason"],
+previewText:`طلب التمويل غير مؤهل ❌ لرفع الأوراق إلى جهات التمويل المختصة
+بسبب: {{1}}`
+},
+finance_pre_approved_documents:{
+name:"finance_pre_approved_documents",lang:"ar",params:["docs"],
+previewText:`طلب تمويلك مؤهل ✅ لرفع الأوراق إلى جهات التمويل المختصة
+برجاء إرسال الأوراق المطلوبة مبدئياً التالية:
+{{1}}`
+},
+documents_received:{
+name:"documents_received",lang:"ar",params:["car"],
+previewText:`تم استلام أوراق طلبك بخصوص السيارة: {{1}}
+وجاري العمل على الطلب حالياً.`
+},
+sales_support_request:{
+name:"sales_support_request",lang:"ar",params:[],
+previewText:`سيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات
+لتأكيد بيانات السيارة المطلوبة.`
+},
+finance_approved:{
+name:"finance_approved",lang:"ar",params:[],
+previewText:`مبروك 🎉
+تمت الموافقة من قبل جهة التمويل على طلبك بنجاح ✅
+وفي انتظار إصدار عقد التمويل الخاص بك.`
+},
+finance_rejected:{
+name:"finance_rejected",lang:"ar",params:["reason"],
+previewText:`تعذر صدور الموافقة من قبل جهة التمويل على طلبك ❌
+بسبب: {{1}}`
+},
+contract_issued:{
+name:"contract_issued",lang:"ar",params:[],
+previewText:`تم إصدار عقدك من جهة التمويل الخاصة بك بنجاح ✅`
+},
+contract_signed:{
+name:"contract_signed",lang:"ar",params:[],
+previewText:`نهنئك 🎉
+تم توقيع عقد التمويل الخاص بك بنجاح ✅`
+},
+contract_not_signed:{
+name:"contract_not_signed",lang:"ar",params:["reason"],
+previewText:`تعذر توقيع العقد مع جهة التمويل الخاصة بك ❌
+بسبب: {{1}}`
+},
+finance_application_submitted:{
+name:"finance_application_submitted",lang:"ar",params:[],
+previewText:`تم رفع الطلب إلى جهة التمويل المختصة بنجاح ✅`
+},
+car_selected:{
+name:"car_selected",lang:"ar",params:["car","model","color"],
+previewText:`تم اختيار السيارة التالية:
+السيارة: {{1}}
+الموديل: {{2}}
+اللون: {{3}}`
+},
+car_documents_submitted:{
+name:"car_documents_submitted",lang:"ar",params:[],
+previewText:`تم رفع أوراق السيارة المختارة وعرض السعر إلى جهة التمويل المختصة بنجاح ✅`
+}
 };
+
 let __selectedWaTemplateKey = null;
   // --- helpers: normalize & fetch lead for templates ---
   function normalizeSaudiPhone(p){
