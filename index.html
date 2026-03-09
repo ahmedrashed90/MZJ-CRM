@@ -2079,24 +2079,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
                 </div>
 
                   <div class="chatComposer">
-                    
-<select id="templateSelect" class="miniSelect" style="width:170px;flex:0 0 auto">
-<option value="">القوالب</option>
-<option value="wa:finance_request_received">استلام طلب التمويل</option>
-<option value="wa:finance_not_eligible">رفض الحسبة المبدئية</option>
-<option value="wa:finance_pre_approved_documents">قبول الحسبة وطلب الأوراق</option>
-<option value="wa:documents_received">تم استلام الأوراق</option>
-<option value="wa:sales_support_request">طلب الدعم لاختيار السيارة</option>
-<option value="wa:finance_approved">الموافقة</option>
-<option value="wa:finance_rejected">عدم الموافقة</option>
-<option value="wa:contract_issued">إصدار العقد</option>
-<option value="wa:contract_signed">تم توقيع العقد</option>
-<option value="wa:contract_not_signed">لم يتم توقيع العقد</option>
-<option value="wa:finance_application_submitted">رفع الطلب</option>
-<option value="wa:car_selected">اختيار السيارة</option>
-<option value="wa:car_documents_submitted">رفع أوراق السيارة وعرض السعر</option>
-</select>
-
+                    <select id="templateSelect" class="miniSelect" style="width:220px;flex:0 0 auto"><option value="">القوالب</option></select>
                     <input type="file" id="chatFileInput" multiple hidden />
                     <button class="toolBtn" id="btnAttach" type="button" title="إرفاق ملفات">📎</button>
                     <textarea id="composer" placeholder="اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)"></textarea>
@@ -2510,77 +2493,196 @@ body.auth-locked #authModal{ pointer-events:auto; }
 /* ===========================
    WhatsApp Official Templates (Mersal Approved)
    =========================== */
-
 const WA_TEMPLATES = {
-finance_request_received:{
-name:"finance_request_received",lang:"ar",params:[],
-previewText:`مرحباً بك في مجموعة محمد ذعار العجمي للسيارات
+  finance_request_received: {
+    name: "finance_request_received",
+    lang: "ar",
+    audience: ["callcenter"],
+    label: "إستلام طلب التمويل",
+    params: [],
+    previewText: `مرحباً بك في مجموعة محمد ذعار العجمي للسيارات
 تم استلام طلب التمويل الخاص بك بنجاح ✅
 سيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات.`
-},
-finance_not_eligible:{
-name:"finance_not_eligible",lang:"ar",params:["reason"],
-previewText:`طلب التمويل غير مؤهل ❌ لرفع الأوراق إلى جهات التمويل المختصة
-بسبب: {{1}}`
-},
-finance_pre_approved_documents:{
-name:"finance_pre_approved_documents",lang:"ar",params:["docs"],
-previewText:`طلب تمويلك مؤهل ✅ لرفع الأوراق إلى جهات التمويل المختصة
-برجاء إرسال الأوراق المطلوبة مبدئياً التالية:
-{{1}}`
-},
-documents_received:{
-name:"documents_received",lang:"ar",params:["car"],
-previewText:`تم استلام أوراق طلبك بخصوص السيارة: {{1}}
-وجاري العمل على الطلب حالياً.`
-},
-sales_support_request:{
-name:"sales_support_request",lang:"ar",params:[],
-previewText:`سيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات
-لتأكيد بيانات السيارة المطلوبة.`
-},
-finance_approved:{
-name:"finance_approved",lang:"ar",params:[],
-previewText:`مبروك 🎉
-تمت الموافقة من قبل جهة التمويل على طلبك بنجاح ✅
-وفي انتظار إصدار عقد التمويل الخاص بك.`
-},
-finance_rejected:{
-name:"finance_rejected",lang:"ar",params:["reason"],
-previewText:`تعذر صدور الموافقة من قبل جهة التمويل على طلبك ❌
-بسبب: {{1}}`
-},
-contract_issued:{
-name:"contract_issued",lang:"ar",params:[],
-previewText:`تم إصدار عقدك من جهة التمويل الخاصة بك بنجاح ✅`
-},
-contract_signed:{
-name:"contract_signed",lang:"ar",params:[],
-previewText:`نهنئك 🎉
-تم توقيع عقد التمويل الخاص بك بنجاح ✅`
-},
-contract_not_signed:{
-name:"contract_not_signed",lang:"ar",params:["reason"],
-previewText:`تعذر توقيع العقد مع جهة التمويل الخاصة بك ❌
-بسبب: {{1}}`
-},
-finance_application_submitted:{
-name:"finance_application_submitted",lang:"ar",params:[],
-previewText:`تم رفع الطلب إلى جهة التمويل المختصة بنجاح ✅`
-},
-car_selected:{
-name:"car_selected",lang:"ar",params:["car","model","color"],
-previewText:`تم اختيار السيارة التالية:
-السيارة: {{1}}
-الموديل: {{2}}
-اللون: {{3}}`
-},
-car_documents_submitted:{
-name:"car_documents_submitted",lang:"ar",params:[],
-previewText:`تم رفع أوراق السيارة المختارة وعرض السعر إلى جهة التمويل المختصة بنجاح ✅`
-}
-};
+  },
+  finance_not_eligible: {
+    name: "finance_not_eligible",
+    lang: "ar",
+    audience: ["callcenter"],
+    label: "رسالة رفض الحسبة المبدئية",
+    editable: true,
+    params: [],
+    previewText: `طلب التمويل غير مؤهل ❌ لرفع الأوراق إلى جهات التمويل المختصة
 
+بسبب: {اكتب السبب هنا}
+
+للمزيد من التفاصيل يرجى التواصل معنا.`,
+    buildPreview(){ return this.previewText; },
+    extractParamsFromComposer(text){
+      return [extractBetweenLabels(text, 'بسبب:', 'للمزيد من التفاصيل يرجى التواصل معنا.') || '—'];
+    }
+  },
+  finance_pre_approved_documents: {
+    name: "finance_pre_approved_documents",
+    lang: "ar",
+    audience: ["callcenter"],
+    label: "رسالة قبول الحسبة - طلب إرسال الأوراق",
+    editable: true,
+    params: [],
+    previewText: `طلب تمويلك مؤهل ✅ لرفع الأوراق إلى جهات التمويل المختصة
+
+برجاء إرسال الأوراق المطلوبة مبدئياً التالية:
+
+{اكتب الأوراق المطلوبة هنا}
+
+سيتم مراجعة الأوراق والرد عليك في أقرب وقت.`,
+    buildPreview(){ return this.previewText; },
+    extractParamsFromComposer(text){
+      return [extractBetweenLabels(text, 'برجاء إرسال الأوراق المطلوبة مبدئياً التالية:', 'سيتم مراجعة الأوراق والرد عليك في أقرب وقت.') || '—'];
+    }
+  },
+  documents_received: {
+    name: "documents_received",
+    lang: "ar",
+    audience: ["callcenter"],
+    label: "تم إرسال الأوراق",
+    editable: true,
+    params: [],
+    buildPreview(lead){
+      const car = getLeadCarText(lead) || '{اسم السيارة}';
+      return `تم استلام أوراق طلبك بخصوص السيارة: ${car}
+
+وجاري العمل على الطلب حالياً.
+
+في حال وجود متطلبات إضافية سيتم التواصل معك.`;
+    },
+    extractParamsFromComposer(text){
+      return [extractAfterLabel(text, 'تم استلام أوراق طلبك بخصوص السيارة:') || '—'];
+    }
+  },
+  sales_support_request: {
+    name: "sales_support_request",
+    lang: "ar",
+    audience: ["callcenter"],
+    label: "طلب الدعم لإختيار السيارة",
+    params: [],
+    previewText: `سيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات
+
+لتأكيد بيانات السيارة المطلوبة واختيار السيارة المناسبة لك.`
+  },
+  finance_approved: {
+    name: "finance_approved",
+    lang: "ar",
+    audience: ["callcenter"],
+    label: "الموافقة",
+    params: [],
+    previewText: `مبروك 🎉
+
+تمت الموافقة من قبل جهة التمويل على طلبك بنجاح ✅
+
+وفي انتظار إصدار عقد التمويل الخاص بك.`
+  },
+  finance_rejected: {
+    name: "finance_rejected",
+    lang: "ar",
+    audience: ["callcenter"],
+    label: "عدم الموافقة",
+    editable: true,
+    params: [],
+    previewText: `تعذر صدور الموافقة من قبل جهة التمويل على طلبك ❌
+
+بسبب: {اكتب سبب عدم الموافقة هنا}
+
+يمكنك التواصل معنا لمعرفة التفاصيل أو إعادة التقديم لاحقاً.`,
+    extractParamsFromComposer(text){
+      return [extractBetweenLabels(text, 'بسبب:', 'يمكنك التواصل معنا لمعرفة التفاصيل أو إعادة التقديم لاحقاً.') || '—'];
+    }
+  },
+  contract_issued: {
+    name: "contract_issued",
+    lang: "ar",
+    audience: ["callcenter"],
+    label: "إصدار العقد",
+    params: [],
+    previewText: `تم إصدار عقدك من جهة التمويل الخاصة بك بنجاح ✅
+
+سيتم التواصل معك قريباً لاستكمال الإجراءات المطلوبة.`
+  },
+  contract_signed: {
+    name: "contract_signed",
+    lang: "ar",
+    audience: ["callcenter"],
+    label: "تم توقيع العقد بنجاح",
+    params: [],
+    previewText: `نهنئك 🎉
+
+تم توقيع عقد التمويل الخاص بك بنجاح ✅
+
+سيصلك إشعار قريباً بإنشاء طلب البيع الخاص بك.`
+  },
+  contract_not_signed: {
+    name: "contract_not_signed",
+    lang: "ar",
+    audience: ["callcenter"],
+    label: "لم يتم توقيع العقد",
+    editable: true,
+    params: [],
+    previewText: `تعذر توقيع العقد مع جهة التمويل الخاصة بك ❌
+
+بسبب: {اكتب سبب عدم التوقيع هنا}
+
+يمكنك التواصل معنا لإعادة جدولة الموعد أو استكمال الإجراءات.`,
+    extractParamsFromComposer(text){
+      return [extractBetweenLabels(text, 'بسبب:', 'يمكنك التواصل معنا لإعادة جدولة الموعد أو استكمال الإجراءات.') || '—'];
+    }
+  },
+  finance_application_submitted: {
+    name: "finance_application_submitted",
+    lang: "ar",
+    audience: ["finance"],
+    label: "رفع الطلب",
+    params: [],
+    previewText: `تم رفع طلب التمويل الخاص بك إلى جهة التمويل المختصة بنجاح ✅
+
+سيتم مراجعة الطلب وإفادتك بأي تحديثات في أقرب وقت.`
+  },
+  car_selected: {
+    name: "car_selected",
+    lang: "ar",
+    audience: ["finance"],
+    label: "تم التواصل مع العميل و إختيار السيارة",
+    editable: true,
+    params: [],
+    buildPreview(lead){
+      const car = getLeadCarText(lead) || '{اسم السيارة}';
+      const model = getLeadModelText(lead) || '{الموديل}';
+      const color = getLeadColorText(lead) || '{اللون}';
+      return `تم اختيار السيارة التالية بناءً على طلبكم:
+
+السيارة: ${car}
+الموديل: ${model}
+اللون: ${color}
+
+وجاري العمل على استكمال إجراءات الطلب.`;
+    },
+    extractParamsFromComposer(text){
+      return [
+        extractLineValue(text, 'السيارة:') || '—',
+        extractLineValue(text, 'الموديل:') || '—',
+        extractLineValue(text, 'اللون:') || '—'
+      ];
+    }
+  },
+  car_documents_submitted: {
+    name: "car_documents_submitted",
+    lang: "ar",
+    audience: ["finance"],
+    label: "رفع أوراق السيارة و عرض السعر",
+    params: [],
+    previewText: `تم رفع أوراق السيارة المختارة وعرض السعر إلى جهة التمويل المختصة بنجاح ✅
+
+سيتم متابعة الطلب وإفادتكم بأي تحديثات فور ورودها.`
+  }
+};
 let __selectedWaTemplateKey = null;
   // --- helpers: normalize & fetch lead for templates ---
   function normalizeSaudiPhone(p){
@@ -2653,6 +2755,108 @@ let __selectedWaTemplateKey = null;
   }
 
 
+
+function getLeadCarText(lead){
+  if(!lead) return '';
+  return String(
+    lead?.carName || lead?.car || lead?.carType || lead?.carModel ||
+    lead?.vehicle || lead?.vehicleName || lead?.calculator?.carName ||
+    lead?.payload?.carName || lead?.calculator?.car || lead?.payload?.car || ''
+  ).trim();
+}
+function getLeadModelText(lead){
+  if(!lead) return '';
+  return String(
+    lead?.carModel || lead?.model || lead?.carYear || lead?.year ||
+    lead?.vehicleModel || lead?.calculator?.carModel || lead?.payload?.carModel || ''
+  ).trim();
+}
+function getLeadColorText(lead){
+  if(!lead) return '';
+  return String(
+    lead?.carColor || lead?.color || lead?.vehicleColor ||
+    lead?.calculator?.carColor || lead?.payload?.carColor || ''
+  ).trim();
+}
+function cleanTemplateParamValue(v){
+  return String(v || '')
+    .replace(/[{}]/g, '')
+    .replace(/^[-:\s]+/, '')
+    .trim();
+}
+function extractLineValue(text, label){
+  const src = String(text || '');
+  const idx = src.indexOf(label);
+  if(idx === -1) return '';
+  const after = src.slice(idx + label.length).split('\n')[0];
+  return cleanTemplateParamValue(after);
+}
+function extractAfterLabel(text, label){
+  return extractLineValue(text, label);
+}
+function extractBetweenLabels(text, startLabel, endLabel){
+  const src = String(text || '');
+  const start = src.indexOf(startLabel);
+  if(start === -1) return '';
+  let chunk = src.slice(start + startLabel.length);
+  if(endLabel){
+    const end = chunk.indexOf(endLabel);
+    if(end !== -1) chunk = chunk.slice(0, end);
+  }
+  return cleanTemplateParamValue(chunk);
+}
+function getTemplateAudienceKey(){
+  const branchId = getCurrentBranchId();
+  if(branchMatchesKey(branchId, 'callcenter')) return 'callcenter';
+  if(branchMatchesKey(branchId, 'finance')) return 'finance';
+  if(isManagementRole()) return 'all';
+  return '';
+}
+function buildTemplatePreview(templateKey, lead){
+  const tpl = WA_TEMPLATES?.[templateKey];
+  if(!tpl) return '';
+  if(typeof tpl.buildPreview === 'function') return String(tpl.buildPreview(lead) || '').trim();
+  return String(tpl.previewText || '').trim();
+}
+function buildTemplateParams(templateKey, composerText, lead){
+  const tpl = WA_TEMPLATES?.[templateKey];
+  if(!tpl) return [];
+  if(typeof tpl.extractParamsFromComposer === 'function'){
+    return (tpl.extractParamsFromComposer(composerText, lead) || []).map(x => cleanTemplateParamValue(x || '') || '—');
+  }
+  return Array.isArray(tpl.params) ? tpl.params : [];
+}
+function resetTemplateComposer(){
+  __selectedWaTemplateKey = null;
+  const ta = document.getElementById('composer');
+  if(ta){
+    ta.readOnly = false;
+    ta.value = '';
+    ta.placeholder = 'اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)';
+    ta.dispatchEvent(new Event('input', { bubbles:true }));
+  }
+}
+function renderTemplateSelectOptions(){
+  const select = document.getElementById('templateSelect');
+  if(!select) return;
+  const audience = getTemplateAudienceKey();
+  const currentValue = select.value;
+  let html = '<option value="">القوالب</option>';
+  const entries = Object.entries(WA_TEMPLATES).filter(([_, tpl])=>{
+    const aud = Array.isArray(tpl?.audience) ? tpl.audience : [];
+    if(audience === 'all') return true;
+    return !!audience && aud.includes(audience);
+  });
+  for(const [key, tpl] of entries){
+    html += `<option value="wa:${key}">${esc(tpl.label || tpl.name || key)}</option>`;
+  }
+  select.innerHTML = html;
+  if(currentValue && select.querySelector(`option[value="${CSS.escape(currentValue)}"]`)){
+    select.value = currentValue;
+  }else{
+    select.value = '';
+  }
+}
 // Exclude admin email from random auto-assign
   const EXCLUDED_ASSIGN_EMAILS = ["mr.ahmed_rashed@outlook.sa"];
 
@@ -3297,6 +3501,7 @@ let __selectedWaTemplateKey = null;
     });
 
     try{ configureInboxScopeUI(); }catch(e){}
+    try{ renderTemplateSelectOptions(); }catch(e){}
 
     const activeNav = document.querySelector('.navItem.active[data-tab]');
     const activeTab = activeNav?.dataset?.tab || "inbox";
@@ -3449,6 +3654,7 @@ let __selectedWaTemplateKey = null;
       fillSelect($("#fBranch"), branchItems);
       fillSelect($("#leadsFilterBranch"), branchItems);
       try{ configureInboxScopeUI(); }catch(e){}
+    try{ renderTemplateSelectOptions(); }catch(e){}
       refreshSettingsTables();
     });
 
@@ -5810,8 +6016,11 @@ async function sendOutboundMessage(text){
   if(isFB && !fbPsid){ toast("معرّف فيسبوك غير موجود", "err"); return; }
 
   const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
+  const leadWrap = isTemplate ? await getActiveLeadForConversation() : null;
+  const lead = leadWrap?.data || null;
+  const templateParams = isTemplate ? buildTemplateParams(__selectedWaTemplateKey, clean, lead) : [];
   const displayText = isTemplate
-    ? (String(tpl.previewText || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
+    ? (String(clean || buildTemplatePreview(__selectedWaTemplateKey, lead) || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
     : clean;
 
   // optimistic message in firestore so it يظهر في الشات ومش فاضي
@@ -5858,7 +6067,7 @@ async function sendOutboundMessage(text){
       if(data && data.ok === undefined) data.ok = resp.ok;
     }else{
       const payload = isTemplate
-        ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: Array.isArray(tpl.params)?tpl.params:[] } }
+        ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: templateParams } }
         : { waId, text: clean };
 
       resp = await fetch(MERSAL_SEND_ENDPOINT, {
@@ -5883,13 +6092,7 @@ async function sendOutboundMessage(text){
       providerMessageId: String(data.providerMessageId || data.message_id || data.id || "")
     });
 
-    __selectedWaTemplateKey = null;
-    if(composer){
-      composer.readOnly = false;
-      composer.value = "";
-      composer.placeholder = "اكتب رسالتك…";
-      composer.dispatchEvent(new Event("input", { bubbles:true }));
-    }
+    resetTemplateComposer();
     toast("تم الإرسال", "ok");
   }catch(e){
     console.error(e);
@@ -6039,7 +6242,10 @@ async function sendOutboundMessage(text){
     
 document.getElementById("templateSelect")?.addEventListener("change", async (e)=>{
   const v = String(e.target?.value || "");
-  if(!v) return;
+  if(!v){
+    resetTemplateComposer();
+    return;
+  }
 
   const ta = document.getElementById("composer");
   __selectedWaTemplateKey = null;
@@ -6049,31 +6255,21 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
     const tpl = WA_TEMPLATES?.[key];
     if(tpl){
       __selectedWaTemplateKey = key;
+      const leadWrap = await getActiveLeadForConversation();
+      const lead = leadWrap?.data || null;
+      const preview = buildTemplatePreview(key, lead);
       if(ta){
-        ta.readOnly = true;
-        ta.value = String(tpl.previewText || "").trim();
-        // Auto-fill finance template from lead (installment calculator / التمويل)
-        if(__selectedWaTemplateKey === "finance_request_received_v3"){
-          const leadWrap = await getActiveLeadForConversation();
-          const lead = leadWrap?.data || null;
-          if(lead){
-            const params = buildFinanceParamsFromLead(lead);
-            WA_TEMPLATES.finance_request_received_v3.params = params;
-            ta.value = renderFinancePreview(params);
-          }else{
-            // keep placeholders if lead not found
-            WA_TEMPLATES.finance_request_received_v3.params = [];
-          }
-        }
-
+        ta.readOnly = !tpl.editable;
+        ta.value = preview;
         ta.dispatchEvent(new Event("input", { bubbles:true }));
-        ta.placeholder = "سيتم إرسال قالب واتساب رسمي (Template) — اضغط إرسال.";
+        ta.placeholder = tpl.editable
+          ? "يمكنك تعديل المتغيرات داخل القالب ثم اضغط إرسال."
+          : "سيتم إرسال قالب واتساب رسمي — اضغط إرسال.";
         ta.focus();
       }
     }
   }
 
-  // keep selected label visible? we reset to placeholder after preview is set
   e.target.value = "";
 });
 // send button
@@ -8995,6 +9191,7 @@ function bindTasksUI(){
   // لا تجعل أي خطأ UI يوقف auth
   try{ showSettingsPane("branches"); }catch(e){ console.warn("showSettingsPane", e); }
   try{ showTab("inbox"); }catch(e){ console.warn("showTab", e); }
+  try{ renderTemplateSelectOptions(); }catch(e){ console.warn("renderTemplateSelectOptions", e); }
 
   onAuthStateChanged(auth, async (user)=>{
     try{ clearTimeout(window.__authGuardT); }catch{}
