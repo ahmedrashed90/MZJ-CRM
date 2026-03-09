@@ -14,6 +14,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6208,59 +6209,12 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
   }
 
   async function refreshExternalLeadSheets(force=false){
-    const now = Date.now();
-    if(!force && externalLeadsLoadedAt && (now - externalLeadsLoadedAt) < EXTERNAL_LEADS_TTL_MS){
-      return externalLeadsCache;
-    }
-    try{
-      const [snapRes, gadsRes] = await Promise.all([
-        fetch(SNAPCHAT_TSV_URL, { cache: "no-store" }),
-        fetch(GOOGLE_ADS_TSV_URL, { cache: "no-store" })
-      ]);
-      const [snapTxt, gadsTxt] = await Promise.all([
-        snapRes.ok ? snapRes.text() : Promise.resolve(""),
-        gadsRes.ok ? gadsRes.text() : Promise.resolve("")
-      ]);
-      const snapRows = parseTSV(snapTxt).map(mapSnapchatRowToLead).filter(x=> String(x?.data?.phoneNormalized || x?.data?.name || "").trim());
-      const gadsRows = parseTSV(gadsTxt).map(mapGoogleAdsRowToLead).filter(x=> String(x?.data?.phoneNormalized || x?.data?.name || "").trim());
-      externalLeadsCache = dedupeCombinedLeads([...(snapRows||[]), ...(gadsRows||[])]);
-      try{
-        for(const item of externalLeadsCache){
-          const leadId = String(item?.id || "").trim();
-          const data = item?.data || {};
-          if(!leadId) continue;
-          const serviceKey = "finance";
-          const existing = await getDoc(doc(db, "leads", leadId)).catch(()=>null);
-          const existingData = existing?.exists() ? (existing.data() || {}) : {};
-          const mergedData = {
-            ...data,
-            ...existingData,
-            source: normalizeSourceLabel(existingData.source || data.source || "") || existingData.source || data.source || "",
-            paymentType: getPayTypeLabelByServiceKey(serviceKey) || existingData.paymentType || data.paymentType || "تمويل",
-            payType: getPayTypeLabelByServiceKey(serviceKey) || existingData.payType || data.payType || "تمويل",
-            autoService: serviceKey,
-            serviceKey: serviceKey,
-            updatedAt: new Date().toISOString()
-          };
-          if(!(existing && existing.exists())) mergedData.createdAt = data.createdAt || new Date().toISOString();
-          await setDoc(doc(db, "leads", leadId), mergedData, { merge:true }).catch(()=>{});
-          const needSales = !String(existingData.salesAssignedTo || existingData.assignedTo || mergedData.salesAssignedTo || "").trim();
-          const needCall = !String(existingData.callCenterAssignedTo || existingData.callcenterAssignedTo || mergedData.callCenterAssignedTo || "").trim();
-          if(needSales || needCall){
-            try{ await assignLeadRandomByServiceKey(leadId, mergedData, serviceKey); }catch(e){ console.warn("external lead assign", e); }
-          }
-        }
-      }catch(e){ console.warn("external lead sync", e); }
-      externalLeadsLoadedAt = now;
-      rebuildLeadsCache();
-      return externalLeadsCache;
-    }catch(err){
-      console.warn("refreshExternalLeadSheets", err);
-      externalLeadsCache = [];
-      externalLeadsLoadedAt = now;
-      rebuildLeadsCache();
-      return externalLeadsCache;
-    }
+    // تم تعطيل الاستيراد التلقائي من الشيتات الخارجية نهائياً.
+    // أي ليد جديد يجب أن يدخل فقط من خلال الـ Worker / Postman.
+    externalLeadsCache = [];
+    externalLeadsLoadedAt = Date.now();
+    rebuildLeadsCache();
+    return externalLeadsCache;
   }
 
   function isExternalFinanceLead(data){
