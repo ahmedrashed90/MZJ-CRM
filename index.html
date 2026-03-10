@@ -20,6 +20,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -5139,9 +5140,11 @@ function channelToSourceLabel(ch){
   // placeholders treated as empty
   if(s0 === "-" || s0 === "—" || s0.toLowerCase() === "null" || s0.toLowerCase() === "undefined") return "";
   // لو المصدر مكتوب عربي بالفعل
-  if(/واتساب|انستجرام|فيسبوك|حاسبة التقسيط/.test(s0)) return s0;
+  if(/واتساب|انستجرام|فيسبوك|حاسبة التقسيط|سناب شات ليد|جوجل\s*ads/i.test(s0)) return s0;
 
   const s = s0.toLowerCase();
+  if(s === "google_ads_leads" || s === "googleads_leads" || s === "google_ads" || s === "googleads") return "جوجل Ads";
+  if(s === "snapchat_leads" || s === "snapchat" || s === "snapchat lead" || s === "snapchat_lead") return "سناب شات ليد";
   if(s.includes("instagram") || s === "ig") return "انستجرام";
   if(s.includes("facebook") || s === "fb" || s.includes("messenger") || s.includes("meta")) return "فيسبوك";
   if(s.includes("whatsapp") || s === "wa") return "واتساب";
@@ -5180,6 +5183,14 @@ function inferSourceFromLeadDoc(lead, leadId=""){
 
 function getNormalizedSourceForLead(lead, leadId=""){
   return inferSourceFromLeadDoc(lead, leadId) || "—";
+}
+
+function isSnapOrGoogleCallCenterLead(lead, leadId=""){
+  const src = String(getNormalizedSourceForLead(lead || {}, leadId) || "").trim();
+  const raw = String(lead?.source || lead?.rawSourceKind || lead?.externalSourceKind || "").trim().toLowerCase();
+  return src === "جوجل Ads" || src === "سناب شات ليد"
+    || raw === "google_ads_leads" || raw === "snapchat_leads"
+    || raw === "googleads" || raw === "snapchat";
 }
 
 // إصلاح تلقائي لمصادر الليدات التي تم حفظها بـ "-" (مرة واحدة لكل ليد)
@@ -6846,6 +6857,8 @@ function sortStatusesByCustomOrder(list){
     const explicit = String(d.autoService || d.serviceKey || d.department || d.service || "").trim().toLowerCase();
     if(["cash","finance","cs"].includes(explicit)) return explicit;
 
+    if(isSnapOrGoogleCallCenterLead(d, leadId)) return "finance";
+
     const payType = String(getLeadPayTypeFromRawOnly(d) || "").trim();
     if(payType === "تمويل") return "finance";
     if(payType === "كاش") return "cash";
@@ -7236,7 +7249,11 @@ function sortStatusesByCustomOrder(list){
   }
   function getEffectiveLeadStatusName(lead){
     const sid = String(lead?.leadStatusId || "").trim();
-    if(sid) return (leadStatusesMap.get(sid)?.name || lead?.leadStatusName || "—");
+    const rawName = String(leadStatusesMap.get(sid)?.name || lead?.leadStatusName || "").trim();
+    if(isSnapOrGoogleCallCenterLead(lead || {})){
+      if(!rawName || rawName === "جديد") return "";
+    }
+    if(sid) return rawName || "—";
     const d = getDefaultLeadStatus();
     return d.name || "جديد";
   }
@@ -7757,11 +7774,11 @@ function applyLeadFilters(){
     const filtered = base.filter(({id,data})=>{
       // Views (Tabs) تحت "العملاء"
       if(viewMode === "customers"){
-        if(!isFinanceLeadForRouting(data, id) || !isCallCenterFinanceStatusVisible(data)) return false;
+        if(!isFinanceLeadForRouting(data, id) || !isCallCenterFinanceStatusVisible(data, id)) return false;
       }else if(viewMode === "leads_cash"){
         if(!isLeadInQueue(data, "cash", id) && getLeadPayType(data) !== "كاش") return false;
       }else if(viewMode === "leads_finance"){
-        if(!isFinanceLeadForRouting(data, id) || !isFinanceSalesStatusVisible(data)) return false;
+        if(!isFinanceLeadForRouting(data, id) || !isFinanceSalesStatusVisible(data, id)) return false;
       }else if(viewMode === "leads_cs"){
         if(!isLeadInQueue(data, "cs", id) && getLeadPayType(data) !== "خدمة عملاء") return false;
       }
@@ -7847,8 +7864,11 @@ function isFinanceLeadForRouting(lead, leadId="") {
   return isLeadInQueue(lead || {}, "finance", leadId);
 }
 
-function isCallCenterFinanceStatusVisible(lead){
+function isCallCenterFinanceStatusVisible(lead, leadId=""){
   const statusName = normalizeLeadStatusNameForRouting(lead);
+  if(isSnapOrGoogleCallCenterLead(lead, leadId)){
+    return !statusName;
+  }
   if(!statusName || statusName === "جديد") return true;
   // العميل يخرج من تاب الكول سنتر فقط عند الإنهاء النهائي للبيع
   if(statusName === "تم الإنتهاء - إنشاء طلب البيع") return false;
@@ -7873,8 +7893,11 @@ function isCallCenterFinanceStatusVisible(lead){
   ].includes(statusName);
 }
 
-function isFinanceSalesStatusVisible(lead){
+function isFinanceSalesStatusVisible(lead, leadId=""){
   const statusName = normalizeLeadStatusNameForRouting(lead);
+  if(isSnapOrGoogleCallCenterLead(lead, leadId)){
+    return !!statusName;
+  }
   if(!statusName || statusName === "جديد") return false;
   if(statusName === "تم الإنتهاء - إنشاء طلب البيع") return false;
   if(["غير مؤهل","تم الإتصال","مؤهل - لم يتم إرسال الأوراق","مؤهل - تأخر في إرسال الأوراق"].includes(statusName)) return false;
@@ -7945,7 +7968,7 @@ function getScopedLeadBaseList(viewMode="customers"){
 
     if(mode === "customers"){
       if(!isFinanceLeadForRouting(d, id)) return false;
-      if(!isCallCenterFinanceStatusVisible(d)) return false;
+      if(!isCallCenterFinanceStatusVisible(d, id)) return false;
       if(canAll) return true;
       if(!uid) return false;
       return getCallCenterAssignedUidFromLead(d) === uid;
@@ -7953,7 +7976,7 @@ function getScopedLeadBaseList(viewMode="customers"){
 
     if(mode === "leads_finance"){
       if(!isFinanceLeadForRouting(d, id)) return false;
-      if(!isFinanceSalesStatusVisible(d)) return false;
+      if(!isFinanceSalesStatusVisible(d, id)) return false;
       if(canAll) return true;
       if(!uid) return false;
       return getSalesAssignedUidFromLead(d) === uid;
@@ -8272,7 +8295,7 @@ function renderDbTr(id, data){
   const source = esc(getNormalizedSourceForLead(data,id) || "—");
   const car = esc(getLeadCarName(data) || "—");
   const pay = esc(getLeadPayType(data) || "—");
-  const st  = esc(data?.leadStatusName || (leadStatusesMap.get(data?.leadStatusId||"")?.name) || "—");
+  const st  = esc(getEffectiveLeadStatusName(data) || "—");
   const camp = esc(getLeadCampaignName(data) || "—");
   const campDate = esc(getLeadCampaignDate(data) || "—");
   const upd = esc(fsToHuman(data?.updatedAt || data?.updatedAtMs || data?.updated_at || data?.lastUpdatedAt || ""));
@@ -8364,7 +8387,7 @@ function exportDatabaseToExcel(){
     const source = (getNormalizedSourceForLead(data,id) || "").toString();
     const car = (getLeadCarName(data) || "").toString();
     const pay = (getLeadPayType(data) || "").toString();
-    const st  = (data?.leadStatusName || (leadStatusesMap.get(data?.leadStatusId||"")?.name) || "").toString();
+    const st  = (getEffectiveLeadStatusName(data) || "").toString();
     const camp = (getLeadCampaignName(data) || "").toString();
     const campDate = (getLeadCampaignDate(data) || "").toString();
     const upd = fsToHuman(data?.updatedAt || data?.updatedAtMs || data?.updated_at || data?.lastUpdatedAt || "");
