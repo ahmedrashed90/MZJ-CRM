@@ -21,6 +21,8 @@
 
 
 
+
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -2080,7 +2082,8 @@ body.auth-locked #authModal{ pointer-events:auto; }
                 </div>
 
                   <div class="chatComposer">
-                    <select id="templateSelect" class="miniSelect" style="width:220px;flex:0 0 auto"><option value="">القوالب</option></select>
+                    <select id="templateSelect" class="miniSelect" style="width:220px;flex:0 0 auto"><option value="">قوالب مرسال</option></select>
+                    <select id="metaTemplateSelect" class="miniSelect" style="width:220px;flex:0 0 auto"><option value="">قوالب ميتا</option></select>
                     <input type="file" id="chatFileInput" multiple hidden />
                     <button class="toolBtn" id="btnAttach" type="button" title="إرفاق ملفات">📎</button>
                     <textarea id="composer" placeholder="اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)"></textarea>
@@ -2685,6 +2688,7 @@ const WA_TEMPLATES = {
   }
 };
 let __selectedWaTemplateKey = null;
+let __selectedMetaTemplateKey = null;
   // --- helpers: normalize & fetch lead for templates ---
   function normalizeSaudiPhone(p){
     let x = String(p||"").trim();
@@ -2829,6 +2833,11 @@ function buildTemplateParams(templateKey, composerText, lead){
 }
 function resetTemplateComposer(){
   __selectedWaTemplateKey = null;
+  __selectedMetaTemplateKey = null;
+  const waSelect = document.getElementById('templateSelect');
+  const metaSelect = document.getElementById('metaTemplateSelect');
+  if(waSelect) waSelect.value = '';
+  if(metaSelect) metaSelect.value = '';
   const ta = document.getElementById('composer');
   if(ta){
     ta.readOnly = false;
@@ -2837,25 +2846,45 @@ function resetTemplateComposer(){
     ta.dispatchEvent(new Event('input', { bubbles:true }));
   }
 }
-function renderTemplateSelectOptions(){
-  const select = document.getElementById('templateSelect');
-  if(!select) return;
+function getVisibleTemplateEntries(){
   const audience = getTemplateAudienceKey();
-  const currentValue = select.value;
-  let html = '<option value="">القوالب</option>';
-  const entries = Object.entries(WA_TEMPLATES).filter(([_, tpl])=>{
+  return Object.entries(WA_TEMPLATES).filter(([_, tpl])=>{
     const aud = Array.isArray(tpl?.audience) ? tpl.audience : [];
     if(audience === 'all') return true;
     return !!audience && aud.includes(audience);
   });
-  for(const [key, tpl] of entries){
-    html += `<option value="wa:${key}">${esc(tpl.label || tpl.name || key)}</option>`;
+}
+function renderTemplateSelectOptions(){
+  const select = document.getElementById('templateSelect');
+  const metaSelect = document.getElementById('metaTemplateSelect');
+  const entries = getVisibleTemplateEntries();
+
+  if(select){
+    const currentValue = select.value;
+    let html = '<option value="">قوالب مرسال</option>';
+    for(const [key, tpl] of entries){
+      html += `<option value="wa:${key}">${esc(tpl.label || tpl.name || key)}</option>`;
+    }
+    select.innerHTML = html;
+    if(currentValue && select.querySelector(`option[value="${CSS.escape(currentValue)}"]`)){
+      select.value = currentValue;
+    }else{
+      select.value = '';
+    }
   }
-  select.innerHTML = html;
-  if(currentValue && select.querySelector(`option[value="${CSS.escape(currentValue)}"]`)){
-    select.value = currentValue;
-  }else{
-    select.value = '';
+
+  if(metaSelect){
+    const currentValue = metaSelect.value;
+    let html = '<option value="">قوالب ميتا</option>';
+    for(const [key, tpl] of entries){
+      html += `<option value="meta:${key}">${esc(tpl.label || tpl.name || key)}</option>`;
+    }
+    metaSelect.innerHTML = html;
+    if(currentValue && metaSelect.querySelector(`option[value="${CSS.escape(currentValue)}"]`)){
+      metaSelect.value = currentValue;
+    }else{
+      metaSelect.value = '';
+    }
   }
 }
 // Exclude admin email from random auto-assign
@@ -4145,6 +4174,7 @@ let unsubInboxLive = null; // live updates for first page only
     if(ch === "whatsapp" || ch === "wa") return `<span class="pill wa">${svgWA}واتساب</span>`;
     if(ch === "instagram" || ch === "ig") return `<span class="pill ig">${svgIG}انستجرام</span>`;
     if(ch === "facebook" || ch === "fb") return `<span class="pill fb">${svgFB}فيسبوك</span>`;
+    if(ch === "tiktok") return `<span class="pill">تيكتوك</span>`;
     return `<span class="pill">قناة</span>`;
   }
 
@@ -5130,6 +5160,7 @@ function channelToSourceLabel(ch){
     if(c === "whatsapp" || c === "wa") return "واتساب";
     if(c === "instagram" || c === "ig") return "انستجرام";
     if(c === "facebook" || c === "fb" || c.includes("messenger")) return "فيسبوك";
+    if(c === "tiktok") return "تيكتوك";
     return ch || "—";
   }
 
@@ -5147,6 +5178,7 @@ function channelToSourceLabel(ch){
   if(s === "snapchat_leads" || s === "snapchat" || s === "snapchat lead" || s === "snapchat_lead") return "سناب شات ليد";
   if(s.includes("instagram") || s === "ig") return "انستجرام";
   if(s.includes("facebook") || s === "fb" || s.includes("messenger") || s.includes("meta")) return "فيسبوك";
+  if(s.includes("tiktok")) return "تيكتوك";
   if(s.includes("whatsapp") || s === "wa") return "واتساب";
 
   // مصادر داخلية أخرى (مثل: حاسبة التقسيط)
@@ -5994,7 +6026,9 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
     // ضع هنا رابط الـWorker/Endpoint اللي بيرسل واتساب عبر مرسال (لو عندك Worker إرسال منفصل)
     // مثال: https://YOUR-SEND-WORKER.workers.dev/send
     const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // ضع رابط Worker الإرسال هنا أو عبر window
-    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://manychat.next-erp-mzj.workers.dev/send/facebook"; // إرسال فيسبوك ماسنجر.MERSAL_SEND_ENDPOINT 
+    const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://facebook.next-erp-mzj.workers.dev/crm/send"; // إرسال فيسبوك ماسنجر عبر Meta Worker
+    const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/crm/send"; // إرسال انستجرام عبر Worker
+    const TIKTOK_SEND_ENDPOINT = window.TIKTOK_SEND_ENDPOINT || "https://tiktok.next-erp-mzj.workers.dev/tiktok/send";
 
     
 async function sendOutboundMessage(text){
@@ -6002,6 +6036,7 @@ async function sendOutboundMessage(text){
   const btn = document.getElementById("btnSend") || document.querySelector('[data-send-btn]') || null;
 
   const isTemplate = !!(__selectedWaTemplateKey && WA_TEMPLATES?.[__selectedWaTemplateKey]);
+  const isMetaQuickTemplate = !!(__selectedMetaTemplateKey && WA_TEMPLATES?.[__selectedMetaTemplateKey]);
   const clean = String(text || "").trim();
 
   if(!isTemplate && !clean) return;
@@ -6019,12 +6054,19 @@ async function sendOutboundMessage(text){
   }
   const conv = convSnap.data() || {};
   const platform = String(conv.platform || conv.channel || conv.source || "").toLowerCase();
-  const isFB = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || String(conv.source||"").includes("فيسبوك");
+  const isFB = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || String(conv.source||"").includes("فيسبوك") || String(activeConvId||"").startsWith("facebook:");
+  const isIG = platform.includes("instagram") || platform.includes("ig") || String(conv.source||"").includes("انستجرام") || String(activeConvId||"").startsWith("instagram:");
+  const isTikTok = platform === "tiktok" || String(conv.channel || "").toLowerCase() === "tiktok";
   const waId = String(conv.waId || "").trim();
-  const fbPsid = String(conv.participantId || conv.senderId || "").trim();
+  const fbPsid = String(conv.fbId || conv.participantId || conv.senderId || "").trim();
+  const igRecipientId = String(conv.igId || conv.igUserId || conv.participantId || conv.senderId || conv.fbId || "").trim();
   const fbPageId = String(conv.pageId || "").trim();
-  if(!isFB && !waId){ toast("رقم العميل غير موجود", "err"); return; }
+  const manychatContactId = String(conv.manychatContactId || "").trim();
+  const conversationId = String(conv.conversationId || activeConvId || "").trim();
+  if(!isFB && !isIG && !isTikTok && !waId){ toast("رقم العميل غير موجود", "err"); return; }
   if(isFB && !fbPsid){ toast("معرّف فيسبوك غير موجود", "err"); return; }
+  if(isIG && !igRecipientId){ toast("معرّف انستجرام غير موجود", "err"); return; }
+  if(isTikTok && !manychatContactId){ toast("معرّف TikTok غير موجود", "err"); return; }
 
   const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
   const leadWrap = isTemplate ? await getActiveLeadForConversation() : null;
@@ -6038,8 +6080,8 @@ async function sendOutboundMessage(text){
   const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
   const localMsgId = msgRef.id;
 
-  const outTo = isFB ? `fb:${fbPsid}` : `wa:${waId}`;
-  const outProvider = isFB ? "facebook" : "mersal";
+  const outTo = isFB ? `fb:${fbPsid}` : (isIG ? `ig:${igRecipientId}` : (isTikTok ? `tiktok:${manychatContactId}` : `wa:${waId}`));
+  const outProvider = isFB ? "facebook" : (isIG ? "instagram" : (isTikTok ? "tiktok" : "mersal"));
   await setDoc(msgRef, {
     direction: "out",
     type: isTemplate ? "template" : "text",
@@ -6052,7 +6094,8 @@ async function sendOutboundMessage(text){
     receivedAt: serverTimestamp(),
     status: "pending",
     templateName: isTemplate ? String(tpl.name || "") : "",
-    templateLang: isTemplate ? String(tpl.lang || "ar") : ""
+    templateLang: isTemplate ? String(tpl.lang || "ar") : "",
+    quickTemplateName: isMetaQuickTemplate ? String(__selectedMetaTemplateKey || "") : ""
   });
 
   await updateDoc(convRef, {
@@ -6066,15 +6109,40 @@ async function sendOutboundMessage(text){
   try{
     let resp, data;
     if(isFB){
-      const payload = { convId: activeConvId, recipientId: fbPsid, pageId: fbPageId, message: clean, agent: (currentProfile?.name || currentUser?.displayName || currentUser?.email || "") };
+      const payload = { convId: activeConvId, text: displayText };
       resp = await fetch(FB_SEND_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       data = await resp.json().catch(()=> ({}));
-      // normalize
+      if(data && data.result && data.result.message_id && !data.providerMessageId) data.providerMessageId = data.result.message_id;
       if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
+      if(data && data.ok === undefined) data.ok = resp.ok;
+    }else if(isIG){
+      const payload = { convId: activeConvId, text: displayText };
+      resp = await fetch(IG_SEND_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      data = await resp.json().catch(()=> ({}));
+      if(data && data.result && data.result.message_id && !data.providerMessageId) data.providerMessageId = data.result.message_id;
+      if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
+      if(data && data.ok === undefined) data.ok = resp.ok;
+    }else if(isTikTok){
+      const payload = {
+        contact_id: manychatContactId,
+        conversationId,
+        text: displayText
+      };
+
+      resp = await fetch(TIKTOK_SEND_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      data = await resp.json().catch(()=> ({}));
       if(data && data.ok === undefined) data.ok = resp.ok;
     }else{
       const payload = isTemplate
@@ -6253,13 +6321,21 @@ async function sendOutboundMessage(text){
     
 document.getElementById("templateSelect")?.addEventListener("change", async (e)=>{
   const v = String(e.target?.value || "");
-  if(!v){
-    resetTemplateComposer();
-    return;
-  }
-
   const ta = document.getElementById("composer");
   __selectedWaTemplateKey = null;
+  __selectedMetaTemplateKey = null;
+  const metaSelect = document.getElementById("metaTemplateSelect");
+  if(metaSelect) metaSelect.value = "";
+
+  if(!v){
+    if(ta){
+      ta.readOnly = false;
+      ta.value = "";
+      ta.placeholder = 'اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)';
+      ta.dispatchEvent(new Event("input", { bubbles:true }));
+    }
+    return;
+  }
 
   if(v.startsWith("wa:")){
     const key = v.slice(3);
@@ -6280,8 +6356,43 @@ document.getElementById("templateSelect")?.addEventListener("change", async (e)=
       }
     }
   }
+});
 
-  e.target.value = "";
+document.getElementById("metaTemplateSelect")?.addEventListener("change", async (e)=>{
+  const v = String(e.target?.value || "");
+  const ta = document.getElementById("composer");
+  __selectedWaTemplateKey = null;
+  __selectedMetaTemplateKey = null;
+  const waSelect = document.getElementById("templateSelect");
+  if(waSelect) waSelect.value = "";
+
+  if(!v){
+    if(ta){
+      ta.readOnly = false;
+      ta.value = "";
+      ta.placeholder = 'اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)';
+      ta.dispatchEvent(new Event("input", { bubbles:true }));
+    }
+    return;
+  }
+
+  if(v.startsWith("meta:")){
+    const key = v.slice(5);
+    const tpl = WA_TEMPLATES?.[key];
+    if(tpl){
+      __selectedMetaTemplateKey = key;
+      const leadWrap = await getActiveLeadForConversation();
+      const lead = leadWrap?.data || null;
+      const preview = buildTemplatePreview(key, lead);
+      if(ta){
+        ta.readOnly = false;
+        ta.value = preview;
+        ta.dispatchEvent(new Event("input", { bubbles:true }));
+        ta.placeholder = "سيتم إرسال النص كرسالة عادية على ميتا — يمكنك تعديله ثم اضغط إرسال.";
+        ta.focus();
+      }
+    }
+  }
 });
 // send button
     $("#btnSend")?.addEventListener("click", ()=>{
