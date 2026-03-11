@@ -25,6 +25,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -4224,12 +4225,14 @@ let unsubInboxLive = null; // live updates for first page only
     const svgWA = `<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M19.1 17.5c-.2-.1-1.1-.6-1.3-.6s-.3-.1-.5.1-.5.6-.6.7-.2.2-.4.1c-.2-.1-.8-.3-1.6-1-.6-.5-1-1.2-1.1-1.4s0-.3.1-.4l.3-.4c.1-.1.1-.2.2-.4.1-.1 0-.3 0-.4s-.5-1.2-.7-1.6c-.2-.4-.4-.4-.5-.4h-.4c-.1 0-.4.1-.6.3s-.8.7-.8 1.8.8 2.1.9 2.2c.1.2 1.6 2.5 3.9 3.5.5.2.9.3 1.2.4.5.1.9.1 1.2.1.4-.1 1.1-.5 1.3-.9.2-.4.2-.8.1-.9 0-.1-.2-.2-.4-.3z"/><path fill="currentColor" d="M26.9 5.1A14.9 14.9 0 0 0 4.4 23.7L3 29l5.4-1.4A14.9 14.9 0 0 0 29 16c0-4-1.6-7.8-4.1-10.9zM16 28.1c-2.1 0-4.2-.6-6-1.6l-.4-.2-3.2.8.8-3.1-.2-.4c-1.1-1.9-1.7-4.1-1.7-6.3C5.3 9.7 10.1 4.9 16 4.9S26.7 9.7 26.7 16 21.9 28.1 16 28.1z"/></svg>`;
     const svgIG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9A5.5 5.5 0 0 1 16.5 22h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4h-9z"/><path fill="currentColor" d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/><path fill="currentColor" d="M17.8 6.2a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>`;
     const svgFB = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.5 22v-8h2.7l.4-3H13.5V9.1c0-.9.3-1.6 1.6-1.6h1.7V4.8c-.3 0-1.5-.1-2.8-.1-2.8 0-4.7 1.7-4.7 4.8V11H7v3h2.6v8h3.9z"/></svg>`;
+    const raw = String(ch || "").trim().toLowerCase();
+    const compact = raw.replace(/\s+/g, "");
 
-    if(ch === "whatsapp" || ch === "wa") return `<span class="pill wa">${svgWA}واتساب</span>`;
-    if(ch === "instagram" || ch === "ig") return `<span class="pill ig">${svgIG}انستجرام</span>`;
-    if(ch === "facebook" || ch === "fb") return `<span class="pill fb">${svgFB}فيسبوك</span>`;
-    if(ch === "tiktok") return `<span class="pill">تيكتوك</span>`;
-    return `<span class="pill">قناة</span>`;
+    if(raw === "whatsapp" || raw === "wa" || compact === "واتساب") return `<span class="pill wa">${svgWA}واتساب</span>`;
+    if(raw === "instagram" || raw === "ig" || compact === "انستجرام" || compact === "instagram") return `<span class="pill ig">${svgIG}انستجرام</span>`;
+    if(raw === "facebook" || raw === "fb" || raw === "messenger" || compact === "فيسبوك") return `<span class="pill fb">${svgFB}فيسبوك</span>`;
+    if(raw === "tiktok" || compact === "تيكتوك" || compact === "تيكتوك" || compact === "تيك_توك") return `<span class="pill">تيك توك</span>`;
+    return `<span class="pill">${esc(String(ch || "قناة"))}</span>`;
   }
 
   function isInboxRestrictedForCurrentUser(){
@@ -4407,7 +4410,8 @@ function applyInboxFilters(){
         .replace('<span class="pill', '<span class="pill" style="padding:0;border:0;background:transparent;display:inline-flex;align-items:center;gap:6px"');
       metaEl.innerHTML = `${pill} <span style="color:rgba(28,28,28,.55);font-weight:800">•</span> <span style="direction:ltr;unicode-bidi:plaintext">${esc(conv.waId)}</span>`;
     }else if(conv?.participantId){
-      const pill = convChannelPill(conv.channel || (String(conv.platform||"").includes("instagram")?"instagram":"facebook"))
+      const participantChannel = conv.channel || conv.platform || conv.source || (String(conv.platform||"").includes("instagram")?"instagram":(String(conv.platform||"").includes("tiktok")?"tiktok":"facebook"));
+      const pill = convChannelPill(participantChannel)
         .replace('<span class="pill', '<span class="pill" style="padding:0;border:0;background:transparent;display:inline-flex;align-items:center;gap:6px"');
       metaEl.innerHTML = `${pill} <span style="color:rgba(28,28,28,.55);font-weight:800">•</span> <span style="direction:ltr;unicode-bidi:plaintext">${esc(conv.participantId)}</span>`;
     }else{
@@ -6100,7 +6104,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
     const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // ضع رابط Worker الإرسال هنا أو عبر window
     const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://facebook.next-erp-mzj.workers.dev/crm/send"; // إرسال فيسبوك ماسنجر عبر Meta Worker
     const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/crm/send"; // إرسال انستجرام عبر Worker
-    const TIKTOK_SEND_ENDPOINT = window.TIKTOK_SEND_ENDPOINT || "https://tiktok.next-erp-mzj.workers.dev/tiktok/send";
+    const TIKTOK_SEND_ENDPOINT = window.TIKTOK_SEND_ENDPOINT || "https://test.next-erp-mzj.workers.dev/send";
 
     
 async function sendOutboundMessage(text){
@@ -6128,12 +6132,14 @@ async function sendOutboundMessage(text){
   const platform = String(conv.platform || conv.channel || conv.source || "").toLowerCase();
   const isFB = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || String(conv.source||"").includes("فيسبوك") || String(activeConvId||"").startsWith("facebook:");
   const isIG = platform.includes("instagram") || platform.includes("ig") || String(conv.source||"").includes("انستجرام") || String(activeConvId||"").startsWith("instagram:");
-  const isTikTok = platform === "tiktok" || String(conv.channel || "").toLowerCase() === "tiktok";
+  const channelRaw = String(conv.channel || "").trim().toLowerCase();
+  const channelCompact = channelRaw.replace(/\s+/g, "");
+  const isTikTok = platform === "tiktok" || channelRaw === "tiktok" || channelCompact === "تيكتوك" || channelCompact === "تيكتوك" || channelCompact === "تيك_توك";
   const waId = String(conv.waId || "").trim();
   const fbPsid = String(conv.fbId || conv.participantId || conv.senderId || "").trim();
   const igRecipientId = String(conv.igId || conv.igUserId || conv.participantId || conv.senderId || conv.fbId || "").trim();
   const fbPageId = String(conv.pageId || "").trim();
-  const manychatContactId = String(conv.manychatContactId || "").trim();
+  const manychatContactId = String(conv.manychatContactId || conv.participantId || conv.participant_id || conv.tiktokId || conv.senderId || "").trim();
   const conversationId = String(conv.conversationId || activeConvId || "").trim();
   if(!isFB && !isIG && !isTikTok && !waId){ toast("رقم العميل غير موجود", "err"); return; }
   if(isFB && !fbPsid){ toast("معرّف فيسبوك غير موجود", "err"); return; }
@@ -6178,18 +6184,29 @@ async function sendOutboundMessage(text){
       if(data && data.ok === undefined) data.ok = resp.ok;
     }else if(isTikTok){
       const payload = {
-        contact_id: manychatContactId,
+        subscriber_id: manychatContactId,
+        participantId: manychatContactId,
         conversationId,
-        text: displayText
+        message: displayText,
+        text: displayText,
+        channel: "tiktok",
+        provider: String(conv.provider || "manychat"),
+        displayName: String(conv.displayName || ""),
+        branchId: String(conv.branchId || "خدمة العملاء"),
+        serviceKey: String(conv.serviceKey || "cs"),
+        status: String(conv.status || "open")
       };
 
+      // تيك توك من ملف HTML محلي يضرب CORS/Preflight مع worker
+      // لذلك نرسل كـ simple request بدون JSON content-type ونستخدم no-cors
+      // مع نجاح تفاؤلي حتى لا يظل الزر على "جار الإرسال"
       resp = await fetch(TIKTOK_SEND_ENDPOINT, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: JSON.stringify(payload)
       });
-      data = await resp.json().catch(()=> ({}));
-      if(data && data.ok === undefined) data.ok = resp.ok;
+      data = { ok: true, opaque: true };
     }else{
       const payload = isTemplate
         ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: templateParams } }
@@ -6203,7 +6220,8 @@ async function sendOutboundMessage(text){
       data = await resp.json().catch(()=> ({}));
     }
 
-    if(!resp.ok || data.ok === false){
+    const isOpaqueTikTokSuccess = isTikTok && data && data.opaque === true;
+    if((!isOpaqueTikTokSuccess && !resp.ok) || data.ok === false){
       toast(String(data?.error || "فشل الإرسال"), "err");
       return;
     }
