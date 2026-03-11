@@ -24,6 +24,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -2710,21 +2711,56 @@ let __selectedMetaTemplateKey = null;
       const convSnap = await getDoc(doc(db,"wa_conversations", activeConvId));
       if(!convSnap.exists()) return null;
       const conv = convSnap.data() || {};
+
+      const mergeLeadContext = (baseData={}, extraData={})=>{
+        const merged = { ...(baseData||{}), ...(extraData||{}) };
+        if(!merged.carName)  merged.carName  = merged.carType || merged.car || merged.vehicle || "";
+        if(!merged.carType)  merged.carType  = merged.carName || merged.car || merged.vehicle || "";
+        if(!merged.carModel) merged.carModel = merged.model || merged.carYear || merged.year || merged.vehicleModel || "";
+        if(!merged.carColor) merged.carColor = merged.color || merged.vehicleColor || "";
+        return merged;
+      };
+
+      const readContactData = async ()=>{
+        try{
+          const candidates = [];
+          const waId = normalizeSaudiPhone(conv.waId || conv.phone || conv.phoneNormalized || "");
+          const pid = String(conv.participantId || conv.participant_id || conv.senderId || conv.fbId || conv.igId || conv.igUserId || conv.manychatContactId || "").trim();
+          const contactKey = String(conv.contactKey || conv.conversationId || activeConvId || pid || waId || "").trim();
+          if(contactKey) candidates.push(contactKey);
+          if(waId && !candidates.includes(waId)) candidates.push(waId);
+          if(pid && !candidates.includes(pid)) candidates.push(pid);
+          for(const id of candidates){
+            const snap = await getDoc(doc(db, "contacts", id)).catch(()=>null);
+            if(snap && snap.exists()) return snap.data() || {};
+          }
+        }catch(e){
+          console.warn("readContactData", e);
+        }
+        return {};
+      };
+
+      const contactData = await readContactData();
       const leadId = String(conv.leadId || "").trim();
       if(leadId){
         const leadSnap = await getDoc(doc(db,"leads", leadId));
-        if(leadSnap.exists()) return { id: leadSnap.id, data: (leadSnap.data()||{}) };
+        if(leadSnap.exists()){
+          return { id: leadSnap.id, data: mergeLeadContext(leadSnap.data()||{}, mergeLeadContext(contactData, conv)) };
+        }
       }
       // fallback: search by phoneNormalized
       const waId = normalizeSaudiPhone(conv.waId || conv.phone || conv.phoneNormalized || "");
-      if(!waId) return null;
-      // try match on phoneNormalized then on phone
-      const q1 = query(collection(db,"leads"), where("phoneNormalized","==", waId), limit(1));
-      const r1 = await getDocs(q1);
-      if(!r1.empty){ const d=r1.docs[0]; return { id:d.id, data:(d.data()||{}) }; }
-      const q2 = query(collection(db,"leads"), where("phone","==", waId), limit(1));
-      const r2 = await getDocs(q2);
-      if(!r2.empty){ const d=r2.docs[0]; return { id:d.id, data:(d.data()||{}) }; }
+      if(waId){
+        const q1 = query(collection(db,"leads"), where("phoneNormalized","==", waId), limit(1));
+        const r1 = await getDocs(q1);
+        if(!r1.empty){ const d=r1.docs[0]; return { id:d.id, data: mergeLeadContext(d.data()||{}, mergeLeadContext(contactData, conv)) }; }
+        const q2 = query(collection(db,"leads"), where("phone","==", waId), limit(1));
+        const r2 = await getDocs(q2);
+        if(!r2.empty){ const d=r2.docs[0]; return { id:d.id, data: mergeLeadContext(d.data()||{}, mergeLeadContext(contactData, conv)) }; }
+      }
+
+      const mergedOnly = mergeLeadContext(contactData, conv);
+      if(Object.keys(mergedOnly).length) return { id: String(conv.leadId || conv.contactKey || activeConvId || "").trim(), data: mergedOnly };
       return null;
     }catch(e){
       console.warn("getActiveLeadForConversation", e);
@@ -2845,6 +2881,23 @@ function resetTemplateComposer(){
     ta.value = '';
     ta.placeholder = 'اكتب ردك هنا… (Enter للإرسال • Shift+Enter سطر جديد)';
     ta.dispatchEvent(new Event('input', { bubbles:true }));
+  }
+}
+async function refreshSelectedTemplatePreview(){
+  try{
+    const key = __selectedWaTemplateKey || __selectedMetaTemplateKey;
+    if(!key) return;
+    const ta = document.getElementById('composer');
+    if(!ta) return;
+    const tpl = WA_TEMPLATES?.[key];
+    if(!tpl) return;
+    const leadWrap = await getActiveLeadForConversation();
+    const lead = leadWrap?.data || null;
+    const preview = buildTemplatePreview(key, lead);
+    ta.value = preview;
+    ta.dispatchEvent(new Event('input', { bubbles:true }));
+  }catch(e){
+    console.warn('refreshSelectedTemplatePreview', e);
   }
 }
 function getVisibleTemplateEntries(){
@@ -5910,6 +5963,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(clientData)", e); }
         }
 
+        await refreshSelectedTemplatePreview().catch(()=>{});
         toast("تم حفظ بيانات العميل", "ok");
         cdCloseAll();
         if($("#cd_files")) $("#cd_files").value = "";
