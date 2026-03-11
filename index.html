@@ -23,6 +23,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -5598,11 +5599,14 @@ scroller.addEventListener("scroll", ()=>{
       const conv = convSnap.data() || {};
       const phoneRaw = String(conv.waId || "").trim();
       const phone = normalizePhone(phoneRaw).replace(/^\+/, "");
+      const convParticipantId = String(conv.participantId || conv.participant_id || conv.senderId || conv.fbId || conv.igId || conv.igUserId || conv.manychatContactId || "").trim();
+      const convContactKey = String(conv.contactKey || conv.conversationId || activeConvId || convParticipantId || phone || "").trim();
+      const contactDocId = phone || convContactKey;
 
       // prefill phone from chat (unified)
       $("#cd_phone") && ($("#cd_phone").value = phone || "");
 
-      // Try load from contacts/{phoneNormalized} then {raw}
+      // Try load from contacts/{phoneNormalized} then fallback to conversation/contact key
       let data = null;
       if(phone){
         const cRef1 = doc(db, "contacts", phone);
@@ -5614,6 +5618,11 @@ scroller.addEventListener("scroll", ()=>{
           const cSnap2 = await getDoc(cRef2).catch(()=>null);
           if(cSnap2 && cSnap2.exists()) data = cSnap2.data() || null;
         }
+      }
+      if(!data && contactDocId){
+        const cRef3 = doc(db, "contacts", contactDocId);
+        const cSnap3 = await getDoc(cRef3).catch(()=>null);
+        if(cSnap3 && cSnap3.exists()) data = cSnap3.data() || null;
       }
 
       // Fallback: load from linked lead (if exists)
@@ -5712,16 +5721,18 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
         const phoneRawIn = ($("#cd_phone")?.value || "").trim();
         const phoneNorm = normalizePhone(phoneRawIn).replace(/^\+/, "");
-        if(!phoneNorm){ toast("رقم الجوال مطلوب", "warn"); return; }
 
         // Read current conversation (single source of truth)
         const convRef = doc(db,"wa_conversations", activeConvId);
         const convSnap = await getDoc(convRef).catch(()=>null);
         if(!(convSnap && convSnap.exists())){ toast("المحادثة غير موجودة", "warn"); return; }
         const conv = convSnap.data() || {};
-        const pid = String(conv.participantId || conv.participant_id || "");
-        const contactKey = String(conv.contactKey || phoneNorm);
+        const pid = String(conv.participantId || conv.participant_id || conv.senderId || conv.fbId || conv.igId || conv.igUserId || conv.manychatContactId || "").trim();
+        const fallbackContactKey = String(conv.contactKey || conv.conversationId || activeConvId || pid || phoneNorm).trim();
+        const contactKey = String(fallbackContactKey || phoneNorm).trim();
         const channel = (conv.channel || conv.platform || "facebook");
+        const contactDocId = phoneNorm || contactKey;
+        if(!contactDocId){ toast("تعذر تحديد ملف العميل", "warn"); return; }
 
         // Upload new files (if any)
         const files = Array.from($("#cd_files")?.files || []);
@@ -5729,7 +5740,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
         const uploads = [];
         for(const f of files){
           const safeName = String(f.name || "file").replace(/[^\w.\-؀-ۿ]+/g,"_");
-          const key = `client_files/${phoneNorm}/${Date.now()}_${safeName}`;
+          const key = `client_files/${contactDocId}/${Date.now()}_${safeName}`;
           const r = sRef(st, key);
           uploads.push((async ()=>{
             await uploadBytes(r, f);
@@ -5741,14 +5752,18 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
         // Load existing contact (prefer normalized id)
         let existing = {};
-        const cRef = doc(db, "contacts", phoneNorm);
+        const cRef = doc(db, "contacts", contactDocId);
         const cSnap = await getDoc(cRef).catch(()=>null);
         if(cSnap && cSnap.exists()) existing = cSnap.data() || {};
 
-        // Legacy: try raw key (only if different)
+        // Legacy: try phone/raw keys if different
+        if(Object.keys(existing).length===0 && phoneNorm && contactDocId !== phoneNorm){
+          const cSnapPhone = await getDoc(doc(db,"contacts", phoneNorm)).catch(()=>null);
+          if(cSnapPhone && cSnapPhone.exists()) existing = cSnapPhone.data() || {};
+        }
         if(Object.keys(existing).length===0){
           const rawKey = normalizePhone(phoneRawIn);
-          if(rawKey && rawKey !== phoneNorm){
+          if(rawKey && rawKey !== contactDocId){
             const cSnap2 = await getDoc(doc(db,"contacts", rawKey)).catch(()=>null);
             if(cSnap2 && cSnap2.exists()) existing = cSnap2.data() || {};
           }
@@ -5778,8 +5793,8 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
         const payload = {
           name: ($("#cd_name")?.value || "").trim(),
-          phone: "+" + phoneNorm,
-          phoneNormalized: phoneNorm,
+          phone: phoneNorm ? ("+" + phoneNorm) : String(existing.phone || ""),
+          phoneNormalized: phoneNorm || String(existing.phoneNormalized || ""),
           contactKey: contactKey,
           participantId: pid || existing.participantId || "",
           channel: channel || existing.channel || "",
@@ -5802,12 +5817,15 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
         // Save contact
         await setDoc(cRef, payload, { merge:true });
+        if(phoneNorm && contactDocId !== phoneNorm){
+          await setDoc(doc(db, "contacts", phoneNorm), payload, { merge:true }).catch(()=>{});
+        }
 
         // Update conversation so name/phone show immediately
         const convUpdates = { updatedAt: new Date().toISOString(), contactKey };
         if(payload.name) convUpdates.displayName = payload.name;
-        // for FB/IG we still keep waId field as "phoneNormalized" to unify linking
-        convUpdates.waId = phoneNorm;
+        // for FB/IG/TikTok نحفظ الرقم فقط لو موجود
+        if(phoneNorm) convUpdates.waId = phoneNorm;
         if(pid) convUpdates.participantId = pid;
         await updateDoc(convRef, convUpdates).catch(()=>{});
         try{ setChatHeader({ ...conv, ...convUpdates }); }catch(_e){}
@@ -5819,7 +5837,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           const lTest = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
           if(!(lTest && lTest.exists())) leadId = "";
         }
-        if(!leadId){
+        if(!leadId && phoneNorm){
           const found = await findLeadByPhoneNormalized(phoneNorm).catch(()=> "");
           if(found){
             leadId = found;
@@ -5841,7 +5859,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           await setDoc(doc(db,"leads", leadId), {
             name: payload.name || "",
             phone: payload.phone,
-            phoneNormalized: phoneNorm,
+            phoneNormalized: payload.phoneNormalized,
             contactKey: contactKey,
             participantId: pid,
             channel: channel,
@@ -6076,33 +6094,7 @@ async function sendOutboundMessage(text){
     ? (String(clean || buildTemplatePreview(__selectedWaTemplateKey, lead) || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
     : clean;
 
-  // optimistic message in firestore so it يظهر في الشات ومش فاضي
-  const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
-  const localMsgId = msgRef.id;
-
-  const outTo = isFB ? `fb:${fbPsid}` : (isIG ? `ig:${igRecipientId}` : (isTikTok ? `tiktok:${manychatContactId}` : `wa:${waId}`));
-  const outProvider = isFB ? "facebook" : (isIG ? "instagram" : (isTikTok ? "tiktok" : "mersal"));
-  await setDoc(msgRef, {
-    direction: "out",
-    type: isTemplate ? "template" : "text",
-    text: displayText,
-    from: "crm",
-    to: outTo,
-    provider: outProvider,
-    providerMessageId: "",
-    sentAt: serverTimestamp(),
-    receivedAt: serverTimestamp(),
-    status: "pending",
-    templateName: isTemplate ? String(tpl.name || "") : "",
-    templateLang: isTemplate ? String(tpl.lang || "ar") : "",
-    quickTemplateName: isMetaQuickTemplate ? String(__selectedMetaTemplateKey || "") : ""
-  });
-
-  await updateDoc(convRef, {
-    lastMessageText: String(displayText || "").slice(0, 280),
-    lastMessageAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
+  // لا نكتب الرسالة محلياً قبل الويبهوك حتى لا تظهر مرتين في الشات
 
   if(btn){ btn.disabled = true; btn.textContent = "جار الإرسال…"; }
 
@@ -6158,27 +6150,14 @@ async function sendOutboundMessage(text){
     }
 
     if(!resp.ok || data.ok === false){
-      await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
-        status: "failed",
-        error: String(data?.error || ("HTTP " + resp.status))
-      });
       toast(String(data?.error || "فشل الإرسال"), "err");
       return;
     }
-
-    await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
-      status: "sent",
-      providerMessageId: String(data.providerMessageId || data.message_id || data.id || "")
-    });
 
     resetTemplateComposer();
     toast("تم الإرسال", "ok");
   }catch(e){
     console.error(e);
-    await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
-      status: "failed",
-      error: String(e?.message || e)
-    });
     toast("فشل الإرسال", "err");
   }finally{
     if(btn){ btn.disabled = false; btn.textContent = "إرسال"; }
