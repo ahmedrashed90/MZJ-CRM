@@ -26,6 +26,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6103,7 +6104,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
     // مثال: https://YOUR-SEND-WORKER.workers.dev/send
     const MERSAL_SEND_ENDPOINT = window.MERSAL_SEND_ENDPOINT || "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal"; // ضع رابط Worker الإرسال هنا أو عبر window
     const FB_SEND_ENDPOINT = window.FB_SEND_ENDPOINT || "https://facebook.next-erp-mzj.workers.dev/crm/send"; // إرسال فيسبوك ماسنجر عبر Meta Worker
-    const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/crm/send"; // إرسال انستجرام عبر Worker
+    const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/send"; // إرسال انستجرام عبر Worker
     const TIKTOK_SEND_ENDPOINT = window.TIKTOK_SEND_ENDPOINT || "https://test.next-erp-mzj.workers.dev/send";
 
     
@@ -6172,16 +6173,57 @@ async function sendOutboundMessage(text){
       if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
       if(data && data.ok === undefined) data.ok = resp.ok;
     }else if(isIG){
-      const payload = { convId: activeConvId, text: displayText };
+      const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
+      const localMsgId = msgRef.id;
+      const nowIso = new Date().toISOString();
+      await setDoc(msgRef, {
+        direction: "out",
+        type: "text",
+        text: displayText,
+        from: "crm",
+        to: `ig:${igRecipientId}`,
+        provider: String(conv.provider || "manychat"),
+        providerMessageId: "",
+        participantId: igRecipientId,
+        channel: (conv.channel || "instagram"),
+        sentAt: serverTimestamp(),
+        receivedAt: serverTimestamp(),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        status: "pending"
+      }).catch(()=>{});
+
+      await updateDoc(convRef, {
+        lastMessageText: String(displayText || "").slice(0, 280),
+        lastMessageAt: nowIso,
+        updatedAt: nowIso,
+        channel: conv.channel || "instagram",
+        igId: conv.igId || igRecipientId,
+        participantId: conv.participantId || igRecipientId,
+        displayName: String(conv.displayName || conv.name || "عميل")
+      }).catch(()=>{});
+
+      const payload = {
+        subscriber_id: igRecipientId,
+        participantId: igRecipientId,
+        conversationId: String(conv.conversationId || activeConvId || "").trim(),
+        message: displayText,
+        text: displayText,
+        channel: "instagram",
+        provider: String(conv.provider || "manychat"),
+        displayName: String(conv.displayName || conv.name || "عميل"),
+        branchId: String(conv.branchId || "خدمة العملاء"),
+        serviceKey: String(conv.serviceKey || "cs"),
+        status: String(conv.status || "open")
+      };
+
       resp = await fetch(IG_SEND_ENDPOINT, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: JSON.stringify(payload)
       });
-      data = await resp.json().catch(()=> ({}));
-      if(data && data.result && data.result.message_id && !data.providerMessageId) data.providerMessageId = data.result.message_id;
-      if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
-      if(data && data.ok === undefined) data.ok = resp.ok;
+      data = { ok: true, opaque: true, localMsgId };
     }else if(isTikTok){
       const payload = {
         subscriber_id: manychatContactId,
@@ -6221,9 +6263,24 @@ async function sendOutboundMessage(text){
     }
 
     const isOpaqueTikTokSuccess = isTikTok && data && data.opaque === true;
-    if((!isOpaqueTikTokSuccess && !resp.ok) || data.ok === false){
+    const isOpaqueIGSuccess = isIG && data && data.opaque === true;
+    if((!isOpaqueTikTokSuccess && !isOpaqueIGSuccess && !resp.ok) || data.ok === false){
+      if(isIG && data?.localMsgId){
+        await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", data.localMsgId), {
+          status: "failed",
+          updatedAt: new Date().toISOString()
+        }).catch(()=>{});
+      }
       toast(String(data?.error || "فشل الإرسال"), "err");
       return;
+    }
+
+    if(isIG && data?.localMsgId){
+      await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", data.localMsgId), {
+        status: "sent",
+        updatedAt: new Date().toISOString(),
+        providerMessageId: String(data?.providerMessageId || "")
+      }).catch(()=>{});
     }
 
     resetTemplateComposer();
