@@ -30,6 +30,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1932,11 +1933,17 @@ body.auth-locked #authModal{ pointer-events:auto; }
           <div class="badge">—</div>
         </div>
 
-        
+        <div class="navItem" data-tab="admin-users" style="display:none">
+          <div class="navLeft">
+            <div class="ico">🛡️</div>
+            <div class="navTitle">
+              <b>الإدارة</b>
+              <span>إضافة مستخدمين جدد للنظام</span>
+            </div>
+          </div>
+          <div class="badge neutral">إدارة</div>
+        </div>
 
-        
-
-        
       </nav>
 
       <div class="sideFooter">
@@ -2330,6 +2337,58 @@ body.auth-locked #authModal{ pointer-events:auto; }
 </div>
 </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" id="panel-admin-users">
+            <div class="grid">
+              <div class="card" style="grid-column: span 7;">
+                <h3>إضافة مستخدم جديد</h3>
+                <div style="font-size:12.5px;color:rgba(28,28,28,.68);line-height:1.8;margin-bottom:12px">
+                  أنشئ مستخدم جديد من داخل النظام ثم احفظ بياناته تلقائيًا في السيستم داخل <b>settings_agents</b>.
+                </div>
+                <div class="filters" style="padding:0;border:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:end">
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">الاسم</label>
+                    <input class="miniInput" id="adminUserName" placeholder="اسم المستخدم" />
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">البريد الإلكتروني</label>
+                    <input class="miniInput" id="adminUserEmail" type="email" placeholder="name@example.com" />
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">كلمة المرور</label>
+                    <input class="miniInput" id="adminUserPassword" type="password" placeholder="6 أحرف أو أكثر" />
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">نوع المستخدم</label>
+                    <select id="adminUserDept">
+                      <option value="cash">مندوب مبيعات الكاش</option>
+                      <option value="finance">مندوب مبيعات التمويل</option>
+                      <option value="callcenter">مندوب كول سنتر</option>
+                      <option value="cs">مندوب خدمة العملاء</option>
+                    </select>
+                  </div>
+                  <div class="full" style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap">
+                    <button class="toolBtn primary" id="btnAdminCreateUser" type="button">حفظ المستخدم</button>
+                    <button class="toolBtn" id="btnAdminResetUserForm" type="button">تفريغ الحقول</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card" style="grid-column: span 5;">
+                <h3>بيانات الإنشاء</h3>
+                <div class="kvRow">
+                  <div class="kvPill"><span>UID</span><b id="adminCreatedUid">—</b></div>
+                  <div class="kvPill"><span>الحالة</span><b id="adminCreateStatus">جاهز</b></div>
+                  <div class="kvPill"><span>القسم</span><b id="adminCreatedDept">—</b></div>
+                </div>
+                <div class="mzj-hintBox" style="margin-top:12px">
+                  <b>آلية الحفظ</b>
+                  <span>يتم إنشاء الحساب في Firebase Authentication ثم حفظ بياناته في <b>settings_agents</b> مع الفرع المناسب والصلاحية، ويظهر لك <b>UID</b> فورًا.</span>
+                </div>
+                <div id="adminCreateMsg" style="margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.8">أدخل البيانات واضغط حفظ المستخدم.</div>
               </div>
             </div>
           </div>
@@ -2949,9 +3008,9 @@ function renderTemplateSelectOptions(){
 // Exclude admin email from random auto-assign
   const EXCLUDED_ASSIGN_EMAILS = ["mr.ahmed_rashed@outlook.sa"];
 
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
   import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, getDocs, serverTimestamp, writeBatch, addDoc, startAfter} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
   import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
 
   // ===== Firebase Config =====
@@ -3618,6 +3677,8 @@ function renderTemplateSelectOptions(){
       case "dashboard":
       case "tasks":
         return branchMatchesKey(branchId, "finance");
+      case "admin-users":
+        return isManagementRole();
       default:
         return true;
     }
@@ -3637,7 +3698,7 @@ function renderTemplateSelectOptions(){
     const customerStatusesNav = document.querySelector('[data-tab="customer-statuses"]');
     if(customerStatusesNav) customerStatusesNav.style.display = "none";
 
-    const guardedTabs = ["customers","leads_cash","leads_finance","leads_cs","database","dashboard","tasks"];
+    const guardedTabs = ["customers","leads_cash","leads_finance","leads_cs","database","dashboard","tasks","admin-users"];
     guardedTabs.forEach((tabId)=>{
       const navEl = document.querySelector(`[data-tab="${tabId}"]`);
       if(navEl){
@@ -3708,6 +3769,7 @@ function renderTemplateSelectOptions(){
       pipeline:      { title:"مراحل البيع", desc:"كانبان لمتابعة مراحل البيع — اضغط على عميل لعرض التفاصيل والتحديث." },
       dashboard:     { title:"داش بورد", desc:"تقسيم العملاء حسب الحالة — عرض سريع لكل العملاء." },
       tasks:         { title:"المتابعات", desc:"مهام اليوم والتأخير — راقب المتابعة القادمة لكل عميل." },
+      "admin-users": { title:"الإدارة", desc:"إضافة مستخدمين جدد للنظام وربطهم بالأقسام المناسبة." },
       retarget:      { title:"إعادة الاستهداف", desc:"قوائم وحملات — تجهيز الجمهور والمتابعات." },
       automation:    { title:"الأوتوميشن", desc:"قواعد وتنبيهات وتشغيل/إيقاف الأتمتة." },
       settings:      { title:"الإعدادات", desc:"فروع + مناديب + صلاحيات." }
@@ -9480,6 +9542,121 @@ function bindTasksUI(){
     };
   }
 
+
+  function getAdminDeptConfig(deptKey){
+    const key = String(deptKey || "").trim().toLowerCase();
+    const roleKeys = Array.from(rolesMap.keys());
+    const fallbackRole = rolesMap.has("sales") ? "sales" : (roleKeys[0] || "sales");
+    const callCenterRole = rolesMap.has("callcenter") ? "callcenter" : (rolesMap.has("sales") ? "sales" : fallbackRole);
+    const map = {
+      cash: { label:"مندوب مبيعات الكاش", branchId: BRANCH_IDS.cash, roleId: fallbackRole },
+      finance: { label:"مندوب مبيعات التمويل", branchId: BRANCH_IDS.finance, roleId: fallbackRole },
+      callcenter: { label:"مندوب كول سنتر", branchId: BRANCH_IDS.callcenter, roleId: callCenterRole },
+      cs: { label:"مندوب خدمة العملاء", branchId: BRANCH_IDS.cs, roleId: fallbackRole }
+    };
+    return map[key] || map.finance;
+  }
+
+  function resetAdminUserForm(clearResult=false){
+    ["#adminUserName", "#adminUserEmail", "#adminUserPassword"].forEach(sel=>{ const el = $(sel); if(el) el.value = ""; });
+    const dept = $("#adminUserDept");
+    if(dept) dept.value = "cash";
+    if(clearResult){
+      const uidEl = $("#adminCreatedUid"); if(uidEl) uidEl.textContent = "—";
+      const statusEl = $("#adminCreateStatus"); if(statusEl) statusEl.textContent = "جاهز";
+      const deptEl = $("#adminCreatedDept"); if(deptEl) deptEl.textContent = "—";
+      const msgEl = $("#adminCreateMsg"); if(msgEl){ msgEl.textContent = "أدخل البيانات واضغط حفظ المستخدم."; msgEl.style.color = "var(--muted)"; }
+    }
+  }
+
+  async function createAdminUserFromPanel(){
+    if(!currentUser || !isManagementRole()){
+      toast("ليس لديك صلاحية", "warn");
+      return;
+    }
+    const name = String($("#adminUserName")?.value || "").trim();
+    const email = String($("#adminUserEmail")?.value || "").trim();
+    const password = String($("#adminUserPassword")?.value || "").trim();
+    const deptKey = String($("#adminUserDept")?.value || "finance").trim();
+    const statusEl = $("#adminCreateStatus");
+    const uidEl = $("#adminCreatedUid");
+    const deptEl = $("#adminCreatedDept");
+    const msgEl = $("#adminCreateMsg");
+
+    if(!name || !email || !password){
+      if(statusEl) statusEl.textContent = "بيانات ناقصة";
+      if(msgEl){ msgEl.textContent = "اكتب الاسم والبريد وكلمة المرور أولاً."; msgEl.style.color = "var(--bad)"; }
+      toast("اكتب كل البيانات المطلوبة", "warn");
+      return;
+    }
+    if(password.length < 6){
+      if(statusEl) statusEl.textContent = "كلمة المرور قصيرة";
+      if(msgEl){ msgEl.textContent = "كلمة المرور يجب أن تكون 6 أحرف أو أكثر."; msgEl.style.color = "var(--bad)"; }
+      toast("كلمة المرور قصيرة", "warn");
+      return;
+    }
+
+    const deptCfg = getAdminDeptConfig(deptKey);
+    if(deptEl) deptEl.textContent = deptCfg.label;
+    if(statusEl) statusEl.textContent = "جاري الإنشاء...";
+    if(msgEl){ msgEl.textContent = "جاري إنشاء الحساب وحفظه داخل السيستم..."; msgEl.style.color = "var(--muted)"; }
+
+    let tempApp = null;
+    try{
+      tempApp = initializeApp(firebaseConfig, `admin-create-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+      const tempAuth = getAuth(tempApp);
+      const cred = await createUserWithEmailAndPassword(tempAuth, email, password);
+      const user = cred.user;
+      const uid = String(user?.uid || "").trim();
+      if(!uid) throw new Error("لم يتم إنشاء UID");
+
+      await setDoc(doc(db, "settings_agents", uid), {
+        uid,
+        name,
+        email,
+        roleId: deptCfg.roleId || "sales",
+        branchId: deptCfg.branchId || "",
+        canReceiveLeads: "true",
+        isActive: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge:true });
+
+      await setDoc(doc(db, "users", uid), {
+        uid,
+        name,
+        email,
+        roleId: deptCfg.roleId || "sales",
+        branchId: deptCfg.branchId || "",
+        canReceiveLeads: true,
+        isActive: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge:true });
+
+      if(uidEl) uidEl.textContent = uid;
+      if(statusEl) statusEl.textContent = "تم الحفظ";
+      if(msgEl){ msgEl.textContent = `تم إنشاء المستخدم ${name} وحفظه داخل السيستم بنجاح.`; msgEl.style.color = "var(--ok)"; }
+      resetAdminUserForm(false);
+      const pwdEl = $("#adminUserPassword"); if(pwdEl) pwdEl.value = "";
+      toast("تم إنشاء المستخدم بنجاح", "ok");
+      try{ await signOut(tempAuth); }catch(_e){}
+      try{ await deleteApp(tempApp); }catch(_e){}
+      tempApp = null;
+    }catch(e){
+      console.warn("createAdminUserFromPanel", e);
+      if(statusEl) statusEl.textContent = "فشل الإنشاء";
+      if(msgEl){ msgEl.textContent = e?.message || String(e); msgEl.style.color = "var(--bad)"; }
+      toast("تعذر إنشاء المستخدم", "warn");
+      try{ if(tempApp){ await deleteApp(tempApp); } }catch(_e){}
+    }
+  }
+
+  function bindAdminUsersUI(){
+    $("#btnAdminCreateUser")?.addEventListener("click", createAdminUserFromPanel);
+    $("#btnAdminResetUserForm")?.addEventListener("click", ()=> resetAdminUserForm(true));
+  }
+
   // ===== Boot =====
   bindTabs();
   bindAuthUI();
@@ -9490,6 +9667,7 @@ function bindTasksUI(){
   bindCustomerStatusesUI();
   bindPipelineUI();
   bindTasksUI();
+  bindAdminUsersUI();
 
   // ابدأ بحالة تحقق + تايمر حماية (حتى لا يظل "جار التحقق…" للأبد)
   try{ setAuthChecking(); }catch{}
