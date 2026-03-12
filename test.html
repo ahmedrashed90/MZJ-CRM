@@ -31,6 +31,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3676,7 +3677,7 @@ function renderTemplateSelectOptions(){
         return branchMatchesKey(branchId, "callcenter") || isManagementRole();
       case "dashboard":
       case "tasks":
-        return branchMatchesKey(branchId, "finance");
+        return branchMatchesKey(branchId, "finance") || branchMatchesKey(branchId, "cash");
       case "admin-users":
         return isManagementRole();
       default:
@@ -10199,13 +10200,36 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
       }
     };
 
+    function getAllowedDashboardSectionKeys(){
+      if(isManagementRole()) return ["cash", "finance", "cs"];
+      const branchId = getCurrentBranchId();
+      if(branchMatchesKey(branchId, "finance")) return ["finance"];
+      if(branchMatchesKey(branchId, "cash")) return ["cash"];
+      if(branchMatchesKey(branchId, "cs")) return ["cs"];
+      return [];
+    }
+
+    function getDashboardSectionViewMode(sectionKey){
+      const key = String(sectionKey || "").trim().toLowerCase();
+      if(key === "finance") return "leads_finance";
+      if(key === "cash") return "leads_cash";
+      if(key === "cs") return "leads_cs";
+      return "";
+    }
+
     function getDashboardSearchText(){
       return String(($("#dashSearch")?.value || "")).trim().toLowerCase();
     }
 
     function getDashboardSectionLeads(sectionKey){
+      const key = String(sectionKey || "").trim().toLowerCase();
+      const allowed = getAllowedDashboardSectionKeys();
+      if(!allowed.includes(key)) return [];
+
       const q = getDashboardSearchText();
       const leads = Array.isArray(leadsCache) ? leadsCache : [];
+      const viewMode = getDashboardSectionViewMode(key);
+
       return leads.filter(x=>{
         const d = x.data || {};
         const matchesSearch = !q
@@ -10215,7 +10239,9 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
           || String(getLeadCarName(d) || "").toLowerCase().includes(q);
 
         if(!matchesSearch) return false;
-        return getLeadQueueKey(d, x.id) === String(sectionKey || "").trim().toLowerCase();
+        if(getLeadQueueKey(d, x.id) !== key) return false;
+        if(viewMode && !canCurrentUserSeeLeadEntry(x, viewMode)) return false;
+        return true;
       });
     }
 
@@ -10231,12 +10257,21 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
       const grid = $("#dashBoardGrid");
       if(!grid) return;
 
-      if(dashboardActiveSection && DASHBOARD_SECTION_CONFIG[dashboardActiveSection]){
-        renderDashboardSection(dashboardActiveSection);
+      const allowedKeys = getAllowedDashboardSectionKeys();
+      if(!allowedKeys.length){
+        grid.innerHTML = `<div class="card" style="grid-column:1/-1;padding:14px;color:rgba(28,28,28,.64)">لا توجد أقسام متاحة لهذا المستخدم.</div>`;
         return;
       }
 
-      const sections = Object.values(DASHBOARD_SECTION_CONFIG);
+      if(dashboardActiveSection && DASHBOARD_SECTION_CONFIG[dashboardActiveSection] && allowedKeys.includes(dashboardActiveSection)){
+        renderDashboardSection(dashboardActiveSection);
+        return;
+      }
+      if(dashboardActiveSection && !allowedKeys.includes(dashboardActiveSection)){
+        dashboardActiveSection = "";
+      }
+
+      const sections = allowedKeys.map(key => DASHBOARD_SECTION_CONFIG[key]).filter(Boolean);
       grid.innerHTML = sections.map(section=>{
         const count = getDashboardSectionLeads(section.key).length;
         return `
@@ -10251,7 +10286,7 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
         const btn = e.target.closest("[data-dash-section]");
         if(!btn) return;
         const key = String(btn.getAttribute("data-dash-section") || "").trim();
-        if(!key) return;
+        if(!key || !allowedKeys.includes(key)) return;
         dashboardActiveSection = key;
         renderDashboardSection(key);
       };
@@ -10261,8 +10296,10 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
       const grid = $("#dashBoardGrid");
       if(!grid) return;
 
-      const section = DASHBOARD_SECTION_CONFIG[String(sectionKey || "").trim().toLowerCase()];
-      if(!section){
+      const normalizedKey = String(sectionKey || "").trim().toLowerCase();
+      const allowedKeys = getAllowedDashboardSectionKeys();
+      const section = DASHBOARD_SECTION_CONFIG[normalizedKey];
+      if(!section || !allowedKeys.includes(normalizedKey)){
         dashboardActiveSection = "";
         renderDashboard();
         return;
