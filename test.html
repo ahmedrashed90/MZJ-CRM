@@ -29,6 +29,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -8833,6 +8834,7 @@ function bindTasksUI(){
       try{ applyDatabaseFilters(); }catch(e){}
       try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
       try{ renderPipeline(); }catch(e){}
+      try{ renderDashboard(); }catch(e){}
       setBadgeConnected(true);
 
       // sync external sheets in background only, then refresh once more
@@ -8843,6 +8845,7 @@ function bindTasksUI(){
         try{ applyDatabaseFilters(); }catch(e){}
         try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
         try{ renderPipeline(); }catch(e){}
+        try{ renderDashboard(); }catch(e){}
       }catch(e){
         console.warn("refreshExternalLeadSheets background", e);
       }
@@ -8860,6 +8863,7 @@ function bindTasksUI(){
         try{ applyDatabaseFilters(); }catch(e){}
         try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
         try{ renderPipeline(); }catch(e){}
+        try{ renderDashboard(); }catch(e){}
 
         try{
           await refreshExternalLeadSheets(true);
@@ -10100,7 +10104,7 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
             <div>
               <h3 style="margin:0 0 4px">${esc(section.title)}</h3>
-              <div style="font-size:12.5px;color:rgba(28,28,28,.64);line-height:1.6">كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على العميل لفتح تفاصيله.</div>
+              <div style="font-size:12.5px;color:rgba(28,28,28,.64);line-height:1.6">كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على العميل لفتح صندوق الوارد الخاص به.</div>
             </div>
             <button class="miniBtn" type="button" id="dashBackBtn">رجوع للأقسام</button>
           </div>
@@ -10143,8 +10147,14 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
           const id = el.getAttribute("data-dash-lead") || "";
           if(!id) return;
           const found = (Array.isArray(leadsCache) ? leadsCache : []).find(x=>x.id === id);
-          if(found){
-            try{ openLeadModal(id, found.data || {}); }catch(e){}
+          if(!found) return;
+          const lead = found.data || {};
+          const phone = lead.phone || lead.phoneNormalized || lead.waId || "";
+          const leadName = lead.name || lead.displayName || "";
+          try{
+            openInboxForPhone(phone, leadName);
+          }catch(e){
+            console.warn("dashboard open inbox failed", e);
           }
         });
       });
