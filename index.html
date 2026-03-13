@@ -27,6 +27,14 @@
 
 
 
+
+
+
+
+
+
+
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1929,11 +1937,17 @@ body.auth-locked #authModal{ pointer-events:auto; }
           <div class="badge">—</div>
         </div>
 
-        
+        <div class="navItem" data-tab="admin-users" style="display:none">
+          <div class="navLeft">
+            <div class="ico">🛡️</div>
+            <div class="navTitle">
+              <b>الإدارة</b>
+              <span>إضافة مستخدمين جدد للنظام</span>
+            </div>
+          </div>
+          <div class="badge neutral">إدارة</div>
+        </div>
 
-        
-
-        
       </nav>
 
       <div class="sideFooter">
@@ -2326,6 +2340,120 @@ body.auth-locked #authModal{ pointer-events:auto; }
   </table>
 </div>
 </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+                    <div class="panel" id="panel-admin-users">
+            <div class="grid">
+              <div class="card" style="grid-column: span 7;">
+                <h3>إضافة مستخدم جديد</h3>
+                <div style="font-size:12.5px;color:rgba(28,28,28,.68);line-height:1.8;margin-bottom:12px">
+                  أنشئ مستخدم جديد من داخل النظام ثم احفظ بياناته تلقائيًا في السيستم داخل <b>settings_agents</b> و<b>users</b> مع التابات المسموح بها.
+                </div>
+                <div class="filters" style="padding:0;border:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:end">
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">الاسم</label>
+                    <input class="miniInput" id="adminUserName" placeholder="اسم المستخدم" />
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">البريد الإلكتروني</label>
+                    <input class="miniInput" id="adminUserEmail" type="email" placeholder="name@example.com" />
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">كلمة المرور</label>
+                    <input class="miniInput" id="adminUserPassword" type="password" placeholder="6 أحرف أو أكثر" />
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">نوع المستخدم</label>
+                    <select id="adminUserDept">
+                      <option value="cash">مبيعات الكاش</option>
+                      <option value="finance">مبيعات التمويل</option>
+                      <option value="callcenter">كول سنتر</option>
+                      <option value="cs">خدمة العملاء</option>
+                    </select>
+                  </div>
+                  <div class="full" style="grid-column:1/-1">
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">التابات المسموح بها</label>
+                    <div id="adminUserTabsList" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px"></div>
+                  </div>
+                  <div class="full" style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap">
+                    <button class="toolBtn primary" id="btnAdminCreateUser" type="button">حفظ المستخدم</button>
+                    <button class="toolBtn" id="btnAdminResetUserForm" type="button">تفريغ الحقول</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card" style="grid-column: span 5;">
+                <h3>بيانات الإنشاء</h3>
+                <div class="kvRow">
+                  <div class="kvPill"><span>UID</span><b id="adminCreatedUid">—</b></div>
+                  <div class="kvPill"><span>الحالة</span><b id="adminCreateStatus">جاهز</b></div>
+                  <div class="kvPill"><span>القسم</span><b id="adminCreatedDept">—</b></div>
+                </div>
+                <div class="mzj-hintBox" style="margin-top:12px">
+                  <b>آلية الحفظ</b>
+                  <span>يتم إنشاء الحساب في Firebase Authentication ثم حفظ بياناته في <b>settings_agents</b> و<b>users</b> مع <b>UID</b> والتابات المسموح بها.</span>
+                </div>
+                <div id="adminCreateMsg" style="margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.8">أدخل البيانات واضغط حفظ المستخدم.</div>
+              </div>
+
+              <div class="card" style="grid-column: span 7;">
+                <h3>مستخدمو النظام</h3>
+                <div class="mzj-tableWrap">
+                  <table class="mzj-table" style="min-width:880px">
+                    <thead>
+                      <tr>
+                        <th>الاسم</th>
+                        <th>الإيميل</th>
+                        <th>القسم</th>
+                        <th>الدور</th>
+                        <th>عدد التابات</th>
+                        <th>الحالة</th>
+                      </tr>
+                    </thead>
+                    <tbody id="adminUsersTbody">
+                      <tr><td colspan="6" class="mzj-empty">لا يوجد مستخدمون.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="card" style="grid-column: span 5;">
+                <h3>التحكم في المستخدم</h3>
+                <div class="kvRow">
+                  <div class="kvPill"><span>UID</span><b id="adminEditUid">—</b></div>
+                  <div class="kvPill"><span>الإيميل</span><b id="adminEditEmail">—</b></div>
+                  <div class="kvPill"><span>الحالة</span><b id="adminEditStatus">اختر مستخدم</b></div>
+                </div>
+                <div class="filters" style="padding:0;border:0;display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px">
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">الاسم</label>
+                    <input class="miniInput" id="adminEditUserName" placeholder="اسم المستخدم" />
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">القسم</label>
+                    <select id="adminEditUserDept">
+                      <option value="cash">مبيعات الكاش</option>
+                      <option value="finance">مبيعات التمويل</option>
+                      <option value="callcenter">كول سنتر</option>
+                      <option value="cs">خدمة العملاء</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700">
+                      <input type="checkbox" id="adminEditUserActive" checked />
+                      <span>المستخدم نشط</span>
+                    </label>
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">التابات المسموح بها</label>
+                    <div id="adminEditTabsList" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px"></div>
+                  </div>
+                  <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <button class="toolBtn primary" id="btnAdminSaveEdit" type="button">حفظ التعديلات</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2946,9 +3074,9 @@ function renderTemplateSelectOptions(){
 // Exclude admin email from random auto-assign
   const EXCLUDED_ASSIGN_EMAILS = ["mr.ahmed_rashed@outlook.sa"];
 
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
   import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, getDocs, serverTimestamp, writeBatch, addDoc, startAfter} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
   import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
 
   // ===== Firebase Config =====
@@ -3327,6 +3455,34 @@ function renderTemplateSelectOptions(){
     finance: ["مبيعات التمويل", "التمويل"],
     cash: ["مبيعات الكاش", "الكاش", "كاش"]
   };
+  const ADMIN_TAB_OPTIONS = [
+    { id:"inbox", label:"صندوق الوارد" },
+    { id:"customers", label:"الكول سنتر" },
+    { id:"leads_cash", label:"العملاء المحتملون - كاش" },
+    { id:"leads_finance", label:"العملاء المحتملون - تمويل" },
+    { id:"leads_cs", label:"العملاء المحتملون - خدمة عملاء" },
+    { id:"database", label:"قاعدة البيانات" },
+    { id:"dashboard", label:"داش بورد" },
+    { id:"tasks", label:"المتابعات" }
+  ];
+
+  function defaultAllowedTabsForDept(deptKey){
+    switch(String(deptKey||"").trim().toLowerCase()){
+      case "cash": return ["leads_cash","dashboard","tasks","inbox"];
+      case "finance": return ["leads_finance","dashboard","tasks","inbox"];
+      case "callcenter": return ["customers","inbox","database"];
+      case "cs": return ["leads_cs","inbox"];
+      default: return ["inbox"];
+    }
+  }
+
+  function normalizeAllowedTabs(list){
+    const allowedIds = new Set(ADMIN_TAB_OPTIONS.map(t=>t.id));
+    return Array.from(new Set((Array.isArray(list)?list:[])
+      .map(x=>String(x||"").trim())
+      .filter(x=>allowedIds.has(x))));
+  }
+
 
   function normalizeBranchValue(v){
     return String(v || "")
@@ -3456,6 +3612,64 @@ function renderTemplateSelectOptions(){
   }
 
   function getConversationServiceKey(conv){
+    const lastMsg = String(
+      conv?.last_message_text ||
+      conv?.lastMessageText ||
+      conv?.lastMessage ||
+      ""
+    ).replace(/\r/g, "").trim();
+
+    if(lastMsg){
+      // TikTok / Facebook customer menu choices
+      if(
+        lastMsg === "💰 مبيعات الكاش" ||
+        lastMsg.includes("💰 مبيعات الكاش") ||
+        lastMsg === "💰 طلب مبيعات كاش" ||
+        lastMsg.includes("💰 طلب مبيعات كاش")
+      ){
+        return "cash";
+      }
+
+      if(
+        lastMsg === "🏦 مبيعات التمويل" ||
+        lastMsg.includes("🏦 مبيعات التمويل") ||
+        lastMsg === "🏦 طلب مبيعات تمويل" ||
+        lastMsg.includes("🏦 طلب مبيعات تمويل")
+      ){
+        return "finance";
+      }
+
+      if(
+        lastMsg === "🛠 خدمة العملاء" ||
+        lastMsg.includes("🛠 خدمة العملاء") ||
+        lastMsg === "🛠 طلب خدمة عملاء" ||
+        lastMsg.includes("🛠 طلب خدمة عملاء")
+      ){
+        return "cs";
+      }
+
+      // Existing automation outgoing messages
+      if(
+        lastMsg.includes("تم تحويل طلبك إلى قسم مبيعات الكاش") &&
+        lastMsg.includes("سيتم التواصل معك قريباً")
+      ){
+        return "cash";
+      }
+
+      if(
+        lastMsg.includes("سيتم التواصل معك في أقرب وقت") &&
+        lastMsg.includes("نسعد بخدمتكم دائمًا")
+      ){
+        return "finance";
+      }
+
+      if(
+        lastMsg.includes("سيتم التواصل معك قريباً من أحد ممثلي قسم خدمة العملاء")
+      ){
+        return "cs";
+      }
+    }
+
     const explicit = String(conv?.autoService || conv?.serviceKey || conv?.department || conv?.service || "").trim().toLowerCase();
     if(["finance","cash","cs"].includes(explicit)) return explicit;
     const branchValue = String(conv?.branchId || conv?.branchName || "").trim();
@@ -3464,6 +3678,19 @@ function renderTemplateSelectOptions(){
     if(branchMatchesKey(branchValue, "cs")) return "cs";
     const leadEntry = findLeadEntryForConversation(conv);
     return getLeadServiceKey(leadEntry?.data || {}, leadEntry?.id || "");
+  }
+
+  function matchesInboxBranchFilter(conv, selectedBranchValue){
+    const selected = String(selectedBranchValue || "").trim();
+    if(!selected) return true;
+
+    const serviceKey = getConversationServiceKey(conv);
+    if(branchMatchesKey(selected, "finance")) return serviceKey === "finance";
+    if(branchMatchesKey(selected, "cash")) return serviceKey === "cash";
+    if(branchMatchesKey(selected, "cs")) return serviceKey === "cs";
+
+    const convBranchValue = getConversationBranchValue(conv);
+    return branchMatchesKey(convBranchValue, selected);
   }
 
   function getConversationSalesAssignedUid(conv){
@@ -3542,26 +3769,11 @@ function renderTemplateSelectOptions(){
 
   function canAccessTab(tabId){
     if(!currentUser) return false;
+    if(tabId === "admin-users") return isManagementRole();
+    if(tabId === "settings") return canSeeSettings();
     if(isManagementRole()) return true;
-
-    const branchId = getCurrentBranchId();
-    switch(String(tabId || "")){
-      case "customers":
-        return branchMatchesKey(branchId, "callcenter");
-      case "leads_cash":
-        return branchMatchesKey(branchId, "cash");
-      case "leads_finance":
-        return branchMatchesKey(branchId, "finance");
-      case "leads_cs":
-        return branchMatchesKey(branchId, "cs");
-      case "database":
-        return branchMatchesKey(branchId, "callcenter") || isManagementRole();
-      case "dashboard":
-      case "tasks":
-        return branchMatchesKey(branchId, "finance");
-      default:
-        return true;
-    }
+    const allowed = getCurrentAllowedTabs();
+    return allowed.includes(String(tabId || "").trim());
   }
 
   function applyRoleGuards(){
@@ -3572,13 +3784,13 @@ function renderTemplateSelectOptions(){
 
     const inboxNav = document.querySelector('[data-tab="inbox"]');
     if(inboxNav){
-      inboxNav.style.display = canSeeAllInbox() ? "" : "none";
+      inboxNav.style.display = canAccessTab("inbox") ? "" : "none";
     }
 
     const customerStatusesNav = document.querySelector('[data-tab="customer-statuses"]');
     if(customerStatusesNav) customerStatusesNav.style.display = "none";
 
-    const guardedTabs = ["customers","leads_cash","leads_finance","leads_cs","database","dashboard","tasks"];
+    const guardedTabs = ["inbox","customers","leads_cash","leads_finance","leads_cs","database","dashboard","tasks","admin-users"];
     guardedTabs.forEach((tabId)=>{
       const navEl = document.querySelector(`[data-tab="${tabId}"]`);
       if(navEl){
@@ -3592,7 +3804,8 @@ function renderTemplateSelectOptions(){
     const activeNav = document.querySelector('.navItem.active[data-tab]');
     const activeTab = activeNav?.dataset?.tab || "inbox";
     if(activeTab && !canAccessTab(activeTab)){
-      try{ showTab("inbox"); }catch(e){ console.warn("role guard redirect", e); }
+      const fallback = getCurrentAllowedTabs()[0] || (isManagementRole() ? 'inbox' : '');
+      if(fallback){ try{ showTab(fallback); }catch(e){ console.warn("role guard redirect", e); } }
     }
   }
 
@@ -3621,6 +3834,11 @@ function renderTemplateSelectOptions(){
   }
 
   function showTab(tabId){
+    if(tabId && !canAccessTab(tabId)){
+      const fallback = getCurrentAllowedTabs()[0] || (isManagementRole() ? 'inbox' : '');
+      if(fallback && fallback !== tabId) return showTab(fallback);
+      return;
+    }
     if(tabId !== "inbox"){
       clearInboxTempRestriction();
     }else if(canSeeAllInbox()){
@@ -3649,6 +3867,7 @@ function renderTemplateSelectOptions(){
       pipeline:      { title:"مراحل البيع", desc:"كانبان لمتابعة مراحل البيع — اضغط على عميل لعرض التفاصيل والتحديث." },
       dashboard:     { title:"داش بورد", desc:"تقسيم العملاء حسب الحالة — عرض سريع لكل العملاء." },
       tasks:         { title:"المتابعات", desc:"مهام اليوم والتأخير — راقب المتابعة القادمة لكل عميل." },
+      "admin-users": { title:"الإدارة", desc:"إضافة مستخدمين جدد للنظام وربطهم بالأقسام المناسبة." },
       retarget:      { title:"إعادة الاستهداف", desc:"قوائم وحملات — تجهيز الجمهور والمتابعات." },
       automation:    { title:"الأوتوميشن", desc:"قواعد وتنبيهات وتشغيل/إيقاف الأتمتة." },
       settings:      { title:"الإعدادات", desc:"فروع + مناديب + صلاحيات." }
@@ -3681,6 +3900,12 @@ function renderTemplateSelectOptions(){
     if(panelKey === "database"){
       try{ ensureLeadsLive(); }catch(e){}
       try{ applyDatabaseFilters(); }catch(e){}
+    }
+
+    if(panelKey === "dashboard"){
+      try{ ensureLeadsLive(); }catch(e){}
+      try{ dashboardActiveSection = ""; }catch(e){}
+      try{ renderDashboard(); }catch(e){}
     }
 
   }
@@ -3757,7 +3982,11 @@ function renderTemplateSelectOptions(){
           email: v.email || "",
           roleId: v.roleId || "",
           branchId: v.branchId || "",
-          isActive: v.isActive !== false
+          deptKey: v.deptKey || "",
+          deptLabel: v.deptLabel || "",
+          allowedTabs: Array.isArray(v.allowedTabs) ? v.allowedTabs : [],
+          isActive: v.isActive !== false,
+          raw: v
         };
         // keep by doc id (for settings table)
         agentsMap.set(d.id, obj);
@@ -3767,6 +3996,7 @@ function renderTemplateSelectOptions(){
       const activeAgents = Array.from(agentsUidMap.values()).filter(a=>a.isActive);
       fillSelect($("#leadsFilterAgent"), activeAgents.map(a=>({value:a.uid,label:a.name})));
       refreshSettingsTables();
+      try{ renderAdminUsersList(); }catch(e){ console.warn('renderAdminUsersList', e); }
     });
 
     onSnapshot(collection(db,"settings_sources"), (snap)=>{
@@ -4339,8 +4569,6 @@ function applyInboxFilters(){
         if(!phoneMatches && !nameMatches) return false;
       }
       const c = data || {};
-      const convAssignedUid = getConversationAssignedUid(c);
-      const convBranchValue = getConversationBranchValue(c);
 
       // غير الإدارة: يشوف فقط العملاء المربوطين عليه وعلى قسمه
       if(usesOwnInboxScope() && !isConversationVisibleToCurrentUser(c)) return false;
@@ -4358,7 +4586,7 @@ function applyInboxFilters(){
         if(fChannel === "fb" && ch !== "facebook" && ch !== "fb" && ch !== "facebook_messenger") return false;
       }
       // branch filter
-      if(fBranch && !branchMatchesKey(convBranchValue, fBranch)) return false;
+      if(!matchesInboxBranchFilter(c, fBranch)) return false;
 
       if(qText){
         const name = String(c.displayName || c.name || "").toLowerCase();
@@ -6155,7 +6383,38 @@ async function sendOutboundMessage(text){
     ? (String(clean || buildTemplatePreview(__selectedWaTemplateKey, lead) || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
     : clean;
 
-  // لا نكتب الرسالة محلياً قبل الويبهوك حتى لا تظهر مرتين في الشات
+  let localMsgId = "";
+  if(!isFB && !isIG && !isTikTok){
+    const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
+    localMsgId = msgRef.id;
+    const nowIso = new Date().toISOString();
+
+    await setDoc(msgRef, {
+      direction: "out",
+      type: "text",
+      text: displayText,
+      from: "crm",
+      to: `wa:${waId}`,
+      provider: "mersal",
+      providerMessageId: "",
+      sentAt: serverTimestamp(),
+      receivedAt: serverTimestamp(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      status: "pending",
+      ...(isTemplate ? {
+        templateName: String(tpl?.name || ""),
+        templateLang: String(tpl?.lang || "ar"),
+        templateParams
+      } : {})
+    }).catch(()=>{});
+
+    await updateDoc(convRef, {
+      lastMessageText: String(displayText || "").slice(0, 280),
+      lastMessageAt: nowIso,
+      updatedAt: nowIso
+    }).catch(()=>{});
+  }
 
   if(btn){ btn.disabled = true; btn.textContent = "جار الإرسال…"; }
 
@@ -6260,6 +6519,9 @@ async function sendOutboundMessage(text){
         body: JSON.stringify(payload)
       });
       data = await resp.json().catch(()=> ({}));
+      if(data && data.result && data.result.message_id && !data.providerMessageId) data.providerMessageId = data.result.message_id;
+      if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
+      if(data && data.id && !data.providerMessageId) data.providerMessageId = data.id;
     }
 
     const isOpaqueTikTokSuccess = isTikTok && data && data.opaque === true;
@@ -6269,6 +6531,13 @@ async function sendOutboundMessage(text){
         await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", data.localMsgId), {
           status: "failed",
           updatedAt: new Date().toISOString()
+        }).catch(()=>{});
+      }
+      if(localMsgId){
+        await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+          status: "failed",
+          updatedAt: new Date().toISOString(),
+          error: String(data?.error || "فشل الإرسال")
         }).catch(()=>{});
       }
       toast(String(data?.error || "فشل الإرسال"), "err");
@@ -6283,9 +6552,24 @@ async function sendOutboundMessage(text){
       }).catch(()=>{});
     }
 
+    if(localMsgId){
+      await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+        status: "sent",
+        updatedAt: new Date().toISOString(),
+        providerMessageId: String(data?.providerMessageId || "")
+      }).catch(()=>{});
+    }
+
     resetTemplateComposer();
     toast("تم الإرسال", "ok");
   }catch(e){
+    if(localMsgId){
+      await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+        status: "failed",
+        updatedAt: new Date().toISOString(),
+        error: String(e?.message || e || "فشل الإرسال")
+      }).catch(()=>{});
+    }
     console.error(e);
     toast("فشل الإرسال", "err");
   }finally{
@@ -7468,13 +7752,23 @@ function sortStatusesByCustomOrder(list){
   }
   function getEffectiveLeadStatusName(lead){
     const sid = String(lead?.leadStatusId || "").trim();
-    const rawName = String(leadStatusesMap.get(sid)?.name || lead?.leadStatusName || "").trim();
+    const explicitStatus = String(
+      lead?.leadStatusName ||
+      lead?.status ||
+      lead?.leadStatus ||
+      lead?.currentStatus ||
+      lead?.stage ||
+      lead?.pipelineStatus ||
+      lead?.customerStatus ||
+      ""
+    ).trim();
+    const rawName = String(leadStatusesMap.get(sid)?.name || explicitStatus || "").trim();
     if(isSnapOrGoogleCallCenterLead(lead || {})){
       if(!rawName || rawName === "جديد") return "";
     }
     if(sid) return rawName || "—";
-    const d = getDefaultLeadStatus();
-    return d.name || "جديد";
+    if(!rawName) return "";
+    return rawName;
   }
 
 
@@ -8771,6 +9065,7 @@ function bindTasksUI(){
       try{ applyDatabaseFilters(); }catch(e){}
       try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
       try{ renderPipeline(); }catch(e){}
+      try{ renderDashboard(); }catch(e){}
       setBadgeConnected(true);
 
       // sync external sheets in background only, then refresh once more
@@ -8781,6 +9076,7 @@ function bindTasksUI(){
         try{ applyDatabaseFilters(); }catch(e){}
         try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
         try{ renderPipeline(); }catch(e){}
+        try{ renderDashboard(); }catch(e){}
       }catch(e){
         console.warn("refreshExternalLeadSheets background", e);
       }
@@ -8798,6 +9094,7 @@ function bindTasksUI(){
         try{ applyDatabaseFilters(); }catch(e){}
         try{ autoFixLeadSourcesOnce(leadsCache); }catch(e){}
         try{ renderPipeline(); }catch(e){}
+        try{ renderDashboard(); }catch(e){}
 
         try{
           await refreshExternalLeadSheets(true);
@@ -9408,10 +9705,268 @@ function bindTasksUI(){
       uid,
       email: user.email || prof.email || "",
       name: prof.name || user.displayName || (user.email ? user.email.split("@")[0] : "مستخدم"),
-      roleId: prof.roleId || "sales",
+      roleId: prof.roleId || "sales_agent",
       branchId: prof.branchId || "",
+      deptKey: prof.deptKey || "",
+      deptLabel: prof.deptLabel || "",
+      allowedTabs: Array.isArray(prof.allowedTabs) ? prof.allowedTabs.map(x=>String(x||"").trim()).filter(Boolean) : [],
       isActive: prof.isActive !== false
     };
+  }
+
+
+  function getAdminDeptConfig(deptKey){
+    const key = String(deptKey || "").trim().toLowerCase();
+    const pickRole = (...ids)=> ids.find(id => rolesMap.has(id)) || ids[0] || "agent";
+    const map = {
+      cash: { key:"cash", label:"مندوب مبيعات الكاش", branchId: BRANCH_IDS.cash, roleId: pickRole("sales_agent","agent","sales") },
+      finance: { key:"finance", label:"مندوب مبيعات التمويل", branchId: BRANCH_IDS.finance, roleId: pickRole("sales_agent","agent","sales") },
+      callcenter: { key:"callcenter", label:"مندوب كول سنتر", branchId: BRANCH_IDS.callcenter, roleId: pickRole("call_center","agent","sales_agent") },
+      cs: { key:"cs", label:"مندوب خدمة العملاء", branchId: BRANCH_IDS.cs, roleId: pickRole("agent","sales_agent","sales") }
+    };
+    return map[key] || map.finance;
+  }
+
+  let adminUsersSelectedUid = "";
+
+  function renderAdminTabCheckboxes(containerSelector, selectedTabs){
+    const host = $(containerSelector);
+    if(!host) return;
+    const selected = new Set(normalizeAllowedTabs(selectedTabs));
+    host.innerHTML = ADMIN_TAB_OPTIONS.map(tab => `
+      <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;font-size:13px;font-weight:700">
+        <input type="checkbox" value="${tab.id}" ${selected.has(tab.id) ? "checked" : ""} />
+        <span>${tab.label}</span>
+      </label>
+    `).join("");
+  }
+
+  function readAdminSelectedTabs(containerSelector){
+    const host = $(containerSelector);
+    if(!host) return [];
+    return normalizeAllowedTabs(Array.from(host.querySelectorAll('input[type="checkbox"]:checked')).map(el=>el.value));
+  }
+
+  function syncAdminTabDefaults(target){
+    const deptKey = String($(target)?.value || "cash").trim();
+    const defaults = defaultAllowedTabsForDept(deptKey);
+    const mapTarget = target === "#adminEditUserDept" ? "#adminEditTabsList" : "#adminUserTabsList";
+    renderAdminTabCheckboxes(mapTarget, defaults);
+  }
+
+  function getCurrentAllowedTabs(){
+    if(isManagementRole()) return ADMIN_TAB_OPTIONS.map(t=>t.id);
+    const explicit = normalizeAllowedTabs(currentProfile?.allowedTabs || []);
+    if(explicit.length) return explicit;
+    const branchId = getCurrentBranchId();
+    if(branchMatchesKey(branchId, "finance")) return defaultAllowedTabsForDept("finance");
+    if(branchMatchesKey(branchId, "cash")) return defaultAllowedTabsForDept("cash");
+    if(branchMatchesKey(branchId, "cs")) return defaultAllowedTabsForDept("cs");
+    if(branchMatchesKey(branchId, "callcenter")) return defaultAllowedTabsForDept("callcenter");
+    return ["inbox"];
+  }
+
+  function renderAdminUsersList(){
+    const tbody = $("#adminUsersTbody");
+    if(!tbody) return;
+    const rows = Array.from(agentsUidMap.values()).sort((a,b)=> String(a?.name||"").localeCompare(String(b?.name||""), 'ar'));
+    if(!rows.length){
+      tbody.innerHTML = '<tr><td colspan="6" class="mzj-empty">لا يوجد مستخدمون.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(u=>{
+      const tabsCount = normalizeAllowedTabs(u.allowedTabs || []).length;
+      const deptName = u.deptLabel || branchesMap.get(u.branchId)?.name || (branchMatchesKey(u.branchId,'cash') ? 'مبيعات الكاش' : branchMatchesKey(u.branchId,'finance') ? 'مبيعات التمويل' : branchMatchesKey(u.branchId,'cs') ? 'خدمة العملاء' : branchMatchesKey(u.branchId,'callcenter') ? 'كول سنتر' : '—');
+      return `<tr data-admin-user-row="${esc(u.uid)}" style="cursor:pointer">
+        <td>${esc(u.name || '—')}</td>
+        <td>${esc(u.email || '—')}</td>
+        <td>${esc(deptName)}</td>
+        <td>${esc(rolesMap.get(u.roleId) || u.roleId || '—')}</td>
+        <td>${tabsCount}</td>
+        <td>${u.isActive !== false ? 'نشط' : 'موقوف'}</td>
+      </tr>`;
+    }).join("");
+    tbody.querySelectorAll('tr[data-admin-user-row]').forEach(row=>{
+      row.addEventListener('click', ()=> openAdminUserEditor(row.getAttribute('data-admin-user-row') || ''));
+    });
+  }
+
+  function openAdminUserEditor(uid){
+    const user = agentsUidMap.get(String(uid||'').trim());
+    if(!user) return;
+    adminUsersSelectedUid = user.uid;
+    const userDoc = user.raw || {};
+    const deptKey = String(user.deptKey || '').trim().toLowerCase() || (branchMatchesKey(user.branchId,'cash') ? 'cash' : branchMatchesKey(user.branchId,'finance') ? 'finance' : branchMatchesKey(user.branchId,'cs') ? 'cs' : branchMatchesKey(user.branchId,'callcenter') ? 'callcenter' : 'finance');
+    const explicitTabs = normalizeAllowedTabs(user.allowedTabs || []);
+    $("#adminEditUid").textContent = user.uid || '—';
+    $("#adminEditEmail").textContent = user.email || '—';
+    $("#adminEditUserName").value = user.name || '';
+    $("#adminEditUserDept").value = deptKey;
+    $("#adminEditUserActive").checked = user.isActive !== false;
+    renderAdminTabCheckboxes("#adminEditTabsList", explicitTabs.length ? explicitTabs : defaultAllowedTabsForDept(deptKey));
+    const status = $("#adminEditStatus");
+    if(status) status.textContent = 'جاهز للتعديل';
+    const tbody = $("#adminUsersTbody");
+    if(tbody){
+      tbody.querySelectorAll('tr[data-admin-user-row]').forEach(r=> r.classList.toggle('active', r.getAttribute('data-admin-user-row') === user.uid));
+    }
+  }
+
+  async function saveAdminUserEdits(){
+    if(!currentUser || !isManagementRole()) return toast('ليس لديك صلاحية','warn');
+    const uid = String(adminUsersSelectedUid || '').trim();
+    if(!uid) return toast('اختر مستخدم أولاً','warn');
+    const name = String($("#adminEditUserName")?.value || '').trim();
+    const deptKey = String($("#adminEditUserDept")?.value || 'finance').trim();
+    const isActive = !!$("#adminEditUserActive")?.checked;
+    const allowedTabs = readAdminSelectedTabs("#adminEditTabsList");
+    if(!name) return toast('اكتب اسم المستخدم','warn');
+    if(!allowedTabs.length) return toast('حدد تاب واحد على الأقل','warn');
+    const deptCfg = getAdminDeptConfig(deptKey);
+    const patch = {
+      uid,
+      name,
+      roleId: deptCfg.roleId || 'agent',
+      branchId: deptCfg.branchId || '',
+      deptKey: deptCfg.key || deptKey,
+      deptLabel: deptCfg.label || '',
+      allowedTabs,
+      canReceiveLeads: isActive ? true : false,
+      isActive,
+      updatedAt: serverTimestamp()
+    };
+    const status = $("#adminEditStatus");
+    if(status) status.textContent = 'جاري الحفظ...';
+    try{
+      await setDoc(doc(db,'settings_agents',uid), patch, {merge:true});
+      await setDoc(doc(db,'users',uid), patch, {merge:true});
+      if(status) status.textContent = 'تم الحفظ';
+      toast('تم تحديث المستخدم','ok');
+    }catch(e){
+      console.warn('saveAdminUserEdits', e);
+      if(status) status.textContent = 'فشل الحفظ';
+      toast('تعذر تحديث المستخدم','warn');
+    }
+  }
+
+  function resetAdminUserForm(clearResult=false){
+    ["#adminUserName", "#adminUserEmail", "#adminUserPassword"].forEach(sel=>{ const el = $(sel); if(el) el.value = ""; });
+    const dept = $("#adminUserDept");
+    if(dept) dept.value = "cash";
+    renderAdminTabCheckboxes("#adminUserTabsList", defaultAllowedTabsForDept("cash"));
+    if(clearResult){
+      const uidEl = $("#adminCreatedUid"); if(uidEl) uidEl.textContent = "—";
+      const statusEl = $("#adminCreateStatus"); if(statusEl) statusEl.textContent = "جاهز";
+      const deptEl = $("#adminCreatedDept"); if(deptEl) deptEl.textContent = "—";
+      const msgEl = $("#adminCreateMsg"); if(msgEl){ msgEl.textContent = "أدخل البيانات واضغط حفظ المستخدم."; msgEl.style.color = "var(--muted)"; }
+    }
+  }
+
+  async function createAdminUserFromPanel(){
+    if(!currentUser || !isManagementRole()){
+      toast("ليس لديك صلاحية", "warn");
+      return;
+    }
+    const name = String($("#adminUserName")?.value || "").trim();
+    const email = String($("#adminUserEmail")?.value || "").trim();
+    const password = String($("#adminUserPassword")?.value || "").trim();
+    const deptKey = String($("#adminUserDept")?.value || "finance").trim();
+    const allowedTabs = readAdminSelectedTabs("#adminUserTabsList");
+    const statusEl = $("#adminCreateStatus");
+    const uidEl = $("#adminCreatedUid");
+    const deptEl = $("#adminCreatedDept");
+    const msgEl = $("#adminCreateMsg");
+
+    if(!name || !email || !password){
+      if(statusEl) statusEl.textContent = "بيانات ناقصة";
+      if(msgEl){ msgEl.textContent = "اكتب الاسم والبريد وكلمة المرور أولاً."; msgEl.style.color = "var(--bad)"; }
+      toast("اكتب كل البيانات المطلوبة", "warn");
+      return;
+    }
+    if(!allowedTabs.length){
+      if(statusEl) statusEl.textContent = "حدد التابات";
+      if(msgEl){ msgEl.textContent = "حدد تاب واحد على الأقل للمستخدم."; msgEl.style.color = "var(--bad)"; }
+      toast("حدد التابات أولاً", "warn");
+      return;
+    }
+
+    if(password.length < 6){
+      if(statusEl) statusEl.textContent = "كلمة المرور قصيرة";
+      if(msgEl){ msgEl.textContent = "كلمة المرور يجب أن تكون 6 أحرف أو أكثر."; msgEl.style.color = "var(--bad)"; }
+      toast("كلمة المرور قصيرة", "warn");
+      return;
+    }
+
+    const deptCfg = getAdminDeptConfig(deptKey);
+    if(deptEl) deptEl.textContent = deptCfg.label;
+    if(statusEl) statusEl.textContent = "جاري الإنشاء...";
+    if(msgEl){ msgEl.textContent = "جاري إنشاء الحساب وحفظه داخل السيستم..."; msgEl.style.color = "var(--muted)"; }
+
+    let tempApp = null;
+    try{
+      tempApp = initializeApp(firebaseConfig, `admin-create-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+      const tempAuth = getAuth(tempApp);
+      const cred = await createUserWithEmailAndPassword(tempAuth, email, password);
+      const user = cred.user;
+      const uid = String(user?.uid || "").trim();
+      if(!uid) throw new Error("لم يتم إنشاء UID");
+
+      await setDoc(doc(db, "settings_agents", uid), {
+        uid,
+        name,
+        email,
+        roleId: deptCfg.roleId || "agent",
+        branchId: deptCfg.branchId || "",
+        deptKey: deptCfg.key || deptKey,
+        deptLabel: deptCfg.label || "",
+        allowedTabs,
+        canReceiveLeads: true,
+        isActive: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge:true });
+
+      await setDoc(doc(db, "users", uid), {
+        uid,
+        name,
+        email,
+        roleId: deptCfg.roleId || "agent",
+        branchId: deptCfg.branchId || "",
+        deptKey: deptCfg.key || deptKey,
+        deptLabel: deptCfg.label || "",
+        allowedTabs,
+        canReceiveLeads: true,
+        isActive: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge:true });
+
+      if(uidEl) uidEl.textContent = uid;
+      if(statusEl) statusEl.textContent = "تم الحفظ";
+      if(msgEl){ msgEl.textContent = `تم إنشاء المستخدم ${name} وحفظه داخل السيستم بنجاح.`; msgEl.style.color = "var(--ok)"; }
+      resetAdminUserForm(false);
+      const pwdEl = $("#adminUserPassword"); if(pwdEl) pwdEl.value = "";
+      toast("تم إنشاء المستخدم بنجاح", "ok");
+      try{ await signOut(tempAuth); }catch(_e){}
+      try{ await deleteApp(tempApp); }catch(_e){}
+      tempApp = null;
+    }catch(e){
+      console.warn("createAdminUserFromPanel", e);
+      if(statusEl) statusEl.textContent = "فشل الإنشاء";
+      if(msgEl){ msgEl.textContent = e?.message || String(e); msgEl.style.color = "var(--bad)"; }
+      toast("تعذر إنشاء المستخدم", "warn");
+      try{ if(tempApp){ await deleteApp(tempApp); } }catch(_e){}
+    }
+  }
+
+  function bindAdminUsersUI(){
+    $("#btnAdminCreateUser")?.addEventListener("click", createAdminUserFromPanel);
+    $("#btnAdminResetUserForm")?.addEventListener("click", ()=> resetAdminUserForm(true));
+    $("#btnAdminSaveEdit")?.addEventListener("click", saveAdminUserEdits);
+    $("#adminUserDept")?.addEventListener("change", ()=> syncAdminTabDefaults("#adminUserDept"));
+    $("#adminEditUserDept")?.addEventListener("change", ()=> syncAdminTabDefaults("#adminEditUserDept"));
+    renderAdminTabCheckboxes("#adminUserTabsList", defaultAllowedTabsForDept("cash"));
+    renderAdminTabCheckboxes("#adminEditTabsList", []);
   }
 
   // ===== Boot =====
@@ -9424,6 +9979,7 @@ function bindTasksUI(){
   bindCustomerStatusesUI();
   bindPipelineUI();
   bindTasksUI();
+  bindAdminUsersUI();
 
   // ابدأ بحالة تحقق + تايمر حماية (حتى لا يظل "جار التحقق…" للأبد)
   try{ setAuthChecking(); }catch{}
@@ -9916,115 +10472,225 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
     }
 
     // ===== Dashboard render =====
-    function renderDashboard(){
-  const grid = $("#dashBoardGrid");
-  if(!grid) return;
+    let dashboardActiveSection = "";
 
-  const q = ( ($("#dashSearch")?.value || "").trim().toLowerCase() );
-  const leads = Array.isArray(leadsCache) ? leadsCache : [];
-  const filtered = q ? leads.filter(x=>{
-    const d = x.data || {};
-    return String(d.name||"").toLowerCase().includes(q)
-      || String(d.phone||"").toLowerCase().includes(q)
-      || String(d.phoneNormalized||"").toLowerCase().includes(q);
-  }) : leads;
+    const DASHBOARD_SECTION_CONFIG = {
+      cash: {
+        key: "cash",
+        title: "مبيعات الكاش",
+        statuses: ["لم يتم الرد", "جاري العمل", "تم الإنتهاء"]
+      },
+      finance: {
+        key: "finance",
+        title: "مبيعات التمويل",
+        statuses: [
+          "تم الإتصال",
+          "غير مؤهل",
+          "مؤهل - لم يتم إرسال الأوراق",
+          "مؤهل - تأخر في إرسال الأوراق",
+          "مؤهل - تم إرسال الأوراق",
+          "تم رفع الطلب الى جهة التمويل",
+          "طلب إستكمال أوراق",
+          "طلب الدعم من الكول سنتر الى المبيعات",
+          "تم إختيار السيارة",
+          "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
+          "إستيفاء الطلب - متقدم",
+          "طلبات تمت الموافقة",
+          "طلبات لم تتم الموافقة",
+          "تم إصدار العقد",
+          "تم الإتصال لتوقيع العقد",
+          "تم توقيع العقد",
+          "لم يتم توقيع العقد",
+          "تم الإنتهاء - إنشاء طلب البيع"
+        ]
+      },
+      cs: {
+        key: "cs",
+        title: "خدمة العملاء",
+        statuses: ["لم يتم الرد", "جاري العمل", "تم الإنتهاء"]
+      }
+    };
 
-  // statuses list (from settings_lead_statuses + default)
-  const statuses = sortStatusesByCustomOrder(Array.from(leadStatusesMap.values()).filter(x=>x && x.isActive!==false));
-  if(!statuses.find(s=>s.id===getDefaultLeadStatus().id)){
-    statuses.unshift(getDefaultLeadStatus());
-  }
+    function getAllowedDashboardSectionKeys(){
+      if(isManagementRole()) return ["cash", "finance", "cs"];
+      const branchId = getCurrentBranchId();
+      if(branchMatchesKey(branchId, "finance")) return ["finance"];
+      if(branchMatchesKey(branchId, "cash")) return ["cash"];
+      if(branchMatchesKey(branchId, "cs")) return ["cs"];
+      return [];
+    }
 
-  // count per status
-  const counts = new Map();
-  statuses.forEach(s=>counts.set(s.id, 0));
-  filtered.forEach(x=>{
-    const d = x.data||{};
-    const sid = String(d.leadStatusId || getDefaultLeadStatus().id);
-    counts.set(sid, (counts.get(sid)||0) + 1);
-  });
+    function getDashboardSectionViewMode(sectionKey){
+      const key = String(sectionKey || "").trim().toLowerCase();
+      if(key === "finance") return "leads_finance";
+      if(key === "cash") return "leads_cash";
+      if(key === "cs") return "leads_cs";
+      return "";
+    }
 
-  // small tiles
-  grid.innerHTML = statuses.map(s=>{
-    const c = counts.get(s.id) || 0;
-    return `
-      <button class="dashTile" type="button" data-dash-status="${esc(s.id)}" title="فتح العملاء في هذه الحالة">
-        <span class="dashTileName">${esc(s.name||"حالة")}</span>
-        <span class="dashTileCount">${c}</span>
-      </button>
-    `;
-  }).join("");
+    function getDashboardSearchText(){
+      return String(($("#dashSearch")?.value || "")).trim().toLowerCase();
+    }
 
-  grid.onclick = (e)=>{
-    const btn = e.target.closest("[data-dash-status]");
-    if(!btn) return;
-    const sid = btn.getAttribute("data-dash-status") || "";
-    renderDashboardStatusLeads(sid);
-  };
+    function getDashboardSectionLeads(sectionKey){
+      const key = String(sectionKey || "").trim().toLowerCase();
+      const allowed = getAllowedDashboardSectionKeys();
+      if(!allowed.includes(key)) return [];
 
+      const q = getDashboardSearchText();
+      const leads = Array.isArray(leadsCache) ? leadsCache : [];
+      const viewMode = getDashboardSectionViewMode(key);
 
-function renderDashboardStatusLeads(statusId){
-  const grid = $("#dashBoardGrid");
-  if(!grid) return;
-
-  const sid = String(statusId||"");
-  const q = ( ($("#dashSearch")?.value || "").trim().toLowerCase() );
-  const leads = Array.isArray(leadsCache) ? leadsCache : [];
-
-  const filtered = leads.filter(x=>{
-    const d = x.data || {};
-    const inSearch = !q
-      || String(d.name||"").toLowerCase().includes(q)
-      || String(d.phone||"").toLowerCase().includes(q)
-      || String(d.phoneNormalized||"").toLowerCase().includes(q);
-    const curSid = String(d.leadStatusId || getDefaultLeadStatus().id);
-    return inSearch && curSid === sid;
-  });
-
-  const statusName =
-    (leadStatusesMap.get(sid)?.name)
-    || (sid === getDefaultLeadStatus().id ? getDefaultLeadStatus().name : "")
-    || "الحالة";
-
-  grid.innerHTML = `
-    <div class="card" style="grid-column:1/-1;padding:14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-        <div>
-          <h3 style="margin:0 0 4px">عملاء: ${esc(statusName)}</h3>
-          <div style="font-size:12.5px;color:rgba(28,28,28,.64);line-height:1.6">اضغط على العميل لفتح لوحة التفاصيل.</div>
-        </div>
-        <button class="miniBtn" type="button" id="dashBackBtn">رجوع</button>
-      </div>
-    </div>
-    <div class="card" style="grid-column:1/-1;padding:0;overflow:hidden">
-      ${filtered.length ? filtered.map(x=>{
+      return leads.filter(x=>{
         const d = x.data || {};
-        const name = esc(d.name || "—");
-        const phone = esc(d.phone || d.phoneNormalized || "—");
+        const matchesSearch = !q
+          || String(d.name || "").toLowerCase().includes(q)
+          || String(d.phone || "").toLowerCase().includes(q)
+          || String(d.phoneNormalized || "").toLowerCase().includes(q)
+          || String(getLeadCarName(d) || "").toLowerCase().includes(q);
+
+        if(!matchesSearch) return false;
+        if(getLeadQueueKey(d, x.id) !== key) return false;
+        if(viewMode && !canCurrentUserSeeLeadEntry(x, viewMode)) return false;
+        return true;
+      });
+    }
+
+    function getDashboardStatusNameForLead(leadEntry, sectionKey){
+      const section = DASHBOARD_SECTION_CONFIG[String(sectionKey || "").trim().toLowerCase()];
+      const statuses = Array.isArray(section?.statuses) ? section.statuses : [];
+      const raw = String(getEffectiveLeadStatusName(leadEntry?.data || {}) || "").trim();
+      if(raw && statuses.includes(raw)) return raw;
+      return statuses[0] || raw || "—";
+    }
+
+    function renderDashboard(){
+      const grid = $("#dashBoardGrid");
+      if(!grid) return;
+
+      const allowedKeys = getAllowedDashboardSectionKeys();
+      if(!allowedKeys.length){
+        grid.innerHTML = `<div class="card" style="grid-column:1/-1;padding:14px;color:rgba(28,28,28,.64)">لا توجد أقسام متاحة لهذا المستخدم.</div>`;
+        return;
+      }
+
+      if(dashboardActiveSection && DASHBOARD_SECTION_CONFIG[dashboardActiveSection] && allowedKeys.includes(dashboardActiveSection)){
+        renderDashboardSection(dashboardActiveSection);
+        return;
+      }
+      if(dashboardActiveSection && !allowedKeys.includes(dashboardActiveSection)){
+        dashboardActiveSection = "";
+      }
+
+      const sections = allowedKeys.map(key => DASHBOARD_SECTION_CONFIG[key]).filter(Boolean);
+      grid.innerHTML = sections.map(section=>{
+        const count = getDashboardSectionLeads(section.key).length;
         return `
-          <div class="mzj-row" data-dash-lead="${esc(x.id)}" style="padding:12px 14px;border-bottom:1px solid rgba(43,26,23,.10);cursor:pointer">
-            <div style="font-weight:900">${name}</div>
-            <div style="font-size:12px;color:rgba(28,28,28,.64);margin-top:3px">📱 ${phone}</div>
-          </div>
+          <button class="dashTile" type="button" data-dash-section="${esc(section.key)}" title="فتح ${esc(section.title)}">
+            <span class="dashTileName">${esc(section.title)}</span>
+            <span class="dashTileCount">${count}</span>
+          </button>
         `;
-      }).join("") : `<div style="padding:14px;color:rgba(28,28,28,.64)">لا يوجد عملاء داخل هذه الحالة.</div>`}
-    </div>
-  `;
+      }).join("");
 
-  $("#dashBackBtn")?.addEventListener("click", ()=> renderDashboard());
-  grid.querySelectorAll("[data-dash-lead]").forEach(el=>{
-    el.addEventListener("click", ()=>{
-      const id = el.getAttribute("data-dash-lead") || "";
-      if(!id) return;
-      try{ openPipeLeadPanel(id); }catch(e){}
+      grid.onclick = (e)=>{
+        const btn = e.target.closest("[data-dash-section]");
+        if(!btn) return;
+        const key = String(btn.getAttribute("data-dash-section") || "").trim();
+        if(!key || !allowedKeys.includes(key)) return;
+        dashboardActiveSection = key;
+        renderDashboardSection(key);
+      };
+    }
+
+    function renderDashboardSection(sectionKey){
+      const grid = $("#dashBoardGrid");
+      if(!grid) return;
+
+      const normalizedKey = String(sectionKey || "").trim().toLowerCase();
+      const allowedKeys = getAllowedDashboardSectionKeys();
+      const section = DASHBOARD_SECTION_CONFIG[normalizedKey];
+      if(!section || !allowedKeys.includes(normalizedKey)){
+        dashboardActiveSection = "";
+        renderDashboard();
+        return;
+      }
+
+      const leads = getDashboardSectionLeads(section.key);
+      const groups = new Map();
+      section.statuses.forEach(name => groups.set(name, []));
+      leads.forEach(entry=>{
+        const statusName = getDashboardStatusNameForLead(entry, section.key);
+        if(!groups.has(statusName)) groups.set(statusName, []);
+        groups.get(statusName).push(entry);
+      });
+
+      grid.innerHTML = `
+        <div class="card" style="grid-column:1/-1;padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <div>
+              <h3 style="margin:0 0 4px">${esc(section.title)}</h3>
+              <div style="font-size:12.5px;color:rgba(28,28,28,.64);line-height:1.6">كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على العميل لفتح صندوق الوارد الخاص به.</div>
+            </div>
+            <button class="miniBtn" type="button" id="dashBackBtn">رجوع للأقسام</button>
+          </div>
+        </div>
+        ${section.statuses.map(statusName=>{
+          const items = groups.get(statusName) || [];
+          return `
+            <div class="card" style="grid-column:span 1;min-width:0;padding:0;overflow:hidden">
+              <div style="padding:14px;border-bottom:1px solid var(--line);background:rgba(247,245,242,.55);display:flex;align-items:center;justify-content:space-between;gap:10px">
+                <div style="font-weight:900;font-size:14px;line-height:1.5">${esc(statusName)}</div>
+                <span class="dashTileCount" style="font-size:18px;padding:6px 10px">${items.length}</span>
+              </div>
+              <div style="max-height:420px;overflow:auto">
+                ${items.length ? items.map(entry=>{
+                  const d = entry.data || {};
+                  const name = esc(d.name || "—");
+                  const phone = esc(d.phone || d.phoneNormalized || "—");
+                  const car = esc(getLeadCarName(d) || "—");
+                  return `
+                    <div data-dash-lead="${esc(entry.id)}" style="padding:12px 14px;border-bottom:1px solid rgba(43,26,23,.10);cursor:pointer">
+                      <div style="font-weight:900">${name}</div>
+                      <div style="font-size:12px;color:rgba(28,28,28,.64);margin-top:3px">📱 ${phone}</div>
+                      <div style="font-size:12px;color:rgba(28,28,28,.64);margin-top:2px">🚗 ${car}</div>
+                    </div>
+                  `;
+                }).join("") : `<div style="padding:14px;color:rgba(28,28,28,.64)">لا يوجد عملاء داخل هذه الحالة.</div>`}
+              </div>
+            </div>
+          `;
+        }).join("")}
+      `;
+
+      $("#dashBackBtn")?.addEventListener("click", ()=>{
+        dashboardActiveSection = "";
+        renderDashboard();
+      });
+
+      grid.querySelectorAll("[data-dash-lead]").forEach(el=>{
+        el.addEventListener("click", ()=>{
+          const id = el.getAttribute("data-dash-lead") || "";
+          if(!id) return;
+          const found = (Array.isArray(leadsCache) ? leadsCache : []).find(x=>x.id === id);
+          if(!found) return;
+          const lead = found.data || {};
+          const phone = lead.phone || lead.phoneNormalized || lead.waId || "";
+          const leadName = lead.name || lead.displayName || "";
+          try{
+            openInboxForPhone(phone, leadName);
+          }catch(e){
+            console.warn("dashboard open inbox failed", e);
+          }
+        });
+      });
+    }
+
+    $("#dashRefresh")?.addEventListener("click", async ()=>{
+      await refreshExternalLeadSheets(true);
+      renderDashboard();
     });
-  });
-}
-
-}
-
-$("#dashRefresh")?.addEventListener("click", async ()=>{ await refreshExternalLeadSheets(true); renderDashboard(); });
-$("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
+    $("#dashSearch")?.addEventListener("input", ()=> renderDashboard());
 
 
 </script>
