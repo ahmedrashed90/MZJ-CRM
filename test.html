@@ -33,6 +33,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -7679,13 +7680,23 @@ function sortStatusesByCustomOrder(list){
   }
   function getEffectiveLeadStatusName(lead){
     const sid = String(lead?.leadStatusId || "").trim();
-    const rawName = String(leadStatusesMap.get(sid)?.name || lead?.leadStatusName || "").trim();
+    const explicitStatus = String(
+      lead?.leadStatusName ||
+      lead?.status ||
+      lead?.leadStatus ||
+      lead?.currentStatus ||
+      lead?.stage ||
+      lead?.pipelineStatus ||
+      lead?.customerStatus ||
+      ""
+    ).trim();
+    const rawName = String(leadStatusesMap.get(sid)?.name || explicitStatus || "").trim();
     if(isSnapOrGoogleCallCenterLead(lead || {})){
       if(!rawName || rawName === "جديد") return "";
     }
     if(sid) return rawName || "—";
-    const d = getDefaultLeadStatus();
-    return d.name || "جديد";
+    if(!rawName) return "";
+    return rawName;
   }
 
 
