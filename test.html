@@ -32,6 +32,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -2342,12 +2343,12 @@ body.auth-locked #authModal{ pointer-events:auto; }
             </div>
           </div>
 
-          <div class="panel" id="panel-admin-users">
+                    <div class="panel" id="panel-admin-users">
             <div class="grid">
               <div class="card" style="grid-column: span 7;">
                 <h3>إضافة مستخدم جديد</h3>
                 <div style="font-size:12.5px;color:rgba(28,28,28,.68);line-height:1.8;margin-bottom:12px">
-                  أنشئ مستخدم جديد من داخل النظام ثم احفظ بياناته تلقائيًا في السيستم داخل <b>settings_agents</b>.
+                  أنشئ مستخدم جديد من داخل النظام ثم احفظ بياناته تلقائيًا في السيستم داخل <b>settings_agents</b> و<b>users</b> مع التابات المسموح بها.
                 </div>
                 <div class="filters" style="padding:0;border:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:end">
                   <div>
@@ -2365,11 +2366,15 @@ body.auth-locked #authModal{ pointer-events:auto; }
                   <div>
                     <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">نوع المستخدم</label>
                     <select id="adminUserDept">
-                      <option value="cash">مندوب مبيعات الكاش</option>
-                      <option value="finance">مندوب مبيعات التمويل</option>
-                      <option value="callcenter">مندوب كول سنتر</option>
-                      <option value="cs">مندوب خدمة العملاء</option>
+                      <option value="cash">مبيعات الكاش</option>
+                      <option value="finance">مبيعات التمويل</option>
+                      <option value="callcenter">كول سنتر</option>
+                      <option value="cs">خدمة العملاء</option>
                     </select>
+                  </div>
+                  <div class="full" style="grid-column:1/-1">
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">التابات المسموح بها</label>
+                    <div id="adminUserTabsList" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px"></div>
                   </div>
                   <div class="full" style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap">
                     <button class="toolBtn primary" id="btnAdminCreateUser" type="button">حفظ المستخدم</button>
@@ -2387,9 +2392,67 @@ body.auth-locked #authModal{ pointer-events:auto; }
                 </div>
                 <div class="mzj-hintBox" style="margin-top:12px">
                   <b>آلية الحفظ</b>
-                  <span>يتم إنشاء الحساب في Firebase Authentication ثم حفظ بياناته في <b>settings_agents</b> مع الفرع المناسب والصلاحية، ويظهر لك <b>UID</b> فورًا.</span>
+                  <span>يتم إنشاء الحساب في Firebase Authentication ثم حفظ بياناته في <b>settings_agents</b> و<b>users</b> مع <b>UID</b> والتابات المسموح بها.</span>
                 </div>
                 <div id="adminCreateMsg" style="margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.8">أدخل البيانات واضغط حفظ المستخدم.</div>
+              </div>
+
+              <div class="card" style="grid-column: span 7;">
+                <h3>مستخدمو النظام</h3>
+                <div class="mzj-tableWrap">
+                  <table class="mzj-table" style="min-width:880px">
+                    <thead>
+                      <tr>
+                        <th>الاسم</th>
+                        <th>الإيميل</th>
+                        <th>القسم</th>
+                        <th>الدور</th>
+                        <th>عدد التابات</th>
+                        <th>الحالة</th>
+                      </tr>
+                    </thead>
+                    <tbody id="adminUsersTbody">
+                      <tr><td colspan="6" class="mzj-empty">لا يوجد مستخدمون.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="card" style="grid-column: span 5;">
+                <h3>التحكم في المستخدم</h3>
+                <div class="kvRow">
+                  <div class="kvPill"><span>UID</span><b id="adminEditUid">—</b></div>
+                  <div class="kvPill"><span>الإيميل</span><b id="adminEditEmail">—</b></div>
+                  <div class="kvPill"><span>الحالة</span><b id="adminEditStatus">اختر مستخدم</b></div>
+                </div>
+                <div class="filters" style="padding:0;border:0;display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px">
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">الاسم</label>
+                    <input class="miniInput" id="adminEditUserName" placeholder="اسم المستخدم" />
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">القسم</label>
+                    <select id="adminEditUserDept">
+                      <option value="cash">مبيعات الكاش</option>
+                      <option value="finance">مبيعات التمويل</option>
+                      <option value="callcenter">كول سنتر</option>
+                      <option value="cs">خدمة العملاء</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700">
+                      <input type="checkbox" id="adminEditUserActive" checked />
+                      <span>المستخدم نشط</span>
+                    </label>
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px">التابات المسموح بها</label>
+                    <div id="adminEditTabsList" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px"></div>
+                  </div>
+                  <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <button class="toolBtn primary" id="btnAdminSaveEdit" type="button">حفظ التعديلات</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -3390,6 +3453,34 @@ function renderTemplateSelectOptions(){
     finance: ["مبيعات التمويل", "التمويل"],
     cash: ["مبيعات الكاش", "الكاش", "كاش"]
   };
+  const ADMIN_TAB_OPTIONS = [
+    { id:"inbox", label:"صندوق الوارد" },
+    { id:"customers", label:"الكول سنتر" },
+    { id:"leads_cash", label:"العملاء المحتملون - كاش" },
+    { id:"leads_finance", label:"العملاء المحتملون - تمويل" },
+    { id:"leads_cs", label:"العملاء المحتملون - خدمة عملاء" },
+    { id:"database", label:"قاعدة البيانات" },
+    { id:"dashboard", label:"داش بورد" },
+    { id:"tasks", label:"المتابعات" }
+  ];
+
+  function defaultAllowedTabsForDept(deptKey){
+    switch(String(deptKey||"").trim().toLowerCase()){
+      case "cash": return ["leads_cash","dashboard","tasks","inbox"];
+      case "finance": return ["leads_finance","dashboard","tasks","inbox"];
+      case "callcenter": return ["customers","inbox","database"];
+      case "cs": return ["leads_cs","inbox"];
+      default: return ["inbox"];
+    }
+  }
+
+  function normalizeAllowedTabs(list){
+    const allowedIds = new Set(ADMIN_TAB_OPTIONS.map(t=>t.id));
+    return Array.from(new Set((Array.isArray(list)?list:[])
+      .map(x=>String(x||"").trim())
+      .filter(x=>allowedIds.has(x))));
+  }
+
 
   function normalizeBranchValue(v){
     return String(v || "")
@@ -3661,28 +3752,11 @@ function renderTemplateSelectOptions(){
 
   function canAccessTab(tabId){
     if(!currentUser) return false;
+    if(tabId === "admin-users") return isManagementRole();
+    if(tabId === "settings") return canSeeSettings();
     if(isManagementRole()) return true;
-
-    const branchId = getCurrentBranchId();
-    switch(String(tabId || "")){
-      case "customers":
-        return branchMatchesKey(branchId, "callcenter");
-      case "leads_cash":
-        return branchMatchesKey(branchId, "cash");
-      case "leads_finance":
-        return branchMatchesKey(branchId, "finance");
-      case "leads_cs":
-        return branchMatchesKey(branchId, "cs");
-      case "database":
-        return branchMatchesKey(branchId, "callcenter") || isManagementRole();
-      case "dashboard":
-      case "tasks":
-        return branchMatchesKey(branchId, "finance") || branchMatchesKey(branchId, "cash");
-      case "admin-users":
-        return isManagementRole();
-      default:
-        return true;
-    }
+    const allowed = getCurrentAllowedTabs();
+    return allowed.includes(String(tabId || "").trim());
   }
 
   function applyRoleGuards(){
@@ -3693,13 +3767,13 @@ function renderTemplateSelectOptions(){
 
     const inboxNav = document.querySelector('[data-tab="inbox"]');
     if(inboxNav){
-      inboxNav.style.display = canSeeAllInbox() ? "" : "none";
+      inboxNav.style.display = canAccessTab("inbox") ? "" : "none";
     }
 
     const customerStatusesNav = document.querySelector('[data-tab="customer-statuses"]');
     if(customerStatusesNav) customerStatusesNav.style.display = "none";
 
-    const guardedTabs = ["customers","leads_cash","leads_finance","leads_cs","database","dashboard","tasks","admin-users"];
+    const guardedTabs = ["inbox","customers","leads_cash","leads_finance","leads_cs","database","dashboard","tasks","admin-users"];
     guardedTabs.forEach((tabId)=>{
       const navEl = document.querySelector(`[data-tab="${tabId}"]`);
       if(navEl){
@@ -3713,7 +3787,8 @@ function renderTemplateSelectOptions(){
     const activeNav = document.querySelector('.navItem.active[data-tab]');
     const activeTab = activeNav?.dataset?.tab || "inbox";
     if(activeTab && !canAccessTab(activeTab)){
-      try{ showTab("inbox"); }catch(e){ console.warn("role guard redirect", e); }
+      const fallback = getCurrentAllowedTabs()[0] || (isManagementRole() ? 'inbox' : '');
+      if(fallback){ try{ showTab(fallback); }catch(e){ console.warn("role guard redirect", e); } }
     }
   }
 
@@ -3742,6 +3817,11 @@ function renderTemplateSelectOptions(){
   }
 
   function showTab(tabId){
+    if(tabId && !canAccessTab(tabId)){
+      const fallback = getCurrentAllowedTabs()[0] || (isManagementRole() ? 'inbox' : '');
+      if(fallback && fallback !== tabId) return showTab(fallback);
+      return;
+    }
     if(tabId !== "inbox"){
       clearInboxTempRestriction();
     }else if(canSeeAllInbox()){
@@ -3885,7 +3965,11 @@ function renderTemplateSelectOptions(){
           email: v.email || "",
           roleId: v.roleId || "",
           branchId: v.branchId || "",
-          isActive: v.isActive !== false
+          deptKey: v.deptKey || "",
+          deptLabel: v.deptLabel || "",
+          allowedTabs: Array.isArray(v.allowedTabs) ? v.allowedTabs : [],
+          isActive: v.isActive !== false,
+          raw: v
         };
         // keep by doc id (for settings table)
         agentsMap.set(d.id, obj);
@@ -3895,6 +3979,7 @@ function renderTemplateSelectOptions(){
       const activeAgents = Array.from(agentsUidMap.values()).filter(a=>a.isActive);
       fillSelect($("#leadsFilterAgent"), activeAgents.map(a=>({value:a.uid,label:a.name})));
       refreshSettingsTables();
+      try{ renderAdminUsersList(); }catch(e){ console.warn('renderAdminUsersList', e); }
     });
 
     onSnapshot(collection(db,"settings_sources"), (snap)=>{
@@ -9537,8 +9622,11 @@ function bindTasksUI(){
       uid,
       email: user.email || prof.email || "",
       name: prof.name || user.displayName || (user.email ? user.email.split("@")[0] : "مستخدم"),
-      roleId: prof.roleId || "sales",
+      roleId: prof.roleId || "sales_agent",
       branchId: prof.branchId || "",
+      deptKey: prof.deptKey || "",
+      deptLabel: prof.deptLabel || "",
+      allowedTabs: Array.isArray(prof.allowedTabs) ? prof.allowedTabs.map(x=>String(x||"").trim()).filter(Boolean) : [],
       isActive: prof.isActive !== false
     };
   }
@@ -9546,22 +9634,143 @@ function bindTasksUI(){
 
   function getAdminDeptConfig(deptKey){
     const key = String(deptKey || "").trim().toLowerCase();
-    const roleKeys = Array.from(rolesMap.keys());
-    const fallbackRole = rolesMap.has("sales") ? "sales" : (roleKeys[0] || "sales");
-    const callCenterRole = rolesMap.has("callcenter") ? "callcenter" : (rolesMap.has("sales") ? "sales" : fallbackRole);
+    const pickRole = (...ids)=> ids.find(id => rolesMap.has(id)) || ids[0] || "agent";
     const map = {
-      cash: { label:"مندوب مبيعات الكاش", branchId: BRANCH_IDS.cash, roleId: fallbackRole },
-      finance: { label:"مندوب مبيعات التمويل", branchId: BRANCH_IDS.finance, roleId: fallbackRole },
-      callcenter: { label:"مندوب كول سنتر", branchId: BRANCH_IDS.callcenter, roleId: callCenterRole },
-      cs: { label:"مندوب خدمة العملاء", branchId: BRANCH_IDS.cs, roleId: fallbackRole }
+      cash: { key:"cash", label:"مندوب مبيعات الكاش", branchId: BRANCH_IDS.cash, roleId: pickRole("sales_agent","agent","sales") },
+      finance: { key:"finance", label:"مندوب مبيعات التمويل", branchId: BRANCH_IDS.finance, roleId: pickRole("sales_agent","agent","sales") },
+      callcenter: { key:"callcenter", label:"مندوب كول سنتر", branchId: BRANCH_IDS.callcenter, roleId: pickRole("call_center","agent","sales_agent") },
+      cs: { key:"cs", label:"مندوب خدمة العملاء", branchId: BRANCH_IDS.cs, roleId: pickRole("agent","sales_agent","sales") }
     };
     return map[key] || map.finance;
+  }
+
+  let adminUsersSelectedUid = "";
+
+  function renderAdminTabCheckboxes(containerSelector, selectedTabs){
+    const host = $(containerSelector);
+    if(!host) return;
+    const selected = new Set(normalizeAllowedTabs(selectedTabs));
+    host.innerHTML = ADMIN_TAB_OPTIONS.map(tab => `
+      <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;font-size:13px;font-weight:700">
+        <input type="checkbox" value="${tab.id}" ${selected.has(tab.id) ? "checked" : ""} />
+        <span>${tab.label}</span>
+      </label>
+    `).join("");
+  }
+
+  function readAdminSelectedTabs(containerSelector){
+    const host = $(containerSelector);
+    if(!host) return [];
+    return normalizeAllowedTabs(Array.from(host.querySelectorAll('input[type="checkbox"]:checked')).map(el=>el.value));
+  }
+
+  function syncAdminTabDefaults(target){
+    const deptKey = String($(target)?.value || "cash").trim();
+    const defaults = defaultAllowedTabsForDept(deptKey);
+    const mapTarget = target === "#adminEditUserDept" ? "#adminEditTabsList" : "#adminUserTabsList";
+    renderAdminTabCheckboxes(mapTarget, defaults);
+  }
+
+  function getCurrentAllowedTabs(){
+    if(isManagementRole()) return ADMIN_TAB_OPTIONS.map(t=>t.id);
+    const explicit = normalizeAllowedTabs(currentProfile?.allowedTabs || []);
+    if(explicit.length) return explicit;
+    const branchId = getCurrentBranchId();
+    if(branchMatchesKey(branchId, "finance")) return defaultAllowedTabsForDept("finance");
+    if(branchMatchesKey(branchId, "cash")) return defaultAllowedTabsForDept("cash");
+    if(branchMatchesKey(branchId, "cs")) return defaultAllowedTabsForDept("cs");
+    if(branchMatchesKey(branchId, "callcenter")) return defaultAllowedTabsForDept("callcenter");
+    return ["inbox"];
+  }
+
+  function renderAdminUsersList(){
+    const tbody = $("#adminUsersTbody");
+    if(!tbody) return;
+    const rows = Array.from(agentsUidMap.values()).sort((a,b)=> String(a?.name||"").localeCompare(String(b?.name||""), 'ar'));
+    if(!rows.length){
+      tbody.innerHTML = '<tr><td colspan="6" class="mzj-empty">لا يوجد مستخدمون.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(u=>{
+      const tabsCount = normalizeAllowedTabs(u.allowedTabs || []).length;
+      const deptName = u.deptLabel || branchesMap.get(u.branchId)?.name || (branchMatchesKey(u.branchId,'cash') ? 'مبيعات الكاش' : branchMatchesKey(u.branchId,'finance') ? 'مبيعات التمويل' : branchMatchesKey(u.branchId,'cs') ? 'خدمة العملاء' : branchMatchesKey(u.branchId,'callcenter') ? 'كول سنتر' : '—');
+      return `<tr data-admin-user-row="${esc(u.uid)}" style="cursor:pointer">
+        <td>${esc(u.name || '—')}</td>
+        <td>${esc(u.email || '—')}</td>
+        <td>${esc(deptName)}</td>
+        <td>${esc(rolesMap.get(u.roleId) || u.roleId || '—')}</td>
+        <td>${tabsCount}</td>
+        <td>${u.isActive !== false ? 'نشط' : 'موقوف'}</td>
+      </tr>`;
+    }).join("");
+    tbody.querySelectorAll('tr[data-admin-user-row]').forEach(row=>{
+      row.addEventListener('click', ()=> openAdminUserEditor(row.getAttribute('data-admin-user-row') || ''));
+    });
+  }
+
+  function openAdminUserEditor(uid){
+    const user = agentsUidMap.get(String(uid||'').trim());
+    if(!user) return;
+    adminUsersSelectedUid = user.uid;
+    const userDoc = user.raw || {};
+    const deptKey = String(user.deptKey || '').trim().toLowerCase() || (branchMatchesKey(user.branchId,'cash') ? 'cash' : branchMatchesKey(user.branchId,'finance') ? 'finance' : branchMatchesKey(user.branchId,'cs') ? 'cs' : branchMatchesKey(user.branchId,'callcenter') ? 'callcenter' : 'finance');
+    const explicitTabs = normalizeAllowedTabs(user.allowedTabs || []);
+    $("#adminEditUid").textContent = user.uid || '—';
+    $("#adminEditEmail").textContent = user.email || '—';
+    $("#adminEditUserName").value = user.name || '';
+    $("#adminEditUserDept").value = deptKey;
+    $("#adminEditUserActive").checked = user.isActive !== false;
+    renderAdminTabCheckboxes("#adminEditTabsList", explicitTabs.length ? explicitTabs : defaultAllowedTabsForDept(deptKey));
+    const status = $("#adminEditStatus");
+    if(status) status.textContent = 'جاهز للتعديل';
+    const tbody = $("#adminUsersTbody");
+    if(tbody){
+      tbody.querySelectorAll('tr[data-admin-user-row]').forEach(r=> r.classList.toggle('active', r.getAttribute('data-admin-user-row') === user.uid));
+    }
+  }
+
+  async function saveAdminUserEdits(){
+    if(!currentUser || !isManagementRole()) return toast('ليس لديك صلاحية','warn');
+    const uid = String(adminUsersSelectedUid || '').trim();
+    if(!uid) return toast('اختر مستخدم أولاً','warn');
+    const name = String($("#adminEditUserName")?.value || '').trim();
+    const deptKey = String($("#adminEditUserDept")?.value || 'finance').trim();
+    const isActive = !!$("#adminEditUserActive")?.checked;
+    const allowedTabs = readAdminSelectedTabs("#adminEditTabsList");
+    if(!name) return toast('اكتب اسم المستخدم','warn');
+    if(!allowedTabs.length) return toast('حدد تاب واحد على الأقل','warn');
+    const deptCfg = getAdminDeptConfig(deptKey);
+    const patch = {
+      uid,
+      name,
+      roleId: deptCfg.roleId || 'agent',
+      branchId: deptCfg.branchId || '',
+      deptKey: deptCfg.key || deptKey,
+      deptLabel: deptCfg.label || '',
+      allowedTabs,
+      canReceiveLeads: isActive ? true : false,
+      isActive,
+      updatedAt: serverTimestamp()
+    };
+    const status = $("#adminEditStatus");
+    if(status) status.textContent = 'جاري الحفظ...';
+    try{
+      await setDoc(doc(db,'settings_agents',uid), patch, {merge:true});
+      await setDoc(doc(db,'users',uid), patch, {merge:true});
+      if(status) status.textContent = 'تم الحفظ';
+      toast('تم تحديث المستخدم','ok');
+    }catch(e){
+      console.warn('saveAdminUserEdits', e);
+      if(status) status.textContent = 'فشل الحفظ';
+      toast('تعذر تحديث المستخدم','warn');
+    }
   }
 
   function resetAdminUserForm(clearResult=false){
     ["#adminUserName", "#adminUserEmail", "#adminUserPassword"].forEach(sel=>{ const el = $(sel); if(el) el.value = ""; });
     const dept = $("#adminUserDept");
     if(dept) dept.value = "cash";
+    renderAdminTabCheckboxes("#adminUserTabsList", defaultAllowedTabsForDept("cash"));
     if(clearResult){
       const uidEl = $("#adminCreatedUid"); if(uidEl) uidEl.textContent = "—";
       const statusEl = $("#adminCreateStatus"); if(statusEl) statusEl.textContent = "جاهز";
@@ -9579,6 +9788,7 @@ function bindTasksUI(){
     const email = String($("#adminUserEmail")?.value || "").trim();
     const password = String($("#adminUserPassword")?.value || "").trim();
     const deptKey = String($("#adminUserDept")?.value || "finance").trim();
+    const allowedTabs = readAdminSelectedTabs("#adminUserTabsList");
     const statusEl = $("#adminCreateStatus");
     const uidEl = $("#adminCreatedUid");
     const deptEl = $("#adminCreatedDept");
@@ -9590,6 +9800,13 @@ function bindTasksUI(){
       toast("اكتب كل البيانات المطلوبة", "warn");
       return;
     }
+    if(!allowedTabs.length){
+      if(statusEl) statusEl.textContent = "حدد التابات";
+      if(msgEl){ msgEl.textContent = "حدد تاب واحد على الأقل للمستخدم."; msgEl.style.color = "var(--bad)"; }
+      toast("حدد التابات أولاً", "warn");
+      return;
+    }
+
     if(password.length < 6){
       if(statusEl) statusEl.textContent = "كلمة المرور قصيرة";
       if(msgEl){ msgEl.textContent = "كلمة المرور يجب أن تكون 6 أحرف أو أكثر."; msgEl.style.color = "var(--bad)"; }
@@ -9615,9 +9832,12 @@ function bindTasksUI(){
         uid,
         name,
         email,
-        roleId: deptCfg.roleId || "sales",
+        roleId: deptCfg.roleId || "agent",
         branchId: deptCfg.branchId || "",
-        canReceiveLeads: "true",
+        deptKey: deptCfg.key || deptKey,
+        deptLabel: deptCfg.label || "",
+        allowedTabs,
+        canReceiveLeads: true,
         isActive: true,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -9627,8 +9847,11 @@ function bindTasksUI(){
         uid,
         name,
         email,
-        roleId: deptCfg.roleId || "sales",
+        roleId: deptCfg.roleId || "agent",
         branchId: deptCfg.branchId || "",
+        deptKey: deptCfg.key || deptKey,
+        deptLabel: deptCfg.label || "",
+        allowedTabs,
         canReceiveLeads: true,
         isActive: true,
         createdAt: serverTimestamp(),
@@ -9656,6 +9879,11 @@ function bindTasksUI(){
   function bindAdminUsersUI(){
     $("#btnAdminCreateUser")?.addEventListener("click", createAdminUserFromPanel);
     $("#btnAdminResetUserForm")?.addEventListener("click", ()=> resetAdminUserForm(true));
+    $("#btnAdminSaveEdit")?.addEventListener("click", saveAdminUserEdits);
+    $("#adminUserDept")?.addEventListener("change", ()=> syncAdminTabDefaults("#adminUserDept"));
+    $("#adminEditUserDept")?.addEventListener("change", ()=> syncAdminTabDefaults("#adminEditUserDept"));
+    renderAdminTabCheckboxes("#adminUserTabsList", defaultAllowedTabsForDept("cash"));
+    renderAdminTabCheckboxes("#adminEditTabsList", []);
   }
 
   // ===== Boot =====
