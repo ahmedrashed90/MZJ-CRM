@@ -4752,7 +4752,13 @@ try{
   }
 
   async function openConversation(convId){
-    const convObj = inboxCache.find(x=>x.id===convId)?.data || null;
+    let convObj = inboxCache.find(x=>x.id===convId)?.data || null;
+    if(!convObj){
+      try{
+        const convSnap = await getDoc(doc(db,"wa_conversations", convId));
+        if(convSnap.exists()) convObj = convSnap.data() || null;
+      }catch(_e){}
+    }
     const tempPhone = normalizePhone(inboxTempPhoneFilter || "").replace(/^\+/, "");
     if(tempPhone){
       const convPhone = normalizePhone(convObj?.waId || convObj?.phoneNormalized || convObj?.phone || "").replace(/^\+/, "");
@@ -9523,46 +9529,78 @@ function bindTasksUI(){
         const callUid = String(getCallCenterAssignedUidFromLead(leadData) || (branchMatchesKey(getCurrentBranchId(), "callcenter") ? (currentUser?.uid || "") : "")).trim();
         const callName = String(leadData?.callCenterAssignedName || agentsUidMap.get(callUid)?.name || currentProfile?.name || currentUser?.email || "").trim();
         const serviceKey = String(getLeadQueueKey(leadData, leadEntry?.id || "") || getConversationServiceKey(leadData) || "").trim().toLowerCase();
-        const newRef = doc(collection(db,"wa_conversations"));
-        await setDoc(newRef, {
+        const convId = `wa_${p}`;
+        const convRef = doc(db,"wa_conversations", convId);
+        const existingConvSnap = await getDoc(convRef).catch(()=>null);
+        const existingConv = existingConvSnap?.exists() ? (existingConvSnap.data() || {}) : {};
+        await setDoc(convRef, {
           waId: p,
           phoneNormalized: p,
           phone: "+" + p,
-          channel: "whatsapp",
+          contactKey: String(leadData?.contactKey || existingConv.contactKey || p),
+          conversationId: String(existingConv.conversationId || convId),
+          channel: String(existingConv.channel || "whatsapp"),
+          platform: String(existingConv.platform || existingConv.channel || "whatsapp"),
+          source: String(leadData?.source || existingConv.source || "واتساب"),
           displayName: nm,
-          status: "open",
-          unreadCount: 0,
-          lastMessageText: "",
-          lastMessageAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
+          name: nm,
+          status: String(existingConv.status || "open"),
+          unreadCount: Number(existingConv.unreadCount || 0),
+          lastMessageText: String(existingConv.lastMessageText || ""),
+          lastMessageAt: existingConv.lastMessageAt || serverTimestamp(),
+          createdAt: existingConv.createdAt || serverTimestamp(),
           updatedAt: serverTimestamp(),
-          leadId: String(leadEntry?.id || ""),
-          autoService: serviceKey || "",
-          serviceKey: serviceKey || "",
-          salesAssignedTo: salesUid,
-          salesAssignedName: salesName,
-          assignedTo: salesUid,
-          assignedName: salesName,
-          branchId: String(leadData?.branchId || agentsUidMap.get(salesUid)?.branchId || ""),
+          leadId: String(leadEntry?.id || existingConv.leadId || ""),
+          autoService: serviceKey || String(existingConv.autoService || ""),
+          serviceKey: serviceKey || String(existingConv.serviceKey || ""),
+          salesAssignedTo: salesUid || String(existingConv.salesAssignedTo || existingConv.assignedTo || ""),
+          salesAssignedName: salesName || String(existingConv.salesAssignedName || existingConv.assignedName || ""),
+          assignedTo: salesUid || String(existingConv.assignedTo || existingConv.salesAssignedTo || ""),
+          assignedName: salesName || String(existingConv.assignedName || existingConv.salesAssignedName || ""),
+          branchId: String(leadData?.branchId || existingConv.branchId || agentsUidMap.get(salesUid)?.branchId || ""),
           ...(callUid ? { callCenterAssignedTo: callUid, callCenterAssignedName: callName } : {})
         }, { merge: true });
 
         try{
-          const msgRef = doc(collection(db,"wa_conversations", newRef.id, "messages"));
-          await setDoc(msgRef, {
-            direction: "system",
-            type: "note",
-            text: "بدء محادثة جديدة من صفحة العملاء المحتملون",
-            from: "crm",
-            to: `wa:${p}`,
-            provider: "crm",
-            sentAt: serverTimestamp(),
-            receivedAt: serverTimestamp(),
-            status: "sent"
-          });
+          const msgCol = collection(db,"wa_conversations", convId, "messages");
+          const firstSnap = await getDocs(query(msgCol, limit(1))).catch(()=>null);
+          if(!firstSnap || firstSnap.empty){
+            const msgRef = doc(msgCol);
+            await setDoc(msgRef, {
+              direction: "system",
+              type: "note",
+              text: "بدء محادثة جديدة من صفحة العملاء المحتملون",
+              from: "crm",
+              to: `wa:${p}`,
+              provider: "crm",
+              sentAt: serverTimestamp(),
+              receivedAt: serverTimestamp(),
+              status: "sent"
+            });
+          }
         }catch(_e){}
 
-        openConversation(newRef.id);
+        try{
+          const cacheIdx = inboxCache.findIndex(x=>x.id===convId);
+          const cacheData = {
+            ...existingConv,
+            waId: p,
+            phoneNormalized: p,
+            phone: "+" + p,
+            displayName: nm,
+            name: nm,
+            leadId: String(leadEntry?.id || existingConv.leadId || ""),
+            channel: String(existingConv.channel || "whatsapp"),
+            platform: String(existingConv.platform || existingConv.channel || "whatsapp"),
+            source: String(leadData?.source || existingConv.source || "واتساب"),
+            updatedAt: new Date().toISOString()
+          };
+          if(cacheIdx >= 0) inboxCache[cacheIdx] = { id: convId, data: cacheData };
+          else inboxCache.unshift({ id: convId, data: cacheData });
+          try{ applyInboxFilters(); }catch(_e){}
+        }catch(_e){}
+
+        openConversation(convId);
         toast("تم فتح محادثة العميل", "ok");
       }catch(err){
         console.warn(err);
