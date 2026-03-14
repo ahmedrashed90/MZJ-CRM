@@ -1796,7 +1796,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
           <div style="display:flex;align-items:center;gap:10px;min-width:0">
             <div class="logoMark" aria-hidden="true"></div>
             <div style="min-width:0">
-              <h1>لوحة إدارة العملاء (CRM)</h1>
+              <h1> إدارة العملاء (CRM)</h1>
               <p>صندوق وارد موحّد + توزيع تلقائي + أوتوميشن + إشعارات</p>
             </div>
           </div>
@@ -7461,8 +7461,6 @@ function sortStatusesByCustomOrder(list){
 
   function getLeadResponsibleNameForView(lead, viewMode=""){
     const mode = String(viewMode || window.__leadsViewMode || "").trim();
-    // في تاب الكول سنتر: المسؤول = مندوب المبيعات/التمويل
-    // وعمود الكول سنتر يفضل يعرض مندوب الكول سنتر بشكل منفصل.
     if(mode === "customers") return getSalesAssignedNameDisplay(lead);
     return getSalesAssignedNameDisplay(lead);
   }
@@ -7561,7 +7559,7 @@ function sortStatusesByCustomOrder(list){
     const d = getLeadDisplay(lead, viewMode);
     const carName = getLeadCarName(lead);
     const payType = getLeadPayType(lead);
-    const responsibleName = String(d.responsibleName || (viewMode === "customers" ? d.callCenterName : d.assignedName) || "—").trim() || "—";
+    const responsibleName = String(d.responsibleName || d.assignedName || "—").trim() || "—";
     return `
       <tr data-id="${esc(id)}" class="leadTr">
         <td><a class="leadNameLink" data-openlead="${esc(id)}" href="javascript:void(0)">${esc(d.name)}</a></td>
