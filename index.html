@@ -36,6 +36,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3599,15 +3600,24 @@ function renderTemplateSelectOptions(){
       const d = data || {};
       const explicit = String(d.autoService || d.serviceKey || d.department || d.service || "").trim().toLowerCase();
       if(["finance","cash","cs"].includes(explicit)) return explicit;
+
+      const rawPayType = String(getLeadPayTypeFromRawOnly(d) || "").trim();
+      if(rawPayType === "خدمة عملاء") return "cs";
+      if(rawPayType === "كاش") return "cash";
+      if(rawPayType === "تمويل") return "finance";
+
+      const src = String(getNormalizedSourceForLead(d, leadId) || "").trim();
+      if(src === "حاسبة التقسيط" || src === "سناب شات ليد" || src === "جوجل Ads") return "finance";
+
       const branchValue = String(d.branchId || d.branchName || "").trim();
       if(branchMatchesKey(branchValue, "finance")) return "finance";
       if(branchMatchesKey(branchValue, "cash")) return "cash";
       if(branchMatchesKey(branchValue, "cs")) return "cs";
+
       const payType = String(getLeadPayType(d) || "").trim();
       if(payType === "تمويل") return "finance";
       if(payType === "كاش") return "cash";
-      const src = String(getNormalizedSourceForLead(d, leadId) || "").trim();
-      if(src === "حاسبة التقسيط") return "finance";
+      if(payType === "خدمة عملاء") return "cs";
     }catch(e){}
     return "";
   }
@@ -4909,6 +4919,89 @@ try{
     return "";
   }
 
+
+  const SPECIAL_SERVICE_ASSIGNMENTS = {
+    finance: {
+      emails: [
+        "ahmedayob506@gmail.com",
+        "rhomaabdo4@gmail.com",
+        "mh01097983867@gmail.com"
+      ],
+      names: ["احمد ايوب", "عبد الرحمن رحومه", "مصطفي محمد", "مصطفى محمد"]
+    },
+    cash: {
+      emails: [
+        "ahmedfawzyzaqzauq1997@gmail.com",
+        "eslamedesa68@gmail.com",
+        "redafathissangyong@gmail.com",
+        "amm198070@gmail.com",
+        "tm9166963@gmail.com",
+        "adelgalall31@gmail.com",
+        "alrbamyr56@gmail.com",
+        "elbatatqa@gmail.com",
+        "mazamaster54@gmail.com",
+        "muhamedelsanhoury1286@gmail.com"
+      ],
+      names: [
+        "احمد زقزوق",
+        "اسلام عديسه",
+        "الشيخ رضا",
+        "امام محمد",
+        "طارق محمد",
+        "عادل القفاص",
+        "علي",
+        "محمد البطاط",
+        "محمد حمزة",
+        "محمد مجدي"
+      ]
+    },
+    cs: {
+      emails: ["samirali19918@gmail.com"],
+      names: ["سمير علي"]
+    }
+  };
+
+  function normalizeAgentIdentityValue(v){
+    return String(v || "").trim().toLowerCase();
+  }
+
+  function matchesSpecialServiceAgent(agent, serviceKey){
+    const key = String(serviceKey || "").trim().toLowerCase();
+    const rule = SPECIAL_SERVICE_ASSIGNMENTS[key];
+    if(!rule) return true;
+    const email = normalizeAgentIdentityValue(agent?.email);
+    const name = String(agent?.name || "").trim();
+    return rule.emails.includes(email) || rule.names.includes(name);
+  }
+
+  function pickConfiguredAgentForService(serviceKey, preferredUid=""){
+    const targetBranchName = getTargetBranchNameByServiceKey(serviceKey);
+    if(!targetBranchName) return null;
+
+    const uid = String(preferredUid || "").trim();
+    if(uid){
+      const preferred = agentsUidMap.get(uid);
+      if(preferred && preferred.isActive && !isExcludedAssignee(preferred) && matchesSpecialServiceAgent(preferred, serviceKey)){
+        const bid = String(preferred.branchId || "").trim();
+        const matches = targetBranchName === "مبيعات التمويل"
+          ? branchMatchesKey(bid, "finance")
+          : targetBranchName === "مبيعات الكاش"
+            ? branchMatchesKey(bid, "cash")
+            : targetBranchName === "خدمة العملاء"
+              ? branchMatchesKey(bid, "cs")
+              : false;
+        if(matches) return preferred;
+      }
+    }
+
+    const eligible = getEligibleAgentsForBranch(targetBranchName).filter(a=>matchesSpecialServiceAgent(a, serviceKey));
+    if(eligible.length){
+      return eligible[Math.floor(Math.random() * eligible.length)] || null;
+    }
+
+    return pickRandomAgentFromBranch(targetBranchName);
+  }
+
   function getDefaultAssignmentForNewLead(serviceKey="", preferredCallUid=""){
     const key = String(serviceKey || "").trim().toLowerCase();
     const nowIso = new Date().toISOString();
@@ -4940,7 +5033,7 @@ try{
     }
 
     if(key){
-      const salesPick = getSafeAssignedAgentForService(key, "");
+      const salesPick = pickConfiguredAgentForService(key, "") || getSafeAssignedAgentForService(key, "");
       const salesUid = String(salesPick?.uid || salesPick?.id || "").trim();
       if(salesUid){
         base.salesAssignedTo = salesUid;
@@ -4957,6 +5050,9 @@ try{
   }
 
   function getSafeAssignedAgentForService(serviceKey, preferredUid=""){
+    const specialPick = pickConfiguredAgentForService(serviceKey, preferredUid);
+    if(specialPick) return specialPick;
+
     const targetBranchName = getTargetBranchNameByServiceKey(serviceKey);
     if(!targetBranchName) return null;
 
@@ -7407,14 +7503,13 @@ function sortStatusesByCustomOrder(list){
     const explicit = String(d.autoService || d.serviceKey || d.department || d.service || "").trim().toLowerCase();
     if(["cash","finance","cs"].includes(explicit)) return explicit;
 
-    const source = String(getNormalizedSourceForLead(d, leadId) || "").trim();
-    const isCallCenterOnlySource = (source === "حاسبة التقسيط") || isSnapOrGoogleCallCenterLead(d, leadId);
-    if(isCallCenterOnlySource) return "";
-
     const payType = String(getLeadPayTypeFromRawOnly(d) || "").trim();
-    if(payType === "تمويل") return "finance";
-    if(payType === "كاش") return "cash";
     if(payType === "خدمة عملاء") return "cs";
+    if(payType === "كاش") return "cash";
+    if(payType === "تمويل") return "finance";
+
+    const source = String(getNormalizedSourceForLead(d, leadId) || "").trim();
+    if(source === "حاسبة التقسيط" || source === "سناب شات ليد" || source === "جوجل Ads") return "finance";
 
     const branchCandidates = [
       String(d.branchId || d.branchName || "").trim(),
@@ -8421,13 +8516,15 @@ function normalizeLeadStatusNameForRouting(lead){
 function isFinanceLeadForRouting(lead, leadId="") {
   const pay = String(getLeadPayType(lead || {}) || "").trim();
   if(pay === "تمويل") return true;
+  const src = String(getNormalizedSourceForLead(lead || {}, leadId) || "").trim();
+  if(src === "حاسبة التقسيط" || src === "سناب شات ليد" || src === "جوجل Ads") return true;
   return isLeadInQueue(lead || {}, "finance", leadId);
 }
 
 function isCallCenterFinanceStatusVisible(lead, leadId=""){
   const statusName = normalizeLeadStatusNameForRouting(lead);
   if(isSnapOrGoogleCallCenterLead(lead, leadId)){
-    return !statusName;
+    return statusName !== "تم الإنتهاء - إنشاء طلب البيع";
   }
   if(!statusName || statusName === "جديد") return true;
   // العميل يخرج من تاب الكول سنتر فقط عند الإنهاء النهائي للبيع
@@ -8456,7 +8553,7 @@ function isCallCenterFinanceStatusVisible(lead, leadId=""){
 function isFinanceSalesStatusVisible(lead, leadId=""){
   const statusName = normalizeLeadStatusNameForRouting(lead);
   if(isSnapOrGoogleCallCenterLead(lead, leadId)){
-    return !!statusName;
+    return statusName !== "تم الإنتهاء - إنشاء طلب البيع";
   }
   if(!statusName || statusName === "جديد") return false;
   if(statusName === "تم الإنتهاء - إنشاء طلب البيع") return false;
@@ -10198,7 +10295,15 @@ function bindTasksUI(){
         const leadRef = doc(db,"leads", leadId);
         const exists = await getDoc(leadRef).catch(()=>null);
         const source = normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp");
-        const serviceKey = String(conv.autoService || conv.serviceKey || "").trim().toLowerCase();
+        const inferredServiceKey = getLeadServiceKey({
+          source,
+          channel: conv.channel || conv.platform || "whatsapp",
+          autoService: conv.autoService || "",
+          serviceKey: conv.serviceKey || "",
+          paymentType: conv.paymentType || conv.payType || "",
+          payType: conv.payType || conv.paymentType || ""
+        }, leadId || phoneNorm);
+        const serviceKey = String(inferredServiceKey || conv.autoService || conv.serviceKey || "").trim().toLowerCase();
         const newLeadAssign = getDefaultAssignmentForNewLead(
           serviceKey,
           String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || "").trim()
@@ -10212,6 +10317,7 @@ function bindTasksUI(){
           source: source,
           channel: (conv.channel || conv.platform || "whatsapp"),
           ...newLeadAssign,
+          ...(source === "واتساب" ? { leadStatusId: "", leadStatusName: "—" } : {}),
           convId: convId,
           updatedAt: new Date().toISOString()
         };
@@ -10257,6 +10363,7 @@ function bindTasksUI(){
               assignedName: String(conv.salesAssignedName || conv.assignedName || ""),
               callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
               callCenterAssignedName: String(conv.callCenterAssignedName || ""),
+              ...(normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp") === "واتساب" && !String(conv.leadStatusId || conv.leadStatusName || "").trim() ? { leadStatusId: "", leadStatusName: "—" } : {}),
               branchId: String(conv.branchId || "")
             }
           : {
