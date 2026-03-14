@@ -35,6 +35,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3602,11 +3603,12 @@ function renderTemplateSelectOptions(){
       if(branchMatchesKey(branchValue, "finance")) return "finance";
       if(branchMatchesKey(branchValue, "cash")) return "cash";
       if(branchMatchesKey(branchValue, "cs")) return "cs";
-      const payType = String(getLeadPayType(d) || "").trim();
+      const payType = String(getLeadPayTypeFromRawOnly(d) || "").trim();
       if(payType === "تمويل") return "finance";
       if(payType === "كاش") return "cash";
+      if(payType === "خدمة عملاء") return "cs";
       const src = String(getNormalizedSourceForLead(d, leadId) || "").trim();
-      if(src === "حاسبة التقسيط") return "finance";
+      if(src === "حاسبة التقسيط" || src === "واتساب" || src === "سناب شات ليد" || src === "جوجل Ads") return "finance";
     }catch(e){}
     return "";
   }
@@ -3771,6 +3773,7 @@ function renderTemplateSelectOptions(){
     if(!currentUser) return false;
     if(tabId === "admin-users") return isManagementRole();
     if(tabId === "settings") return canSeeSettings();
+    if(String(tabId || "").trim() === "inbox" && hasTemporaryInboxPhoneAccess()) return true;
     if(isManagementRole()) return true;
     const allowed = getCurrentAllowedTabs();
     return allowed.includes(String(tabId || "").trim());
@@ -3841,8 +3844,10 @@ function renderTemplateSelectOptions(){
     }
     if(tabId !== "inbox"){
       clearInboxTempRestriction();
+      clearTemporaryInboxPhoneAccess();
     }else if(canSeeAllInbox()){
       clearInboxTempRestriction();
+      if(!hasTemporaryInboxPhoneAccess()) clearTemporaryInboxPhoneAccess();
     }
     // بعض التابات هي Views لنفس Panel (العملاء)
     const leadViews = ["customers","leads_cash","leads_finance","leads_cs"];
@@ -4473,6 +4478,25 @@ let unsubInboxLive = null; // live updates for first page only
   function clearInboxTempRestriction(){
     inboxTempPhoneFilter = "";
     inboxTempLeadName = "";
+  }
+
+  function hasTemporaryInboxPhoneAccess(){
+    if(!inboxPhoneAccessGrant) return false;
+    const ts = Number(inboxPhoneAccessGrant.ts || 0);
+    if(!ts) return false;
+    return (Date.now() - ts) < (15 * 60 * 1000);
+  }
+
+  function grantTemporaryInboxPhoneAccess(phone, leadName){
+    inboxPhoneAccessGrant = {
+      phone: normalizePhone(phone).replace(/^\+/, ""),
+      leadName: String(leadName || "").trim(),
+      ts: Date.now()
+    };
+  }
+
+  function clearTemporaryInboxPhoneAccess(){
+    inboxPhoneAccessGrant = null;
   }
 
   function setInboxTempRestriction(phone, leadName){
@@ -5766,8 +5790,8 @@ scroller.addEventListener("scroll", ()=>{
           ...(String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || "").trim() ? { callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || "").trim(), callCenterAssignedName: String(conv.callCenterAssignedName || "").trim() } : {}),
           branchId: branchId,
           convId: activeConvId,
-          leadStatusId: getDefaultLeadStatus().id,
-          leadStatusName: getDefaultLeadStatus().name,
+          leadStatusId: "",
+          leadStatusName: "",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
@@ -6897,7 +6921,7 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
         city: "",
         paymentType: "تمويل",
         payType: "تمويل",
-        leadStatusName: "جديد",
+        leadStatusName: "",
         importedAt: new Date().toISOString(),
         rawSource: row
       }
@@ -6933,7 +6957,7 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
         city: city || "",
         paymentType: "تمويل",
         payType: "تمويل",
-        leadStatusName: "جديد",
+        leadStatusName: "",
         importedAt: new Date().toISOString(),
         rawSource: row
       }
@@ -7752,8 +7776,9 @@ function sortStatusesByCustomOrder(list){
   }
   function getEffectiveLeadStatusName(lead){
     const sid = String(lead?.leadStatusId || "").trim();
+    const explicitLeadStatusName = String(lead?.leadStatusName || "").trim();
     const explicitStatus = String(
-      lead?.leadStatusName ||
+      explicitLeadStatusName ||
       lead?.status ||
       lead?.leadStatus ||
       lead?.currentStatus ||
@@ -7763,6 +7788,11 @@ function sortStatusesByCustomOrder(list){
       ""
     ).trim();
     const rawName = String(leadStatusesMap.get(sid)?.name || explicitStatus || "").trim();
+    const src = String(getNormalizedSourceForLead(lead || {}) || "").trim();
+    const hasExplicitLeadStatus = !!(sid || explicitLeadStatusName);
+    if(!hasExplicitLeadStatus && (src === "واتساب" || src === "حاسبة التقسيط" || isSnapOrGoogleCallCenterLead(lead || {}))){
+      if(!rawName || rawName === "جديد" || rawName === "إستيفاء الطلب - متقدم") return "";
+    }
     if(isSnapOrGoogleCallCenterLead(lead || {})){
       if(!rawName || rawName === "جديد") return "";
     }
@@ -8287,7 +8317,10 @@ function applyLeadFilters(){
     const filtered = base.filter(({id,data})=>{
       // Views (Tabs) تحت "العملاء"
       if(viewMode === "customers"){
-        if(!isFinanceLeadForRouting(data, id) || !isCallCenterFinanceStatusVisible(data, id)) return false;
+        const currentStatusName = String(getEffectiveLeadStatusName(data) || "").trim();
+        if(currentStatusName){
+          if(!isFinanceLeadForRouting(data, id) || !isCallCenterFinanceStatusVisible(data, id)) return false;
+        }
       }else if(viewMode === "leads_cash"){
         if(!isLeadInQueue(data, "cash", id) && getLeadPayType(data) !== "كاش") return false;
       }else if(viewMode === "leads_finance"){
@@ -8379,10 +8412,10 @@ function isFinanceLeadForRouting(lead, leadId="") {
 
 function isCallCenterFinanceStatusVisible(lead, leadId=""){
   const statusName = normalizeLeadStatusNameForRouting(lead);
+  if(!statusName || statusName === "جديد") return true;
   if(isSnapOrGoogleCallCenterLead(lead, leadId)){
     return !statusName;
   }
-  if(!statusName || statusName === "جديد") return true;
   // العميل يخرج من تاب الكول سنتر فقط عند الإنهاء النهائي للبيع
   if(statusName === "تم الإنتهاء - إنشاء طلب البيع") return false;
   return [
@@ -9431,6 +9464,7 @@ function bindTasksUI(){
     const p = normalizePhone(String(phone||"")).replace(/^\+/, "");
     if(!p){ toast("رقم غير صالح", "warn"); return; }
 
+    grantTemporaryInboxPhoneAccess(p, leadName);
     if(isInboxRestrictedForCurrentUser()){
       setInboxTempRestriction(p, leadName);
     }else{
@@ -10143,8 +10177,8 @@ function bindTasksUI(){
           callCenterAssignedName: String(conv.callCenterAssignedName || ""),
           branchId: branchId,
           convId: convId,
-          leadStatusId: getDefaultLeadStatus().id,
-          leadStatusName: getDefaultLeadStatus().name,
+          leadStatusId: "",
+          leadStatusName: "",
           updatedAt: new Date().toISOString()
         };
         if(!(exists && exists.exists())){
