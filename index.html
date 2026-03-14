@@ -1,43 +1,5 @@
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1836,7 +1798,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
           <div style="display:flex;align-items:center;gap:10px;min-width:0">
             <div class="logoMark" aria-hidden="true"></div>
             <div style="min-width:0">
-              <h1>لوحة إدارة العملاء (CRM)</h1>
+              <h1> إدارة العملاء (CRM)</h1>
               <p>صندوق وارد موحّد + توزيع تلقائي + أوتوميشن + إشعارات</p>
             </div>
           </div>
@@ -4895,7 +4857,8 @@ try{
 
   function getEligibleAgentsForBranch(branchName){
     const ids = getBranchIdsByNameExact(branchName);
-    return Array.from(agentsUidMap.values())
+    const rule = SPECIAL_BRANCH_ASSIGNMENTS[String(branchName || "").trim()] || null;
+    const base = Array.from(agentsUidMap.values())
       .filter(a=>{
         if(!(a && a.isActive) || isExcludedAssignee(a)) return false;
         const bid = String(a?.branchId || "").trim();
@@ -4903,6 +4866,16 @@ try{
         return branchMatchesKey(bid, branchName === "مبيعات التمويل" ? "finance" : branchName === "مبيعات الكاش" ? "cash" : branchName === "خدمة العملاء" ? "cs" : branchName === "كول سنتر" ? "callcenter" : bid);
       })
       .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||""), "ar"));
+
+    if(!rule) return base;
+
+    const filtered = base.filter(a=>{
+      const email = normalizeAgentIdentityValue(a?.email);
+      const name = String(a?.name || "").trim();
+      return rule.emails.includes(email) || rule.names.includes(name);
+    });
+
+    return filtered.length ? filtered : base;
   }
 
 
@@ -4959,10 +4932,51 @@ try{
     cs: {
       emails: ["samirali19918@gmail.com"],
       names: ["سمير علي"]
+    }
+  };
+
+  const SPECIAL_BRANCH_ASSIGNMENTS = {
+    "مبيعات التمويل": {
+      emails: [
+        "ahmedayob506@gmail.com",
+        "rhomaabdo4@gmail.com",
+        "mh01097983867@gmail.com"
+      ],
+      names: ["احمد ايوب", "عبد الرحمن رحومه", "مصطفي محمد", "مصطفى محمد"]
     },
-    callcenter: {
+    "مبيعات الكاش": {
+      emails: [
+        "ahmedfawzyzaqzauq1997@gmail.com",
+        "eslamedesa68@gmail.com",
+        "redafathissangyong@gmail.com",
+        "amm198070@gmail.com",
+        "tm9166963@gmail.com",
+        "adelgalall31@gmail.com",
+        "alrbamyr56@gmail.com",
+        "elbatatqa@gmail.com",
+        "mazamaster54@gmail.com",
+        "muhamedelsanhoury1286@gmail.com"
+      ],
+      names: [
+        "احمد زقزوق",
+        "اسلام عديسه",
+        "الشيخ رضا",
+        "امام محمد",
+        "طارق محمد",
+        "عادل القفاص",
+        "علي",
+        "محمد البطاط",
+        "محمد حمزة",
+        "محمد مجدي"
+      ]
+    },
+    "خدمة العملاء": {
+      emails: ["samirali19918@gmail.com"],
+      names: ["سمير علي"]
+    },
+    "كول سنتر": {
       emails: ["amjad90183@gmail.com"],
-      names: ["امجاد الدسوقي", "أمجاد الدسوقي"]
+      names: ["امجاد الدوسري", "امجاد الدسوقي"]
     }
   };
 
@@ -4977,27 +4991,6 @@ try{
     const email = normalizeAgentIdentityValue(agent?.email);
     const name = String(agent?.name || "").trim();
     return rule.emails.includes(email) || rule.names.includes(name);
-  }
-  function getSpecialCallCenterAgent(preferredUid=""){
-    const rule = SPECIAL_SERVICE_ASSIGNMENTS.callcenter || { emails: [], names: [] };
-    const uid = String(preferredUid || "").trim();
-    const matchesRule = (agent)=>{
-      if(!agent || !agent.isActive || isExcludedAssignee(agent)) return false;
-      if(!branchMatchesKey(String(agent.branchId || "").trim(), "callcenter")) return false;
-      const email = normalizeAgentIdentityValue(agent?.email);
-      const name = String(agent?.name || "").trim();
-      return rule.emails.includes(email) || rule.names.includes(name);
-    };
-
-    if(uid){
-      const preferred = agentsUidMap.get(uid);
-      if(matchesRule(preferred)) return preferred;
-    }
-
-    const eligible = getEligibleAgentsForBranch("كول سنتر").filter(matchesRule);
-    if(eligible.length) return eligible[0] || null;
-
-    return pickRandomAgentFromBranch("كول سنتر");
   }
 
   function pickConfiguredAgentForService(serviceKey, preferredUid=""){
@@ -5049,7 +5042,7 @@ try{
       }
     }
     if(!callPick){
-      callPick = getSpecialCallCenterAgent(callPreferred);
+      callPick = pickRandomAgentFromBranch("كول سنتر");
     }
     const callUid = String(callPick?.uid || callPick?.id || "").trim();
     if(callUid){
@@ -5117,7 +5110,7 @@ try{
     let callPick = null;
     let callUid = "";
     if(key === "finance"){
-      callPick = getSpecialCallCenterAgent(String(leadData?.callCenterAssignedTo || leadData?.callcenterAssignedTo || "").trim());
+      callPick = pickRandomAgentFromBranch("كول سنتر");
       callUid = String(callPick?.uid || callPick?.id || "").trim();
     }
 
@@ -7216,7 +7209,7 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
       try{
         const salesUid = String(getSalesAssignedUidFromLead(data) || "").trim();
         const salesName = String(data?.salesAssignedName || data?.assignedName || agentsUidMap.get(salesUid)?.name || "").trim();
-        const callPick = getSpecialCallCenterAgent(String(data?.callCenterAssignedTo || data?.callcenterAssignedTo || "").trim());
+        const callPick = pickRandomAgentFromBranch("كول سنتر");
         const callUid = String(callPick?.uid || callPick?.id || "").trim();
         if(salesUid && callUid){
           await updateDoc(doc(db, "leads", leadId), {
@@ -7468,14 +7461,21 @@ function sortStatusesByCustomOrder(list){
     return String(lead?.callCenterAssignedName || "").trim() || "—";
   }
 
-  function getLeadDisplay(lead){
+  function getLeadResponsibleNameForView(lead, viewMode=""){
+    const mode = String(viewMode || window.__leadsViewMode || "").trim();
+    if(mode === "customers") return getCallCenterAssignedNameDisplay(lead);
+    return getSalesAssignedNameDisplay(lead);
+  }
+
+  function getLeadDisplay(lead, viewMode=""){
     const name = lead.name && lead.name !== "-" ? lead.name : "—";
     const phone = lead.phone || lead.phoneNormalized || "—";
     const stage = stagesMap.get(lead.stageId)?.name || lead.stageId || "—";
     const assignedName = getSalesAssignedNameDisplay(lead);
     const callCenterName = getCallCenterAssignedNameDisplay(lead);
+    const responsibleName = getLeadResponsibleNameForView(lead, viewMode);
     const statusName = getEffectiveLeadStatusName(lead);
-    return { name, phone, stage, assignedName, callCenterName, statusName };
+    return { name, phone, stage, assignedName, callCenterName, responsibleName, statusName };
   }
 
   function getLeadCarName(lead){
@@ -7557,12 +7557,11 @@ function sortStatusesByCustomOrder(list){
   }
 
   function renderLeadTr(id, lead){
-    const d = getLeadDisplay(lead);
+    const viewMode = String(window.__leadsViewMode || "customers").trim();
+    const d = getLeadDisplay(lead, viewMode);
     const carName = getLeadCarName(lead);
     const payType = getLeadPayType(lead);
-    const mode = String(window.__leadsViewMode || "customers").trim();
-    const responsibleName = mode === "customers" ? (d.callCenterName || "—") : (d.assignedName || "غير موزع");
-    const callCenterName = d.callCenterName || "—";
+    const responsibleName = String(d.responsibleName || (viewMode === "customers" ? d.callCenterName : d.assignedName) || "—").trim() || "—";
     return `
       <tr data-id="${esc(id)}" class="leadTr">
         <td><a class="leadNameLink" data-openlead="${esc(id)}" href="javascript:void(0)">${esc(d.name)}</a></td>
@@ -7573,7 +7572,7 @@ function sortStatusesByCustomOrder(list){
         <td>${esc(payType || "—")}</td>
         <td>${esc(d.statusName || "—")}</td>
         <td>${esc(responsibleName)}</td>
-        <td>${esc(callCenterName)}</td>
+        <td>${esc(d.callCenterName || "—")}</td>
         <td>${esc(fsToHuman(lead.updatedAt || lead.timestamp || lead.createdAt))}</td>
       </tr>
     `;
@@ -8433,7 +8432,7 @@ function updateLeadsTableColumns(viewMode="customers"){
   if(!table) return;
   const ths = table.querySelectorAll('thead th');
   if(ths && ths[7]) ths[7].textContent = 'المسؤول';
-  if(ths && ths[8]) ths[8].textContent = viewMode === 'customers' ? 'مندوب المبيعات' : 'الكول سنتر';
+  if(ths && ths[8]) ths[8].textContent = 'الكول سنتر';
 }
 
 function applyLeadFilters(){
