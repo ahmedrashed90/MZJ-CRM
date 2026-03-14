@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -7447,8 +7448,43 @@ function sortStatusesByCustomOrder(list){
     }catch{ return String(v||"—"); }
   }
 
-  function getSalesAssignedNameDisplay(lead){
-    const salesUid = String(lead?.salesAssignedTo || lead?.assignedTo || "").trim();
+  function __hashLeadSeed(seed){
+    const s = String(seed || "");
+    let h = 0;
+    for(let i=0;i<s.length;i++) h = ((h * 31) + s.charCodeAt(i)) >>> 0;
+    return h >>> 0;
+  }
+
+  function getDeterministicConfiguredAgentForService(serviceKey, leadId="", lead={}){
+    const key = String(serviceKey || "").trim().toLowerCase();
+    if(!key) return null;
+    const targetBranchName = getTargetBranchNameByServiceKey(key);
+    if(!targetBranchName) return null;
+    const eligible = getEligibleAgentsForBranch(targetBranchName).filter(a=>matchesSpecialServiceAgent(a, key));
+    if(!eligible.length) return null;
+    const seed = [leadId, lead?.phoneNormalized, lead?.phone, lead?.waId, lead?.name].filter(Boolean).join("|") || key;
+    const idx = __hashLeadSeed(seed) % eligible.length;
+    return eligible[idx] || eligible[0] || null;
+  }
+
+  function getSalesAssignedNameDisplay(lead, leadId=""){
+    const queueKey = String(getLeadQueueKey(lead, leadId) || "").trim().toLowerCase();
+    const preferredSalesUid = String(lead?.salesAssignedTo || "").trim();
+    const fallbackAssignedUid = String(lead?.assignedTo || "").trim();
+
+    if(queueKey === "finance" || queueKey === "cash" || queueKey === "cs"){
+      const validPick = getSafeAssignedAgentForService(queueKey, preferredSalesUid || fallbackAssignedUid);
+      const currentUid = String(validPick?.uid || validPick?.id || "").trim();
+      if(currentUid){
+        return String(validPick?.name || lead?.salesAssignedName || lead?.assignedName || agentsUidMap.get(currentUid)?.name || currentUid).trim() || "غير موزع";
+      }
+      const deterministicPick = getDeterministicConfiguredAgentForService(queueKey, leadId, lead);
+      if(deterministicPick){
+        return String(deterministicPick?.name || deterministicPick?.email || "غير موزع").trim() || "غير موزع";
+      }
+    }
+
+    const salesUid = String(preferredSalesUid || fallbackAssignedUid || "").trim();
     if(salesUid) return String(lead?.salesAssignedName || lead?.assignedName || agentsUidMap.get(salesUid)?.name || salesUid).trim() || "غير موزع";
     return String(lead?.salesAssignedName || lead?.assignedName || "").trim() || "غير موزع";
   }
@@ -7459,19 +7495,20 @@ function sortStatusesByCustomOrder(list){
     return String(lead?.callCenterAssignedName || "").trim() || "—";
   }
 
-  function getLeadResponsibleNameForView(lead, viewMode=""){
+  function getLeadResponsibleNameForView(lead, viewMode="", leadId=""){
     const mode = String(viewMode || window.__leadsViewMode || "").trim();
-    if(mode === "customers") return getSalesAssignedNameDisplay(lead);
-    return getSalesAssignedNameDisplay(lead);
+    if(mode === "customers") return getSalesAssignedNameDisplay(lead, leadId);
+    return getSalesAssignedNameDisplay(lead, leadId);
   }
 
   function getLeadDisplay(lead, viewMode=""){
     const name = lead.name && lead.name !== "-" ? lead.name : "—";
     const phone = lead.phone || lead.phoneNormalized || "—";
     const stage = stagesMap.get(lead.stageId)?.name || lead.stageId || "—";
-    const assignedName = getSalesAssignedNameDisplay(lead);
+    const leadId = String(lead?.id || lead?.leadId || lead?.convId || lead?.conversationId || "").trim();
+    const assignedName = getSalesAssignedNameDisplay(lead, leadId);
     const callCenterName = getCallCenterAssignedNameDisplay(lead);
-    const responsibleName = getLeadResponsibleNameForView(lead, viewMode);
+    const responsibleName = getLeadResponsibleNameForView(lead, viewMode, leadId);
     const statusName = getEffectiveLeadStatusName(lead);
     return { name, phone, stage, assignedName, callCenterName, responsibleName, statusName };
   }
@@ -7556,7 +7593,7 @@ function sortStatusesByCustomOrder(list){
 
   function renderLeadTr(id, lead){
     const viewMode = String(window.__leadsViewMode || "customers").trim();
-    const d = getLeadDisplay(lead, viewMode);
+    const d = getLeadDisplay({ ...(lead||{}), id }, viewMode);
     const carName = getLeadCarName(lead);
     const payType = getLeadPayType(lead);
     const responsibleName = String(d.responsibleName || d.assignedName || "—").trim() || "—";
