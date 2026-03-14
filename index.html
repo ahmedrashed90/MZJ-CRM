@@ -4928,7 +4928,7 @@ try{
         "rhomaabdo4@gmail.com",
         "mh01097983867@gmail.com"
       ],
-      names: ["احمد ايوب", "عبد الرحمن رحومه", "عبدالرحمن رحومه", "مصطفي محمد", "مصطفى محمد"]
+      names: ["احمد ايوب", "عبد الرحمن رحومه", "مصطفي محمد", "مصطفى محمد"]
     },
     cash: {
       emails: [
@@ -4962,7 +4962,7 @@ try{
     },
     callcenter: {
       emails: ["amjad90183@gmail.com"],
-      names: ["امجاد الدسوقي"]
+      names: ["امجاد الدسوقي", "أمجاد الدسوقي"]
     }
   };
 
@@ -4978,20 +4978,24 @@ try{
     const name = String(agent?.name || "").trim();
     return rule.emails.includes(email) || rule.names.includes(name);
   }
-
-  function pickConfiguredCallCenterAgent(preferredUid=""){
+  function getSpecialCallCenterAgent(preferredUid=""){
+    const rule = SPECIAL_SERVICE_ASSIGNMENTS.callcenter || { emails: [], names: [] };
     const uid = String(preferredUid || "").trim();
+    const matchesRule = (agent)=>{
+      if(!agent || !agent.isActive || isExcludedAssignee(agent)) return false;
+      if(!branchMatchesKey(String(agent.branchId || "").trim(), "callcenter")) return false;
+      const email = normalizeAgentIdentityValue(agent?.email);
+      const name = String(agent?.name || "").trim();
+      return rule.emails.includes(email) || rule.names.includes(name);
+    };
+
     if(uid){
       const preferred = agentsUidMap.get(uid);
-      if(preferred && preferred.isActive && !isExcludedAssignee(preferred) && branchMatchesKey(String(preferred.branchId || "").trim(), "callcenter") && matchesSpecialServiceAgent(preferred, "callcenter")){
-        return preferred;
-      }
+      if(matchesRule(preferred)) return preferred;
     }
 
-    const eligible = getEligibleAgentsForBranch("كول سنتر").filter(a=>matchesSpecialServiceAgent(a, "callcenter"));
-    if(eligible.length){
-      return eligible[Math.floor(Math.random() * eligible.length)] || null;
-    }
+    const eligible = getEligibleAgentsForBranch("كول سنتر").filter(matchesRule);
+    if(eligible.length) return eligible[0] || null;
 
     return pickRandomAgentFromBranch("كول سنتر");
   }
@@ -5044,8 +5048,8 @@ try{
         callPick = a;
       }
     }
-    if(!callPick || !matchesSpecialServiceAgent(callPick, "callcenter")){
-      callPick = pickConfiguredCallCenterAgent(callPreferred);
+    if(!callPick){
+      callPick = getSpecialCallCenterAgent(callPreferred);
     }
     const callUid = String(callPick?.uid || callPick?.id || "").trim();
     if(callUid){
@@ -5113,7 +5117,7 @@ try{
     let callPick = null;
     let callUid = "";
     if(key === "finance"){
-      callPick = pickConfiguredCallCenterAgent(String(leadData?.callCenterAssignedTo || leadData?.callcenterAssignedTo || "").trim());
+      callPick = getSpecialCallCenterAgent(String(leadData?.callCenterAssignedTo || leadData?.callcenterAssignedTo || "").trim());
       callUid = String(callPick?.uid || callPick?.id || "").trim();
     }
 
@@ -5298,7 +5302,8 @@ async function assignConversationToBranchRandom(convId, branchName){
     const salesUid = salesPick.uid || salesPick.id;
     if(!salesUid) return { ok:false, reason:"bad_agent" };
 
-    const callPick = serviceKey === "finance" ? pickConfiguredCallCenterAgent("") : null;
+    const callcenterAgents = getEligibleAgentsForBranch("كول سنتر");
+    const callPick = callcenterAgents.length ? callcenterAgents[Math.floor(Math.random()*callcenterAgents.length)] : null;
     const callUid = callPick ? (callPick.uid || callPick.id) : "";
 
     const nowIso = new Date().toISOString();
@@ -7211,7 +7216,7 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
       try{
         const salesUid = String(getSalesAssignedUidFromLead(data) || "").trim();
         const salesName = String(data?.salesAssignedName || data?.assignedName || agentsUidMap.get(salesUid)?.name || "").trim();
-        const callPick = pickConfiguredCallCenterAgent("");
+        const callPick = getSpecialCallCenterAgent(String(data?.callCenterAssignedTo || data?.callcenterAssignedTo || "").trim());
         const callUid = String(callPick?.uid || callPick?.id || "").trim();
         if(salesUid && callUid){
           await updateDoc(doc(db, "leads", leadId), {
@@ -7555,6 +7560,9 @@ function sortStatusesByCustomOrder(list){
     const d = getLeadDisplay(lead);
     const carName = getLeadCarName(lead);
     const payType = getLeadPayType(lead);
+    const mode = String(window.__leadsViewMode || "customers").trim();
+    const responsibleName = mode === "customers" ? (d.callCenterName || "—") : (d.assignedName || "غير موزع");
+    const callCenterName = d.callCenterName || "—";
     return `
       <tr data-id="${esc(id)}" class="leadTr">
         <td><a class="leadNameLink" data-openlead="${esc(id)}" href="javascript:void(0)">${esc(d.name)}</a></td>
@@ -7564,8 +7572,8 @@ function sortStatusesByCustomOrder(list){
         <td title="${esc(carName)}">${esc(carName)}</td>
         <td>${esc(payType || "—")}</td>
         <td>${esc(d.statusName || "—")}</td>
-        <td>${esc(d.assignedName)}</td>
-        <td>${esc(d.callCenterName || "—")}</td>
+        <td>${esc(responsibleName)}</td>
+        <td>${esc(callCenterName)}</td>
         <td>${esc(fsToHuman(lead.updatedAt || lead.timestamp || lead.createdAt))}</td>
       </tr>
     `;
@@ -8425,7 +8433,7 @@ function updateLeadsTableColumns(viewMode="customers"){
   if(!table) return;
   const ths = table.querySelectorAll('thead th');
   if(ths && ths[7]) ths[7].textContent = 'المسؤول';
-  if(ths && ths[8]) ths[8].textContent = 'الكول سنتر';
+  if(ths && ths[8]) ths[8].textContent = viewMode === 'customers' ? 'مندوب المبيعات' : 'الكول سنتر';
 }
 
 function applyLeadFilters(){
