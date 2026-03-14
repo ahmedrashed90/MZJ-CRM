@@ -3469,11 +3469,11 @@ function renderTemplateSelectOptions(){
 
   function defaultAllowedTabsForDept(deptKey){
     switch(String(deptKey||"").trim().toLowerCase()){
-      case "cash": return ["leads_cash","dashboard","tasks","inbox"];
-      case "finance": return ["leads_finance","dashboard","tasks","inbox"];
-      case "callcenter": return ["customers","inbox","database"];
-      case "cs": return ["leads_cs","inbox"];
-      default: return ["inbox"];
+      case "cash": return ["leads_cash","dashboard","tasks"];
+      case "finance": return ["leads_finance","dashboard","tasks"];
+      case "callcenter": return ["customers","database"];
+      case "cs": return ["leads_cs"];
+      default: return [];
     }
   }
 
@@ -3835,13 +3835,17 @@ function renderTemplateSelectOptions(){
   }
 
   function showTab(tabId){
+    const bypassInboxByPhone = !!window.__allowInboxByPhoneOpen;
     if(tabId && !canAccessTab(tabId)){
-      const fallback = getCurrentAllowedTabs()[0] || (isManagementRole() ? 'inbox' : '');
-      if(fallback && fallback !== tabId) return showTab(fallback);
-      return;
+      if(!(tabId === "inbox" && bypassInboxByPhone)){
+        const fallback = getCurrentAllowedTabs()[0] || (isManagementRole() ? 'inbox' : '');
+        if(fallback && fallback !== tabId) return showTab(fallback);
+        return;
+      }
     }
     if(tabId !== "inbox"){
       clearInboxTempRestriction();
+      try{ window.__allowInboxByPhoneOpen = false; }catch(e){}
     }else if(canSeeAllInbox()){
       clearInboxTempRestriction();
     }
@@ -4899,6 +4903,53 @@ try{
     return "";
   }
 
+  function getDefaultAssignmentForNewLead(serviceKey="", preferredCallUid=""){
+    const key = String(serviceKey || "").trim().toLowerCase();
+    const nowIso = new Date().toISOString();
+    const base = {
+      autoService: key,
+      serviceKey: key,
+      ...(key ? (getPayTypeLabelByServiceKey(key) ? { paymentType: getPayTypeLabelByServiceKey(key), payType: getPayTypeLabelByServiceKey(key) } : {}) : {}),
+      leadStatusId: "",
+      leadStatusName: "—",
+      updatedAt: nowIso
+    };
+
+    const callPreferred = String(preferredCallUid || "").trim();
+    let callPick = null;
+    if(callPreferred){
+      const a = agentsUidMap.get(callPreferred);
+      if(a && a.isActive && !isExcludedAssignee(a) && branchMatchesKey(String(a.branchId || "").trim(), "callcenter")){
+        callPick = a;
+      }
+    }
+    if(!callPick){
+      callPick = pickRandomAgentFromBranch("كول سنتر");
+    }
+    const callUid = String(callPick?.uid || callPick?.id || "").trim();
+    if(callUid){
+      base.callCenterAssignedTo = callUid;
+      base.callCenterAssignedName = String(callPick?.name || callPick?.email || callUid).trim();
+      base.callCenterAssignedAt = nowIso;
+    }
+
+    if(key){
+      const salesPick = getSafeAssignedAgentForService(key, "");
+      const salesUid = String(salesPick?.uid || salesPick?.id || "").trim();
+      if(salesUid){
+        base.salesAssignedTo = salesUid;
+        base.salesAssignedName = String(salesPick?.name || salesPick?.email || salesUid).trim();
+        base.assignedTo = salesUid;
+        base.assignedName = String(salesPick?.name || salesPick?.email || salesUid).trim();
+        base.branchId = String(salesPick?.branchId || "").trim();
+        base.assignedAt = nowIso;
+        base.assignedBy = "auto_random";
+      }
+    }
+
+    return base;
+  }
+
   function getSafeAssignedAgentForService(serviceKey, preferredUid=""){
     const targetBranchName = getTargetBranchNameByServiceKey(serviceKey);
     if(!targetBranchName) return null;
@@ -5745,9 +5796,10 @@ scroller.addEventListener("scroll", ()=>{
         const _rawCh = (conv.channel || conv.platform || conv.source || "");
         const source = normalizeSourceLabel(_rawCh || (isIG?"instagram":(isFB?"facebook":"whatsapp")));
 
-        // choose first stage as default (if available)
-        const defaultStageId = Array.from(stagesMap.keys())[0] || "";
-        const branchId = assignedTo ? (agentsUidMap.get(assignedTo)?.branchId || "") : "";
+        const newLeadAssign = getDefaultAssignmentForNewLead(
+          convServiceKey,
+          String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || "").trim()
+        );
 
         await setDoc(leadRef, {
           name: (conv.displayName || conv.name || conv.participantName || conv.participant_name || "-"),
@@ -5757,18 +5809,8 @@ scroller.addEventListener("scroll", ()=>{
           participantId: pid || "",
           source: source,
           channel: conv.channel || (isIG?"instagram":(isFB?"facebook":"whatsapp")),
-          autoService: convServiceKey || "",
-          serviceKey: convServiceKey || "",
-          ...(getPayTypeLabelByServiceKey(convServiceKey) ? { paymentType: getPayTypeLabelByServiceKey(convServiceKey), payType: getPayTypeLabelByServiceKey(convServiceKey) } : {}),
-          salesAssignedTo: assignedTo,
-          salesAssignedName: assignedName,
-          assignedTo: assignedTo,
-          assignedName: assignedName,
-          ...(String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || "").trim() ? { callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || "").trim(), callCenterAssignedName: String(conv.callCenterAssignedName || "").trim() } : {}),
-          branchId: branchId,
+          ...newLeadAssign,
           convId: activeConvId,
-          leadStatusId: getDefaultLeadStatus().id,
-          leadStatusName: getDefaultLeadStatus().name,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
@@ -6138,11 +6180,10 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
         }
         if(leadId){
           const convServiceKey = String(conv.autoService || conv.serviceKey || "").trim().toLowerCase();
-          const convPayType = getPayTypeLabelByServiceKey(convServiceKey);
-          const safeSalesPick = getSafeAssignedAgentForService(convServiceKey, String(conv.salesAssignedTo || conv.assignedTo || "").trim());
-          const safeSalesUid = String(safeSalesPick?.uid || safeSalesPick?.id || conv.salesAssignedTo || conv.assignedTo || "").trim();
-          const safeSalesName = String(safeSalesPick?.name || conv.salesAssignedName || conv.assignedName || safeSalesUid || "").trim();
-          const safeBranchId = String(safeSalesPick?.branchId || conv.branchId || agentsUidMap.get(safeSalesUid)?.branchId || "").trim();
+          const safeSalesPick = convServiceKey ? getSafeAssignedAgentForService(convServiceKey, String(conv.salesAssignedTo || conv.assignedTo || "").trim()) : null;
+          const safeSalesUid = String(safeSalesPick?.uid || safeSalesPick?.id || (convServiceKey ? (conv.salesAssignedTo || conv.assignedTo || "") : "")).trim();
+          const safeSalesName = String(safeSalesPick?.name || (convServiceKey ? (conv.salesAssignedName || conv.assignedName || safeSalesUid || "") : "")).trim();
+          const safeBranchId = String(safeSalesPick?.branchId || (convServiceKey ? (conv.branchId || agentsUidMap.get(safeSalesUid)?.branchId || "") : "")).trim();
           await setDoc(doc(db,"leads", leadId), {
             name: payload.name || "",
             phone: payload.phone,
@@ -6165,7 +6206,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
             notes: payload.notes,
             autoService: String(conv.autoService || conv.serviceKey || ""),
             serviceKey: String(conv.serviceKey || conv.autoService || ""),
-            ...(convPayType ? { paymentType: convPayType, payType: convPayType } : {}),
+            ...(convServiceKey && getPayTypeLabelByServiceKey(convServiceKey) ? { paymentType: getPayTypeLabelByServiceKey(convServiceKey), payType: getPayTypeLabelByServiceKey(convServiceKey) } : {}),
             salesAssignedTo: safeSalesUid,
             salesAssignedName: safeSalesName,
             assignedTo: safeSalesUid,
@@ -7087,7 +7128,6 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
     const data = entry?.data || {};
     const uid = String(currentUser?.uid || "");
     if(uid && getAssignedUidFromLead(data, viewMode) === uid) return true;
-    if(String(viewMode || "") === "leads_finance" && isExternalFinanceLead(data) && userCanSeeTab("leads_finance")) return true;
     return false;
   }
 
@@ -7361,7 +7401,9 @@ function sortStatusesByCustomOrder(list){
     const explicit = String(d.autoService || d.serviceKey || d.department || d.service || "").trim().toLowerCase();
     if(["cash","finance","cs"].includes(explicit)) return explicit;
 
-    if(isSnapOrGoogleCallCenterLead(d, leadId)) return "finance";
+    const source = String(getNormalizedSourceForLead(d, leadId) || "").trim();
+    const isCallCenterOnlySource = (source === "حاسبة التقسيط") || isSnapOrGoogleCallCenterLead(d, leadId);
+    if(isCallCenterOnlySource) return "";
 
     const payType = String(getLeadPayTypeFromRawOnly(d) || "").trim();
     if(payType === "تمويل") return "finance";
@@ -7380,8 +7422,6 @@ function sortStatusesByCustomOrder(list){
       if(branchMatchesKey(branchValue, "cs")) return "cs";
     }
 
-    const source = String(getNormalizedSourceForLead(d, leadId) || "").trim();
-    if(source === "حاسبة التقسيط") return "finance";
     return "";
   }
 
@@ -9432,6 +9472,7 @@ function bindTasksUI(){
     const p = normalizePhone(String(phone||"")).replace(/^\+/, "");
     if(!p){ toast("رقم غير صالح", "warn"); return; }
 
+    try{ window.__allowInboxByPhoneOpen = true; }catch(e){}
     if(isInboxRestrictedForCurrentUser()){
       setInboxTempRestriction(p, leadName);
     }else{
@@ -10120,11 +10161,10 @@ function bindTasksUI(){
         const exists = await getDoc(leadRef).catch(()=>null);
         const source = normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp");
         const serviceKey = String(conv.autoService || conv.serviceKey || "").trim().toLowerCase();
-        const safeSalesPick = getSafeAssignedAgentForService(serviceKey, String(conv.salesAssignedTo || conv.assignedTo || "").trim());
-        const salesUid = String(safeSalesPick?.uid || safeSalesPick?.id || conv.salesAssignedTo || conv.assignedTo || "").trim();
-        const salesName = String(safeSalesPick?.name || conv.salesAssignedName || conv.assignedName || salesUid || "");
-        const branchId = salesUid ? (String(safeSalesPick?.branchId || agentsUidMap.get(salesUid)?.branchId || conv.branchId || "").trim()) : String(conv.branchId || "");
-        const payTypeByService = getPayTypeLabelByServiceKey(serviceKey);
+        const newLeadAssign = getDefaultAssignmentForNewLead(
+          serviceKey,
+          String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || "").trim()
+        );
         const leadPayload = {
           name: (conv.displayName || conv.name || conv.participantName || conv.participant_name || "-"),
           phone: phoneNorm ? ("+" + phoneNorm) : "",
@@ -10133,26 +10173,15 @@ function bindTasksUI(){
           participantId: String(conv.participantId || conv.participant_id || ""),
           source: source,
           channel: (conv.channel || conv.platform || "whatsapp"),
-          autoService: serviceKey,
-          serviceKey: serviceKey,
-          ...(payTypeByService ? { paymentType: payTypeByService, payType: payTypeByService } : {}),
-          salesAssignedTo: salesUid,
-          salesAssignedName: salesName,
-          assignedTo: salesUid,
-          assignedName: salesName,
-          callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
-          callCenterAssignedName: String(conv.callCenterAssignedName || ""),
-          branchId: branchId,
+          ...newLeadAssign,
           convId: convId,
-          leadStatusId: getDefaultLeadStatus().id,
-          leadStatusName: getDefaultLeadStatus().name,
           updatedAt: new Date().toISOString()
         };
         if(!(exists && exists.exists())){
           leadPayload.createdAt = new Date().toISOString();
         }
         await setDoc(leadRef, leadPayload, { merge:true });
-        if(serviceKey && (!salesUid || (serviceKey === "finance" && !String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || "").trim()))){
+        if(serviceKey && (!String(newLeadAssign.salesAssignedTo || "").trim() || (serviceKey === "finance" && !String(newLeadAssign.callCenterAssignedTo || "").trim()))){
           try{
             const assignRes = await assignLeadRandomByServiceKey(leadId, leadPayload, serviceKey);
             if(assignRes?.ok){
@@ -10179,18 +10208,29 @@ function bindTasksUI(){
 
       if(leadId){
         const patchServiceKey = String(conv.autoService || conv.serviceKey || "");
-        const patchPayType = getPayTypeLabelByServiceKey(patchServiceKey);
+        const patchBaseAssign = patchServiceKey
+          ? {
+              autoService: patchServiceKey,
+              serviceKey: patchServiceKey,
+              ...(getPayTypeLabelByServiceKey(patchServiceKey) ? { paymentType: getPayTypeLabelByServiceKey(patchServiceKey), payType: getPayTypeLabelByServiceKey(patchServiceKey) } : {}),
+              salesAssignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
+              salesAssignedName: String(conv.salesAssignedName || conv.assignedName || ""),
+              assignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
+              assignedName: String(conv.salesAssignedName || conv.assignedName || ""),
+              callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
+              callCenterAssignedName: String(conv.callCenterAssignedName || ""),
+              branchId: String(conv.branchId || "")
+            }
+          : {
+              autoService: "",
+              serviceKey: "",
+              callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
+              callCenterAssignedName: String(conv.callCenterAssignedName || ""),
+              leadStatusId: "",
+              leadStatusName: "—"
+            };
         const patch = {
-          autoService: patchServiceKey,
-          serviceKey: patchServiceKey,
-          ...(patchPayType ? { paymentType: patchPayType, payType: patchPayType } : {}),
-          salesAssignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
-          salesAssignedName: String(conv.salesAssignedName || conv.assignedName || ""),
-          assignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
-          assignedName: String(conv.salesAssignedName || conv.assignedName || ""),
-          callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
-          callCenterAssignedName: String(conv.callCenterAssignedName || ""),
-          branchId: String(conv.branchId || ""),
+          ...patchBaseAssign,
           convId: convId,
           updatedAt: new Date().toISOString()
         };
