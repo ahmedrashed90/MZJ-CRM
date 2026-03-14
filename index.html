@@ -1,5 +1,3 @@
-
-
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1798,7 +1796,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
           <div style="display:flex;align-items:center;gap:10px;min-width:0">
             <div class="logoMark" aria-hidden="true"></div>
             <div style="min-width:0">
-              <h1> إدارة العملاء (CRM)</h1>
+              <h1>لوحة إدارة العملاء (CRM)</h1>
               <p>صندوق وارد موحّد + توزيع تلقائي + أوتوميشن + إشعارات</p>
             </div>
           </div>
@@ -7463,7 +7461,9 @@ function sortStatusesByCustomOrder(list){
 
   function getLeadResponsibleNameForView(lead, viewMode=""){
     const mode = String(viewMode || window.__leadsViewMode || "").trim();
-    if(mode === "customers") return getCallCenterAssignedNameDisplay(lead);
+    // في تاب الكول سنتر: المسؤول = مندوب المبيعات/التمويل
+    // وعمود الكول سنتر يفضل يعرض مندوب الكول سنتر بشكل منفصل.
+    if(mode === "customers") return getSalesAssignedNameDisplay(lead);
     return getSalesAssignedNameDisplay(lead);
   }
 
