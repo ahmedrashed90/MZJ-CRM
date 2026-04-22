@@ -1,5 +1,6 @@
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -5522,6 +5523,56 @@ const WA_AUTO_MSG_MENU_FALLBACK =
       const convRef = doc(db,"wa_conversations", convId);
       const state = String(conv.autoFlowState || "").trim();
       const txt = _normChoiceTxt(m.text || m.body || m.message || "");
+      const forcedSvc = _choiceToService(txt);
+
+      // Honor a fresh service choice at any time, even if the customer changes selection later.
+      if(forcedSvc){
+        if(forcedSvc === "cash"){
+          await assignConversationToBranchRandom(convId, "مبيعات الكاش");
+          await updateDoc(convRef, {
+            autoFlowState: "routed_cash",
+            autoService: "cash",
+            serviceKey: "cash",
+            paymentType: "كاش",
+            payType: "كاش",
+            autoLastInboundId: lastId,
+            updatedAt: new Date().toISOString()
+          }).catch(()=>{});
+          await ensureLeadIdForConversationId(convId).catch(()=>"");
+          return;
+        }
+
+        if(forcedSvc === "cs"){
+          await assignConversationToBranchRandom(convId, "خدمة العملاء");
+          await updateDoc(convRef, {
+            autoFlowState: "routed_cs",
+            autoService: "cs",
+            serviceKey: "cs",
+            paymentType: "خدمة عملاء",
+            payType: "خدمة عملاء",
+            autoLastInboundId: lastId,
+            updatedAt: new Date().toISOString()
+          }).catch(()=>{});
+          await ensureLeadIdForConversationId(convId).catch(()=>"");
+          return;
+        }
+
+        if(forcedSvc === "finance"){
+          await assignConversationToBranchRandom(convId, "مبيعات التمويل");
+          await sendBotTextToConv(convId, WA_AUTO_MSG_FINANCE_FORM);
+          await updateDoc(convRef, {
+            autoFlowState: "awaiting_finance_details",
+            autoService: "finance",
+            serviceKey: "finance",
+            paymentType: "تمويل",
+            payType: "تمويل",
+            autoLastInboundId: lastId,
+            updatedAt: new Date().toISOString()
+          }).catch(()=>{});
+          await ensureLeadIdForConversationId(convId).catch(()=>"");
+          return;
+        }
+      }
 
       // 0) If no state yet -> send menu once
       if(!state){
@@ -7644,7 +7695,7 @@ function sortStatusesByCustomOrder(list){
     return `
       <tr data-id="${esc(id)}" class="leadTr">
         <td><a class="leadNameLink" data-openlead="${esc(id)}" href="javascript:void(0)">${esc(d.name)}</a></td>
-        <td><a class="leadPhoneLink" data-openinboxphone="${esc(lead.phoneNormalized || lead.phone || lead.waId || "")}" data-openinboxname="${esc(d.name)}" href="javascript:void(0)">${esc(d.phone)}</a></td>
+        <td><a class="leadPhoneLink" data-openleadid="${esc(id)}" data-openinboxphone="${esc(lead.phoneNormalized || lead.phone || lead.waId || "")}" data-openinboxname="${esc(d.name)}" href="javascript:void(0)">${esc(d.phone)}</a></td>
         <td>${esc((String((lead?.place ?? lead?.location ?? lead?.city ?? "")).trim()) || "—")}</td>
         <td>${esc(getNormalizedSourceForLead(lead,id) || "—")}</td>
         <td title="${esc(carName)}">${esc(carName)}</td>
@@ -9120,7 +9171,7 @@ function renderDbTr(id, data){
   const upd = esc(fsToHuman(data?.updatedAt || data?.updatedAtMs || data?.updated_at || data?.lastUpdatedAt || ""));
   return `<tr>
     <td><a class="leadOpenLink" data-openlead="${esc(id)}" href="javascript:void(0)">${name}</a></td>
-    <td><a class="leadPhoneLink" data-openinboxphone="${esc(phone)}" data-openinboxname="${name}" href="javascript:void(0)">${phone ? ("+"+phone) : "—"}</a></td>
+    <td><a class="leadPhoneLink" data-openleadid="${esc(id)}" data-openinboxphone="${esc(phone)}" data-openinboxname="${name}" href="javascript:void(0)">${phone ? ("+"+phone) : "—"}</a></td>
      <td>${place}</td>
      <td>${source}</td>
     <td>${car}</td>
@@ -9130,6 +9181,42 @@ function renderDbTr(id, data){
     <td>${campDate}</td>
     <td>${upd}</td>
   </tr>`;
+}
+
+
+let __dbOpenInboxBound = false;
+function bindDatabaseInboxOpen(){
+  if(__dbOpenInboxBound) return;
+  __dbOpenInboxBound = true;
+  const tb = document.getElementById("dbTbody");
+  if(!tb) return;
+  tb.addEventListener("click", (e)=>{
+    const ph = e.target.closest(".leadPhoneLink");
+    if(ph){
+      const leadId = String(ph.dataset.openleadid || "").trim();
+      const found = leadId ? leadsCache.find(x=>x.id===leadId) : null;
+      const p = String(ph.dataset.openinboxphone || "").trim();
+      if(found && isSocialLeadSource(found.data, leadId)){
+        openInboxForLeadRecord(leadId, found.data, p, ph.dataset.openinboxname || "");
+      }else if(p){
+        openInboxForPhone(p, ph.dataset.openinboxname || "");
+      }else{
+        toast("رقم غير موجود", "warn");
+      }
+      return;
+    }
+
+    const a = e.target.closest("[data-openlead]");
+    if(!a) return;
+    const id = String(a.dataset.openlead || "").trim();
+    const found = id ? leadsCache.find(x=>x.id===id) : null;
+    if(!found) return;
+    if(isSocialLeadSource(found.data, id)){
+      openInboxForLeadRecord(id, found.data, found.data?.phoneNormalized || found.data?.phone || found.data?.waId || "", found.data?.name || "");
+      return;
+    }
+    openLeadModal(id, found.data);
+  });
 }
 
 function applyDatabaseFilters(){
@@ -9425,8 +9512,12 @@ function bindTasksUI(){
     (tableWrap || document).addEventListener("click", (e)=>{
       const ph = e.target.closest(".leadPhoneLink");
       if(ph){
+        const leadId = String(ph.dataset.openleadid || "").trim();
+        const found = leadId ? leadsCache.find(x=>x.id===leadId) : null;
         const p = String(ph.dataset.openinboxphone||"").trim();
-        if(p){
+        if(found && isSocialLeadSource(found.data, leadId)){
+          openInboxForLeadRecord(leadId, found.data, p, ph.dataset.openinboxname || "");
+        }else if(p){
           openInboxForPhone(p, ph.dataset.openinboxname || "");
         }else{
           toast("رقم غير موجود", "warn");
@@ -9439,6 +9530,11 @@ function bindTasksUI(){
       const id = a.dataset.openlead;
       const found = leadsCache.find(x=>x.id===id);
       if(!found) return;
+
+      if(isSocialLeadSource(found.data, id)){
+        openInboxForLeadRecord(id, found.data, found.data?.phoneNormalized || found.data?.phone || found.data?.waId || "", found.data?.name || "");
+        return;
+      }
 
       openLeadModal(id, found.data); return;
 
@@ -9737,6 +9833,100 @@ function bindTasksUI(){
       console.warn(err);
       toast("تعذر إعادة التوزيع: " + (err?.message||err), "warn");
     }
+  }
+
+  function isSocialLeadSource(lead, leadId=""){
+    const src = String(getNormalizedSourceForLead(lead || {}, leadId) || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ");
+    return src === "فيسبوك"
+      || src === "facebook"
+      || src === "facebook messenger"
+      || src === "messenger"
+      || src === "انستجرام"
+      || src === "instagram"
+      || src === "تيكتوك"
+      || src === "تيك توك"
+      || src === "tiktok";
+  }
+
+  function findConversationForLeadRecord(leadId, leadData, leadName=""){
+    const lead = leadData || {};
+    const normalizedPhone = normalizePhone(String(lead.phoneNormalized || lead.phone || lead.waId || "")).replace(/^\+/, "");
+    const participantId = String(lead.participantId || lead.participant_id || lead.senderId || lead.fbId || lead.igId || lead.igUserId || lead.manychatContactId || "").trim();
+    const contactKey = String(lead.contactKey || lead.conversationId || lead.convId || "").trim();
+    const wantedName = String(leadName || lead.name || "").trim();
+    const wantedSource = String(getNormalizedSourceForLead(lead, leadId) || "").trim();
+
+    const pool = dedupeInboxConversations(inboxCache).filter(x=>{
+      const conv = x?.data || {};
+      return !usesOwnInboxScope() || isConversationVisibleToCurrentUser(conv);
+    });
+
+    const exactLead = pool.find(x=> String(x?.data?.leadId || "").trim() && String(x.data.leadId).trim() === String(leadId || "").trim());
+    if(exactLead) return exactLead;
+
+    const exactParticipant = participantId ? pool.find(x=>{
+      const conv = x?.data || {};
+      return String(conv.participantId || conv.participant_id || conv.senderId || conv.fbId || conv.igId || conv.igUserId || conv.manychatContactId || "").trim() === participantId;
+    }) : null;
+    if(exactParticipant) return exactParticipant;
+
+    const exactContactKey = contactKey ? pool.find(x=>{
+      const conv = x?.data || {};
+      return String(conv.contactKey || conv.conversationId || "").trim() === contactKey;
+    }) : null;
+    if(exactContactKey) return exactContactKey;
+
+    const exactPhone = normalizedPhone ? pool.find(x=> normalizePhone(String(x?.data?.waId || x?.data?.phoneNormalized || x?.data?.phone || "")).replace(/^\+/, "") === normalizedPhone) : null;
+    if(exactPhone) return exactPhone;
+
+    const byNameAndSource = wantedName ? pool.find(x=>{
+      const conv = x?.data || {};
+      const convName = String(conv.displayName || conv.name || "").trim();
+      const convSource = String(channelToSourceLabel(conv.channel || conv.platform || conv.source || "") || normalizeSourceLabel(conv.source || conv.platform || conv.channel || "") || "").trim();
+      if(convName !== wantedName) return false;
+      return !wantedSource || !convSource || convSource === wantedSource;
+    }) : null;
+    if(byNameAndSource) return byNameAndSource;
+
+    return null;
+  }
+
+  async function openInboxForLeadRecord(leadId, leadData, preferredPhone="", leadName=""){
+    const lead = leadData || {};
+    const name = String(leadName || lead.name || "").trim();
+    const phone = normalizePhone(String(preferredPhone || lead.phoneNormalized || lead.phone || lead.waId || "")).replace(/^\+/, "");
+
+    try{ window.__allowInboxByPhoneOpen = true; }catch(e){}
+    if(isInboxRestrictedForCurrentUser()){
+      setInboxTempRestriction(phone || name, name);
+    }else{
+      clearInboxTempRestriction();
+    }
+
+    showTab("inbox");
+
+    setTimeout(async ()=>{
+      const s = $("#fSearch");
+      if(s) s.value = isInboxRestrictedForCurrentUser() ? "" : (phone || name);
+      try{ applyInboxFilters(); }catch(e){}
+
+      const hit = findConversationForLeadRecord(leadId, lead, name);
+      if(hit){
+        openConversation(hit.id);
+        return;
+      }
+
+      if(phone){
+        await openInboxForPhone(phone, name);
+        return;
+      }
+
+      toast("تعذر العثور على محادثة هذا العميل", "warn");
+    }, 160);
   }
 
   async function openInboxForPhone(phone, leadName){
@@ -10316,6 +10506,7 @@ function bindTasksUI(){
 
   // ===== Boot =====
   bindTabs();
+  bindDatabaseInboxOpen();
   bindAuthUI();
   bindSettingsUI();
   bindSettingsRealtime();
