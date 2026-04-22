@@ -1,4 +1,5 @@
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3072,6 +3073,14 @@ function renderTemplateSelectOptions(){
   let stagesMap = new Map();     // id -> {name}
   let activeSettingsType = "branches";
 
+  const LEAD_VIEW_FILTER_IDS = ["leadsSearch","leadsFilterBranch","leadsFilterAgent","leadsFilterStatus","leadsFilterSource","leadsFilterCar","leadsFilterPay"];
+  const leadFiltersByView = {
+    customers: { leadsSearch:"", leadsFilterBranch:"", leadsFilterAgent:"", leadsFilterStatus:"", leadsFilterSource:"", leadsFilterCar:"", leadsFilterPay:"" },
+    leads_cash: { leadsSearch:"", leadsFilterBranch:"", leadsFilterAgent:"", leadsFilterStatus:"", leadsFilterSource:"", leadsFilterCar:"", leadsFilterPay:"" },
+    leads_finance: { leadsSearch:"", leadsFilterBranch:"", leadsFilterAgent:"", leadsFilterStatus:"", leadsFilterSource:"", leadsFilterCar:"", leadsFilterPay:"" },
+    leads_cs: { leadsSearch:"", leadsFilterBranch:"", leadsFilterAgent:"", leadsFilterStatus:"", leadsFilterSource:"", leadsFilterCar:"", leadsFilterPay:"" }
+  };
+
   // ===== Helpers =====
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -3790,10 +3799,11 @@ function renderTemplateSelectOptions(){
 
     const isQueueView = (viewMode === "leads_cash" || viewMode === "leads_finance" || viewMode === "leads_cs");
     const showBranch = !isQueueView;
-    const showAgent = !(isQueueView && !canViewAllLeads());
+    // فلتر المندوب لازم يفضل ظاهر حتى داخل تبويبات الكاش/التمويل/خدمة العملاء
+    // علشان أقدر أفلتر على مندوب واحد وأشوف العملاء اللي معاه فقط.
+    const showAgent = true;
 
     if(branchEl && !showBranch) branchEl.value = "";
-    if(agentEl && !showAgent) agentEl.value = "";
 
     if(branchEl) branchEl.style.display = showBranch ? "" : "none";
     if(agentEl) agentEl.style.display = showAgent ? "" : "none";
@@ -3804,6 +3814,30 @@ function renderTemplateSelectOptions(){
     const showPay = canViewAllLeads();
     if(payEl && !showPay) payEl.value = "";
     if(payEl) payEl.style.display = showPay ? "" : "none";
+  }
+
+  function getLeadFilterStateForView(viewMode){
+    const mode = String(viewMode || window.__leadsViewMode || "customers").trim();
+    if(!leadFiltersByView[mode]){
+      leadFiltersByView[mode] = { leadsSearch:"", leadsFilterBranch:"", leadsFilterAgent:"", leadsFilterStatus:"", leadsFilterSource:"", leadsFilterCar:"", leadsFilterPay:"" };
+    }
+    return leadFiltersByView[mode];
+  }
+
+  function saveCurrentLeadFilters(viewMode){
+    const state = getLeadFilterStateForView(viewMode);
+    LEAD_VIEW_FILTER_IDS.forEach(id=>{
+      const el = $("#"+id);
+      if(el) state[id] = String(el.value || "");
+    });
+  }
+
+  function restoreLeadFiltersForView(viewMode){
+    const state = getLeadFilterStateForView(viewMode);
+    LEAD_VIEW_FILTER_IDS.forEach(id=>{
+      const el = $("#"+id);
+      if(el) el.value = String(state[id] || "");
+    });
   }
 
   function showTab(tabId){
@@ -3867,6 +3901,7 @@ function renderTemplateSelectOptions(){
     // ✅ Lead views presets
     if(panelKey === "leads"){
       window.__leadsViewMode = tabId; // used inside applyLeadFilters
+      try{ restoreLeadFiltersForView(tabId); }catch(e){}
       try{ updateLeadFiltersVisibility(); }catch(e){}
       // تأكد أن العملاء يتم تحميلهم حتى لو فتحت أي View غير قاعدة البيانات
       try{ ensureLeadsLive(); }catch(e){}
@@ -3970,8 +4005,7 @@ function renderTemplateSelectOptions(){
         // also index by uid (for assignment lookups)
         agentsUidMap.set(uidKey, obj);
       });
-      const activeAgents = Array.from(agentsUidMap.values()).filter(a=>a.isActive);
-      fillSelect($("#leadsFilterAgent"), activeAgents.map(a=>({value:a.uid,label:a.name})));
+      refreshLeadAgentFilter(window.__leadsViewMode || "customers");
       refreshSettingsTables();
       try{ renderAdminUsersList(); }catch(e){ console.warn('renderAdminUsersList', e); }
     });
@@ -7471,21 +7505,31 @@ function sortStatusesByCustomOrder(list){
     const queueKey = String(getLeadQueueKey(lead, leadId) || "").trim().toLowerCase();
     const preferredSalesUid = String(lead?.salesAssignedTo || "").trim();
     const fallbackAssignedUid = String(lead?.assignedTo || "").trim();
+    const storedUid = String(preferredSalesUid || fallbackAssignedUid || "").trim();
 
-    if(queueKey === "finance" || queueKey === "cash" || queueKey === "cs"){
-      const validPick = getSafeAssignedAgentForService(queueKey, preferredSalesUid || fallbackAssignedUid);
-      const currentUid = String(validPick?.uid || validPick?.id || "").trim();
-      if(currentUid){
-        return String(validPick?.name || lead?.salesAssignedName || lead?.assignedName || agentsUidMap.get(currentUid)?.name || currentUid).trim() || "غير موزع";
+    // مهم: نحترم الربط المخزن فعلياً داخل Firebase ولا نولّد اسم مندوب عشوائي عند كل refresh.
+    if(storedUid){
+      const storedAgent = agentsUidMap.get(storedUid) || agentsMap.get(storedUid) || null;
+      if(storedAgent){
+        return String(
+          lead?.salesAssignedName ||
+          lead?.assignedName ||
+          storedAgent?.name ||
+          storedAgent?.email ||
+          storedUid
+        ).trim() || "غير موزع";
       }
+      return String(lead?.salesAssignedName || lead?.assignedName || storedUid).trim() || "غير موزع";
+    }
+
+    // لو لا يوجد ربط مخزن أصلاً، نستخدم تعيينًا ثابتًا deterministic للعرض فقط.
+    if(queueKey === "finance" || queueKey === "cash" || queueKey === "cs"){
       const deterministicPick = getDeterministicConfiguredAgentForService(queueKey, leadId, lead);
       if(deterministicPick){
         return String(deterministicPick?.name || deterministicPick?.email || "غير موزع").trim() || "غير موزع";
       }
     }
 
-    const salesUid = String(preferredSalesUid || fallbackAssignedUid || "").trim();
-    if(salesUid) return String(lead?.salesAssignedName || lead?.assignedName || agentsUidMap.get(salesUid)?.name || salesUid).trim() || "غير موزع";
     return String(lead?.salesAssignedName || lead?.assignedName || "").trim() || "غير موزع";
   }
 
@@ -7938,6 +7982,56 @@ function sortStatusesByCustomOrder(list){
 
     fillSelect(srcSel, items);
     if(prev) srcSel.value = prev;
+  }
+
+  function getAllowedAgentOptionsForLeadView(viewMode="customers"){
+    const mode = String(viewMode || window.__leadsViewMode || "customers").trim();
+    const targetBranchKey = (
+      mode === "leads_cash" ? "cash" :
+      mode === "leads_finance" ? "finance" :
+      mode === "leads_cs" ? "cs" :
+      mode === "customers" ? "callcenter" :
+      ""
+    );
+
+    let agents = Array.from(agentsUidMap.values()).filter(a=>a && a.isActive && !isExcludedAssignee(a));
+
+    if(targetBranchKey){
+      agents = agents.filter(a=> branchMatchesKey(String(a?.branchId || "").trim(), targetBranchKey));
+    }
+
+    agents.sort((a,b)=> String(a?.name || "").localeCompare(String(b?.name || ""), "ar"));
+    return agents.map(a=>({
+      value: String(a.uid || a.id || "").trim(),
+      label: String(a.name || a.email || a.uid || a.id || "—").trim()
+    })).filter(x=>x.value);
+  }
+
+  function refreshLeadAgentFilter(viewMode="customers"){
+    const agentSel = $("#leadsFilterAgent");
+    if(!agentSel) return;
+
+    const mode = String(viewMode || window.__leadsViewMode || "customers").trim();
+    const prev = agentSel.value || "";
+    const firstLabel = (
+      mode === "leads_cash" ? "كل مناديب الكاش" :
+      mode === "leads_finance" ? "كل مناديب التمويل" :
+      mode === "leads_cs" ? "كل مناديب خدمة العملاء" :
+      mode === "customers" ? "كل مناديب الكول سنتر" :
+      "كل المندوبين"
+    );
+
+    agentSel.innerHTML = `<option value="">${esc(firstLabel)}</option>`;
+
+    const items = getAllowedAgentOptionsForLeadView(mode);
+    items.forEach(({value,label})=>{
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = label;
+      agentSel.appendChild(opt);
+    });
+
+    if(prev && items.some(x=>x.value === prev)) agentSel.value = prev;
   }
 
   // ===== Pipeline (Kanban) — نفس حالات العملاء =====
@@ -8471,7 +8565,9 @@ function updateLeadsTableColumns(viewMode="customers"){
 }
 
 function applyLeadFilters(){
+    try{ saveCurrentLeadFilters(window.__leadsViewMode || "customers"); }catch(e){}
     try{ updateLeadFiltersVisibility(); }catch(e){}
+    refreshLeadAgentFilter(window.__leadsViewMode || "customers");
     refreshLeadCarPayFilters();
     refreshLeadSourceFilter();
     const tb = $("#leadsTbody");
@@ -8687,8 +8783,11 @@ function getScopedLeadBaseList(viewMode="customers"){
     const d = data || {};
 
     if(mode === "customers"){
-      if(!isFinanceLeadForRouting(d, id)) return false;
-      if(!isCallCenterFinanceStatusVisible(d, id)) return false;
+      const queueKey = String(getLeadQueueKey(d, id) || "").trim().toLowerCase();
+      const isFinanceRoutingLead = isFinanceLeadForRouting(d, id);
+      const isCustomerServiceLead = queueKey === "cs";
+      if(!isFinanceRoutingLead && !isCustomerServiceLead) return false;
+      if(isFinanceRoutingLead && !isCallCenterFinanceStatusVisible(d, id)) return false;
       if(canAll) return true;
       if(!uid) return false;
       return getCallCenterAssignedUidFromLead(d) === uid;
@@ -9393,9 +9492,15 @@ function bindTasksUI(){
       });
     });
 
-    ["leadsSearch","leadsFilterBranch","leadsFilterAgent","leadsFilterStatus","leadsFilterSource","leadsFilterCar","leadsFilterPay"].forEach(id=>{
-      $("#"+id)?.addEventListener("input", applyLeadFilters);
-      $("#"+id)?.addEventListener("change", applyLeadFilters);
+    LEAD_VIEW_FILTER_IDS.forEach(id=>{
+      $("#"+id)?.addEventListener("input", ()=>{
+        try{ saveCurrentLeadFilters(window.__leadsViewMode || "customers"); }catch(e){}
+        applyLeadFilters();
+      });
+      $("#"+id)?.addEventListener("change", ()=>{
+        try{ saveCurrentLeadFilters(window.__leadsViewMode || "customers"); }catch(e){}
+        applyLeadFilters();
+      });
     });
 
     // Database filters bind (مرة واحدة)
@@ -10326,6 +10431,22 @@ function bindTasksUI(){
       return "";
     }
 
+    async function findLeadByConversationIdentity(contactKey="", participantId=""){
+      const ck = String(contactKey || "").trim();
+      const pid = String(participantId || "").trim();
+      if(ck){
+        const q1 = query(collection(db,"leads"), where("contactKey","==", ck), limit(1));
+        const s1 = await getDocs(q1).catch(()=>null);
+        if(s1 && !s1.empty) return s1.docs[0].id;
+      }
+      if(pid){
+        const q2 = query(collection(db,"leads"), where("participantId","==", pid), limit(1));
+        const s2 = await getDocs(q2).catch(()=>null);
+        if(s2 && !s2.empty) return s2.docs[0].id;
+      }
+      return "";
+    }
+
     async function ensureLeadIdForConversationId(convId){
       if(!convId) return "";
       const sConv = await getDoc(doc(db,"wa_conversations", convId)).catch(()=>null);
@@ -10335,6 +10456,19 @@ function bindTasksUI(){
 
       const phoneRaw = String(conv.waId || conv.phone || conv.phoneNormalized || "").trim();
       const phoneNorm = normalizePhone(phoneRaw).replace(/^\+/, "");
+      const participantId = String(conv.participantId || conv.participant_id || conv.senderId || conv.fbId || conv.igUserId || conv.igId || conv.customerHandle || "").trim();
+      const contactKey = String(conv.contactKey || conv.conversationId || convId || participantId || phoneNorm || "").trim();
+      const source = normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp");
+      const inferredServiceKey = getLeadServiceKey({
+        source,
+        channel: conv.channel || conv.platform || "whatsapp",
+        autoService: conv.autoService || getConversationServiceKey(conv) || "",
+        serviceKey: conv.serviceKey || getConversationServiceKey(conv) || "",
+        paymentType: conv.paymentType || conv.payType || "",
+        payType: conv.payType || conv.paymentType || "",
+        branchId: conv.branchId || ""
+      }, contactKey || phoneNorm || participantId || convId);
+      const serviceKey = String(inferredServiceKey || conv.autoService || conv.serviceKey || getConversationServiceKey(conv) || "").trim().toLowerCase();
 
       let leadId = String(conv.leadId || "").trim();
       if(leadId){
@@ -10350,37 +10484,42 @@ function bindTasksUI(){
         }
       }
 
-      if(!leadId && phoneNorm){
-        const shouldCreate = !!(conv.salesAssignedTo || conv.assignedTo || conv.callCenterAssignedTo || conv.autoService || conv.autoFlowState || conv.createdBy || conv.source);
-        if(!shouldCreate) return "";
+      if(!leadId && (contactKey || participantId)){
+        const foundByIdentity = await findLeadByConversationIdentity(contactKey, participantId);
+        if(foundByIdentity){
+          leadId = foundByIdentity;
+          await updateDoc(convRef, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
+        }
+      }
 
-        leadId = phoneNorm;
+      const shouldCreate = !!(
+        conv.salesAssignedTo || conv.assignedTo || conv.callCenterAssignedTo ||
+        conv.autoService || conv.serviceKey || conv.autoFlowState || conv.createdBy || conv.source || serviceKey
+      );
+
+      if(!leadId && shouldCreate){
+        leadId = phoneNorm || contactKey || participantId || convId;
         const leadRef = doc(db,"leads", leadId);
         const exists = await getDoc(leadRef).catch(()=>null);
-        const source = normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp");
-        const inferredServiceKey = getLeadServiceKey({
-          source,
-          channel: conv.channel || conv.platform || "whatsapp",
-          autoService: conv.autoService || "",
-          serviceKey: conv.serviceKey || "",
-          paymentType: conv.paymentType || conv.payType || "",
-          payType: conv.payType || conv.paymentType || ""
-        }, leadId || phoneNorm);
-        const serviceKey = String(inferredServiceKey || conv.autoService || conv.serviceKey || "").trim().toLowerCase();
         const newLeadAssign = getDefaultAssignmentForNewLead(
           serviceKey,
           String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || "").trim()
         );
+        const displayName = String(conv.displayName || conv.name || conv.participantName || conv.participant_name || conv.customerHandle || "-").trim() || "-";
         const leadPayload = {
-          name: (conv.displayName || conv.name || conv.participantName || conv.participant_name || "-"),
+          name: displayName,
           phone: phoneNorm ? ("+" + phoneNorm) : "",
           phoneNormalized: phoneNorm,
-          contactKey: String(conv.contactKey || phoneNorm),
-          participantId: String(conv.participantId || conv.participant_id || ""),
+          contactKey: contactKey,
+          participantId: participantId,
           source: source,
           channel: (conv.channel || conv.platform || "whatsapp"),
+          autoService: serviceKey || String(newLeadAssign.autoService || ""),
+          serviceKey: serviceKey || String(newLeadAssign.serviceKey || ""),
+          ...(getPayTypeLabelByServiceKey(serviceKey || newLeadAssign.autoService || "") ? { paymentType: getPayTypeLabelByServiceKey(serviceKey || newLeadAssign.autoService || ""), payType: getPayTypeLabelByServiceKey(serviceKey || newLeadAssign.autoService || "") } : {}),
           ...newLeadAssign,
-          ...(source === "واتساب" ? { leadStatusId: "", leadStatusName: "—" } : {}),
+          leadStatusId: String(conv.leadStatusId || ""),
+          leadStatusName: String(conv.leadStatusName || "—"),
           convId: convId,
           updatedAt: new Date().toISOString()
         };
@@ -10414,7 +10553,7 @@ function bindTasksUI(){
       }
 
       if(leadId){
-        const patchServiceKey = String(conv.autoService || conv.serviceKey || "");
+        const patchServiceKey = String(serviceKey || conv.autoService || conv.serviceKey || "").trim();
         const patchBaseAssign = patchServiceKey
           ? {
               autoService: patchServiceKey,
@@ -10426,7 +10565,8 @@ function bindTasksUI(){
               assignedName: String(conv.salesAssignedName || conv.assignedName || ""),
               callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
               callCenterAssignedName: String(conv.callCenterAssignedName || ""),
-              ...(normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp") === "واتساب" && !String(conv.leadStatusId || conv.leadStatusName || "").trim() ? { leadStatusId: "", leadStatusName: "—" } : {}),
+              leadStatusId: String(conv.leadStatusId || ""),
+              leadStatusName: String(conv.leadStatusName || "—"),
               branchId: String(conv.branchId || "")
             }
           : {
@@ -10434,11 +10574,18 @@ function bindTasksUI(){
               serviceKey: "",
               callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
               callCenterAssignedName: String(conv.callCenterAssignedName || ""),
-              leadStatusId: "",
-              leadStatusName: "—"
+              leadStatusId: String(conv.leadStatusId || ""),
+              leadStatusName: String(conv.leadStatusName || "—")
             };
         const patch = {
           ...patchBaseAssign,
+          name: String(conv.displayName || conv.name || conv.participantName || conv.participant_name || conv.customerHandle || "-").trim() || "-",
+          phone: phoneNorm ? ("+" + phoneNorm) : "",
+          phoneNormalized: phoneNorm,
+          contactKey: contactKey,
+          participantId: participantId,
+          source: source,
+          channel: (conv.channel || conv.platform || "whatsapp"),
           convId: convId,
           updatedAt: new Date().toISOString()
         };
@@ -10448,7 +10595,7 @@ function bindTasksUI(){
             const leadSnap = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
             const leadDataNow = leadSnap?.exists() ? (leadSnap.data()||{}) : patch;
             const needSales = !String(leadDataNow.salesAssignedTo || leadDataNow.assignedTo || "").trim();
-            const needCall = patchServiceKey === "finance" && !String(leadDataNow.callCenterAssignedTo || leadDataNow.callcenterAssignedTo || "").trim();
+            const needCall = (patchServiceKey === "finance" || patchServiceKey === "cs") && !String(leadDataNow.callCenterAssignedTo || leadDataNow.callcenterAssignedTo || "").trim();
             if(needSales || needCall){
               const assignRes = await assignLeadRandomByServiceKey(leadId, leadDataNow, patchServiceKey);
               if(assignRes?.ok){
@@ -10466,6 +10613,9 @@ function bindTasksUI(){
                 }
                 await updateDoc(convRef, convPatch).catch(()=>{});
               }
+            }
+            if(patchServiceKey === "finance"){
+              try{ await ensureFinanceLeadRoutingVisibility(leadId, leadDataNow, String(leadDataNow.leadStatusName || "")); }catch(e){ console.warn("ensureLeadId finance routing", e); }
             }
           }catch(e){ console.warn("ensureLeadId patch assign", e); }
         }
