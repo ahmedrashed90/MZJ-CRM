@@ -1,6 +1,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -7287,7 +7288,8 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
       const data = item?.data || {};
       if(!leadId || __autoAssignedCallCenterLeadIds.has(leadId)) continue;
       try{ await normalizeLeadSalesAssignmentIfNeeded(leadId, data); }catch(e){}
-      if(!isFinanceLeadForRouting(data, leadId)) continue;
+      const routingServiceKey = String(getLeadServiceKey(data, leadId) || getLeadQueueKey(data, leadId) || "").trim().toLowerCase();
+      if(!["finance","cs"].includes(routingServiceKey)) continue;
       const hasCall = String(getCallCenterAssignedUidFromLead(data) || "").trim();
       if(hasCall){ __autoAssignedCallCenterLeadIds.add(leadId); continue; }
       try{
@@ -7308,7 +7310,7 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
           __autoAssignedCallCenterLeadIds.add(leadId);
           continue;
         }
-        const res = await assignLeadRandomByServiceKey(leadId, data, "finance");
+        const res = await assignLeadRandomByServiceKey(leadId, data, routingServiceKey || "finance");
         if(res?.ok) __autoAssignedCallCenterLeadIds.add(leadId);
       }catch(e){ console.warn("autoAssignMissingFinanceCallCenterLeads", e); }
     }
@@ -7686,6 +7688,26 @@ function sortStatusesByCustomOrder(list){
     return getLeadQueueKey(lead, leadId) === String(queueKey || "").trim().toLowerCase();
   }
 
+  function matchesLeadTabService(lead, queueKey, leadId=""){
+    const target = String(queueKey || "").trim().toLowerCase();
+    if(!target) return false;
+    const rawPay = String(getLeadPayTypeFromRawOnly(lead || {}) || "").trim();
+    const serviceKey = String(getLeadQueueKey(lead || {}, leadId) || "").trim().toLowerCase();
+    if(target === "cash"){
+      if(rawPay && rawPay !== "كاش") return false;
+      return serviceKey === "cash" || (!serviceKey && rawPay === "كاش");
+    }
+    if(target === "finance"){
+      if(rawPay && rawPay !== "تمويل") return false;
+      return serviceKey === "finance" || (!serviceKey && rawPay === "تمويل") || isFinanceLeadForRouting(lead || {}, leadId);
+    }
+    if(target === "cs"){
+      if(rawPay && rawPay !== "خدمة عملاء") return false;
+      return serviceKey === "cs" || (!serviceKey && rawPay === "خدمة عملاء");
+    }
+    return serviceKey === target;
+  }
+
   function renderLeadTr(id, lead){
     const viewMode = String(window.__leadsViewMode || "customers").trim();
     const d = getLeadDisplay({ ...(lead||{}), id }, viewMode);
@@ -7965,8 +7987,9 @@ function sortStatusesByCustomOrder(list){
           const statusName = (leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name);
           const latestSnap = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
           const latestLeadData = (latestSnap && latestSnap.exists()) ? (latestSnap.data()||{}) : (leadData || {});
-          await updateDoc(doc(db,"leads", leadId), { leadStatusId: statusId, leadStatusName: statusName, updatedAt: new Date().toISOString() });
-          try{ await ensureFinanceLeadRoutingVisibility(leadId, { ...latestLeadData, leadStatusId: statusId, leadStatusName: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(leadModal)", e); }
+          await updateDoc(doc(db,"leads", leadId), { leadStatusId: statusId, leadStatusName: statusName, status: statusName, leadStatus: statusName, currentStatus: statusName, updatedAt: new Date().toISOString() });
+          try{ await syncLeadStatusToConversation(leadId, latestLeadData, statusId, statusName); }catch(e){ console.warn("syncLeadStatusToConversation(leadModal)", e); }
+          try{ await ensureFinanceLeadRoutingVisibility(leadId, { ...latestLeadData, leadStatusId: statusId, leadStatusName: statusName, status: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(leadModal)", e); }
           toast("تم تحديث الحالة");
         }catch(err){
           console.warn(err);
@@ -8641,11 +8664,11 @@ function applyLeadFilters(){
       if(viewMode === "customers"){
         if(!isFinanceLeadForRouting(data, id) || !isCallCenterFinanceStatusVisible(data, id)) return false;
       }else if(viewMode === "leads_cash"){
-        if(!isLeadInQueue(data, "cash", id) && getLeadPayType(data) !== "كاش") return false;
+        if(!matchesLeadTabService(data, "cash", id)) return false;
       }else if(viewMode === "leads_finance"){
-        if(!isFinanceLeadForRouting(data, id) || !isFinanceSalesStatusVisible(data, id)) return false;
+        if(!matchesLeadTabService(data, "finance", id) || !isFinanceSalesStatusVisible(data, id)) return false;
       }else if(viewMode === "leads_cs"){
-        if(!isLeadInQueue(data, "cs", id) && getLeadPayType(data) !== "خدمة عملاء") return false;
+        if(!matchesLeadTabService(data, "cs", id)) return false;
       }
 
       if(fa && getAssignedUidFromLead(data, viewMode) !== fa) return false;
@@ -8834,9 +8857,8 @@ function getScopedLeadBaseList(viewMode="customers"){
     const d = data || {};
 
     if(mode === "customers"){
-      const queueKey = String(getLeadQueueKey(d, id) || "").trim().toLowerCase();
-      const isFinanceRoutingLead = isFinanceLeadForRouting(d, id);
-      const isCustomerServiceLead = queueKey === "cs";
+      const isFinanceRoutingLead = matchesLeadTabService(d, "finance", id);
+      const isCustomerServiceLead = matchesLeadTabService(d, "cs", id);
       if(!isFinanceRoutingLead && !isCustomerServiceLead) return false;
       if(isFinanceRoutingLead && !isCallCenterFinanceStatusVisible(d, id)) return false;
       if(canAll) return true;
@@ -8845,7 +8867,7 @@ function getScopedLeadBaseList(viewMode="customers"){
     }
 
     if(mode === "leads_finance"){
-      if(!isFinanceLeadForRouting(d, id)) return false;
+      if(!matchesLeadTabService(d, "finance", id)) return false;
       if(!isFinanceSalesStatusVisible(d, id)) return false;
       if(canAll) return true;
       if(!uid) return false;
@@ -8853,14 +8875,14 @@ function getScopedLeadBaseList(viewMode="customers"){
     }
 
     if(mode === "leads_cash"){
-      if(!isLeadInQueue(d, "cash", id) && getLeadPayType(d) !== "كاش") return false;
+      if(!matchesLeadTabService(d, "cash", id)) return false;
       if(canAll) return true;
       if(!uid) return false;
       return getSalesAssignedUidFromLead(d) === uid;
     }
 
     if(mode === "leads_cs"){
-      if(!isLeadInQueue(d, "cs", id) && getLeadPayType(d) !== "خدمة عملاء") return false;
+      if(!matchesLeadTabService(d, "cs", id)) return false;
       if(canAll) return true;
       if(!uid) return false;
       return getSalesAssignedUidFromLead(d) === uid;
@@ -9089,8 +9111,12 @@ function bindCustomerStatusesUI(){
       await updateDoc(doc(db, "leads", leadId), {
         leadStatusId: statusId,
         leadStatusName: statusName,
+        status: statusName,
+        leadStatus: statusName,
+        currentStatus: statusName,
         updatedAt: new Date().toISOString()
       });
+      try{ await syncLeadStatusToConversation(leadId, found.data || {}, statusId, statusName); }catch(e){ console.warn("syncLeadStatusToConversation(generic)", e); }
       toast("تم تحديث الحالة", "ok");
       renderCustomerStatusesTab();
       try{ applyLeadFilters(); }catch(e){}
@@ -9577,9 +9603,13 @@ function bindTasksUI(){
           await updateDoc(doc(db,"leads", id), {
             leadStatusId: statusId,
             leadStatusName: statusName,
+            status: statusName,
+            leadStatus: statusName,
+            currentStatus: statusName,
             updatedAt: new Date().toISOString()
           });
-          try{ await ensureFinanceLeadRoutingVisibility(id, { ...latestLeadData, leadStatusId: statusId, leadStatusName: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(detailsCard)", e); }
+          try{ await syncLeadStatusToConversation(id, latestLeadData, statusId, statusName); }catch(e){ console.warn("syncLeadStatusToConversation(detailsCard)", e); }
+          try{ await ensureFinanceLeadRoutingVisibility(id, { ...latestLeadData, leadStatusId: statusId, leadStatusName: statusName, status: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(detailsCard)", e); }
           toast("تم تحديث الحالة");
         }catch(err){
           console.warn(err);
@@ -10831,6 +10861,20 @@ function bindTasksUI(){
       }
     }
 
+    async function syncLeadStatusToConversation(leadId, leadData, statusId, statusName){
+      try{
+        const targetConvId = String(leadData?.convId || activeConvId || "").trim();
+        if(!targetConvId) return;
+        await setDoc(doc(db, "wa_conversations", targetConvId), {
+          leadId: String(leadId || "").trim(),
+          leadStatusId: String(statusId || "").trim(),
+          leadStatusName: String(statusName || "").trim() || "—",
+          status: String(statusName || "").trim() || "—",
+          updatedAt: new Date().toISOString()
+        }, { merge:true });
+      }catch(e){ console.warn("syncLeadStatusToConversation", e); }
+    }
+
     async function syncLeadBarFromConversation(){
       const convObj = await getActiveConv();
       if(!convObj){ setLeadBarVisible(false); return; }
@@ -10899,9 +10943,13 @@ $("#inboxLeadBarClose")?.addEventListener("click", ()=> setLeadBarVisible(false)
         await updateDoc(doc(db,"leads", leadId), {
           leadStatusId: statusId,
           leadStatusName: statusName,
+          status: statusName,
+          leadStatus: statusName,
+          currentStatus: statusName,
           updatedAt: new Date().toISOString()
         });
-        try{ await ensureFinanceLeadRoutingVisibility(leadId, { ...leadData, leadStatusId: statusId, leadStatusName: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(saveStatus)", e); }
+        try{ await syncLeadStatusToConversation(leadId, leadData, statusId, statusName); }catch(e){ console.warn("syncLeadStatusToConversation(saveStatus)", e); }
+        try{ await ensureFinanceLeadRoutingVisibility(leadId, { ...leadData, leadStatusId: statusId, leadStatusName: statusName, status: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(saveStatus)", e); }
         toast("تم تحديث الحالة", "ok");
         if($(".navItem.active")?.dataset?.tab === "dashboard") renderDashboard();
       }catch(e){
