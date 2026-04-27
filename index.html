@@ -8,6 +8,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -7457,7 +7458,12 @@ async function sendOutboundMessage(text){
   try{
     let resp, data;
     if(isFB){
-      const payload = { convId: activeConvId, text: displayText };
+      const fbDisplayNameBeforeSend = String(conv.displayName || conv.name || conv.participantName || conv.participant_name || "").trim();
+      const payload = {
+        convId: activeConvId,
+        text: displayText,
+        displayName: fbDisplayNameBeforeSend
+      };
       resp = await fetch(FB_SEND_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -7467,6 +7473,17 @@ async function sendOutboundMessage(text){
       if(data && data.result && data.result.message_id && !data.providerMessageId) data.providerMessageId = data.result.message_id;
       if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
       if(data && data.ok === undefined) data.ok = resp.ok;
+
+      // Facebook worker القديم كان بيرجع يحدّث المحادثة بـ displayName:null بعد الرد من CRM،
+      // فبنحافظ هنا على اسم الحساب الموجود قبل الإرسال بدون تغيير أي منطق تاني.
+      if(resp.ok && fbDisplayNameBeforeSend){
+        await updateDoc(convRef, {
+          displayName: fbDisplayNameBeforeSend,
+          lastMessageText: String(displayText || "").slice(0, 280),
+          lastMessageAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }).catch(()=>{});
+      }
     }else if(isIG){
       const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
       const localMsgId = msgRef.id;
