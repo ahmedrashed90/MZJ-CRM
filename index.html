@@ -9,6 +9,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -12064,6 +12065,7 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
           "الكول سنتر",
           "تم الإتصال",
           "غير مؤهل",
+          "مؤجل",
           "مؤهل - لم يتم إرسال الأوراق",
           "مؤهل - تأخر في إرسال الأوراق",
           "مؤهل - تم إرسال الأوراق",
@@ -12165,33 +12167,73 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
       });
     }
 
+    function normalizeDashboardStatusName(statusName){
+      let s = String(statusName || "").trim().replace(/\s+/g, " ");
+      if(!s) return "";
+      const compact = s
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/ؤ/g, "و")
+        .replace(/ئ/g, "ي")
+        .replace(/ـ/g, "")
+        .trim();
+
+      const aliases = {
+        "تم الاتصال": "تم الإتصال",
+        "تم الرد": "تم الرد",
+        "غير موهل": "غير مؤهل",
+        "موجل": "مؤجل",
+        "محتمل": "محتمل",
+        "عميل محتمل": "محتمل",
+        "تم البيع": "تم البيع",
+        "جاري العمل": "جاري العمل",
+        "تم الانتهاء": "تم الانتهاء",
+        "تم الانهاء": "تم الانتهاء",
+        "موهل لم يتم ارسال الاوراق": "مؤهل - لم يتم إرسال الأوراق",
+        "موهل تاخر في ارسال الاوراق": "مؤهل - تأخر في إرسال الأوراق",
+        "موهل تم ارسال الاوراق": "مؤهل - تم إرسال الأوراق",
+        "تم رفع الطلب الى جهه التمويل": "تم رفع الطلب الى جهة التمويل",
+        "طلب استكمال اوراق": "طلب إستكمال أوراق",
+        "طلب الدعم من الكول سنتر الى المبيعات": "طلب الدعم من الكول سنتر الى المبيعات",
+        "تم اختيار السياره": "تم إختيار السيارة",
+        "تم رفع اوراق السياره المطلوبه الى جهه التمويل": "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
+        "استيفاء الطلب متقدم": "إستيفاء الطلب - متقدم",
+        "طلبات تمت الموافقه": "طلبات تمت الموافقة",
+        "طلبات لم تتم الموافقه": "طلبات لم تتم الموافقة",
+        "تم اصدار العقد": "تم إصدار العقد",
+        "تم الاتصال لتوقيع العقد": "تم الإتصال لتوقيع العقد",
+        "تم توقيع العقد": "تم توقيع العقد",
+        "لم يتم توقيع العقد": "لم يتم توقيع العقد",
+        "تم الانتهاء انشاء طلب البيع": "تم الإنتهاء - إنشاء طلب البيع"
+      };
+
+      const normalizedCompact = compact.replace(/\s*-\s*/g, " ").replace(/\s+/g, " ").trim();
+      return aliases[normalizedCompact] || s;
+    }
+
     function getDashboardLeadStatusRaw(leadEntry){
-      return String(getEffectiveLeadStatusName(leadEntry?.data || {}) || "").trim();
+      return normalizeDashboardStatusName(getEffectiveLeadStatusName(leadEntry?.data || {}));
     }
 
     function isDashboardCashResponded(statusName){
-      const s = String(statusName || "").trim();
-      return s === "تم الرد";
+      return normalizeDashboardStatusName(statusName) === "تم الرد";
     }
 
     function isDashboardCashPotential(statusName){
-      const s = String(statusName || "").trim();
-      return s === "محتمل" || s === "عميل محتمل";
+      return normalizeDashboardStatusName(statusName) === "محتمل";
     }
 
     function isDashboardCashDeferred(statusName){
-      const s = String(statusName || "").trim();
-      return s === "مؤجل" || s.includes("مؤجل") || s.includes("تأجيل");
+      return normalizeDashboardStatusName(statusName) === "مؤجل";
     }
 
     function isDashboardCashSold(statusName){
-      const s = String(statusName || "").trim();
-      return s === "تم البيع";
+      return normalizeDashboardStatusName(statusName) === "تم البيع";
     }
 
     function isDashboardCsDone(statusName){
-      const s = String(statusName || "").trim();
-      return ["تم الإنتهاء", "تم الانتهاء"].includes(s);
+      return normalizeDashboardStatusName(statusName) === "تم الانتهاء";
     }
 
     function groupDashboardSectionCards(sectionKey){
@@ -12201,26 +12243,13 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
 
       if(key === "cash"){
         const leads = getDashboardSectionLeads("cash");
-        const responded = leads.filter(entry=> isDashboardCashResponded(getDashboardLeadStatusRaw(entry)));
-        const unqualified = leads.filter(entry=> getDashboardLeadStatusRaw(entry) === "غير مؤهل");
-        const potential = leads.filter(entry=> isDashboardCashPotential(getDashboardLeadStatusRaw(entry)));
-        const deferred = leads.filter(entry=> isDashboardCashDeferred(getDashboardLeadStatusRaw(entry)));
-        const sold = leads.filter(entry=> isDashboardCashSold(getDashboardLeadStatusRaw(entry)));
-        const total = leads.filter(entry=>{
-          const status = getDashboardLeadStatusRaw(entry);
-          return !isDashboardCashResponded(status)
-            && status !== "غير مؤهل"
-            && !isDashboardCashPotential(status)
-            && !isDashboardCashDeferred(status)
-            && !isDashboardCashSold(status);
-        });
         return [
-          { title:"إجمالي العملاء", items: total },
-          { title:"تم الرد", items: responded },
-          { title:"غير مؤهل", items: unqualified },
-          { title:"محتمل", items: potential },
-          { title:"مؤجل", items: deferred },
-          { title:"تم البيع", items: sold }
+          { title:"إجمالي العملاء", items: leads.filter(entry=> isDashboardEmptyStatus(getDashboardLeadStatusRaw(entry))) },
+          { title:"تم الرد", items: leads.filter(entry=> getDashboardLeadStatusRaw(entry) === "تم الرد") },
+          { title:"غير مؤهل", items: leads.filter(entry=> getDashboardLeadStatusRaw(entry) === "غير مؤهل") },
+          { title:"محتمل", items: leads.filter(entry=> getDashboardLeadStatusRaw(entry) === "محتمل") },
+          { title:"مؤجل", items: leads.filter(entry=> getDashboardLeadStatusRaw(entry) === "مؤجل") },
+          { title:"تم البيع", items: leads.filter(entry=> getDashboardLeadStatusRaw(entry) === "تم البيع") }
         ];
       }
 
@@ -12235,20 +12264,11 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
 
       if(key === "cs"){
         const leads = getDashboardSectionLeads("cs");
-        const responded = leads.filter(entry=> getDashboardLeadStatusRaw(entry) === "تم الرد");
-        const inProgress = leads.filter(entry=> getDashboardLeadStatusRaw(entry) === "جاري العمل");
-        const done = leads.filter(entry=> isDashboardCsDone(getDashboardLeadStatusRaw(entry)));
-        const total = leads.filter(entry=>{
-          const status = getDashboardLeadStatusRaw(entry);
-          return status !== "تم الرد"
-            && status !== "جاري العمل"
-            && !isDashboardCsDone(status);
-        });
         return [
-          { title:"إجمالي العملاء", items: total },
-          { title:"تم الرد", items: responded },
-          { title:"جاري العمل", items: inProgress },
-          { title:"تم الانتهاء", items: done }
+          { title:"إجمالي العملاء", items: leads.filter(entry=> isDashboardEmptyStatus(getDashboardLeadStatusRaw(entry))) },
+          { title:"تم الرد", items: leads.filter(entry=> getDashboardLeadStatusRaw(entry) === "تم الرد") },
+          { title:"جاري العمل", items: leads.filter(entry=> getDashboardLeadStatusRaw(entry) === "جاري العمل") },
+          { title:"تم الانتهاء", items: leads.filter(entry=> isDashboardCsDone(getDashboardLeadStatusRaw(entry))) }
         ];
       }
 
