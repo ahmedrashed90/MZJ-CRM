@@ -6708,8 +6708,16 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
     // open button
     cdOpenBtn?.addEventListener("click", async ()=>{
-      await cdLoadForCurrent();
+      if(!activeConvId){
+        toast("اختر محادثة أولاً", "warn");
+        return;
+      }
+      // افتح النافذة أولاً حتى لا تتعطل عند اختلاف صلاحيات المندوب عن مدير النظام
       cdOpen();
+      await cdLoadForCurrent().catch((e)=>{
+        console.warn("cdLoadForCurrent", e);
+        toast("تم فتح النموذج، لكن تعذر تحميل بعض بيانات العميل", "warn");
+      });
     });
 
     // save
@@ -6813,10 +6821,19 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           updatedAt: new Date().toISOString()
         };
 
-        // Save contact
-        await setDoc(cRef, payload, { merge:true });
+        // Save contact (اختياري)
+        // بعض حسابات المناديب قد لا تمتلك صلاحية الكتابة في contacts، لذلك لا نوقف حفظ بيانات العميل بالكامل.
+        let contactSaved = false;
+        try{
+          await setDoc(cRef, payload, { merge:true });
+          contactSaved = true;
+        }catch(e){
+          console.warn("clientData contacts save skipped", e);
+        }
         if(phoneNorm && contactDocId !== phoneNorm){
-          await setDoc(doc(db, "contacts", phoneNorm), payload, { merge:true }).catch(()=>{});
+          await setDoc(doc(db, "contacts", phoneNorm), payload, { merge:true })
+            .then(()=>{ contactSaved = true; })
+            .catch((e)=>console.warn("clientData contacts phone save skipped", e));
         }
 
         // Update conversation so name/phone show immediately
