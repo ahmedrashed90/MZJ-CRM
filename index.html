@@ -5,6 +5,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6848,6 +6849,11 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
         }
         if(leadId){
           const convServiceKey = String(conv.autoService || conv.serviceKey || "").trim().toLowerCase();
+          const convPayType = String(
+            getPayTypeLabelByServiceKey(convServiceKey) ||
+            conv.paymentType || conv.payType || conv.payment ||
+            (convServiceKey === "finance" ? "تمويل" : (convServiceKey === "cash" ? "كاش" : (convServiceKey === "cs" ? "خدمة عملاء" : "")))
+          ).trim();
           const safeSalesPick = convServiceKey ? getSafeAssignedAgentForService(convServiceKey, String(conv.salesAssignedTo || conv.assignedTo || "").trim()) : null;
           const safeSalesUid = String(safeSalesPick?.uid || safeSalesPick?.id || (convServiceKey ? (conv.salesAssignedTo || conv.assignedTo || "") : "")).trim();
           const safeSalesName = String(safeSalesPick?.name || (convServiceKey ? (conv.salesAssignedName || conv.assignedName || safeSalesUid || "") : "")).trim();
@@ -7834,6 +7840,7 @@ const REQUIRED_LEAD_STATUS_NAMES = [
   "جاري العمل",
   "تم الإنتهاء",
   "تم الإتصال",
+  "تم الرد",
   "غير مؤهل",
   "مؤهل - لم يتم إرسال الأوراق",
   "مؤهل - تأخر في إرسال الأوراق",
@@ -7850,7 +7857,8 @@ const REQUIRED_LEAD_STATUS_NAMES = [
   "تم رفع الطلب الى جهة التمويل",
   "تم إختيار السيارة",
   "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
-  "تم الإنتهاء - إنشاء طلب البيع"
+  "تم الإنتهاء - إنشاء طلب البيع",
+  "تم الرد"
 ];
 
 // ===== Custom Status Order (Dashboard + Pipeline + Dropdowns) =====
@@ -7911,8 +7919,12 @@ function getAllowedLeadStatusNamesForCurrentUser(lead){
   }
 
   const branchId = getCurrentBranchId();
-  if(branchMatchesKey(branchId, "cash") || branchMatchesKey(branchId, "cs")){
+  if(branchMatchesKey(branchId, "cash")){
     return ["لم يتم الرد", "جاري العمل", "تم الإنتهاء"];
+  }
+
+  if(branchMatchesKey(branchId, "cs")){
+    return ["لم يتم الرد", "تم الرد", "جاري العمل", "تم الإنتهاء"];
   }
 
   if(branchMatchesKey(branchId, "callcenter")){
@@ -7992,8 +8004,12 @@ function sortStatusesByCustomOrder(list){
     if(!currentUser) return false;
     // الإدمن/مدير الفرع يقدر يعدّل
     if(canSeeAllInbox() || canSeeSettings()) return true;
-    // المندوب يعدّل لو العميل عليه أو معيّن عليه بالكول سنتر
-    return (lead?.assignedTo || "") === currentUser.uid || getCallCenterAssignedUidFromLead(lead) === currentUser.uid;
+    // المندوب يعدّل لو العميل عليه كمبيعات/خدمة عملاء أو معيّن عليه بالكول سنتر
+    const uid = String(currentUser.uid || "").trim();
+    const directUid = String(lead?.assignedTo || "").trim();
+    const salesUid = String(getSalesAssignedUidFromLead(lead || {}) || "").trim();
+    const callUid = String(getCallCenterAssignedUidFromLead(lead || {}) || "").trim();
+    return !!uid && (directUid === uid || salesUid === uid || callUid === uid);
   }
 
   function normalizePhone(val){
@@ -8462,7 +8478,7 @@ function sortStatusesByCustomOrder(list){
           return;
         }
         try{
-          const statusName = (leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name);
+          const statusName = String(getEffectiveLeadStatusName({ leadStatusId: statusId }) || getDefaultLeadStatus().name).trim();
           const latestSnap = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
           const latestLeadData = (latestSnap && latestSnap.exists()) ? (latestSnap.data()||{}) : (leadData || {});
           const statusPatch = { leadStatusId: statusId, leadStatusName: statusName, status: statusName, leadStatus: statusName, currentStatus: statusName, updatedAt: new Date().toISOString() };
@@ -9351,6 +9367,18 @@ function getScopedLeadBaseList(viewMode="customers"){
       if(isFinanceRoutingLead && !isCallCenterFinanceStatusVisible(d, id)) return false;
       if(canAll) return true;
       if(!uid) return false;
+
+      // مندوب مبيعات التمويل يشوف في تاب الكول سنتر العملاء التمويل المربوطين به.
+      const myBranchId = getCurrentBranchId();
+      if(branchMatchesKey(myBranchId, "finance")){
+        return isFinanceRoutingLead && getSalesAssignedUidFromLead(d) === uid;
+      }
+
+      // نفس الحماية لخدمة العملاء لو اتفتح نفس الـ View لحسابهم.
+      if(branchMatchesKey(myBranchId, "cs")){
+        return isCustomerServiceLead && getSalesAssignedUidFromLead(d) === uid;
+      }
+
       return getCallCenterAssignedUidFromLead(d) === uid;
     }
 
@@ -9593,17 +9621,19 @@ function bindCustomerStatusesUI(){
 
     const sel = document.querySelector(`[data-status-select="${CSS.escape(leadId)}"]`);
     const statusId = String(sel?.value || getDefaultLeadStatus().id).trim() || getDefaultLeadStatus().id;
-    const statusName = String((leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name)).trim();
+    const statusName = String(getEffectiveLeadStatusName({ leadStatusId: statusId }) || getDefaultLeadStatus().name).trim();
 
     try{
-      await updateDoc(doc(db, "leads", leadId), {
+      const statusPatch = {
         leadStatusId: statusId,
         leadStatusName: statusName,
         status: statusName,
         leadStatus: statusName,
         currentStatus: statusName,
         updatedAt: new Date().toISOString()
-      });
+      };
+      await updateDoc(doc(db, "leads", leadId), statusPatch);
+      try{ patchLeadCachesAfterStatusChange(leadId, statusPatch); }catch(e){}
       try{ await syncLeadStatusToConversation(leadId, found.data || {}, statusId, statusName); }catch(e){ console.warn("syncLeadStatusToConversation(generic)", e); }
       toast("تم تحديث الحالة", "ok");
       renderCustomerStatusesTab();
@@ -10107,17 +10137,19 @@ function bindTasksUI(){
           return;
         }
         try{
-          const statusName = (leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name);
+          const statusName = String(getEffectiveLeadStatusName({ leadStatusId: statusId }) || getDefaultLeadStatus().name).trim();
           const latestSnap = await getDoc(doc(db,"leads", id)).catch(()=>null);
           const latestLeadData = (latestSnap && latestSnap.exists()) ? (latestSnap.data()||{}) : (found.data || {});
-          await updateDoc(doc(db,"leads", id), {
+          const statusPatch = {
             leadStatusId: statusId,
             leadStatusName: statusName,
             status: statusName,
             leadStatus: statusName,
             currentStatus: statusName,
             updatedAt: new Date().toISOString()
-          });
+          };
+          await updateDoc(doc(db,"leads", id), statusPatch);
+          try{ patchLeadCachesAfterStatusChange(id, statusPatch); }catch(e){}
           try{ await syncLeadStatusToConversation(id, latestLeadData, statusId, statusName); }catch(e){ console.warn("syncLeadStatusToConversation(detailsCard)", e); }
           try{ await ensureFinanceLeadRoutingVisibility(id, { ...latestLeadData, leadStatusId: statusId, leadStatusName: statusName, status: statusName }, statusName); }catch(e){ console.warn("ensureFinanceLeadRoutingVisibility(detailsCard)", e); }
           try{ renderDashboard(); }catch(e){}
