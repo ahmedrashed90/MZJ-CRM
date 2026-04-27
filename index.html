@@ -2785,6 +2785,114 @@ body.auth-locked #authModal{ pointer-events:auto; }
   </div>
 
 
+  <!-- Client Data Modal (Inbox only) -->
+  <div class="mzjOverlay" id="clientDataOverlay" aria-hidden="true">
+    <div class="mzjClientModal" role="dialog" aria-modal="true" aria-label="تحديث/إضافة بيانات العميل">
+      <div class="mzjClientModalHead">
+        <b>تحديث/إضافة بيانات العميل</b>
+        <button class="mzjCloseBtn close-client-modal" type="button" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="mzjClientModalBody">
+        <div class="mzjGrid2">
+          <div class="mzjField">
+            <label>اسم العميل</label>
+            <input id="cd_name" placeholder="مثال: أحمد محمد" />
+          </div>
+          <div class="mzjField">
+            <label>رقم الجوال</label>
+            <input id="cd_phone" placeholder="9665xxxxxxxx" />
+          </div>
+
+          <div class="mzjField">
+            <label>الراتب</label>
+            <input id="cd_salary" placeholder="مثال: 12000" />
+          </div>
+          <div class="mzjField">
+            <label>الالتزام (إن وجد)</label>
+            <input id="cd_commitment" placeholder="مثال: 1500" />
+          </div>
+
+          <div class="mzjField">
+            <label>نوع التمويل (الحاسبة المبدئية)</label>
+            <select id="cd_finType">
+              <option value="">— اختر (45% / 65%) —</option>
+              <option value="general">عام (45%)</option>
+              <option value="realestate">عقاري (65%)</option>
+            </select>
+          </div>
+
+          <div class="mzjField">
+            <label>حالة العميل</label>
+            <select id="cd_statusSelect">
+              <option value="">جارٍ التحميل…</option>
+            </select>
+          </div>
+
+          <div class="mzjField" id="cd_calcBox" style="grid-column:1/-1;display:none;border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(192,122,74,.06)">
+            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+              <div><b>الحد الائتماني:</b> <span id="cd_limit">—</span> ريال</div>
+              <div><b>النتيجة:</b> <span id="cd_eligStatus">—</span></div>
+            </div>
+            <div style="margin-top:8px;font-size:12.5px;color:rgba(28,28,28,.64);line-height:1.7">
+              المعادلة: (الراتب × 45% أو 65%) − الالتزامات
+            </div>
+          </div>
+
+          <div class="mzjField">
+            <label>المكان</label>
+            <input id="cd_place" placeholder="مثال: الرياض" />
+          </div>
+
+
+          <div class="mzjField">
+            <label>العمر</label>
+            <input id="cd_age" placeholder="مثال: 32" />
+          </div>
+          <div class="mzjField">
+            <label>نزول الراتب على أي بنك</label>
+            <input id="cd_bank" placeholder="مثال: الراجحي" />
+          </div>
+
+          <div class="mzjField" style="grid-column:1/-1">
+            <label>نوع السيارة</label>
+            <input id="cd_car_type" placeholder="مثال: سيدان / SUV / إلخ" />
+          </div>
+
+          <div class="mzjField">
+            <label>الموديل</label>
+            <input id="cd_car_model" placeholder="مثال: 2024" />
+          </div>
+
+          <div class="mzjField">
+            <label>اللون</label>
+            <input id="cd_car_color" placeholder="مثال: أبيض" />
+          </div>
+
+          <div class="mzjField" style="grid-column:1/-1">
+            <label>ملاحظات</label>
+            <textarea id="cd_notes" placeholder="اكتب أي ملاحظات..."></textarea>
+          </div>
+
+          <div class="mzjField" style="grid-column:1/-1">
+            <label>إرفاق ملفات</label>
+            <input type="file" id="cd_files" multiple />
+            <div class="mzjFilesList" id="cd_files_list"></div>
+            <div style="margin-top:6px;font-size:12.5px;color:rgba(28,28,28,.64)">
+              يمكن إرفاق أكثر من ملف. سيتم رفعها على Firebase Storage.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mzjClientModalActions">
+        <button class="mzjBtn primary" id="cd_save" type="button">حفظ البيانات</button>
+        <button class="mzjBtn close-client-modal" id="cd_cancel" type="button">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+
 <script type="module">
   
 
@@ -6507,6 +6615,27 @@ scroller.addEventListener("scroll", ()=>{
       cdOverlay.setAttribute("aria-hidden","false");
       document.body.style.overflow = "hidden";
     };
+
+    // مصدر مستقل لزر بيانات العميل: لا يعتمد على صلاحيات فتح المحادثة أو activeConvId فقط
+    let cdActiveConvId = "";
+    function getClientDataConversationId(){
+      const current = String(activeConvId || "").trim();
+      if(current) return current;
+      const activeRow = document.querySelector("#convList .conv.active[data-id]");
+      const activeRowId = String(activeRow?.dataset?.id || "").trim();
+      if(activeRowId) return activeRowId;
+      const firstRow = document.querySelector("#convList .conv[data-id]");
+      const firstRowId = String(firstRow?.dataset?.id || "").trim();
+      if(firstRowId) return firstRowId;
+      try{
+        const visible = (Array.isArray(inboxCache) ? inboxCache : []).find(x=>{
+          const conv = x?.data || {};
+          return !usesOwnInboxScope() || isConversationVisibleToCurrentUser(conv);
+        });
+        if(visible?.id) return String(visible.id).trim();
+      }catch(e){}
+      return "";
+    }
     // ===== Client Modal: Eligibility calculator (inline) =====
     function cdApplyEligibilityStyles(statusText){
       const limEl = $("#cd_limit");
@@ -6589,16 +6718,18 @@ scroller.addEventListener("scroll", ()=>{
     cdOverlay?.querySelector(".close-client-modal")?.addEventListener("click", cdCloseAll);
 
 
-    async function cdLoadForCurrent(){
-      if(!activeConvId){ toast("اختر محادثة أولاً", "warn"); return; }
-      const convRef = doc(db, "wa_conversations", activeConvId);
+    async function cdLoadForCurrent(convIdOverride=""){
+      const targetConvId = String(convIdOverride || cdActiveConvId || getClientDataConversationId() || "").trim();
+      if(!targetConvId){ toast("اختر محادثة أولاً", "warn"); return; }
+      cdActiveConvId = targetConvId;
+      const convRef = doc(db, "wa_conversations", targetConvId);
       const convSnap = await getDoc(convRef);
       if(!convSnap.exists()){ toast("المحادثة غير موجودة", "warn"); return; }
       const conv = convSnap.data() || {};
       const phoneRaw = String(conv.waId || "").trim();
       const phone = normalizePhone(phoneRaw).replace(/^\+/, "");
       const convParticipantId = String(conv.participantId || conv.participant_id || conv.senderId || conv.fbId || conv.igId || conv.igUserId || conv.manychatContactId || "").trim();
-      const convContactKey = String(conv.contactKey || conv.conversationId || activeConvId || convParticipantId || phone || "").trim();
+      const convContactKey = String(conv.contactKey || conv.conversationId || targetConvId || convParticipantId || phone || "").trim();
       const contactDocId = phone || convContactKey;
 
       // prefill phone from chat (unified)
@@ -6708,33 +6839,77 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
     // open button
     cdOpenBtn?.addEventListener("click", async ()=>{
-      if(!activeConvId){
+      const targetConvId = getClientDataConversationId();
+      if(!targetConvId){
         toast("اختر محادثة أولاً", "warn");
         return;
       }
+      cdActiveConvId = targetConvId;
       // افتح النافذة أولاً حتى لا تتعطل عند اختلاف صلاحيات المندوب عن مدير النظام
       cdOpen();
-      await cdLoadForCurrent().catch((e)=>{
+      await cdLoadForCurrent(targetConvId).catch((e)=>{
         console.warn("cdLoadForCurrent", e);
         toast("تم فتح النموذج، لكن تعذر تحميل بعض بيانات العميل", "warn");
       });
     });
 
+    // Delegated fallback: يضمن عمل زر تحديث/إضافة بيانات العميل حتى لو اتعاد رسم الهيدر أو اختلف تحميل الـ DOM عند حسابات المناديب
+    document.addEventListener("click", async (e)=>{
+      const btn = e.target?.closest?.("#btnClientData");
+      if(!btn || btn.dataset.cdDirectHandled === "1") return;
+      e.preventDefault();
+      const targetConvId = getClientDataConversationId();
+      if(!targetConvId){
+        toast("اختر محادثة أولاً", "warn");
+        return;
+      }
+      cdActiveConvId = targetConvId;
+      cdOpen();
+      await cdLoadForCurrent(targetConvId).catch((err)=>{
+        console.warn("cdLoadForCurrent delegated", err);
+        toast("تم فتح النموذج، لكن تعذر تحميل بعض بيانات العميل", "warn");
+      });
+    });
+
+    if(cdOpenBtn) cdOpenBtn.dataset.cdDirectHandled = "1";
+
+    // فتح احتياطي مباشر للزرار في حالة إعادة الرسم أو اختلاف حسابات المناديب
+    if(cdOpenBtn){
+      cdOpenBtn.onclick = async (ev)=>{
+        try{
+          ev?.preventDefault?.();
+          const targetConvId = getClientDataConversationId();
+          if(!targetConvId){ toast("اختر محادثة أولاً", "warn"); return; }
+          cdActiveConvId = targetConvId;
+          cdOpen();
+          await cdLoadForCurrent(targetConvId).catch((err)=>{
+            console.warn("cdLoadForCurrent onclick", err);
+            toast("تم فتح النموذج، لكن تعذر تحميل بعض بيانات العميل", "warn");
+          });
+        }catch(err){
+          console.warn("client data onclick", err);
+          toast("تعذر فتح بيانات العميل", "warn");
+        }
+      };
+    }
+
     // save
     $("#cd_save")?.addEventListener("click", async ()=>{
       try{
-        if(!activeConvId){ toast("اختر محادثة أولاً", "warn"); return; }
+        const targetConvId = String(cdActiveConvId || getClientDataConversationId() || "").trim();
+        if(!targetConvId){ toast("اختر محادثة أولاً", "warn"); return; }
+        cdActiveConvId = targetConvId;
 
         const phoneRawIn = ($("#cd_phone")?.value || "").trim();
         const phoneNorm = normalizePhone(phoneRawIn).replace(/^\+/, "");
 
         // Read current conversation (single source of truth)
-        const convRef = doc(db,"wa_conversations", activeConvId);
+        const convRef = doc(db,"wa_conversations", targetConvId);
         const convSnap = await getDoc(convRef).catch(()=>null);
         if(!(convSnap && convSnap.exists())){ toast("المحادثة غير موجودة", "warn"); return; }
         const conv = convSnap.data() || {};
         const pid = String(conv.participantId || conv.participant_id || conv.senderId || conv.fbId || conv.igId || conv.igUserId || conv.manychatContactId || "").trim();
-        const fallbackContactKey = String(conv.contactKey || conv.conversationId || activeConvId || pid || phoneNorm).trim();
+        const fallbackContactKey = String(conv.contactKey || conv.conversationId || targetConvId || pid || phoneNorm).trim();
         const contactKey = String(fallbackContactKey || phoneNorm).trim();
         const channel = (conv.channel || conv.platform || "facebook");
         const contactDocId = phoneNorm || contactKey;
@@ -6749,12 +6924,17 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           const key = `client_files/${contactDocId}/${Date.now()}_${safeName}`;
           const r = sRef(st, key);
           uploads.push((async ()=>{
-            await uploadBytes(r, f);
-            const url = await getDownloadURL(r);
-            return { name: f.name || "ملف", url, mimeType: f.type || "", createdAt: new Date().toISOString() };
+            try{
+              await uploadBytes(r, f);
+              const url = await getDownloadURL(r);
+              return { name: f.name || "ملف", url, mimeType: f.type || "", createdAt: new Date().toISOString() };
+            }catch(uploadErr){
+              console.warn("clientData file upload skipped", uploadErr);
+              return null;
+            }
           })());
         }
-        const newFiles = uploads.length ? await Promise.all(uploads) : [];
+        const newFiles = uploads.length ? (await Promise.all(uploads)).filter(Boolean) : [];
 
         // Load existing contact (prefer normalized id)
         let existing = {};
@@ -6862,7 +7042,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           }
         }
         if(!leadId){
-          leadId = await ensureLeadIdForConversationId(activeConvId).catch(()=> "");
+          leadId = await ensureLeadIdForConversationId(targetConvId).catch(()=> "");
         }
         if(leadId){
           const convServiceKey = String(conv.autoService || conv.serviceKey || "").trim().toLowerCase();
@@ -12309,112 +12489,6 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
 
 
   
-  <!-- Client Data Modal (Inbox only) -->
-  <div class="mzjOverlay" id="clientDataOverlay" aria-hidden="true">
-    <div class="mzjClientModal" role="dialog" aria-modal="true" aria-label="تحديث/إضافة بيانات العميل">
-      <div class="mzjClientModalHead">
-        <b>تحديث/إضافة بيانات العميل</b>
-        <button class="mzjCloseBtn close-client-modal" type="button" aria-label="إغلاق">✕</button>
-      </div>
-
-      <div class="mzjClientModalBody">
-        <div class="mzjGrid2">
-          <div class="mzjField">
-            <label>اسم العميل</label>
-            <input id="cd_name" placeholder="مثال: أحمد محمد" />
-          </div>
-          <div class="mzjField">
-            <label>رقم الجوال</label>
-            <input id="cd_phone" placeholder="9665xxxxxxxx" />
-          </div>
-
-          <div class="mzjField">
-            <label>الراتب</label>
-            <input id="cd_salary" placeholder="مثال: 12000" />
-          </div>
-          <div class="mzjField">
-            <label>الالتزام (إن وجد)</label>
-            <input id="cd_commitment" placeholder="مثال: 1500" />
-          </div>
-
-          <div class="mzjField">
-            <label>نوع التمويل (الحاسبة المبدئية)</label>
-            <select id="cd_finType">
-              <option value="">— اختر (45% / 65%) —</option>
-              <option value="general">عام (45%)</option>
-              <option value="realestate">عقاري (65%)</option>
-            </select>
-          </div>
-
-          <div class="mzjField">
-            <label>حالة العميل</label>
-            <select id="cd_statusSelect">
-              <option value="">جارٍ التحميل…</option>
-            </select>
-          </div>
-
-          <div class="mzjField" id="cd_calcBox" style="grid-column:1/-1;display:none;border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(192,122,74,.06)">
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
-              <div><b>الحد الائتماني:</b> <span id="cd_limit">—</span> ريال</div>
-              <div><b>النتيجة:</b> <span id="cd_eligStatus">—</span></div>
-            </div>
-            <div style="margin-top:8px;font-size:12.5px;color:rgba(28,28,28,.64);line-height:1.7">
-              المعادلة: (الراتب × 45% أو 65%) − الالتزامات
-            </div>
-          </div>
-
-          <div class="mzjField">
-            <label>المكان</label>
-            <input id="cd_place" placeholder="مثال: الرياض" />
-          </div>
-
-
-          <div class="mzjField">
-            <label>العمر</label>
-            <input id="cd_age" placeholder="مثال: 32" />
-          </div>
-          <div class="mzjField">
-            <label>نزول الراتب على أي بنك</label>
-            <input id="cd_bank" placeholder="مثال: الراجحي" />
-          </div>
-
-          <div class="mzjField" style="grid-column:1/-1">
-            <label>نوع السيارة</label>
-            <input id="cd_car_type" placeholder="مثال: سيدان / SUV / إلخ" />
-          </div>
-
-          <div class="mzjField">
-            <label>الموديل</label>
-            <input id="cd_car_model" placeholder="مثال: 2024" />
-          </div>
-
-          <div class="mzjField">
-            <label>اللون</label>
-            <input id="cd_car_color" placeholder="مثال: أبيض" />
-          </div>
-
-          <div class="mzjField" style="grid-column:1/-1">
-            <label>ملاحظات</label>
-            <textarea id="cd_notes" placeholder="اكتب أي ملاحظات..."></textarea>
-          </div>
-
-          <div class="mzjField" style="grid-column:1/-1">
-            <label>إرفاق ملفات</label>
-            <input type="file" id="cd_files" multiple />
-            <div class="mzjFilesList" id="cd_files_list"></div>
-            <div style="margin-top:6px;font-size:12.5px;color:rgba(28,28,28,.64)">
-              يمكن إرفاق أكثر من ملف. سيتم رفعها على Firebase Storage.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="mzjClientModalActions">
-        <button class="mzjBtn primary" id="cd_save" type="button">حفظ البيانات</button>
-        <button class="mzjBtn close-client-modal" id="cd_cancel" type="button">إلغاء</button>
-      </div>
-    </div>
-  </div>
 
 
 <!-- Settings CRUD Modal -->
