@@ -7,6 +7,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1682,6 +1683,29 @@
 body.auth-locked .app{ pointer-events:none; user-select:none; }
 body.auth-locked #authModal{ pointer-events:auto; }
 
+
+/* ===== Client profile completion ===== */
+.mzjCompletionBox{
+  grid-column:1/-1;
+  border:1px solid rgba(192,122,74,.28);
+  background:rgba(192,122,74,.08);
+  border-radius:16px;
+  padding:12px;
+}
+.mzjCompletionTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.mzjCompletionTop b{font-size:13px;font-weight:900;color:var(--b)}
+.mzjCompletionTop span{font-size:13px;font-weight:900;color:var(--bronze)}
+.mzjCompletionTrack{height:10px;border-radius:999px;background:rgba(43,26,23,.10);overflow:hidden}
+.mzjCompletionFill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--bronze),var(--brown));transition:width .2s ease}
+.mzjCompletionMissing{margin-top:8px;font-size:12px;color:rgba(28,28,28,.65);line-height:1.6}
+.mzjProfilePct{
+  display:inline-flex;align-items:center;gap:5px;
+  margin-top:6px;padding:3px 8px;border-radius:999px;
+  background:rgba(192,122,74,.10);border:1px solid rgba(192,122,74,.25);
+  color:var(--b);font-size:11.5px;font-weight:900;
+}
+.mzjProfilePct.ok{background:rgba(30,155,75,.10);border-color:rgba(30,155,75,.25);color:var(--ok)}
+
     /* ===== Customer Statuses ===== */
     .statusBoardCard{
       border:1px solid var(--line);
@@ -2796,6 +2820,14 @@ body.auth-locked #authModal{ pointer-events:auto; }
 
       <div class="mzjClientModalBody">
         <div class="mzjGrid2">
+          <div class="mzjCompletionBox" id="cd_completionBox">
+            <div class="mzjCompletionTop">
+              <b>نسبة اكتمال ملف العميل</b>
+              <span id="cd_completionText">0%</span>
+            </div>
+            <div class="mzjCompletionTrack"><div class="mzjCompletionFill" id="cd_completionFill"></div></div>
+            <div class="mzjCompletionMissing" id="cd_completionMissing">املأ بيانات العميل لاحتساب النسبة.</div>
+          </div>
           <div class="mzjField">
             <label>اسم العميل</label>
             <input id="cd_name" placeholder="مثال: أحمد محمد" />
@@ -6704,6 +6736,83 @@ scroller.addEventListener("scroll", ()=>{
     })();
 
 
+    // ===== Client file completion helpers =====
+    const CLIENT_PROFILE_REQUIRED_FIELDS = [
+      { id:"cd_name", label:"اسم العميل" },
+      { id:"cd_phone", label:"رقم الجوال" },
+      { id:"cd_salary", label:"الراتب" },
+      { id:"cd_commitment", label:"الالتزام" },
+      { id:"cd_finType", label:"نوع التمويل" },
+      { id:"cd_statusSelect", label:"حالة العميل" },
+      { id:"cd_place", label:"المكان" },
+      { id:"cd_age", label:"العمر" },
+      { id:"cd_bank", label:"البنك" },
+      { id:"cd_car_type", label:"نوع السيارة" },
+      { id:"cd_car_model", label:"الموديل" },
+      { id:"cd_car_color", label:"اللون" }
+    ];
+
+    function getClientProfileCompletionFromValues(values){
+      const total = CLIENT_PROFILE_REQUIRED_FIELDS.length;
+      const missing = [];
+      let completed = 0;
+      CLIENT_PROFILE_REQUIRED_FIELDS.forEach(f=>{
+        const value = values && Object.prototype.hasOwnProperty.call(values, f.id)
+          ? values[f.id]
+          : (document.getElementById(f.id)?.value || "");
+        if(String(value || "").trim()) completed += 1;
+        else missing.push(f.label);
+      });
+      const percent = total ? Math.round((completed / total) * 100) : 0;
+      return { percent, completed, total, missing };
+    }
+
+    function getClientProfileCompletionFromPayload(data={}){
+      const vals = {
+        cd_name: data.name || data.displayName || "",
+        cd_phone: data.phoneNormalized || data.phone || data.waId || "",
+        cd_salary: data.salary || "",
+        cd_commitment: data.commitment || data.obligation || "",
+        cd_finType: data.financeType || data.finType || data.eligibilityType || "",
+        cd_statusSelect: data.leadStatusId || data.leadStatusName || data.status || "",
+        cd_place: data.place || data.location || data.city || "",
+        cd_age: data.age || "",
+        cd_bank: data.bank || data.salaryBank || "",
+        cd_car_type: data.carType || data.car || data.carName || "",
+        cd_car_model: data.carModel || data.model || "",
+        cd_car_color: data.carColor || data.color || ""
+      };
+      return getClientProfileCompletionFromValues(vals);
+    }
+
+    function updateClientProfileCompletionUI(){
+      const result = getClientProfileCompletionFromValues();
+      const text = document.getElementById("cd_completionText");
+      const fill = document.getElementById("cd_completionFill");
+      const missing = document.getElementById("cd_completionMissing");
+      if(text) text.textContent = result.percent + "%";
+      if(fill) fill.style.width = result.percent + "%";
+      if(missing){
+        missing.textContent = result.percent >= 100
+          ? "ملف العميل مكتمل 100%."
+          : "البيانات الناقصة: " + result.missing.join("، ");
+      }
+      return result;
+    }
+
+    function bindClientProfileCompletionInputs(){
+      CLIENT_PROFILE_REQUIRED_FIELDS.forEach(f=>{
+        const el = document.getElementById(f.id);
+        if(el && !el.dataset.profileCompletionBound){
+          el.dataset.profileCompletionBound = "1";
+          el.addEventListener("input", updateClientProfileCompletionUI);
+          el.addEventListener("change", updateClientProfileCompletionUI);
+        }
+      });
+    }
+    bindClientProfileCompletionInputs();
+
+
     // close events
     document.addEventListener("click", (e)=>{
       if(!cdOverlay) return;
@@ -6787,6 +6896,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           sel.innerHTML = leadStatusOptionsHtml(curId, data || {});
         }
       }catch(e){ console.warn("cd status options", e); }
+      try{ bindClientProfileCompletionInputs(); updateClientProfileCompletionUI(); }catch(e){}
 
       // load saved eligibility (if any) + compute eligibility box (uses salary + commitment)
       try{
@@ -7002,6 +7112,13 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           updatedAt: new Date().toISOString()
         };
 
+        const profileCompletion = getClientProfileCompletionFromPayload({ ...payload, leadStatusId: selectedLeadStatusId, leadStatusName: selectedLeadStatusName });
+        payload.profileCompletion = profileCompletion;
+        payload.profileCompletionPercent = profileCompletion.percent;
+        payload.profileCompletedFields = profileCompletion.completed;
+        payload.profileTotalFields = profileCompletion.total;
+        payload.profileMissingFields = profileCompletion.missing;
+
         // Save contact (اختياري)
         // بعض حسابات المناديب قد لا تمتلك صلاحية الكتابة في contacts، لذلك لا نوقف حفظ بيانات العميل بالكامل.
         let contactSaved = false;
@@ -7088,6 +7205,11 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
             branchId: safeBranchId,
             ...(selectedLeadStatusId ? { leadStatusId: selectedLeadStatusId, leadStatusName: selectedLeadStatusName } : {}),
             attachments: attachments || [],
+            profileCompletion,
+            profileCompletionPercent: profileCompletion.percent,
+            profileCompletedFields: profileCompletion.completed,
+            profileTotalFields: profileCompletion.total,
+            profileMissingFields: profileCompletion.missing,
             updatedAt: new Date().toISOString()
           }, { merge:true });
           try{
@@ -12157,6 +12279,21 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
       };
     }
 
+
+    function getLeadProfileCompletionPercent(data={}){
+      const direct = Number(data.profileCompletionPercent ?? data.profilePercent ?? data.profile_completion_percent);
+      if(isFinite(direct) && direct >= 0) return Math.max(0, Math.min(100, Math.round(direct)));
+      if(data.profileCompletion && isFinite(Number(data.profileCompletion.percent))){
+        return Math.max(0, Math.min(100, Math.round(Number(data.profileCompletion.percent))));
+      }
+      try{ return getClientProfileCompletionFromPayload(data).percent; }catch(e){ return 0; }
+    }
+
+    function renderProfileCompletionBadge(data={}){
+      const pct = getLeadProfileCompletionPercent(data);
+      return `<div class="mzjProfilePct ${pct >= 100 ? 'ok' : ''}">ملف العميل: ${pct}%</div>`;
+    }
+
     function renderDashboardSection(sectionKey){
       const grid = $("#dashBoardGrid");
       if(!grid) return;
@@ -12199,6 +12336,7 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
                       <div data-dash-lead="${esc(entry.id)}" style="padding:12px 14px;border-bottom:1px solid rgba(43,26,23,.10);cursor:pointer">
                         <div style="font-weight:900">${name}</div>
                         <div style="font-size:12px;color:rgba(28,28,28,.64);margin-top:3px">📱 ${phone}</div>
+                        ${renderProfileCompletionBadge(d)}
                         <div style="font-size:12px;color:rgba(28,28,28,.64);margin-top:2px">🚗 ${car}</div>
                       </div>
                     `;
