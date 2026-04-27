@@ -3756,65 +3756,10 @@ function renderTemplateSelectOptions(){
   }
 
   function getCallCenterAssignedUidFromLead(data){
-    const direct = String((data && (data.callCenterAssignedTo || data.callcenterAssignedTo || "")) || "").trim();
+    const direct = String((data && (data.callCenterAssignedTo || data.callcenterAssignedTo || data.customerAssignedTo || "")) || "").trim();
     if(direct) return direct;
-    const byName = findAgentByAnyRef(data?.callCenterAssignedName || data?.callcenterAssignedName || "");
+    const byName = findAgentByAnyRef(data?.callCenterAssignedName || data?.callcenterAssignedName || data?.customerAssignedName || "");
     return String(byName?.uid || byName?.id || "").trim();
-  }
-
-  function getCustomerServiceAssignedUidFromLead(data){
-    const d = data || {};
-    const direct = String(
-      d.customerServiceAssignedTo ||
-      d.csAssignedTo ||
-      d.serviceAssignedTo ||
-      d.supportAssignedTo ||
-      d.customerAssignedTo ||
-      d.assignedTo ||
-      d.salesAssignedTo ||
-      d.assigneeTo ||
-      ""
-    ).trim();
-    if(direct) return direct;
-    const byName = findAgentByAnyRef(
-      d.customerServiceAssignedName ||
-      d.csAssignedName ||
-      d.serviceAssignedName ||
-      d.supportAssignedName ||
-      d.customerAssignedName ||
-      d.assignedName ||
-      d.salesAssignedName ||
-      d.assigneeName ||
-      ""
-    );
-    return String(byName?.uid || byName?.id || "").trim();
-  }
-
-  function getCustomerServiceAssignedNameDisplay(lead){
-    const uid = getCustomerServiceAssignedUidFromLead(lead || {});
-    if(uid){
-      return String(
-        lead?.customerServiceAssignedName ||
-        lead?.csAssignedName ||
-        lead?.serviceAssignedName ||
-        lead?.supportAssignedName ||
-        lead?.customerAssignedName ||
-        lead?.assignedName ||
-        lead?.salesAssignedName ||
-        agentsUidMap.get(uid)?.name ||
-        uid
-      ).trim() || "غير موزع";
-    }
-    return String(
-      lead?.customerServiceAssignedName ||
-      lead?.csAssignedName ||
-      lead?.serviceAssignedName ||
-      lead?.supportAssignedName ||
-      lead?.customerAssignedName ||
-      lead?.assignedName ||
-      lead?.salesAssignedName ||
-      ""
-    ).trim() || "غير موزع";
   }
 
   function getLeadBranchLocationId(data){
@@ -3823,11 +3768,9 @@ function renderTemplateSelectOptions(){
     if(direct) return direct;
     const refs = [
       d.salesAssignedTo, d.assignedTo, d.assigneeTo,
-      d.customerServiceAssignedTo, d.csAssignedTo, d.serviceAssignedTo, d.supportAssignedTo, d.customerAssignedTo,
-      d.callCenterAssignedTo, d.callcenterAssignedTo,
+      d.callCenterAssignedTo, d.callcenterAssignedTo, d.customerAssignedTo,
       d.salesAssignedName, d.assignedName, d.assigneeName,
-      d.customerServiceAssignedName, d.csAssignedName, d.serviceAssignedName, d.supportAssignedName, d.customerAssignedName,
-      d.callCenterAssignedName, d.callcenterAssignedName
+      d.callCenterAssignedName, d.callcenterAssignedName, d.customerAssignedName
     ];
     for(const ref of refs){
       const agent = findAgentByAnyRef(ref);
@@ -6828,7 +6771,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
 
         const selectedLeadStatusId = String($("#cd_statusSelect")?.value || "").trim();
-        const selectedLeadStatusName = selectedLeadStatusId ? getLeadStatusNameById(selectedLeadStatusId, "") : "";
+        const selectedLeadStatusName = selectedLeadStatusId ? (leadStatusesMap.get(selectedLeadStatusId)?.name || "") : "";
 
         // --- Eligibility (persist in contact + lead) ---
         const finType = String($("#cd_finType")?.value || "").trim(); // general / realestate / ""
@@ -7861,11 +7804,9 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
     const d = data || {};
     const m = String(mode || window.__leadsViewMode || "").trim();
     if(m === "customers") return getCallCenterAssignedUidFromLead(d);
-    if(m === "leads_cs") return getCustomerServiceAssignedUidFromLead(d);
-    if(m === "leads_cash" || m === "leads_finance") return getSalesAssignedUidFromLead(d);
+    if(m === "leads_cash" || m === "leads_finance" || m === "leads_cs") return getSalesAssignedUidFromLead(d);
     const branchId = getCurrentBranchId();
     if(branchMatchesKey(branchId, "callcenter")) return getCallCenterAssignedUidFromLead(d);
-    if(branchMatchesKey(branchId, "cs")) return getCustomerServiceAssignedUidFromLead(d);
     return getSalesAssignedUidFromLead(d);
   }
 
@@ -7890,7 +7831,6 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
 // ===== Required Role Statuses =====
 const REQUIRED_LEAD_STATUS_NAMES = [
   "لم يتم الرد",
-  "تم الرد",
   "جاري العمل",
   "تم الإنتهاء",
   "تم الإتصال",
@@ -7916,7 +7856,6 @@ const REQUIRED_LEAD_STATUS_NAMES = [
 // ===== Custom Status Order (Dashboard + Pipeline + Dropdowns) =====
 const CUSTOM_STATUS_ORDER = [
   "لم يتم الرد",
-  "تم الرد",
   "جاري العمل",
   "تم الإتصال",
   "غير مؤهل",
@@ -7966,26 +7905,13 @@ function findLeadStatusByNameExact(name){
   return getLeadStatusesCatalog().find(s=> String(s?.name || "").trim() === target) || null;
 }
 
-function getLeadStatusNameById(statusId, fallbackName=""){
-  const id = String(statusId || "").trim();
-  const fromSaved = id ? leadStatusesMap.get(id) : null;
-  if(fromSaved?.name) return String(fromSaved.name || "").trim();
-  const fromCatalog = id ? getLeadStatusesCatalog().find(s=> String(s?.id || "").trim() === id) : null;
-  if(fromCatalog?.name) return String(fromCatalog.name || "").trim();
-  const fb = String(fallbackName || "").trim();
-  return fb || getDefaultLeadStatus().name;
-}
-
 function getAllowedLeadStatusNamesForCurrentUser(lead){
   if(canViewAllLeads()){
     return getLeadStatusesCatalog().filter(s=>s?.isActive !== false).map(s=> String(s.name || "").trim()).filter(Boolean);
   }
 
   const branchId = getCurrentBranchId();
-  if(branchMatchesKey(branchId, "cs")){
-    return ["لم يتم الرد", "تم الرد", "جاري العمل", "تم الإنتهاء"];
-  }
-  if(branchMatchesKey(branchId, "cash")){
+  if(branchMatchesKey(branchId, "cash") || branchMatchesKey(branchId, "cs")){
     return ["لم يتم الرد", "جاري العمل", "تم الإنتهاء"];
   }
 
@@ -8066,16 +7992,8 @@ function sortStatusesByCustomOrder(list){
     if(!currentUser) return false;
     // الإدمن/مدير الفرع يقدر يعدّل
     if(canSeeAllInbox() || canSeeSettings()) return true;
-
-    const myUid = String(currentUser.uid || "").trim();
-    const d = lead || {};
-    const salesUid = String(getSalesAssignedUidFromLead(d) || "").trim();
-    const callUid = String(getCallCenterAssignedUidFromLead(d) || "").trim();
-    const directAssigned = String(d.assignedTo || d.assigneeTo || "").trim();
-
-    // مناديب خدمة العملاء والكاش والتمويل يقدروا يغيروا حالة العميل لو هو موزع عليهم كمندوب مبيعات/خدمة.
-    // الكول سنتر يقدر يغير لو العميل موزع عليه ككول سنتر.
-    return salesUid === myUid || callUid === myUid || directAssigned === myUid;
+    // المندوب يعدّل لو العميل عليه أو معيّن عليه بالكول سنتر
+    return (lead?.assignedTo || "") === currentUser.uid || getCallCenterAssignedUidFromLead(lead) === currentUser.uid;
   }
 
   function normalizePhone(val){
@@ -8152,7 +8070,6 @@ function sortStatusesByCustomOrder(list){
 
   function getLeadResponsibleNameForView(lead, viewMode="", leadId=""){
     const mode = String(viewMode || window.__leadsViewMode || "").trim();
-    if(mode === "leads_cs") return getCustomerServiceAssignedNameDisplay(lead);
     if(mode === "customers") return getSalesAssignedNameDisplay(lead, leadId);
     return getSalesAssignedNameDisplay(lead, leadId);
   }
@@ -8545,7 +8462,7 @@ function sortStatusesByCustomOrder(list){
           return;
         }
         try{
-          const statusName = getLeadStatusNameById(statusId);
+          const statusName = (leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name);
           const latestSnap = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
           const latestLeadData = (latestSnap && latestSnap.exists()) ? (latestSnap.data()||{}) : (leadData || {});
           const statusPatch = { leadStatusId: statusId, leadStatusName: statusName, status: statusName, leadStatus: statusName, currentStatus: statusName, updatedAt: new Date().toISOString() };
@@ -8636,17 +8553,7 @@ function sortStatusesByCustomOrder(list){
     let agents = Array.from(agentsUidMap.values()).filter(a=>a && a.isActive && !isExcludedAssignee(a));
 
     if(targetBranchKey){
-      agents = agents.filter(a=>{
-        const branchId = String(a?.branchId || "").trim();
-        const deptKey = String(a?.deptKey || a?.raw?.deptKey || "").trim().toLowerCase();
-        const deptLabel = String(a?.deptLabel || a?.raw?.deptLabel || "").trim();
-        if(branchMatchesKey(branchId, targetBranchKey)) return true;
-        if(targetBranchKey === "cs" && (deptKey === "cs" || /خدمة\s*عملاء|customer\s*service/i.test(deptLabel))) return true;
-        if(targetBranchKey === "finance" && (deptKey === "finance" || /تمويل/i.test(deptLabel))) return true;
-        if(targetBranchKey === "cash" && (deptKey === "cash" || /كاش/i.test(deptLabel))) return true;
-        if(targetBranchKey === "callcenter" && (deptKey === "callcenter" || /كول\s*سنتر|call\s*center|callcenter/i.test(deptLabel))) return true;
-        return false;
-      });
+      agents = agents.filter(a=> branchMatchesKey(String(a?.branchId || "").trim(), targetBranchKey));
     }
 
     agents.sort((a,b)=> String(a?.name || "").localeCompare(String(b?.name || ""), "ar"));
@@ -8719,7 +8626,7 @@ function sortStatusesByCustomOrder(list){
       lead?.customerStatus ||
       ""
     ).trim();
-    const rawName = StringgetLeadStatusNameById(sid, explicitStatus).trim();
+    const rawName = String(leadStatusesMap.get(sid)?.name || explicitStatus || "").trim();
     if(isSnapOrGoogleCallCenterLead(lead || {})){
       if(!rawName || rawName === "جديد") return "";
     }
@@ -8930,7 +8837,7 @@ function sortStatusesByCustomOrder(list){
         }
 
         const newId = String(toStatusId || "").trim();
-        const newName = newId ? getLeadStatusNameById(newId, "") : "";
+        const newName = newId ? (leadStatusesMap.get(newId)?.name || "") : "";
 
         try{
           await updateDoc(doc(db,"leads", leadId), {
@@ -9466,7 +9373,7 @@ function getScopedLeadBaseList(viewMode="customers"){
       if(!matchesLeadTabService(d, "cs", id)) return false;
       if(canAll) return true;
       if(!uid) return false;
-      return getCustomerServiceAssignedUidFromLead(d) === uid;
+      return getSalesAssignedUidFromLead(d) === uid;
     }
 
     if(canAll) return true;
@@ -9686,7 +9593,7 @@ function bindCustomerStatusesUI(){
 
     const sel = document.querySelector(`[data-status-select="${CSS.escape(leadId)}"]`);
     const statusId = String(sel?.value || getDefaultLeadStatus().id).trim() || getDefaultLeadStatus().id;
-    const statusName = String(getLeadStatusNameById(statusId)).trim();
+    const statusName = String((leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name)).trim();
 
     try{
       await updateDoc(doc(db, "leads", leadId), {
@@ -10200,7 +10107,7 @@ function bindTasksUI(){
           return;
         }
         try{
-          const statusName = getLeadStatusNameById(statusId);
+          const statusName = (leadStatusesMap.get(statusId)?.name || getDefaultLeadStatus().name);
           const latestSnap = await getDoc(doc(db,"leads", id)).catch(()=>null);
           const latestLeadData = (latestSnap && latestSnap.exists()) ? (latestSnap.data()||{}) : (found.data || {});
           await updateDoc(doc(db,"leads", id), {
