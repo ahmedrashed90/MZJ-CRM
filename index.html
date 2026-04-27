@@ -6,6 +6,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -8031,58 +8032,81 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
   // حالات العملاء (من installment_calculator وغيرها) — إدارة داخل Tab العملاء المحتملون
   let leadStatusesMap = new Map();
 
-// ===== Required Role Statuses =====
-const REQUIRED_LEAD_STATUS_NAMES = [
-  "لم يتم الرد",
-  "جاري العمل",
-  "تم الإنتهاء",
-  "تم الإتصال",
-  "تم الرد",
-  "غير مؤهل",
-  "مؤهل - لم يتم إرسال الأوراق",
-  "مؤهل - تأخر في إرسال الأوراق",
-  "مؤهل - تم إرسال الأوراق",
-  "طلب إستكمال أوراق",
-  "طلب الدعم من الكول سنتر الى المبيعات",
-  "إستيفاء الطلب - متقدم",
-  "طلبات تمت الموافقة",
-  "طلبات لم تتم الموافقة",
-  "تم إصدار العقد",
-  "تم الإتصال لتوقيع العقد",
-  "تم توقيع العقد",
-  "لم يتم توقيع العقد",
-  "تم رفع الطلب الى جهة التمويل",
-  "تم إختيار السيارة",
-  "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
-  "تم الإنتهاء - إنشاء طلب البيع",
-  "تم الرد"
-];
+// ===== Approved Role Statuses (Dashboard + Inbox Dropdowns) =====
+const APPROVED_STATUS_GROUPS = {
+  cs: [
+    "تم الرد",
+    "جاري العمل",
+    "تم الانتهاء"
+  ],
+  cash: [
+    "تم الرد",
+    "غير مؤهل",
+    "محتمل",
+    "مؤجل",
+    "تم البيع"
+  ],
+  finance: [
+    "تم الإتصال",
+    "غير مؤهل",
+    "مؤجل",
+    "مؤهل - لم يتم إرسال الأوراق",
+    "مؤهل - تأخر في إرسال الأوراق",
+    "مؤهل - تم إرسال الأوراق",
+    "تم رفع الطلب الى جهة التمويل",
+    "طلب إستكمال أوراق",
+    "طلب الدعم من الكول سنتر الى المبيعات",
+    "تم إختيار السيارة",
+    "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
+    "إستيفاء الطلب - متقدم",
+    "طلبات تمت الموافقة",
+    "طلبات لم تتم الموافقة",
+    "تم إصدار العقد",
+    "تم الإتصال لتوقيع العقد",
+    "تم توقيع العقد",
+    "لم يتم توقيع العقد",
+    "تم الإنتهاء - إنشاء طلب البيع"
+  ]
+};
+APPROVED_STATUS_GROUPS.callcenter = APPROVED_STATUS_GROUPS.finance;
+
+const REQUIRED_LEAD_STATUS_NAMES = Array.from(new Set([
+  ...APPROVED_STATUS_GROUPS.cs,
+  ...APPROVED_STATUS_GROUPS.cash,
+  ...APPROVED_STATUS_GROUPS.finance
+]));
 
 // ===== Custom Status Order (Dashboard + Pipeline + Dropdowns) =====
-const CUSTOM_STATUS_ORDER = [
-  "لم يتم الرد",
-  "جاري العمل",
-  "تم الإتصال",
-  "غير مؤهل",
-  "مؤهل - لم يتم إرسال الأوراق",
-  "مؤهل - تأخر في إرسال الأوراق",
-  "مؤهل - تم إرسال الأوراق",
-  "طلب إستكمال أوراق",
-  "طلب الدعم من الكول سنتر الى المبيعات",
-  "إستيفاء الطلب - متقدم",
-  "طلبات تمت الموافقة",
-  "طلبات لم تتم الموافقة",
-  "تم إصدار العقد",
-  "تم الإتصال لتوقيع العقد",
-  "تم توقيع العقد",
-  "لم يتم توقيع العقد",
-  "تم رفع الطلب الى جهة التمويل",
-  "تم إختيار السيارة",
-  "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
-  "تم الإنتهاء",
-  "تم الإنتهاء - إنشاء طلب البيع"
-];
+const CUSTOM_STATUS_ORDER = REQUIRED_LEAD_STATUS_NAMES.slice();
 
+function getApprovedStatusNamesForScope(scopeKey=""){
+  const key = String(scopeKey || "").trim().toLowerCase();
+  if(key === "cash") return APPROVED_STATUS_GROUPS.cash.slice();
+  if(key === "cs") return APPROVED_STATUS_GROUPS.cs.slice();
+  if(key === "finance" || key === "callcenter") return APPROVED_STATUS_GROUPS.finance.slice();
+  return REQUIRED_LEAD_STATUS_NAMES.slice();
+}
+
+function getStatusScopeForCurrentUser(){
+  const branchId = getCurrentBranchId();
+  if(branchMatchesKey(branchId, "cash")) return "cash";
+  if(branchMatchesKey(branchId, "cs")) return "cs";
+  if(branchMatchesKey(branchId, "callcenter")) return "callcenter";
+  if(branchMatchesKey(branchId, "finance")) return "finance";
+  return "";
+}
+
+function normalizeApprovedStatusName(name=""){
+  const s = String(name || "").trim();
+  if(s === "تم الإنتهاء" || s === "تم الانتهاء") return "تم الانتهاء";
+  if(s === "عميل محتمل") return "محتمل";
+  return s;
+}
+
+function isApprovedStatusForScope(statusName="", scopeKey=""){
+  const s = normalizeApprovedStatusName(statusName);
+  return getApprovedStatusNamesForScope(scopeKey).includes(s);
+}
 
 function getBuiltinLeadStatuses(){
   return REQUIRED_LEAD_STATUS_NAMES.map((name, idx)=>({
@@ -8094,85 +8118,32 @@ function getBuiltinLeadStatuses(){
 }
 
 function getLeadStatusesCatalog(){
+  const approved = new Set(REQUIRED_LEAD_STATUS_NAMES.map(x=>String(x||"").trim()));
   const merged = new Map();
   getBuiltinLeadStatuses().forEach(s=> merged.set(String(s.name||"").trim(), s));
+  // نقرأ Firebase كـ fallback فقط لو نفس الاسم معتمد، ونمنع ظهور الحالات القديمة نهائياً.
   Array.from(leadStatusesMap.values()).forEach(s=>{
     const key = String(s?.name || "").trim();
-    if(!key) return;
+    if(!key || !approved.has(key)) return;
     merged.set(key, { ...s, isActive: s?.isActive !== false });
   });
   return Array.from(merged.values());
 }
 
 function findLeadStatusByNameExact(name){
-  const target = String(name || "").trim();
+  const target = normalizeApprovedStatusName(name);
   if(!target) return null;
   return getLeadStatusesCatalog().find(s=> String(s?.name || "").trim() === target) || null;
 }
 
 function getAllowedLeadStatusNamesForCurrentUser(lead){
-  if(canViewAllLeads()){
-    return getLeadStatusesCatalog().filter(s=>s?.isActive !== false).map(s=> String(s.name || "").trim()).filter(Boolean);
-  }
-
-  const branchId = getCurrentBranchId();
-  if(branchMatchesKey(branchId, "cash")){
-    return ["لم يتم الرد", "جاري العمل", "تم الإنتهاء"];
-  }
-
-  if(branchMatchesKey(branchId, "cs")){
-    return ["لم يتم الرد", "تم الرد", "جاري العمل", "تم الإنتهاء"];
-  }
-
-  if(branchMatchesKey(branchId, "callcenter")){
-    return [
-      "تم الإتصال",
-      "غير مؤهل",
-      "مؤهل - لم يتم إرسال الأوراق",
-      "مؤهل - تأخر في إرسال الأوراق",
-      "مؤهل - تم إرسال الأوراق",
-      "طلب إستكمال أوراق",
-      "طلب الدعم من الكول سنتر الى المبيعات",
-      "إستيفاء الطلب - متقدم",
-      "طلبات تمت الموافقة",
-      "طلبات لم تتم الموافقة",
-      "تم إصدار العقد",
-      "تم الإتصال لتوقيع العقد",
-      "تم توقيع العقد",
-      "لم يتم توقيع العقد"
-    ];
-  }
-
-  if(branchMatchesKey(branchId, "finance")){
-    return [
-      "تم الإتصال",
-      "غير مؤهل",
-      "مؤهل - لم يتم إرسال الأوراق",
-      "مؤهل - تأخر في إرسال الأوراق",
-      "مؤهل - تم إرسال الأوراق",
-      "طلب إستكمال أوراق",
-      "طلب الدعم من الكول سنتر الى المبيعات",
-      "إستيفاء الطلب - متقدم",
-      "طلبات تمت الموافقة",
-      "طلبات لم تتم الموافقة",
-      "تم إصدار العقد",
-      "تم الإتصال لتوقيع العقد",
-      "تم توقيع العقد",
-      "لم يتم توقيع العقد",
-      "تم رفع الطلب الى جهة التمويل",
-      "تم إختيار السيارة",
-      "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
-      "تم الإنتهاء - إنشاء طلب البيع"
-    ];
-  }
-
-  return getLeadStatusesCatalog().filter(s=>s?.isActive !== false).map(s=> String(s.name || "").trim()).filter(Boolean);
+  const scope = getStatusScopeForCurrentUser();
+  if(scope) return getApprovedStatusNamesForScope(scope);
+  return getApprovedStatusNamesForScope("");
 }
 
 function getAllowedLeadStatusesForCurrentUser(lead){
   const names = getAllowedLeadStatusNamesForCurrentUser(lead);
-  const currentName = String(getEffectiveLeadStatusName(lead || {}) || "").trim();
-  if(currentName && !names.includes(currentName)) names.unshift(currentName);
   return sortStatusesByCustomOrder(
     names.map(name => findLeadStatusByNameExact(name) || { id: "", name, isActive: true, builtin: true })
   );
@@ -8180,7 +8151,6 @@ function getAllowedLeadStatusesForCurrentUser(lead){
 
 function sortStatusesByCustomOrder(list){
   const arr = Array.isArray(list) ? list.slice() : [];
-  // Items not in list go to the end; keep Arabic alphabetical among them for stability
   arr.sort((a,b)=>{
     const na = String(a?.name || "").trim();
     const nb = String(b?.name || "").trim();
@@ -8816,10 +8786,8 @@ function sortStatusesByCustomOrder(list){
   const PIPE_NONE = "__none__";
   const pipeState = { q:"", car:"", pay:"" };
   function getDefaultLeadStatus(){
-    const act = Array.from(leadStatusesMap.values()).filter(s=>s.isActive !== false);
-    // prefer status named "جديد"
-    const byName = act.find(s=>String(s.name||"").trim() === "جديد");
-    return byName || act[0] || { id:"__default_new__", name:"جديد", isActive:true };
+    const act = getLeadStatusesCatalog().filter(s=>s.isActive !== false);
+    return act[0] || { id:"", name:"", isActive:true };
   }
   function getEffectiveLeadStatusId(lead){
     const sid = String(lead?.leadStatusId || "").trim();
@@ -8839,7 +8807,8 @@ function sortStatusesByCustomOrder(list){
       lead?.customerStatus ||
       ""
     ).trim();
-    const rawName = String(leadStatusesMap.get(sid)?.name || explicitStatus || "").trim();
+    const catalogStatus = sid ? getLeadStatusesCatalog().find(s=>String(s?.id||"").trim() === sid) : null;
+    const rawName = String(catalogStatus?.name || leadStatusesMap.get(sid)?.name || explicitStatus || "").trim();
     if(isSnapOrGoogleCallCenterLead(lead || {})){
       if(!rawName || rawName === "جديد") return "";
     }
@@ -11947,7 +11916,7 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
       cash: {
         key: "cash",
         title: "مبيعات الكاش",
-        cards: ["إجمالي العملاء", "تم الرد", "غير مؤهل", "عميل محتمل", "مؤجل", "تم البيع"]
+        cards: ["إجمالي العملاء", "تم الرد", "غير مؤهل", "محتمل", "مؤجل", "تم البيع"]
       },
       finance: {
         key: "finance",
@@ -11977,7 +11946,7 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
       cs: {
         key: "cs",
         title: "خدمة العملاء",
-        cards: ["إجمالي العملاء", "تم الرد", "جاري العمل", "تم الإنتهاء"]
+        cards: ["إجمالي العملاء", "تم الرد", "جاري العمل", "تم الانتهاء"]
       }
     };
 
@@ -12068,7 +12037,7 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
 
     function isDashboardCashPotential(statusName){
       const s = String(statusName || "").trim();
-      return s === "عميل محتمل";
+      return s === "محتمل" || s === "عميل محتمل";
     }
 
     function isDashboardCashDeferred(statusName){
@@ -12110,7 +12079,7 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
           { title:"إجمالي العملاء", items: total },
           { title:"تم الرد", items: responded },
           { title:"غير مؤهل", items: unqualified },
-          { title:"عميل محتمل", items: potential },
+          { title:"محتمل", items: potential },
           { title:"مؤجل", items: deferred },
           { title:"تم البيع", items: sold }
         ];
@@ -12140,7 +12109,7 @@ $("#closeChatConfirm")?.addEventListener("click", async ()=>{
           { title:"إجمالي العملاء", items: total },
           { title:"تم الرد", items: responded },
           { title:"جاري العمل", items: inProgress },
-          { title:"تم الإنتهاء", items: done }
+          { title:"تم الانتهاء", items: done }
         ];
       }
 
