@@ -7834,7 +7834,7 @@ const REQUIRED_LEAD_STATUS_NAMES = [
   "جاري العمل",
   "تم الإنتهاء",
   "تم الإتصال",
-  "تم الاتصال",
+  "تم الرد",
   "غير مؤهل",
   "مؤهل - لم يتم إرسال الأوراق",
   "مؤهل - تأخر في إرسال الأوراق",
@@ -7852,7 +7852,7 @@ const REQUIRED_LEAD_STATUS_NAMES = [
   "تم إختيار السيارة",
   "تم رفع أوراق السيارة المطلوبة الى جهة التمويل",
   "تم الإنتهاء - إنشاء طلب البيع",
-  "تم الاتصال"
+  "تم الرد"
 ];
 
 // ===== Custom Status Order (Dashboard + Pipeline + Dropdowns) =====
@@ -7918,7 +7918,7 @@ function getAllowedLeadStatusNamesForCurrentUser(lead){
   }
 
   if(branchMatchesKey(branchId, "cs")){
-    return ["لم يتم الرد", "تم الاتصال", "جاري العمل", "تم الإنتهاء"];
+    return ["لم يتم الرد", "تم الرد", "جاري العمل", "تم الإنتهاء"];
   }
 
   if(branchMatchesKey(branchId, "callcenter")){
