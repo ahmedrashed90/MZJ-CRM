@@ -5,6 +5,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6848,6 +6849,11 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
         }
         if(leadId){
           const convServiceKey = String(conv.autoService || conv.serviceKey || "").trim().toLowerCase();
+          const convPayType = String(
+            getPayTypeLabelByServiceKey(convServiceKey) ||
+            conv.paymentType || conv.payType || conv.payment ||
+            (convServiceKey === "finance" ? "تمويل" : (convServiceKey === "cash" ? "كاش" : (convServiceKey === "cs" ? "خدمة عملاء" : "")))
+          ).trim();
           const safeSalesPick = convServiceKey ? getSafeAssignedAgentForService(convServiceKey, String(conv.salesAssignedTo || conv.assignedTo || "").trim()) : null;
           const safeSalesUid = String(safeSalesPick?.uid || safeSalesPick?.id || (convServiceKey ? (conv.salesAssignedTo || conv.assignedTo || "") : "")).trim();
           const safeSalesName = String(safeSalesPick?.name || (convServiceKey ? (conv.salesAssignedName || conv.assignedName || safeSalesUid || "") : "")).trim();
@@ -9361,6 +9367,18 @@ function getScopedLeadBaseList(viewMode="customers"){
       if(isFinanceRoutingLead && !isCallCenterFinanceStatusVisible(d, id)) return false;
       if(canAll) return true;
       if(!uid) return false;
+
+      // مندوب مبيعات التمويل يشوف في تاب الكول سنتر العملاء التمويل المربوطين به.
+      const myBranchId = getCurrentBranchId();
+      if(branchMatchesKey(myBranchId, "finance")){
+        return isFinanceRoutingLead && getSalesAssignedUidFromLead(d) === uid;
+      }
+
+      // نفس الحماية لخدمة العملاء لو اتفتح نفس الـ View لحسابهم.
+      if(branchMatchesKey(myBranchId, "cs")){
+        return isCustomerServiceLead && getSalesAssignedUidFromLead(d) === uid;
+      }
+
       return getCallCenterAssignedUidFromLead(d) === uid;
     }
 
