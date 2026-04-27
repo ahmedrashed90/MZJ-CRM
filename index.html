@@ -3,6 +3,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -5310,7 +5311,9 @@ try{
       return rule.emails.includes(email) || rule.names.includes(name);
     });
 
-    return filtered.length ? filtered : base;
+    // توزيع صارم: لو الفرع له قائمة مخصصة، لا نرجع لأي مستخدم خارج القائمة.
+    // ده يمنع توزيع العملاء على مدير/إدمن/يوزر غير مندوب القسم.
+    return filtered;
   }
 
 
@@ -5428,33 +5431,101 @@ try{
     return rule.emails.includes(email) || rule.names.includes(name);
   }
 
-  function pickConfiguredAgentForService(serviceKey, preferredUid=""){
-    const targetBranchName = getTargetBranchNameByServiceKey(serviceKey);
-    if(!targetBranchName) return null;
+  function getExplicitPaymentServiceKey(lead){
+    const d = lead || {};
+    const explicit = String(d.autoService || d.serviceKey || d.department || d.service || "").trim().toLowerCase();
+    if(["finance","cash","cs"].includes(explicit)) return explicit;
+    const raw = String(d.paymentType || d.payType || d.cashOrFinance || d.payment || d.pay || d.payment_method || d.paymentMethod || d.calculator?.paymentType || d.payload?.paymentType || "").trim();
+    if(!raw) return "";
+    if(/خدمة\s*عملاء|customer\s*service|service\s*customer|cs/i.test(raw)) return "cs";
+    if(/كاش|cash|نقد/i.test(raw)) return "cash";
+    if(/تمويل|finance|قسط|تقسيط/i.test(raw)) return "finance";
+    return "";
+  }
 
+  function isStrictSalesAgentForService(agent, serviceKey){
+    const key = String(serviceKey || "").trim().toLowerCase();
+    if(!agent || agent.isActive === false || isExcludedAssignee(agent)) return false;
+    if(!["finance","cash","cs"].includes(key)) return false;
+    const roleId = String(agent.roleId || agent.raw?.roleId || "").trim().toLowerCase();
+    const roleName = String(rolesMap.get(agent.roleId) || agent.roleName || agent.raw?.roleName || "").trim().toLowerCase();
+    const deptKey = String(agent.deptKey || agent.raw?.deptKey || "").trim().toLowerCase();
+    const deptLabel = String(agent.deptLabel || agent.raw?.deptLabel || "").trim();
+    const branchId = String(agent.branchId || agent.raw?.branchId || "").trim();
+    if(roleId.includes("admin") || roleId.includes("manager") || roleName.includes("admin") || roleName.includes("manager") || roleName.includes("مدير") || roleName.includes("مشرف")) return false;
+    if(key === "finance" && !branchMatchesKey(branchId, "finance")) return false;
+    if(key === "cash" && !branchMatchesKey(branchId, "cash")) return false;
+    if(key === "cs" && !branchMatchesKey(branchId, "cs")) return false;
+    if(matchesSpecialServiceAgent(agent, key)) return true;
+    if(deptKey === key) return true;
+    if(key === "finance" && /تمويل/.test(deptLabel)) return true;
+    if(key === "cash" && /كاش/.test(deptLabel)) return true;
+    if(key === "cs" && /خدمة\s*عملاء/.test(deptLabel)) return true;
+    return false;
+  }
+
+  function getStrictSalesAgentsForService(serviceKey){
+    const key = String(serviceKey || "").trim().toLowerCase();
+    return Array.from(agentsUidMap.values()).filter(a=>isStrictSalesAgentForService(a, key)).sort((a,b)=> String(a.name||"").localeCompare(String(b.name||""), "ar"));
+  }
+
+  function pickStrictSalesAgentForService(serviceKey, preferredUid=""){
+    const key = String(serviceKey || "").trim().toLowerCase();
     const uid = String(preferredUid || "").trim();
     if(uid){
-      const preferred = agentsUidMap.get(uid);
-      if(preferred && preferred.isActive && !isExcludedAssignee(preferred) && matchesSpecialServiceAgent(preferred, serviceKey)){
-        const bid = String(preferred.branchId || "").trim();
-        const matches = targetBranchName === "مبيعات التمويل"
-          ? branchMatchesKey(bid, "finance")
-          : targetBranchName === "مبيعات الكاش"
-            ? branchMatchesKey(bid, "cash")
-            : targetBranchName === "خدمة العملاء"
-              ? branchMatchesKey(bid, "cs")
-              : false;
-        if(matches) return preferred;
-      }
+      const preferred = agentsUidMap.get(uid) || agentsMap.get(uid);
+      if(isStrictSalesAgentForService(preferred, key)) return preferred;
     }
-
-    const eligible = getEligibleAgentsForBranch(targetBranchName).filter(a=>matchesSpecialServiceAgent(a, serviceKey));
-    if(eligible.length){
-      return eligible[Math.floor(Math.random() * eligible.length)] || null;
-    }
-
-    return pickRandomAgentFromBranch(targetBranchName);
+    const eligible = getStrictSalesAgentsForService(key);
+    if(!eligible.length) return null;
+    return eligible[Math.floor(Math.random() * eligible.length)] || eligible[0] || null;
   }
+
+  function isStrictCallCenterAgent(agent){
+    if(!agent || agent.isActive === false || isExcludedAssignee(agent)) return false;
+    const roleId = String(agent.roleId || agent.raw?.roleId || "").trim().toLowerCase();
+    const roleName = String(rolesMap.get(agent.roleId) || agent.roleName || agent.raw?.roleName || "").trim().toLowerCase();
+    const deptKey = String(agent.deptKey || agent.raw?.deptKey || "").trim().toLowerCase();
+    const deptLabel = String(agent.deptLabel || agent.raw?.deptLabel || "").trim();
+    const branchId = String(agent.branchId || agent.raw?.branchId || "").trim();
+    if(roleId.includes("admin") || roleId.includes("manager") || roleName.includes("admin") || roleName.includes("manager") || roleName.includes("مدير") || roleName.includes("مشرف")) return false;
+    if(!branchMatchesKey(branchId, "callcenter") && deptKey !== "callcenter" && !/كول\s*سنتر|call\s*center|callcenter/i.test(deptLabel)) return false;
+    const rule = SPECIAL_BRANCH_ASSIGNMENTS["كول سنتر"] || null;
+    if(rule){
+      const email = normalizeAgentIdentityValue(agent?.email);
+      const name = String(agent?.name || "").trim();
+      return rule.emails.includes(email) || rule.names.includes(name);
+    }
+    return true;
+  }
+
+  function getStrictCallCenterAgents(){
+    return Array.from(agentsUidMap.values()).filter(a=>isStrictCallCenterAgent(a)).sort((a,b)=> String(a.name||"").localeCompare(String(b.name||""), "ar"));
+  }
+
+  function pickStrictCallCenterAgent(preferredUid=""){
+    const uid = String(preferredUid || "").trim();
+    if(uid){
+      const preferred = agentsUidMap.get(uid) || agentsMap.get(uid);
+      if(isStrictCallCenterAgent(preferred)) return preferred;
+    }
+    const eligible = getStrictCallCenterAgents();
+    if(!eligible.length) return null;
+    return eligible[Math.floor(Math.random() * eligible.length)] || eligible[0] || null;
+  }
+
+  function shouldAssignCallCenterForService(serviceKey){
+    const key = String(serviceKey || "").trim().toLowerCase();
+    // تاب الكول سنتر يعرض عملاء التمويل وخدمة العملاء؛ لذلك أي عميل يدخل هذا التاب لازم يكون مربوط بمندوب كول سنتر.
+    return key === "finance" || key === "cs";
+  }
+
+  function pickConfiguredAgentForService(serviceKey, preferredUid=""){
+    // توزيع العملاء يتم فقط على مناديب القسم المرتبط بنوع الدفع.
+    // أي مستخدم آخر (مدير/إدمن/كول سنتر/قسم مختلف) لا يدخل في التوزيع.
+    return pickStrictSalesAgentForService(serviceKey, preferredUid);
+  }
+
 
   function getDefaultAssignmentForNewLead(serviceKey="", preferredCallUid=""){
     const key = String(serviceKey || "").trim().toLowerCase();
@@ -5468,23 +5539,7 @@ try{
       updatedAt: nowIso
     };
 
-    const callPreferred = String(preferredCallUid || "").trim();
-    let callPick = null;
-    if(callPreferred){
-      const a = agentsUidMap.get(callPreferred);
-      if(a && a.isActive && !isExcludedAssignee(a) && branchMatchesKey(String(a.branchId || "").trim(), "callcenter")){
-        callPick = a;
-      }
-    }
-    if(!callPick){
-      callPick = pickRandomAgentFromBranch("كول سنتر");
-    }
-    const callUid = String(callPick?.uid || callPick?.id || "").trim();
-    if(callUid){
-      base.callCenterAssignedTo = callUid;
-      base.callCenterAssignedName = String(callPick?.name || callPick?.email || callUid).trim();
-      base.callCenterAssignedAt = nowIso;
-    }
+    // توزيع المندوب المسؤول حسب نوع الدفع فقط، ومعه ربط الكول سنتر للعملاء الظاهرين في تاب الكول سنتر.
 
     if(key){
       const salesPick = pickConfiguredAgentForService(key, "") || getSafeAssignedAgentForService(key, "");
@@ -5497,6 +5552,16 @@ try{
         base.branchId = String(salesPick?.branchId || "").trim();
         base.assignedAt = nowIso;
         base.assignedBy = "auto_random";
+      }
+
+      if(shouldAssignCallCenterForService(key)){
+        const callPick = pickStrictCallCenterAgent(preferredCallUid);
+        const callUid = String(callPick?.uid || callPick?.id || "").trim();
+        if(callUid){
+          base.callCenterAssignedTo = callUid;
+          base.callCenterAssignedName = String(callPick?.name || callPick?.email || callUid).trim();
+          base.callCenterAssignedAt = nowIso;
+        }
       }
     }
 
@@ -5530,7 +5595,7 @@ try{
   }
 
   async function assignLeadRandomByServiceKey(leadId, leadData={}, serviceKey=""){
-    const key = String(serviceKey || leadData?.autoService || leadData?.serviceKey || getLeadQueueKey(leadData, leadId) || "").trim().toLowerCase();
+    const key = String(serviceKey || getExplicitPaymentServiceKey(leadData) || "").trim().toLowerCase();
     if(!leadId || !key) return { ok:false, reason:"missing_service" };
 
     const targetBranchName = getTargetBranchNameByServiceKey(key);
@@ -5542,12 +5607,9 @@ try{
     const salesUid = String(salesPick.uid || salesPick.id || "").trim();
     if(!salesUid) return { ok:false, reason:"bad_sales_agent" };
 
-    let callPick = null;
-    let callUid = "";
-    if(key === "finance"){
-      callPick = pickRandomAgentFromBranch("كول سنتر");
-      callUid = String(callPick?.uid || callPick?.id || "").trim();
-    }
+    const preferredCallUid = String(leadData?.callCenterAssignedTo || leadData?.callcenterAssignedTo || leadData?.customerAssignedTo || "").trim();
+    let callPick = shouldAssignCallCenterForService(key) ? pickStrictCallCenterAgent(preferredCallUid) : null;
+    let callUid = String(callPick?.uid || callPick?.id || "").trim();
 
     const nowIso = new Date().toISOString();
     const salesName = String(salesPick.name || salesPick.email || salesUid).trim();
@@ -5730,9 +5792,8 @@ async function assignConversationToBranchRandom(convId, branchName){
     const salesUid = salesPick.uid || salesPick.id;
     if(!salesUid) return { ok:false, reason:"bad_agent" };
 
-    const callcenterAgents = getEligibleAgentsForBranch("كول سنتر");
-    const callPick = callcenterAgents.length ? callcenterAgents[Math.floor(Math.random()*callcenterAgents.length)] : null;
-    const callUid = callPick ? (callPick.uid || callPick.id) : "";
+    const callPick = shouldAssignCallCenterForService(serviceKey) ? pickStrictCallCenterAgent("") : null;
+    const callUid = String(callPick?.uid || callPick?.id || "").trim();
 
     const nowIso = new Date().toISOString();
     const convPatch = {
@@ -6048,8 +6109,8 @@ const WA_AUTO_MSG_MENU_FALLBACK =
             commitment: financeData.commitment,
             autoService: "finance",
             serviceKey: "finance",
-            paymentType: "finance",
-            payType: "finance",
+            paymentType: "تمويل",
+            payType: "تمويل",
             updatedAt: new Date().toISOString()
           };
           if(leadId){
@@ -7681,38 +7742,38 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
   }
 
   async function autoAssignMissingFinanceCallCenterLeads(list){
+    // توزيع صارم حسب الدفع + ربط أي عميل ظاهر في تاب الكول سنتر بمندوب كول سنتر.
+    // تمويل -> مناديب مبيعات التمويل + مندوب كول سنتر.
+    // كاش -> مناديب مبيعات الكاش فقط.
+    // خدمة عملاء -> مندوب خدمة العملاء + مندوب كول سنتر لأنه يظهر في تاب الكول سنتر.
+    // أي دفع غير معروف أو أي مستخدم خارج قوائم القسم لا يتم توزيعه.
     if(!canViewAllLeads()) return;
     const rows = Array.isArray(list) ? list : [];
     for(const item of rows){
       const leadId = String(item?.id || "").trim();
       const data = item?.data || {};
       if(!leadId || __autoAssignedCallCenterLeadIds.has(leadId)) continue;
-      try{ await normalizeLeadSalesAssignmentIfNeeded(leadId, data); }catch(e){}
-      const routingServiceKey = String(getLeadServiceKey(data, leadId) || getLeadQueueKey(data, leadId) || "").trim().toLowerCase();
-      if(!["finance","cs"].includes(routingServiceKey)) continue;
-      const hasCall = String(getCallCenterAssignedUidFromLead(data) || "").trim();
-      if(hasCall){ __autoAssignedCallCenterLeadIds.add(leadId); continue; }
+      const paymentServiceKey = String(getExplicitPaymentServiceKey(data) || getLeadQueueKey(data, leadId) || "").trim().toLowerCase();
+      if(!["finance","cash","cs"].includes(paymentServiceKey)){
+        __autoAssignedCallCenterLeadIds.add(leadId);
+        continue;
+      }
       try{
-        const salesUid = String(getSalesAssignedUidFromLead(data) || "").trim();
-        const salesName = String(data?.salesAssignedName || data?.assignedName || agentsUidMap.get(salesUid)?.name || "").trim();
-        const callPick = pickRandomAgentFromBranch("كول سنتر");
-        const callUid = String(callPick?.uid || callPick?.id || "").trim();
-        if(salesUid && callUid){
-          await updateDoc(doc(db, "leads", leadId), {
-            callCenterAssignedTo: callUid,
-            callCenterAssignedName: String(callPick?.name || callPick?.email || callUid),
-            salesAssignedTo: salesUid,
-            salesAssignedName: salesName,
-            assignedTo: salesUid,
-            assignedName: salesName,
-            updatedAt: new Date().toISOString()
-          });
+        const currentSalesUid = String(getSalesAssignedUidFromLead(data) || "").trim();
+        const currentSalesAgent = currentSalesUid ? (agentsUidMap.get(currentSalesUid) || agentsMap.get(currentSalesUid)) : null;
+        const currentCallUid = String(getCallCenterAssignedUidFromLead(data) || "").trim();
+        const currentCallAgent = currentCallUid ? (agentsUidMap.get(currentCallUid) || agentsMap.get(currentCallUid)) : null;
+        const needSales = !isStrictSalesAgentForService(currentSalesAgent, paymentServiceKey);
+        const needCall = shouldAssignCallCenterForService(paymentServiceKey) && !isStrictCallCenterAgent(currentCallAgent);
+        if(!needSales && !needCall){
           __autoAssignedCallCenterLeadIds.add(leadId);
           continue;
         }
-        const res = await assignLeadRandomByServiceKey(leadId, data, routingServiceKey || "finance");
+        const res = await assignLeadRandomByServiceKey(leadId, data, paymentServiceKey);
         if(res?.ok) __autoAssignedCallCenterLeadIds.add(leadId);
-      }catch(e){ console.warn("autoAssignMissingFinanceCallCenterLeads", e); }
+      }catch(e){
+        console.warn("autoAssignLeadsByPaymentAndCallCenter", e);
+      }
     }
   }
 
@@ -11271,7 +11332,7 @@ function bindTasksUI(){
           leadPayload.createdAt = new Date().toISOString();
         }
         await setDoc(leadRef, leadPayload, { merge:true });
-        if(serviceKey && (!String(newLeadAssign.salesAssignedTo || "").trim() || (serviceKey === "finance" && !String(newLeadAssign.callCenterAssignedTo || "").trim()))){
+        if(serviceKey && (!String(newLeadAssign.salesAssignedTo || "").trim() || (shouldAssignCallCenterForService(serviceKey) && !String(newLeadAssign.callCenterAssignedTo || "").trim()))){
           try{
             const assignRes = await assignLeadRandomByServiceKey(leadId, leadPayload, serviceKey);
             if(assignRes?.ok){
@@ -11339,7 +11400,9 @@ function bindTasksUI(){
             const leadSnap = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
             const leadDataNow = leadSnap?.exists() ? (leadSnap.data()||{}) : patch;
             const needSales = !String(leadDataNow.salesAssignedTo || leadDataNow.assignedTo || "").trim();
-            const needCall = (patchServiceKey === "finance" || patchServiceKey === "cs") && !String(leadDataNow.callCenterAssignedTo || leadDataNow.callcenterAssignedTo || "").trim();
+            const currentCallUid = String(leadDataNow.callCenterAssignedTo || leadDataNow.callcenterAssignedTo || leadDataNow.customerAssignedTo || "").trim();
+            const currentCallAgent = currentCallUid ? (agentsUidMap.get(currentCallUid) || agentsMap.get(currentCallUid)) : null;
+            const needCall = shouldAssignCallCenterForService(patchServiceKey) && !isStrictCallCenterAgent(currentCallAgent);
             if(needSales || needCall){
               const assignRes = await assignLeadRandomByServiceKey(leadId, leadDataNow, patchServiceKey);
               if(assignRes?.ok){
