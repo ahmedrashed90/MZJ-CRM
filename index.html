@@ -10,6 +10,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -3283,10 +3284,9 @@ function extractBetweenLabels(text, startLabel, endLabel){
   return cleanTemplateParamValue(chunk);
 }
 function getTemplateAudienceKey(){
-  const branchId = getCurrentBranchId();
-  if(branchMatchesKey(branchId, 'callcenter')) return 'callcenter';
-  if(branchMatchesKey(branchId, 'finance')) return 'finance';
-  if(isManagementRole()) return 'all';
+  // المطلوب: قوالب مرسال وميتا تظهر لأي حساب داخل السيستم عند فتح صندوق الوارد/عميل.
+  // لا نربط ظهور القوالب بقسم المستخدم حتى لا تختفي مع مناديب خدمة العملاء أو أي دور آخر.
+  if(currentUser) return 'all';
   return '';
 }
 function buildTemplatePreview(templateKey, lead){
@@ -7402,7 +7402,9 @@ async function sendOutboundMessage(text){
   const channelRaw = String(conv.channel || "").trim().toLowerCase();
   const channelCompact = channelRaw.replace(/\s+/g, "");
   const isTikTok = platform === "tiktok" || channelRaw === "tiktok" || channelCompact === "تيكتوك" || channelCompact === "تيكتوك" || channelCompact === "تيك_توك";
-  const waId = String(conv.waId || "").trim();
+  // رقم واتساب قد يكون محفوظًا بأكثر من اسم حسب مصدر العميل/الوركر.
+  // استخدام waId فقط كان يمنع الإرسال لبعض حسابات المناديب عند فتح العميل من التابات.
+  const waId = normalizeSaudiPhone(String(conv.waId || conv.phoneNormalized || conv.phone || conv.to || conv.contactPhone || "").trim());
   const fbPsid = String(conv.fbId || conv.participantId || conv.senderId || "").trim();
   const igRecipientId = String(conv.igId || conv.igUserId || conv.participantId || conv.senderId || conv.fbId || "").trim();
   const fbPageId = String(conv.pageId || "").trim();
@@ -7563,9 +7565,32 @@ async function sendOutboundMessage(text){
       });
       data = { ok: true, opaque: true };
     }else{
+      const agentName = String(currentProfile?.name || currentUser?.displayName || currentUser?.email || "crm").trim();
       const payload = isTemplate
-        ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: templateParams } }
-        : { waId, text: clean };
+        ? {
+            // توافق كامل مع صيغ وركر مرسال القديمة والجديدة
+            phone: waId,
+            waId,
+            to: waId,
+            message: displayText,
+            text: displayText,
+            template_name: String(tpl.name || ""),
+            template_language: String(tpl.lang || "ar"),
+            name: String(tpl.name || ""),
+            lang: String(tpl.lang || "ar"),
+            params: templateParams,
+            template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: templateParams },
+            agent: agentName
+          }
+        : {
+            // بعض الوركرات تعتمد phone/message وبعضها waId/text؛ نرسل الاثنين بدون تغيير منطق التابات.
+            phone: waId,
+            waId,
+            to: waId,
+            message: clean,
+            text: clean,
+            agent: agentName
+          };
 
       resp = await fetch(MERSAL_SEND_ENDPOINT, {
         method: "POST",
