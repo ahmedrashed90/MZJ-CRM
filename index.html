@@ -11,6 +11,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -7374,6 +7375,65 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
     const IG_SEND_ENDPOINT = window.IG_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/send"; // إرسال انستجرام عبر Worker
     const TIKTOK_SEND_ENDPOINT = window.TIKTOK_SEND_ENDPOINT || "https://test.next-erp-mzj.workers.dev/send";
 
+    // ===== Unified send route resolver =====
+    // يحمي زر الإرسال الموحد: القناة الحقيقية من channel/platform/convId أولاً،
+    // و source يستخدم كـ fallback فقط لأنه أحياناً يكون مصدر تسويقي وليس منصة المحادثة.
+    function _mzjRouteNorm(v){
+      return String(v || "").trim().toLowerCase().replace(/[\s_\-]+/g, "");
+    }
+
+    function _mzjHasAnyToken(value, tokens){
+      const s = _mzjRouteNorm(value);
+      if(!s) return false;
+      return tokens.some(t => s.includes(_mzjRouteNorm(t)));
+    }
+
+    function getInboxSendRoute(conv = {}, convId = ""){
+      const id = String(convId || "").trim().toLowerCase();
+      const channel = _mzjRouteNorm(conv.channel || "");
+      const platform = _mzjRouteNorm(conv.platform || "");
+      const source = _mzjRouteNorm(conv.source || "");
+      const provider = _mzjRouteNorm(conv.provider || "");
+      const explicit = `${channel}|${platform}`;
+
+      const hasWhatsapp = _mzjHasAnyToken(explicit, ["whatsapp", "wa", "واتساب"])
+        || id.startsWith("wa_") || id.startsWith("wa:");
+      const hasInstagram = _mzjHasAnyToken(explicit, ["instagram", "ig", "انستجرام"])
+        || id.startsWith("instagram:") || id.startsWith("ig:") || id.startsWith("ig_");
+      const hasFacebook = _mzjHasAnyToken(explicit, ["facebook", "messenger", "fb", "فيسبوك"])
+        || id.startsWith("facebook:") || id.startsWith("messenger:") || id.startsWith("fb:") || id.startsWith("fb_");
+      const hasTikTok = _mzjHasAnyToken(explicit, ["tiktok", "تيكتوك", "تيكتوك", "تيك توك"])
+        || id.startsWith("tiktok:") || id.startsWith("tiktok_") || id.startsWith("tt_");
+
+      if(hasWhatsapp) return "whatsapp";
+      if(hasInstagram) return "instagram";
+      if(hasFacebook) return "facebook";
+      if(hasTikTok) return "tiktok";
+
+      const socialParticipantId = String(
+        conv.participantId || conv.participant_id || conv.senderId || conv.fbId ||
+        conv.igId || conv.igUserId || conv.manychatContactId || conv.tiktokId || ""
+      ).trim();
+      const waPhone = normalizeSaudiPhone(String(conv.waId || conv.phoneNormalized || conv.phone || "").trim());
+
+      // لو مفيش channel/platform واضحين وفيه participantId اجتماعي، استخدم source/provider كدليل للمنصة.
+      if(!channel && !platform && socialParticipantId){
+        if(_mzjHasAnyToken(source, ["instagram", "ig", "انستجرام"]) || _mzjHasAnyToken(provider, ["instagram"])) return "instagram";
+        if(_mzjHasAnyToken(source, ["facebook", "messenger", "fb", "فيسبوك"]) || _mzjHasAnyToken(provider, ["facebook", "messenger"])) return "facebook";
+        if(_mzjHasAnyToken(source, ["tiktok", "تيكتوك", "تيك توك"]) || _mzjHasAnyToken(provider, ["tiktok"])) return "tiktok";
+      }
+
+      // وجود رقم واتساب واضح يرجّح واتساب، خصوصاً لو source مجرد مصدر تسويقي.
+      if(waPhone) return "whatsapp";
+
+      // آخر fallback فقط للحالات القديمة التي لا تحتوي channel/platform.
+      if(_mzjHasAnyToken(source, ["instagram", "ig", "انستجرام"])) return "instagram";
+      if(_mzjHasAnyToken(source, ["facebook", "messenger", "fb", "فيسبوك"])) return "facebook";
+      if(_mzjHasAnyToken(source, ["tiktok", "تيكتوك", "تيك توك"])) return "tiktok";
+      return "whatsapp";
+    }
+
+
     
 async function sendOutboundMessage(text){
   const composer = document.getElementById("composer");
@@ -7397,15 +7457,13 @@ async function sendOutboundMessage(text){
     return;
   }
   const conv = convSnap.data() || {};
-  const platform = String(conv.platform || conv.channel || conv.source || "").toLowerCase();
-  const isFB = platform.includes("facebook") || platform.includes("fb") || platform.includes("messenger") || String(conv.source||"").includes("فيسبوك") || String(activeConvId||"").startsWith("facebook:");
-  const isIG = platform.includes("instagram") || platform.includes("ig") || String(conv.source||"").includes("انستجرام") || String(activeConvId||"").startsWith("instagram:");
-  const channelRaw = String(conv.channel || "").trim().toLowerCase();
-  const channelCompact = channelRaw.replace(/\s+/g, "");
-  const isTikTok = platform === "tiktok" || channelRaw === "tiktok" || channelCompact === "تيكتوك" || channelCompact === "تيكتوك" || channelCompact === "تيك_توك";
-  const waId = String(conv.waId || "").trim();
-  const fbPsid = String(conv.fbId || conv.participantId || conv.senderId || "").trim();
-  const igRecipientId = String(conv.igId || conv.igUserId || conv.participantId || conv.senderId || conv.fbId || "").trim();
+  const sendRoute = getInboxSendRoute(conv, activeConvId);
+  const isFB = sendRoute === "facebook";
+  const isIG = sendRoute === "instagram";
+  const isTikTok = sendRoute === "tiktok";
+  const waId = String(conv.waId || "").trim() || normalizeSaudiPhone(String(conv.phoneNormalized || conv.phone || "").trim());
+  const fbPsid = String(conv.fbId || conv.participantId || conv.participant_id || conv.senderId || "").trim();
+  const igRecipientId = String(conv.igId || conv.igUserId || conv.participantId || conv.participant_id || conv.senderId || conv.fbId || "").trim();
   const fbPageId = String(conv.pageId || "").trim();
   const manychatContactId = String(conv.manychatContactId || conv.participantId || conv.participant_id || conv.tiktokId || conv.senderId || "").trim();
   const conversationId = String(conv.conversationId || activeConvId || "").trim();
@@ -7565,8 +7623,8 @@ async function sendOutboundMessage(text){
       data = { ok: true, opaque: true };
     }else{
       const payload = isTemplate
-        ? { waId, template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: templateParams } }
-        : { waId, text: clean };
+        ? { waId, channel: "whatsapp", platform: "whatsapp", template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: templateParams } }
+        : { waId, channel: "whatsapp", platform: "whatsapp", text: clean };
 
       resp = await fetch(MERSAL_SEND_ENDPOINT, {
         method: "POST",
