@@ -16,6 +16,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -4994,6 +4995,9 @@ let unsubInboxLive = null; // live updates for first page only
   let activeConvId = null;
   let inboxTempPhoneFilter = "";
   let inboxTempLeadName = "";
+  let inboxTempParticipantId = "";
+  let inboxTempContactKey = "";
+  let inboxTempConvId = "";
 
   function fsToMs(v){
     if(!v) return 0;
@@ -5025,12 +5029,12 @@ let unsubInboxLive = null; // live updates for first page only
     const svgIG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9A5.5 5.5 0 0 1 16.5 22h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4h-9z"/><path fill="currentColor" d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/><path fill="currentColor" d="M17.8 6.2a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>`;
     const svgFB = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.5 22v-8h2.7l.4-3H13.5V9.1c0-.9.3-1.6 1.6-1.6h1.7V4.8c-.3 0-1.5-.1-2.8-.1-2.8 0-4.7 1.7-4.7 4.8V11H7v3h2.6v8h3.9z"/></svg>`;
     const raw = String(ch || "").trim().toLowerCase();
-    const compact = raw.replace(/\s+/g, "");
+    const compact = raw.replace(/[\s_\-]+/g, "");
 
     if(raw === "whatsapp" || raw === "wa" || compact === "واتساب") return `<span class="pill wa">${svgWA}واتساب</span>`;
     if(raw === "instagram" || raw === "ig" || compact === "انستجرام" || compact === "instagram") return `<span class="pill ig">${svgIG}انستجرام</span>`;
     if(raw === "facebook" || raw === "fb" || raw === "messenger" || compact === "فيسبوك") return `<span class="pill fb">${svgFB}فيسبوك</span>`;
-    if(raw === "tiktok" || compact === "تيكتوك" || compact === "تيكتوك" || compact === "تيك_توك") return `<span class="pill">تيك توك</span>`;
+    if(raw === "tiktok" || compact === "تيكتوك") return `<span class="pill">تيك توك</span>`;
     return `<span class="pill">${esc(String(ch || "قناة"))}</span>`;
   }
 
@@ -5041,11 +5045,17 @@ let unsubInboxLive = null; // live updates for first page only
   function clearInboxTempRestriction(){
     inboxTempPhoneFilter = "";
     inboxTempLeadName = "";
+    inboxTempParticipantId = "";
+    inboxTempContactKey = "";
+    inboxTempConvId = "";
   }
 
-  function setInboxTempRestriction(phone, leadName){
+  function setInboxTempRestriction(phone, leadName, identity={}){
     inboxTempPhoneFilter = normalizePhone(phone).replace(/^\+/, "");
     inboxTempLeadName = String(leadName || "").trim();
+    inboxTempParticipantId = String(identity?.participantId || "").trim();
+    inboxTempContactKey = String(identity?.contactKey || "").trim();
+    inboxTempConvId = String(identity?.convId || "").trim();
   }
 
   function renderConvItem(id, c){
@@ -5413,12 +5423,22 @@ try{
       }catch(_e){}
     }
     const tempPhone = normalizePhone(inboxTempPhoneFilter || "").replace(/^\+/, "");
-    if(tempPhone){
+    const tempParticipantId = String(inboxTempParticipantId || "").trim();
+    const tempContactKey = String(inboxTempContactKey || "").trim();
+    const tempConvId = String(inboxTempConvId || "").trim();
+    const tempName = String(inboxTempLeadName || "").trim();
+    if(tempPhone || tempParticipantId || tempContactKey || tempConvId || tempName){
       const convPhone = normalizePhone(convObj?.waId || convObj?.phoneNormalized || convObj?.phone || "").replace(/^\+/, "");
       const convName = String(convObj?.displayName || convObj?.name || "").trim();
-      const tempName = String(inboxTempLeadName || "").trim();
-      if(!(convPhone && (convPhone === tempPhone || convPhone.includes(tempPhone) || tempPhone.includes(convPhone))) && !(tempName && convName && convName === tempName)){
-        toast("يمكنك فتح العميل الذي ضغطت على رقمه فقط", "warn");
+      const convParticipantId = String(convObj?.participantId || convObj?.participant_id || convObj?.senderId || convObj?.fbId || convObj?.igId || convObj?.igUserId || convObj?.manychatContactId || convObj?.tiktokId || convObj?.customerHandle || "").trim();
+      const convContactKey = String(convObj?.contactKey || convObj?.conversationId || "").trim();
+      const okByPhone = !!(tempPhone && convPhone && (convPhone === tempPhone || convPhone.includes(tempPhone) || tempPhone.includes(convPhone)));
+      const okByParticipant = !!(tempParticipantId && convParticipantId && convParticipantId === tempParticipantId);
+      const okByContact = !!(tempContactKey && convContactKey && convContactKey === tempContactKey);
+      const okByConvId = !!(tempConvId && String(convId || "").trim() === tempConvId);
+      const okByName = !!(tempName && convName && convName === tempName);
+      if(!(okByPhone || okByParticipant || okByContact || okByConvId || okByName)){
+        toast("يمكنك فتح العميل الذي ضغطت عليه فقط", "warn");
         return;
       }
     }
@@ -6420,7 +6440,7 @@ function channelToSourceLabel(ch){
     if(c === "whatsapp" || c === "wa") return "واتساب";
     if(c === "instagram" || c === "ig") return "انستجرام";
     if(c === "facebook" || c === "fb" || c.includes("messenger")) return "فيسبوك";
-    if(c === "tiktok") return "تيكتوك";
+    if(c === "tiktok") return "تيك توك";
     return ch || "—";
   }
 
@@ -6430,6 +6450,11 @@ function channelToSourceLabel(ch){
   if(!s0) return "";
   // placeholders treated as empty
   if(s0 === "-" || s0 === "—" || s0.toLowerCase() === "null" || s0.toLowerCase() === "undefined") return "";
+
+  // ✅ توحيد كتابة تيك توك قبل أي عرض/حفظ حتى لا يظهر كمصدرين مختلفين
+  const compactArabicSource = s0.replace(/[\s_\-]+/g, "").replace(/ـ/g, "").toLowerCase();
+  if(compactArabicSource === "تيكتوك" || compactArabicSource.includes("tiktok")) return "تيك توك";
+
   // لو المصدر مكتوب عربي بالفعل
   if(/واتساب|انستجرام|فيسبوك|حاسبة التقسيط|سناب شات ليد|جوجل\s*ads/i.test(s0)) return s0;
 
@@ -6438,7 +6463,7 @@ function channelToSourceLabel(ch){
   if(s === "snapchat_leads" || s === "snapchat" || s === "snapchat lead" || s === "snapchat_lead") return "سناب شات ليد";
   if(s.includes("instagram") || s === "ig") return "انستجرام";
   if(s.includes("facebook") || s === "fb" || s.includes("messenger") || s.includes("meta")) return "فيسبوك";
-  if(s.includes("tiktok")) return "تيكتوك";
+  if(s.includes("tiktok")) return "تيك توك";
   if(s.includes("whatsapp") || s === "wa") return "واتساب";
 
   // مصادر داخلية أخرى (مثل: حاسبة التقسيط)
@@ -8307,18 +8332,73 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
     };
   }
 
+  function isNewStatusLeadForDedupe(data){
+    const s = String(
+      data?.leadStatusName || data?.status || data?.leadStatus ||
+      data?.currentStatus || data?.stage || data?.pipelineStatus || ""
+    ).trim();
+    return s === "جديد";
+  }
+
+  function leadDedupeScore(item){
+    const d = item?.data || {};
+    let score = 0;
+    if(!isNewStatusLeadForDedupe(d)) score += 1000; // لو في نسختين لنفس العميل: لا نعرض نسخة "جديد"
+    if(String(d.leadStatusName || d.status || d.leadStatus || "").trim() && !isNewStatusLeadForDedupe(d)) score += 80;
+    if(String(d.phoneNormalized || d.phone || d.waId || "").trim()) score += 60;
+    if(String(d.convId || d.conversationId || "").trim()) score += 40;
+    if(String(d.contactKey || "").trim()) score += 35;
+    if(String(d.participantId || d.participant_id || d.senderId || d.tiktokId || "").trim()) score += 35;
+    if(String(d.carName || d.carType || d.customField1 || "").trim()) score += 20;
+    if(String(d.place || d.location || d.city || "").trim()) score += 10;
+    score += fsToMs(d.updatedAt || d.timestamp || d.createdAt) / 100000000000000;
+    return score;
+  }
+
+  function getLeadDedupeKeys(item){
+    const d = item?.data || {};
+    const keys = [];
+    const phone = String(d.phoneNormalized || normalizePhone(d.phone||"").replace(/^\+/, "") || "").trim();
+    const contactKey = String(d.contactKey || "").trim();
+    const convId = String(d.convId || d.conversationId || "").trim();
+    const participantId = String(d.participantId || d.participant_id || d.senderId || d.fbId || d.igId || d.igUserId || d.tiktokId || d.customerHandle || d.subscriber_id || d.subscriberId || "").trim();
+    const source = String(getNormalizedSourceForLead(d, item?.id || "") || "").trim();
+    const name = String(d.name || d.displayName || "").trim().toLowerCase().replace(/\s+/g," ");
+    const pay = String(getLeadPayType(d) || "").trim();
+
+    if(phone) keys.push(`phone:${phone}`);
+    if(contactKey) keys.push(`contact:${contactKey}`);
+    if(convId) keys.push(`conv:${convId}`);
+    if(participantId && source) keys.push(`participant:${source}:${participantId}`);
+
+    // منصات السوشيال أحياناً لا يكون فيها رقم جوال، فنوحّد نفس الاسم + المصدر + نوع الطلب
+    if(!phone && name && source && source !== "—") keys.push(`socialname:${source}:${pay}:${name}`);
+
+    if(!keys.length) keys.push(`id:${item?.id || ""}`);
+    return keys;
+  }
+
   function dedupeCombinedLeads(list){
-    const out = [];
-    const seen = new Set();
+    const byKey = new Map();
+    const groups = [];
+
     (Array.isArray(list)?list:[]).forEach(item=>{
-      const d = item?.data || {};
-      const phone = String(d.phoneNormalized || normalizePhone(d.phone||"").replace(/^\+/, "") || "").trim();
-      const key = phone ? `phone:${phone}` : `id:${item.id}`;
-      if(seen.has(key)) return;
-      seen.add(key);
-      out.push(item);
+      const keys = getLeadDedupeKeys(item);
+      const hitKey = keys.find(k=>byKey.has(k));
+      if(hitKey){
+        const group = byKey.get(hitKey);
+        group.items.push(item);
+        keys.forEach(k=>byKey.set(k, group));
+      }else{
+        const group = { keys, items:[item] };
+        groups.push(group);
+        keys.forEach(k=>byKey.set(k, group));
+      }
     });
-    return out;
+
+    return groups.map(group=>{
+      return group.items.slice().sort((a,b)=> leadDedupeScore(b) - leadDedupeScore(a))[0];
+    });
   }
 
   function rebuildLeadsCache(){
@@ -11045,12 +11125,46 @@ function bindTasksUI(){
       || src === "tiktok";
   }
 
+  function getLeadSocialParticipantId(lead){
+    const d = lead || {};
+    return String(
+      d.participantId || d.participant_id || d.senderId || d.fbId ||
+      d.igId || d.igUserId || d.manychatContactId || d.tiktokId ||
+      d.customerHandle || d.subscriber_id || d.subscriberId || ""
+    ).trim();
+  }
+
+  function getLeadSocialContactKey(lead, leadId=""){
+    const d = lead || {};
+    return String(d.contactKey || d.conversationId || d.convId || leadId || getLeadSocialParticipantId(d) || "").trim();
+  }
+
+  function getConversationParticipantId(conv){
+    const c = conv || {};
+    return String(
+      c.participantId || c.participant_id || c.senderId || c.fbId ||
+      c.igId || c.igUserId || c.manychatContactId || c.tiktokId ||
+      c.customerHandle || c.subscriber_id || c.subscriberId || ""
+    ).trim();
+  }
+
+  function sourceLooksSameForOpen(conv, wantedSource){
+    if(!wantedSource) return true;
+    const c = conv || {};
+    const convSource = String(
+      channelToSourceLabel(c.channel || c.platform || c.source || "") ||
+      normalizeSourceLabel(c.source || c.platform || c.channel || "") || ""
+    ).trim();
+    return !convSource || convSource === wantedSource;
+  }
+
   function findConversationForLeadRecord(leadId, leadData, leadName=""){
     const lead = leadData || {};
     const normalizedPhone = normalizePhone(String(lead.phoneNormalized || lead.phone || lead.waId || "")).replace(/^\+/, "");
-    const participantId = String(lead.participantId || lead.participant_id || lead.senderId || lead.fbId || lead.igId || lead.igUserId || lead.manychatContactId || "").trim();
-    const contactKey = String(lead.contactKey || lead.conversationId || lead.convId || "").trim();
-    const wantedName = String(leadName || lead.name || "").trim();
+    const participantId = getLeadSocialParticipantId(lead);
+    const contactKey = getLeadSocialContactKey(lead, leadId);
+    const directConvId = String(lead.convId || lead.conversationId || "").trim();
+    const wantedName = String(leadName || lead.name || lead.displayName || "").trim();
     const wantedSource = String(getNormalizedSourceForLead(lead, leadId) || "").trim();
 
     const pool = dedupeInboxConversations(inboxCache).filter(x=>{
@@ -11061,10 +11175,10 @@ function bindTasksUI(){
     const exactLead = pool.find(x=> String(x?.data?.leadId || "").trim() && String(x.data.leadId).trim() === String(leadId || "").trim());
     if(exactLead) return exactLead;
 
-    const exactParticipant = participantId ? pool.find(x=>{
-      const conv = x?.data || {};
-      return String(conv.participantId || conv.participant_id || conv.senderId || conv.fbId || conv.igId || conv.igUserId || conv.manychatContactId || "").trim() === participantId;
-    }) : null;
+    const exactConvId = directConvId ? pool.find(x=> String(x?.id || "").trim() === directConvId || String(x?.data?.conversationId || "").trim() === directConvId) : null;
+    if(exactConvId) return exactConvId;
+
+    const exactParticipant = participantId ? pool.find(x=> getConversationParticipantId(x?.data || {}) === participantId) : null;
     if(exactParticipant) return exactParticipant;
 
     const exactContactKey = contactKey ? pool.find(x=>{
@@ -11078,24 +11192,116 @@ function bindTasksUI(){
 
     const byNameAndSource = wantedName ? pool.find(x=>{
       const conv = x?.data || {};
-      const convName = String(conv.displayName || conv.name || "").trim();
-      const convSource = String(channelToSourceLabel(conv.channel || conv.platform || conv.source || "") || normalizeSourceLabel(conv.source || conv.platform || conv.channel || "") || "").trim();
+      const convName = String(conv.displayName || conv.name || conv.participantName || conv.customerHandle || "").trim();
       if(convName !== wantedName) return false;
-      return !wantedSource || !convSource || convSource === wantedSource;
+      return sourceLooksSameForOpen(conv, wantedSource);
     }) : null;
     if(byNameAndSource) return byNameAndSource;
 
     return null;
   }
 
+  async function findConversationForLeadRecordFromFirestore(leadId, leadData, leadName=""){
+    const lead = leadData || {};
+    const participantId = getLeadSocialParticipantId(lead);
+    const contactKey = getLeadSocialContactKey(lead, leadId);
+    const directConvId = String(lead.convId || lead.conversationId || "").trim();
+    const normalizedPhone = normalizePhone(String(lead.phoneNormalized || lead.phone || lead.waId || "")).replace(/^\+/, "");
+    const wantedName = String(leadName || lead.name || lead.displayName || "").trim();
+    const wantedSource = String(getNormalizedSourceForLead(lead, leadId) || "").trim();
+
+    const cacheAndReturn = (id, data)=>{
+      if(!id || !data) return null;
+      if(usesOwnInboxScope() && !isConversationVisibleToCurrentUser(data)) return null;
+      const idx = inboxCache.findIndex(x=>x.id === id);
+      if(idx >= 0) inboxCache[idx] = { id, data };
+      else inboxCache.unshift({ id, data });
+      return { id, data };
+    };
+
+    const directIds = Array.from(new Set([
+      directConvId,
+      String(leadId || "").trim(),
+      contactKey,
+      participantId,
+      participantId ? `tiktok_${participantId}` : "",
+      participantId ? `tiktok:${participantId}` : "",
+      participantId ? `tt_${participantId}` : "",
+      participantId ? `facebook:${participantId}` : "",
+      participantId ? `fb_${participantId}` : "",
+      participantId ? `instagram:${participantId}` : "",
+      participantId ? `ig_${participantId}` : "",
+      normalizedPhone ? `wa_${normalizedPhone}` : "",
+      normalizedPhone
+    ].filter(Boolean)));
+
+    for(const id of directIds){
+      const s = await getDoc(doc(db, "wa_conversations", id)).catch(()=>null);
+      if(s && s.exists()){
+        const hit = cacheAndReturn(s.id, s.data() || {});
+        if(hit) return hit;
+      }
+    }
+
+    const querySpecs = [];
+    if(leadId) querySpecs.push(["leadId", String(leadId)]);
+    if(contactKey){
+      querySpecs.push(["contactKey", contactKey]);
+      querySpecs.push(["conversationId", contactKey]);
+    }
+    if(participantId){
+      ["participantId","participant_id","senderId","fbId","igId","igUserId","manychatContactId","tiktokId","customerHandle","subscriber_id","subscriberId"].forEach(f=> querySpecs.push([f, participantId]));
+    }
+    if(normalizedPhone){
+      querySpecs.push(["waId", normalizedPhone]);
+      querySpecs.push(["phoneNormalized", normalizedPhone]);
+      querySpecs.push(["phone", "+" + normalizedPhone]);
+    }
+
+    for(const [field, value] of querySpecs){
+      const snap = await getDocs(query(collection(db,"wa_conversations"), where(field,"==", value), limit(5))).catch(()=>null);
+      if(snap && !snap.empty){
+        for(const d of snap.docs){
+          const data = d.data() || {};
+          if(sourceLooksSameForOpen(data, wantedSource) || field === "leadId"){
+            const hit = cacheAndReturn(d.id, data);
+            if(hit) return hit;
+          }
+        }
+      }
+    }
+
+    if(wantedName){
+      for(const field of ["displayName", "name", "participantName", "customerHandle"]){
+        const snap = await getDocs(query(collection(db,"wa_conversations"), where(field,"==", wantedName), limit(10))).catch(()=>null);
+        if(snap && !snap.empty){
+          for(const d of snap.docs){
+            const data = d.data() || {};
+            if(sourceLooksSameForOpen(data, wantedSource)){
+              const hit = cacheAndReturn(d.id, data);
+              if(hit) return hit;
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
   async function openInboxForLeadRecord(leadId, leadData, preferredPhone="", leadName=""){
     const lead = leadData || {};
-    const name = String(leadName || lead.name || "").trim();
+    const name = String(leadName || lead.name || lead.displayName || "").trim();
     const phone = normalizePhone(String(preferredPhone || lead.phoneNormalized || lead.phone || lead.waId || "")).replace(/^\+/, "");
+    const identity = {
+      participantId: getLeadSocialParticipantId(lead),
+      contactKey: getLeadSocialContactKey(lead, leadId),
+      convId: String(lead.convId || lead.conversationId || "").trim()
+    };
 
     try{ window.__allowInboxByPhoneOpen = true; }catch(e){}
     if(isInboxRestrictedForCurrentUser()){
-      setInboxTempRestriction(phone || name, name);
+      setInboxTempRestriction(phone || "", name, identity);
     }else{
       clearInboxTempRestriction();
     }
@@ -11104,16 +11310,25 @@ function bindTasksUI(){
 
     setTimeout(async ()=>{
       const s = $("#fSearch");
-      if(s) s.value = isInboxRestrictedForCurrentUser() ? "" : (phone || name);
+      if(s) s.value = isInboxRestrictedForCurrentUser() ? "" : (phone || name || identity.participantId || identity.contactKey);
       try{ applyInboxFilters(); }catch(e){}
 
-      const hit = findConversationForLeadRecord(leadId, lead, name);
+      let hit = findConversationForLeadRecord(leadId, lead, name);
+      if(!hit){
+        hit = await findConversationForLeadRecordFromFirestore(leadId, lead, name).catch((e)=>{
+          console.warn("findConversationForLeadRecordFromFirestore", e);
+          return null;
+        });
+      }
       if(hit){
+        try{ applyInboxFilters(); }catch(e){}
         openConversation(hit.id);
         return;
       }
 
-      if(phone){
+      // واتساب فقط هو اللي نسمح له يعمل محادثة جديدة من الرقم.
+      // أما تيك توك/فيسبوك/إنستجرام لازم يلاقي conversation موجودة بالمفاتيح الاجتماعية عشان الإرسال يشتغل صح.
+      if(phone && !isSocialLeadSource(lead, leadId)){
         await openInboxForPhone(phone, name);
         return;
       }
