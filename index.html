@@ -14,6 +14,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -7199,6 +7200,7 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
           contactKey: contactKey,
           participantId: pid || existing.participantId || "",
           channel: channel || existing.channel || "",
+          leadId: String(conv.leadId || existing.leadId || "").trim(),
           salary: ($("#cd_salary")?.value || "").trim(),
           commitment: ($("#cd_commitment")?.value || "").trim(),
           financeType: finType,
@@ -7249,21 +7251,19 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
         try{ applyInboxFilters(); }catch(_e){}
 
         // Update linked lead if exists (no duplicates)
-        let leadId = String(conv.leadId || "").trim();
+        // لا ننشئ عميل جديد قبل ما ندور بكل مفاتيح الهوية: leadId / phone / contactKey / participantId / convId
+        let leadId = await resolveExistingLeadForClientUpdate({
+          leadId: String(conv.leadId || existing.leadId || payload.leadId || "").trim(),
+          phoneNorm,
+          contactKey,
+          participantId: pid,
+          convId: targetConvId
+        }).catch(()=>"");
+
         if(leadId){
-          const lTest = await getDoc(doc(db,"leads", leadId)).catch(()=>null);
-          if(!(lTest && lTest.exists())) leadId = "";
-        }
-        if(!leadId && phoneNorm){
-          const found = await findLeadByPhoneNormalized(phoneNorm).catch(()=> "");
-          if(found){
-            leadId = found;
-            await updateDoc(convRef, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
-            toast("تم تحويل العميل إلى مؤهل (تمويل)", "ok");
-            try{ showTab("leads_finance"); }catch(e){}
-          }
-        }
-        if(!leadId){
+          await updateDoc(convRef, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
+        }else{
+          // لو العميل غير موجود فعلاً، ساعتها فقط ننشئ Lead واحد deterministic مربوط بالمحادثة
           leadId = await ensureLeadIdForConversationId(targetConvId).catch(()=> "");
         }
         if(leadId){
@@ -11882,9 +11882,10 @@ function bindTasksUI(){
       return "";
     }
 
-    async function findLeadByConversationIdentity(contactKey="", participantId=""){
+    async function findLeadByConversationIdentity(contactKey="", participantId="", convId=""){
       const ck = String(contactKey || "").trim();
       const pid = String(participantId || "").trim();
+      const cid = String(convId || "").trim();
       if(ck){
         const q1 = query(collection(db,"leads"), where("contactKey","==", ck), limit(1));
         const s1 = await getDocs(q1).catch(()=>null);
@@ -11895,6 +11896,50 @@ function bindTasksUI(){
         const s2 = await getDocs(q2).catch(()=>null);
         if(s2 && !s2.empty) return s2.docs[0].id;
       }
+      if(cid){
+        const q3 = query(collection(db,"leads"), where("convId","==", cid), limit(1));
+        const s3 = await getDocs(q3).catch(()=>null);
+        if(s3 && !s3.empty) return s3.docs[0].id;
+      }
+      return "";
+    }
+
+    async function resolveExistingLeadForClientUpdate({ leadId="", phoneNorm="", contactKey="", participantId="", convId="" }={}){
+      const candidates = [];
+      const add = (v)=>{ v = String(v || "").trim(); if(v && !candidates.includes(v)) candidates.push(v); };
+      add(leadId);
+      add(phoneNorm);
+      add(contactKey);
+      add(participantId);
+      add(convId);
+
+      for(const id of candidates){
+        const snap = await getDoc(doc(db,"leads", id)).catch(()=>null);
+        if(snap && snap.exists()) return snap.id;
+      }
+
+      if(phoneNorm){
+        const foundByPhone = await findLeadByPhoneNormalized(phoneNorm).catch(()=>"");
+        if(foundByPhone) return foundByPhone;
+        const foundByPlusPhone = await findLeadByPhoneNormalized("+" + phoneNorm).catch(()=>"");
+        if(foundByPlusPhone) return foundByPlusPhone;
+      }
+
+      const foundByIdentity = await findLeadByConversationIdentity(contactKey, participantId, convId).catch(()=>"");
+      if(foundByIdentity) return foundByIdentity;
+
+      try{
+        const local = (Array.isArray(leadsCache) ? leadsCache : []).find(x=>{
+          const d = x?.data || {};
+          const dPhone = normalizePhone(d.phoneNormalized || d.phone || d.waId || "").replace(/^\+/, "");
+          return (phoneNorm && dPhone && dPhone === phoneNorm)
+            || (contactKey && String(d.contactKey || "").trim() === contactKey)
+            || (participantId && String(d.participantId || "").trim() === participantId)
+            || (convId && String(d.convId || "").trim() === convId);
+        });
+        if(local?.id) return String(local.id).trim();
+      }catch(e){}
+
       return "";
     }
 
@@ -11936,7 +11981,7 @@ function bindTasksUI(){
       }
 
       if(!leadId && (contactKey || participantId)){
-        const foundByIdentity = await findLeadByConversationIdentity(contactKey, participantId);
+        const foundByIdentity = await findLeadByConversationIdentity(contactKey, participantId, convId);
         if(foundByIdentity){
           leadId = foundByIdentity;
           await updateDoc(convRef, { leadId, updatedAt: new Date().toISOString() }).catch(()=>{});
