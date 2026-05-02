@@ -4563,6 +4563,8 @@ function renderTemplateSelectOptions(){
       refreshLeadAgentFilter(window.__leadsViewMode || "customers");
       refreshSettingsTables();
       try{ renderAdminUsersList(); }catch(e){ console.warn('renderAdminUsersList', e); }
+      // لو دخل ليد قبل تحميل المناديب، نعيد محاولة التوزيع فور تحميل/تحديث المناديب.
+      try{ autoAssignMissingFinanceCallCenterLeads(firestoreLeadsCache); }catch(e){ console.warn('autoAssign after agents load', e); }
     });
 
     onSnapshot(collection(db,"settings_sources"), (snap)=>{
@@ -5693,10 +5695,14 @@ try{
     const deptLabel = String(agent.deptLabel || agent.raw?.deptLabel || "").trim();
     const branchId = String(agent.branchId || agent.raw?.branchId || "").trim();
     if(roleId.includes("admin") || roleId.includes("manager") || roleName.includes("admin") || roleName.includes("manager") || roleName.includes("مدير") || roleName.includes("مشرف")) return false;
+
+    // القائمة التي حددتها هي مصدر الحقيقة للتوزيع.
+    // حتى لو بيانات branchId القديمة ناقصة/مختلفة، أي مندوب موجود في قائمة القسم يتم اعتماده فوراً.
+    if(matchesSpecialServiceAgent(agent, key)) return true;
+
     if(key === "finance" && !branchMatchesKey(branchId, "finance")) return false;
     if(key === "cash" && !branchMatchesKey(branchId, "cash")) return false;
     if(key === "cs" && !branchMatchesKey(branchId, "cs")) return false;
-    if(matchesSpecialServiceAgent(agent, key)) return true;
     if(deptKey === key) return true;
     if(key === "finance" && /تمويل/.test(deptLabel)) return true;
     if(key === "cash" && /كاش/.test(deptLabel)) return true;
@@ -5729,13 +5735,14 @@ try{
     const deptLabel = String(agent.deptLabel || agent.raw?.deptLabel || "").trim();
     const branchId = String(agent.branchId || agent.raw?.branchId || "").trim();
     if(roleId.includes("admin") || roleId.includes("manager") || roleName.includes("admin") || roleName.includes("manager") || roleName.includes("مدير") || roleName.includes("مشرف")) return false;
-    if(!branchMatchesKey(branchId, "callcenter") && deptKey !== "callcenter" && !/كول\s*سنتر|call\s*center|callcenter/i.test(deptLabel)) return false;
     const rule = SPECIAL_BRANCH_ASSIGNMENTS["كول سنتر"] || null;
     if(rule){
       const email = normalizeAgentIdentityValue(agent?.email);
       const name = String(agent?.name || "").trim();
-      return rule.emails.includes(email) || rule.names.includes(name);
+      // أمجاد هي مندوب الكول سنتر المعتمد للتوزيع حتى لو branchId القديم مختلف.
+      if(rule.emails.includes(email) || rule.names.includes(name)) return true;
     }
+    if(!branchMatchesKey(branchId, "callcenter") && deptKey !== "callcenter" && !/كول\s*سنتر|call\s*center|callcenter/i.test(deptLabel)) return false;
     return true;
   }
 
