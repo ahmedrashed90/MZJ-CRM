@@ -13,6 +13,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6025,63 +6026,70 @@ try{
 
 async function assignConversationToBranchRandom(convId, branchName){
     const serviceKey = branchName === "مبيعات التمويل" ? "finance" : branchName === "مبيعات الكاش" ? "cash" : branchName === "خدمة العملاء" ? "cs" : "";
-    const salesAgents = getEligibleAgentsForBranch(branchName);
-    if(!salesAgents.length) return { ok:false, reason:"no_agents" };
-    const salesPick = salesAgents[Math.floor(Math.random()*salesAgents.length)];
-    const salesUid = salesPick.uid || salesPick.id;
-    if(!salesUid) return { ok:false, reason:"bad_agent" };
+    if(!convId || !serviceKey) return { ok:false, reason:"bad_service" };
+
+    const salesPick = pickConfiguredAgentForService(serviceKey, "") || getSafeAssignedAgentForService(serviceKey, "");
+    const salesUid = String(salesPick?.uid || salesPick?.id || "").trim();
+    if(!salesUid) return { ok:false, reason:"no_sales_agents" };
 
     const callPick = shouldAssignCallCenterForService(serviceKey) ? pickStrictCallCenterAgent("") : null;
     const callUid = String(callPick?.uid || callPick?.id || "").trim();
 
     const nowIso = new Date().toISOString();
-    const convPatch = {
-      autoService: serviceKey || "",
-      serviceKey: serviceKey || "",
-      salesAssignedTo: salesUid,
-      salesAssignedName: salesPick.name || salesPick.email || salesUid,
-      assignedTo: salesUid,
-      assignedName: salesPick.name || salesPick.email || salesUid,
-      branchId: salesPick.branchId || "",
-      assignedAt: nowIso,
-      assignedBy: "auto_service_menu",
-      updatedAt: nowIso
-    };
-    if(callUid){
-      convPatch.callCenterAssignedTo = callUid;
-      convPatch.callCenterAssignedName = callPick.name || callPick.email || callUid;
-      convPatch.callCenterAssignedAt = nowIso;
-    }
+    const payTypeLabel = getPayTypeLabelByServiceKey(serviceKey);
+    const convRef = doc(db,"wa_conversations", convId);
 
-    await updateDoc(doc(db,"wa_conversations", convId), convPatch).catch(()=>{});
+    const convPatch = {
+      autoService: serviceKey,
+      serviceKey: serviceKey,
+      ...(payTypeLabel ? { paymentType: payTypeLabel, payType: payTypeLabel } : {}),
+
+      salesAssignedTo: salesUid,
+      salesAssignedName: String(salesPick?.name || salesPick?.email || salesUid),
+      assignedTo: salesUid,
+      assignedName: String(salesPick?.name || salesPick?.email || salesUid),
+      branchId: String(salesPick?.branchId || ""),
+      assignedAt: nowIso,
+      assignedBy: "auto_service_change",
+      updatedAt: nowIso,
+
+      callCenterAssignedTo: callUid || "",
+      callCenterAssignedName: callUid ? String(callPick?.name || callPick?.email || callUid) : "",
+      callCenterAssignedAt: callUid ? nowIso : ""
+    };
+
+    await setDoc(convRef, convPatch, { merge:true });
 
     try{
-      const convSnap = await getDoc(doc(db,"wa_conversations", convId));
-      const conv = convSnap.exists() ? (convSnap.data()||{}) : {};
-      const leadId = String(conv.leadId || "").trim();
-      if(leadId){
-        const leadPatch = {
-          autoService: serviceKey || "",
-          serviceKey: serviceKey || "",
-          ...(getPayTypeLabelByServiceKey(serviceKey) ? { paymentType: getPayTypeLabelByServiceKey(serviceKey), payType: getPayTypeLabelByServiceKey(serviceKey) } : {}),
-          salesAssignedTo: salesUid,
-          salesAssignedName: salesPick.name || salesPick.email || salesUid,
-          assignedTo: salesUid,
-          assignedName: salesPick.name || salesPick.email || salesUid,
-          branchId: salesPick.branchId || "",
-          assignedAt: nowIso,
-          updatedAt: nowIso
-        };
-        if(callUid){
-          leadPatch.callCenterAssignedTo = callUid;
-          leadPatch.callCenterAssignedName = callPick.name || callPick.email || callUid;
-          leadPatch.callCenterAssignedAt = nowIso;
-        }
-        await updateDoc(doc(db,"leads", leadId), leadPatch).catch(()=>{});
-      }
-    }catch(e){}
+      const convSnap = await getDoc(convRef).catch(()=>null);
+      const conv = convSnap?.exists() ? (convSnap.data() || {}) : {};
+      let leadId = String(conv.leadId || "").trim();
 
-    return { ok:true, agentId: salesUid, callCenterAgentId: callUid };
+      if(!leadId){
+        leadId = await ensureLeadIdForConversationId(convId).catch(()=> "");
+      }
+
+      if(leadId){
+        await setDoc(doc(db,"leads", leadId), {
+          ...convPatch,
+          convId,
+          updatedAt: nowIso
+        }, { merge:true });
+
+        await addDoc(collection(db,"leads", leadId, "activity"), {
+          type: "assignment",
+          title: "تغيير القسم وإعادة التوزيع",
+          desc: `تم تغيير القسم إلى: ${branchName} وتم تغيير المسؤول والكول سنتر حسب القسم الجديد.`,
+          createdAt: serverTimestamp(),
+          createdBy: currentUser?.uid || "automation",
+          createdByName: currentProfile?.name || currentUser?.email || "Automation"
+        }).catch(()=>{});
+      }
+    }catch(e){
+      console.warn("assignConversationToBranchRandom lead sync", e);
+    }
+
+    return { ok:true, agentId: salesUid, callCenterAgentId: callUid, serviceKey };
   }
 
   const WA_AUTO_MSG_MENU =
