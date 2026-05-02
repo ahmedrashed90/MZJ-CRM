@@ -12,6 +12,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -2038,6 +2039,7 @@ body.auth-locked #authModal{ pointer-events:auto; }
                     <option value="wa">واتساب</option>
                     <option value="ig">انستجرام</option>
                     <option value="fb">فيسبوك</option>
+                    <option value="tiktok">تيك توك</option>
                   </select>
                   <select id="fArchive">
                     <option value="">صندوق الوارد</option>
@@ -5209,6 +5211,93 @@ function applyInboxFilters(){
     }
   }
 
+
+  // ===== TikTok chat display safety patch =====
+  // يعالج حالة تيك توك فقط: الرسالة تظهر في قائمة المحادثات من lastMessageText
+  // لكن لا تظهر داخل الشات لو الويبهوك لم يكتبها داخل subcollection/messages.
+  function getActiveConversationDataForChat(){
+    try{ return (inboxCache || []).find(x => x.id === activeConvId)?.data || {}; }
+    catch(_e){ return {}; }
+  }
+
+  function isTikTokConversationForChat(conv){
+    try{
+      const c = conv || {};
+      const vals = [
+        c.channelCode,
+        c.channel,
+        c.platform,
+        c.source,
+        c.origin,
+        c.leadSource,
+        c.leadPlatform,
+        c.tiktokId ? 'tiktok' : ''
+      ].map(v => String(v || '').trim().toLowerCase());
+      return vals.some(v => ['tiktok','tt','tik_tok','tik tok','تيك توك'].includes(v));
+    }catch(_e){ return false; }
+  }
+
+  function getMessageDisplayText(d){
+    return String(
+      d?.text ??
+      d?.caption ??
+      d?.body ??
+      d?.message ??
+      d?.lastMessageText ??
+      ''
+    ).trim();
+  }
+
+  function normalizeChatTextForCompare(v){
+    return String(v || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function getMsgTimeMs(d){
+    return fsToMs(d?.sentAt) ||
+      fsToMs(d?.receivedAt) ||
+      fsToMs(d?.createdAt) ||
+      fsToMs(d?.created_at) ||
+      fsToMs(d?.updatedAt) ||
+      fsToMs(d?.updated_at) ||
+      0;
+  }
+
+  function injectTikTokLastMessageIfMissing(msgs){
+    try{
+      if(!activeConvId) return Array.isArray(msgs) ? msgs : [];
+      const conv = getActiveConversationDataForChat();
+      if(!isTikTokConversationForChat(conv)) return Array.isArray(msgs) ? msgs : [];
+
+      const lastText = String(conv.lastMessageText || conv.last_message_text || conv.lastMessage || '').trim();
+      if(!lastText) return Array.isArray(msgs) ? msgs : [];
+
+      const list = Array.isArray(msgs) ? [...msgs] : [];
+      const lastMs = fsToMs(conv.lastMessageAt) || fsToMs(conv.last_message_at) || fsToMs(conv.updatedAt) || fsToMs(conv.updated_at) || 0;
+      const normLast = normalizeChatTextForCompare(lastText);
+      const maxMsgMs = list.reduce((mx, m) => Math.max(mx, getMsgTimeMs(m?.data || {})), 0);
+      const exactTextExists = list.some(m => normalizeChatTextForCompare(getMessageDisplayText(m?.data || {})) === normLast);
+
+      // لو النص غير موجود داخل الرسائل أو parent أحدث من آخر رسالة محفوظة، اعرضه كبابل واردة مؤقتة.
+      // التعديل محصور في تيك توك ولا يمس واتساب/فيسبوك/إنستجرام.
+      if(!exactTextExists || (lastMs && maxMsgMs && lastMs > maxMsgMs + 1500)){
+        list.push({
+          id: `__tiktok_last_${lastMs || Date.now()}`,
+          data: {
+            direction: 'in',
+            type: 'text',
+            text: lastText,
+            receivedAt: lastMs ? new Date(lastMs).toISOString() : (conv.updatedAt || conv.lastMessageAt || new Date().toISOString()),
+            senderName: conv.displayName || conv.name || 'عميل',
+            syntheticFromConversation: true
+          }
+        });
+      }
+      return list;
+    }catch(_e){
+      return Array.isArray(msgs) ? msgs : [];
+    }
+  }
+
   function renderMessages(msgs){
     const body = $("#chatBody");
     if(!body) return;
@@ -5229,20 +5318,23 @@ try{
   msgs = (msgs||[]).filter(mm=>{
     const dd = mm?.data || {};
     const pid = String(dd.providerMessageId || dd.id || "").trim();
-    const ms = fsToMs(dd.sentAt) || fsToMs(dd.receivedAt) || 0;
-    const txt = String(dd.text || dd.caption || dd.body || dd.message || "").trim();
+    const ms = getMsgTimeMs(dd);
+    const txt = getMessageDisplayText(dd);
     const key = pid ? ("pid:"+pid) : (`k:${String(dd.direction||"")}|${String(dd.type||"")}|${txt}|${ms}`);
     if(seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 }catch(_e){}
+
+    msgs = injectTikTokLastMessageIfMissing(msgs);
+
     if(!msgs.length){
   // Fallback: بعض المنصات/الويبهوك قد تُحدّث lastMessageText بدون تخزين الرسائل داخل subcollection
   try{
     const conv = inboxCache.find(x=>x.id===activeConvId)?.data || {};
     const lastText = String(conv.lastMessageText || conv.last_message_text || "").trim();
-    if(lastText){
+    if(isTikTokConversationForChat(conv) && lastText){
       const lastAt = conv.lastMessageAt || conv.last_message_at || conv.updatedAt || new Date().toISOString();
       msgs = [{ id:"__last__", data:{ direction:"in", type:"text", text:lastText, sentAt:lastAt } }];
     }
@@ -5262,7 +5354,7 @@ try{
     body.innerHTML = msgs.map(m=>{
       const d = m.data || {};
       const dir = (d.direction === "out") ? "out" : "in";
-      const tms = fsToMs(d.sentAt) || fsToMs(d.receivedAt);
+      const tms = getMsgTimeMs(d);
 
       // media support
       const type = (d.type || "text").toLowerCase();
@@ -5369,8 +5461,8 @@ try{
       // ✅ ترتيب محلي حسب الوقت الحقيقي (يحل مشكلة تجميع رسائل CRM لوحدها ورسائل العميل لوحدها بسبب اختلاف نوع الحقول)
       msgs.sort((a,b)=>{
         const da = a.data||{}, dbb = b.data||{};
-        const ta = (fsToMs(da.sentAt) || fsToMs(da.receivedAt) || 0);
-        const tb = (fsToMs(dbb.sentAt) || fsToMs(dbb.receivedAt) || 0);
+        const ta = getMsgTimeMs(da);
+        const tb = getMsgTimeMs(dbb);
         if(ta !== tb) return ta - tb;
         return String(a.id).localeCompare(String(b.id));
       });
@@ -7435,54 +7527,154 @@ $("#cd_name") && ($("#cd_name").value = data?.name || conv.displayName || "");
 
 
     
-async function sendOutboundMessage(text){
+// ===== TikTok reliable queue =====
+    // تيك توك/ManyChat بيستخدم custom field + tag trigger.
+    // لو اتبعتت رسالتين ورا بعض بسرعة، الرسالة الثانية ممكن تغير الـ custom field قبل ما الـ Flow يقرأ الأولى.
+    // لذلك بنعمل Queue محلي لتيك توك فقط، مع فاصل زمني آمن بين كل رسالة والتانية.
+    const TIKTOK_SEND_GAP_MS = Number(window.TIKTOK_SEND_GAP_MS || 8000);
+    let __tiktokSendQueue = [];
+    let __tiktokQueueRunning = false;
+
+    function tiktokQueueSleep(ms){
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function updateTikTokQueueButton(){
+      const btn = document.getElementById("btnSend") || document.querySelector('[data-send-btn]') || null;
+      if(!btn) return;
+      if(__tiktokQueueRunning || __tiktokSendQueue.length){
+        btn.disabled = false;
+        btn.textContent = __tiktokSendQueue.length
+          ? `إرسال (${__tiktokSendQueue.length} بالصف)`
+          : "إرسال";
+      }else{
+        btn.disabled = false;
+        btn.textContent = "إرسال";
+      }
+    }
+
+    async function getCurrentInboxRouteForQueue(){
+      if(!activeConvId) return "";
+      try{
+        const snap = await getDoc(doc(db, "wa_conversations", activeConvId));
+        if(!snap.exists()) return "";
+        return getInboxSendRoute(snap.data() || {}, activeConvId);
+      }catch(e){
+        console.warn("getCurrentInboxRouteForQueue", e);
+        return "";
+      }
+    }
+
+    async function enqueueTikTokOutbound(text){
+      const clean = String(text || "").trim();
+      if(!clean && !__selectedWaTemplateKey) return;
+      if(!activeConvId){ toast("اختر محادثة أولاً", "warn"); return; }
+
+      __tiktokSendQueue.push({
+        text: clean,
+        convId: String(activeConvId || "").trim(),
+        waTemplateKey: __selectedWaTemplateKey || "",
+        metaTemplateKey: __selectedMetaTemplateKey || "",
+        createdAt: Date.now()
+      });
+
+      resetTemplateComposer();
+      updateTikTokQueueButton();
+      processTikTokQueue();
+    }
+
+    async function processTikTokQueue(){
+      if(__tiktokQueueRunning) return;
+      __tiktokQueueRunning = true;
+      updateTikTokQueueButton();
+
+      while(__tiktokSendQueue.length){
+        const item = __tiktokSendQueue.shift();
+        updateTikTokQueueButton();
+        try{
+          await sendOutboundMessage(item.text, {
+            convId: item.convId,
+            waTemplateKey: item.waTemplateKey,
+            metaTemplateKey: item.metaTemplateKey,
+            fromTikTokQueue: true,
+            resetComposer: false
+          });
+        }catch(e){
+          console.error("processTikTokQueue", e);
+        }
+
+        if(__tiktokSendQueue.length){
+          await tiktokQueueSleep(TIKTOK_SEND_GAP_MS);
+        }else{
+          // فاصل بسيط بعد آخر رسالة عشان لو المستخدم كتب بسرعة بعدها، الـ Flow يبقى خلص قراءة الحقل.
+          await tiktokQueueSleep(Math.min(TIKTOK_SEND_GAP_MS, 3000));
+        }
+      }
+
+      __tiktokQueueRunning = false;
+      updateTikTokQueueButton();
+    }
+
+    async function sendOutboundMessageQueued(text){
+      const route = await getCurrentInboxRouteForQueue();
+      if(route === "tiktok"){
+        return enqueueTikTokOutbound(text);
+      }
+      return sendOutboundMessage(text);
+    }
+
+async function sendOutboundMessage(text, opts = {}){
   const composer = document.getElementById("composer");
   const btn = document.getElementById("btnSend") || document.querySelector('[data-send-btn]') || null;
+  const targetConvId = String(opts.convId || activeConvId || "").trim();
+  const selectedWaTemplateKey = opts.waTemplateKey !== undefined ? String(opts.waTemplateKey || "") : String(__selectedWaTemplateKey || "");
+  const selectedMetaTemplateKey = opts.metaTemplateKey !== undefined ? String(opts.metaTemplateKey || "") : String(__selectedMetaTemplateKey || "");
+  const shouldResetComposer = opts.resetComposer !== false;
+  const manageButton = !opts.fromTikTokQueue;
 
-  const isTemplate = !!(__selectedWaTemplateKey && WA_TEMPLATES?.[__selectedWaTemplateKey]);
-  const isMetaQuickTemplate = !!(__selectedMetaTemplateKey && WA_TEMPLATES?.[__selectedMetaTemplateKey]);
+  const isTemplate = !!(selectedWaTemplateKey && WA_TEMPLATES?.[selectedWaTemplateKey]);
+  const isMetaQuickTemplate = !!(selectedMetaTemplateKey && WA_TEMPLATES?.[selectedMetaTemplateKey]);
   const clean = String(text || "").trim();
 
   if(!isTemplate && !clean) return;
 
-  if(!activeConvId){
+  if(!targetConvId){
     toast("اختر محادثة أولاً", "warn");
     return;
   }
 
-  const convRef = doc(db, "wa_conversations", activeConvId);
+  const convRef = doc(db, "wa_conversations", targetConvId);
   const convSnap = await getDoc(convRef);
   if(!convSnap.exists()){
     toast("المحادثة غير موجودة", "err");
     return;
   }
   const conv = convSnap.data() || {};
-  const sendRoute = getInboxSendRoute(conv, activeConvId);
+  const sendRoute = getInboxSendRoute(conv, targetConvId);
   const isFB = sendRoute === "facebook";
   const isIG = sendRoute === "instagram";
   const isTikTok = sendRoute === "tiktok";
   const waId = String(conv.waId || "").trim() || normalizeSaudiPhone(String(conv.phoneNormalized || conv.phone || "").trim());
   const fbPsid = String(conv.fbId || conv.participantId || conv.participant_id || conv.senderId || "").trim();
   const igRecipientId = String(conv.igId || conv.igUserId || conv.participantId || conv.participant_id || conv.senderId || conv.fbId || "").trim();
-  const fbPageId = String(conv.pageId || "").trim();
   const manychatContactId = String(conv.manychatContactId || conv.participantId || conv.participant_id || conv.tiktokId || conv.senderId || "").trim();
-  const conversationId = String(conv.conversationId || activeConvId || "").trim();
+  const conversationId = String(conv.conversationId || targetConvId || "").trim();
   if(!isFB && !isIG && !isTikTok && !waId){ toast("رقم العميل غير موجود", "err"); return; }
   if(isFB && !fbPsid){ toast("معرّف فيسبوك غير موجود", "err"); return; }
   if(isIG && !igRecipientId){ toast("معرّف انستجرام غير موجود", "err"); return; }
   if(isTikTok && !manychatContactId){ toast("معرّف TikTok غير موجود", "err"); return; }
 
-  const tpl = isTemplate ? WA_TEMPLATES[__selectedWaTemplateKey] : null;
+  const tpl = isTemplate ? WA_TEMPLATES[selectedWaTemplateKey] : null;
   const leadWrap = isTemplate ? await getActiveLeadForConversation() : null;
   const lead = leadWrap?.data || null;
-  const templateParams = isTemplate ? buildTemplateParams(__selectedWaTemplateKey, clean, lead) : [];
+  const templateParams = isTemplate ? buildTemplateParams(selectedWaTemplateKey, clean, lead) : [];
   const displayText = isTemplate
-    ? (String(clean || buildTemplatePreview(__selectedWaTemplateKey, lead) || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
+    ? (String(clean || buildTemplatePreview(selectedWaTemplateKey, lead) || "").trim() || ("📩 قالب مرسال: " + String(tpl.name||"")))
     : clean;
 
   let localMsgId = "";
   if(!isFB && !isIG && !isTikTok){
-    const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
+    const msgRef = doc(collection(db, "wa_conversations", targetConvId, "messages"));
     localMsgId = msgRef.id;
     const nowIso = new Date().toISOString();
 
@@ -7513,14 +7705,14 @@ async function sendOutboundMessage(text){
     }).catch(()=>{});
   }
 
-  if(btn){ btn.disabled = true; btn.textContent = "جار الإرسال…"; }
+  if(btn && manageButton){ btn.disabled = true; btn.textContent = "جار الإرسال…"; }
 
   try{
     let resp, data;
     if(isFB){
       const fbDisplayNameBeforeSend = String(conv.displayName || conv.name || conv.participantName || conv.participant_name || "").trim();
       const payload = {
-        convId: activeConvId,
+        convId: targetConvId,
         text: displayText,
         displayName: fbDisplayNameBeforeSend
       };
@@ -7534,8 +7726,6 @@ async function sendOutboundMessage(text){
       if(data && data.message_id && !data.providerMessageId) data.providerMessageId = data.message_id;
       if(data && data.ok === undefined) data.ok = resp.ok;
 
-      // Facebook worker القديم كان بيرجع يحدّث المحادثة بـ displayName:null بعد الرد من CRM،
-      // فبنحافظ هنا على اسم الحساب الموجود قبل الإرسال بدون تغيير أي منطق تاني.
       if(resp.ok && fbDisplayNameBeforeSend){
         await updateDoc(convRef, {
           displayName: fbDisplayNameBeforeSend,
@@ -7545,8 +7735,8 @@ async function sendOutboundMessage(text){
         }).catch(()=>{});
       }
     }else if(isIG){
-      const msgRef = doc(collection(db, "wa_conversations", activeConvId, "messages"));
-      const localMsgId = msgRef.id;
+      const msgRef = doc(collection(db, "wa_conversations", targetConvId, "messages"));
+      const igLocalMsgId = msgRef.id;
       const nowIso = new Date().toISOString();
       await setDoc(msgRef, {
         direction: "out",
@@ -7578,7 +7768,7 @@ async function sendOutboundMessage(text){
       const payload = {
         subscriber_id: igRecipientId,
         participantId: igRecipientId,
-        conversationId: String(conv.conversationId || activeConvId || "").trim(),
+        conversationId: String(conv.conversationId || targetConvId || "").trim(),
         message: displayText,
         text: displayText,
         channel: "instagram",
@@ -7595,32 +7785,82 @@ async function sendOutboundMessage(text){
         headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: JSON.stringify(payload)
       });
-      data = { ok: true, opaque: true, localMsgId };
+      data = { ok: true, opaque: true, localMsgId: igLocalMsgId };
     }else if(isTikTok){
+      const msgRef = doc(collection(db, "wa_conversations", targetConvId, "messages"));
+      localMsgId = msgRef.id;
+      const nowIso = new Date().toISOString();
+
+      await setDoc(msgRef, {
+        direction: "out",
+        type: "text",
+        text: displayText,
+        from: "crm",
+        to: `tiktok:${manychatContactId}`,
+        provider: String(conv.provider || "manychat"),
+        providerMessageId: "",
+        participantId: manychatContactId,
+        channel: "tiktok",
+        channelCode: "tiktok",
+        sentAt: serverTimestamp(),
+        receivedAt: serverTimestamp(),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        status: "pending",
+        ...(isMetaQuickTemplate ? {
+          quickTemplateProvider: "meta",
+          quickTemplateKey: selectedMetaTemplateKey
+        } : {})
+      }).catch(()=>{});
+
+      await updateDoc(convRef, {
+        lastMessageText: String(displayText || "").slice(0, 280),
+        lastMessageAt: nowIso,
+        updatedAt: nowIso,
+        channel: conv.channel || "تيك توك",
+        channelCode: "tiktok",
+        tiktokId: conv.tiktokId || manychatContactId,
+        participantId: conv.participantId || manychatContactId,
+        manychatContactId: conv.manychatContactId || manychatContactId,
+        displayName: String(conv.displayName || conv.name || "عميل")
+      }).catch(()=>{});
+
       const payload = {
         subscriber_id: manychatContactId,
+        subscriberId: manychatContactId,
+        contact_id: manychatContactId,
+        contactId: manychatContactId,
+        manychatContactId,
         participantId: manychatContactId,
+        participant_id: manychatContactId,
+        tiktokId: manychatContactId,
         conversationId,
+        conversation_id: conversationId,
         message: displayText,
         text: displayText,
+        body: displayText,
         channel: "tiktok",
+        platform: "tiktok",
         provider: String(conv.provider || "manychat"),
-        displayName: String(conv.displayName || ""),
+        displayName: String(conv.displayName || conv.name || "عميل"),
         branchId: String(conv.branchId || "خدمة العملاء"),
         serviceKey: String(conv.serviceKey || "cs"),
-        status: String(conv.status || "open")
+        status: String(conv.status || "open"),
+        localMessageId: localMsgId,
+        requestId: `${localMsgId}_${Date.now()}`,
+        queued: !!opts.fromTikTokQueue,
+        quickTemplateProvider: isMetaQuickTemplate ? "meta" : "",
+        quickTemplateKey: isMetaQuickTemplate ? selectedMetaTemplateKey : ""
       };
 
-      // تيك توك من ملف HTML محلي يضرب CORS/Preflight مع worker
-      // لذلك نرسل كـ simple request بدون JSON content-type ونستخدم no-cors
-      // مع نجاح تفاؤلي حتى لا يظل الزر على "جار الإرسال"
       resp = await fetch(TIKTOK_SEND_ENDPOINT, {
         method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      data = { ok: true, opaque: true };
+      data = await resp.json().catch(()=> ({}));
+      if(data && data.ok === undefined) data.ok = resp.ok;
+      data.localMsgId = localMsgId;
     }else{
       const payload = isTemplate
         ? { waId, channel: "whatsapp", platform: "whatsapp", template: { name: String(tpl.name||""), lang: String(tpl.lang||"ar"), params: templateParams } }
@@ -7637,28 +7877,28 @@ async function sendOutboundMessage(text){
       if(data && data.id && !data.providerMessageId) data.providerMessageId = data.id;
     }
 
-    const isOpaqueTikTokSuccess = isTikTok && data && data.opaque === true;
     const isOpaqueIGSuccess = isIG && data && data.opaque === true;
-    if((!isOpaqueTikTokSuccess && !isOpaqueIGSuccess && !resp.ok) || data.ok === false){
-      if(isIG && data?.localMsgId){
-        await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", data.localMsgId), {
+    if((!isOpaqueIGSuccess && !resp.ok) || data.ok === false){
+      if((isIG || isTikTok) && data?.localMsgId){
+        await updateDoc(doc(db, "wa_conversations", targetConvId, "messages", data.localMsgId), {
           status: "failed",
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          error: String(data?.error || data?.message || "فشل الإرسال")
         }).catch(()=>{});
       }
       if(localMsgId){
-        await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+        await updateDoc(doc(db, "wa_conversations", targetConvId, "messages", localMsgId), {
           status: "failed",
           updatedAt: new Date().toISOString(),
-          error: String(data?.error || "فشل الإرسال")
+          error: String(data?.error || data?.message || "فشل الإرسال")
         }).catch(()=>{});
       }
-      toast(String(data?.error || "فشل الإرسال"), "err");
+      toast(String(data?.error || data?.message || "فشل الإرسال"), "err");
       return;
     }
 
     if(isIG && data?.localMsgId){
-      await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", data.localMsgId), {
+      await updateDoc(doc(db, "wa_conversations", targetConvId, "messages", data.localMsgId), {
         status: "sent",
         updatedAt: new Date().toISOString(),
         providerMessageId: String(data?.providerMessageId || "")
@@ -7666,18 +7906,18 @@ async function sendOutboundMessage(text){
     }
 
     if(localMsgId){
-      await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+      await updateDoc(doc(db, "wa_conversations", targetConvId, "messages", localMsgId), {
         status: "sent",
         updatedAt: new Date().toISOString(),
-        providerMessageId: String(data?.providerMessageId || "")
+        providerMessageId: String(data?.providerMessageId || data?.message_id || data?.id || "")
       }).catch(()=>{});
     }
 
-    resetTemplateComposer();
+    if(shouldResetComposer) resetTemplateComposer();
     toast("تم الإرسال", "ok");
   }catch(e){
     if(localMsgId){
-      await updateDoc(doc(db, "wa_conversations", activeConvId, "messages", localMsgId), {
+      await updateDoc(doc(db, "wa_conversations", targetConvId, "messages", localMsgId), {
         status: "failed",
         updatedAt: new Date().toISOString(),
         error: String(e?.message || e || "فشل الإرسال")
@@ -7686,7 +7926,7 @@ async function sendOutboundMessage(text){
     console.error(e);
     toast("فشل الإرسال", "err");
   }finally{
-    if(btn){ btn.disabled = false; btn.textContent = "إرسال"; }
+    if(btn && manageButton){ btn.disabled = false; btn.textContent = "إرسال"; }
   }
 }
 
@@ -7902,7 +8142,7 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
 // send button
     $("#btnSend")?.addEventListener("click", ()=>{
       const txt = ($("#composer")?.value || "");
-      sendOutboundMessage(txt);
+      sendOutboundMessageQueued(txt);
     });
 
     // Enter to send (Shift+Enter = سطر جديد)
@@ -7917,7 +8157,7 @@ document.getElementById("metaTemplateSelect")?.addEventListener("change", async 
     $("#composer")?.addEventListener("keydown", (e)=>{
       if(e.key === "Enter" && !e.shiftKey){
         e.preventDefault();
-        sendOutboundMessage($("#composer")?.value || "");
+        sendOutboundMessageQueued($("#composer")?.value || "");
       }
     });
   }
