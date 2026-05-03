@@ -17,6 +17,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1825,6 +1826,30 @@ body.auth-locked #authModal{ pointer-events:auto; }
     .navItem.subNav .navTitle span{
       font-size: 11.5px;
     }
+
+
+    /* ===== Call Center Excel Import ===== */
+    .ccImportBox{
+      margin:0 0 12px;
+      border:1px solid rgba(192,122,74,.28);
+      background:rgba(192,122,74,.07);
+      border-radius:16px;
+      padding:12px;
+      display:none;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .ccImportBox b{font-size:13.5px;font-weight:900;color:var(--b)}
+    .ccImportBox span{display:block;margin-top:4px;font-size:12.5px;color:var(--muted);line-height:1.7}
+    .ccImportGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .ccImportPreview{margin-top:12px;border:1px solid var(--line);border-radius:14px;overflow:auto;max-height:220px;background:#fff}
+    .ccImportPreview table{width:100%;min-width:680px;border-collapse:separate;border-spacing:0}
+    .ccImportPreview th,.ccImportPreview td{padding:8px 10px;border-bottom:1px solid var(--line);font-size:12px;white-space:nowrap;text-align:right}
+    .ccImportPreview th{font-weight:900;background:rgba(247,245,242,.78);color:var(--muted)}
+    @media (max-width:760px){.ccImportGrid{grid-template-columns:1fr}}
+
 </style>
 </head>
 
@@ -2151,6 +2176,17 @@ body.auth-locked #authModal{ pointer-events:auto; }
               <!-- Table -->
               <div class="card" style="grid-column: span 12;">
                 <h3>العملاء المحتملون</h3>
+
+                <div class="ccImportBox" id="ccImportBox" style="display:none">
+                  <div>
+                    <b>استيراد عملاء التمويل من Excel</b>
+                    <span>اختار ملف Excel، ثم اربط أعمدة الشيت بحقول العميل. العملاء هيدخلوا كـ ليدات تمويل وتتوزع تلقائيًا على مندوب تمويل + كول سنتر.</span>
+                  </div>
+                  <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <input type="file" id="ccExcelFile" accept=".xlsx,.xls,.csv" hidden />
+                    <button class="toolBtn primary" id="btnCcImportExcel" type="button">استيراد Excel</button>
+                  </div>
+                </div>
 
                 <div class="filters" style="padding:0 0 10px;border:0">
                   <select id="leadsFilterBranch"><option value="">كل الفروع</option></select>
@@ -2936,6 +2972,42 @@ body.auth-locked #authModal{ pointer-events:auto; }
   </div>
 
 
+
+  <!-- Call Center Excel Import Modal -->
+  <div class="modalOverlay" id="ccImportModal" style="display:none">
+    <div class="modal" style="width:min(820px,100%)" role="dialog" aria-modal="true" aria-label="استيراد عملاء من Excel">
+      <div class="modalHead">
+        <b>استيراد عملاء من Excel</b>
+        <button class="iconBtn" id="ccImportClose" type="button" aria-label="إغلاق">✕</button>
+      </div>
+      <div class="modalBody" style="max-height:72vh;overflow:auto">
+        <div class="mzj-hintBox" style="margin-top:0">
+          <b>ربط الأعمدة</b>
+          <span>كل شيت ممكن أعمدته تكون مختلفة. اختار الشيت ثم اختار العمود المناسب لكل حقل. اسم العميل ورقم الجوال مطلوبين.</span>
+        </div>
+        <div class="ccImportGrid" style="margin-top:12px">
+          <div class="mzjField full" style="grid-column:1/-1">
+            <label>الشيت</label>
+            <select id="ccImportSheet"></select>
+          </div>
+          <div class="mzjField"><label>اسم العميل *</label><select id="ccMapName"></select></div>
+          <div class="mzjField"><label>الجوال *</label><select id="ccMapPhone"></select></div>
+          <div class="mzjField"><label>المكان</label><select id="ccMapPlace"></select></div>
+          <div class="mzjField"><label>الفرع</label><select id="ccMapBranch"></select></div>
+          <div class="mzjField"><label>المصدر</label><select id="ccMapSource"></select></div>
+          <div class="mzjField"><label>اسم السيارة</label><select id="ccMapCar"></select></div>
+        </div>
+        <div id="ccImportStats" style="margin-top:12px;font-size:12.5px;color:var(--muted);font-weight:800">—</div>
+        <div class="ccImportPreview" id="ccImportPreview"></div>
+      </div>
+      <div class="modalFoot" style="display:flex;gap:10px;justify-content:flex-start;flex-wrap:wrap">
+        <button class="btn btnPrimary" id="ccImportConfirm" type="button">استيراد العملاء</button>
+        <button class="btn" id="ccImportCancel" type="button">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script type="module">
   
 
@@ -3845,6 +3917,19 @@ function renderTemplateSelectOptions(){
     return false;
   }
 
+  function isSystemManagerRole(){
+    const roleId = getCurrentRoleId();
+    const roleName = getCurrentRoleName();
+    if(["admin", "system_manager"].includes(roleId)) return true;
+    if(roleName === "admin" || roleName === "administrator" || roleName === "system_manager") return true;
+    if(roleName.includes("مدير النظام") || roleName.includes("system manager") || roleName.includes("administrator") || roleName.includes("owner")) return true;
+    return false;
+  }
+
+  function canUseCallCenterExcelImport(){
+    return !!currentUser && isSystemManagerRole() && canAccessTab("customers");
+  }
+
   function canSeeSettings(){
     const roleId = getCurrentRoleId();
     return roleId === "admin" || roleId === "marketing_admin";
@@ -4331,6 +4416,8 @@ function renderTemplateSelectOptions(){
     if(agentEl) agentEl.style.display = showAgent ? "" : "none";
     if(payEl) payEl.style.display = showPay ? "" : "none";
     if(totalCard) totalCard.style.display = showTotalCard ? "" : "none";
+    const importBox = $("#ccImportBox");
+    if(importBox) importBox.style.display = (viewMode === "customers" && canUseCallCenterExcelImport()) ? "flex" : "none";
   }
 
   function updateCustomerStatusesFiltersVisibility(){
@@ -5716,8 +5803,13 @@ try{
     const branchId = String(agent.branchId || agent.raw?.branchId || "").trim();
     if(roleId.includes("admin") || roleId.includes("manager") || roleName.includes("admin") || roleName.includes("manager") || roleName.includes("مدير") || roleName.includes("مشرف")) return false;
 
-    // القائمة التي حددتها هي مصدر الحقيقة للتوزيع.
-    // حتى لو بيانات branchId القديمة ناقصة/مختلفة، أي مندوب موجود في قائمة القسم يتم اعتماده فوراً.
+    // لا تسمح لأي مندوب بقسم صريح مخالف يدخل في توزيع قسم آخر.
+    // مثال مهم: لو مندوب بياناته cash في Firestore لا يتم اختياره للتمويل حتى لو اسمه موجود قديمًا في قائمة ثابتة.
+    if(key === "finance" && (branchMatchesKey(branchId, "cash") || branchMatchesKey(branchId, "cs") || deptKey === "cash" || deptKey === "cs" || /كاش|خدمة\s*عملاء/.test(deptLabel))) return false;
+    if(key === "cash" && (branchMatchesKey(branchId, "finance") || branchMatchesKey(branchId, "cs") || deptKey === "finance" || deptKey === "cs" || /تمويل|خدمة\s*عملاء/.test(deptLabel))) return false;
+    if(key === "cs" && (branchMatchesKey(branchId, "finance") || branchMatchesKey(branchId, "cash") || deptKey === "finance" || deptKey === "cash" || /تمويل|كاش/.test(deptLabel))) return false;
+
+    // القائمة الثابتة تساعد فقط عندما لا توجد بيانات قسم مخالفة.
     if(matchesSpecialServiceAgent(agent, key)) return true;
 
     if(key === "finance" && !branchMatchesKey(branchId, "finance")) return false;
@@ -9846,6 +9938,226 @@ function updateLeadsTableColumns(viewMode="customers"){
   if(ths && ths[10]) ths[10].textContent = 'آخر تحديث';
 }
 
+
+  // ===== Call Center Excel Import (Customers tab only) =====
+  let ccImportWorkbook = null;
+  let ccImportRows = [];
+  let ccImportHeaders = [];
+
+  function ccCloseImportModal(){
+    const m = $("#ccImportModal");
+    if(m) m.style.display = "none";
+  }
+  function ccOpenImportModal(){
+    const m = $("#ccImportModal");
+    if(m) m.style.display = "flex";
+  }
+  function ccCleanCell(v){
+    return String(v == null ? "" : v).replace(/^\ufeff/, "").trim();
+  }
+  function ccNormalizeHeader(v){
+    return ccCleanCell(v).toLowerCase().replace(/[\s_\-ـ]+/g, "").replace(/[أإآ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي");
+  }
+  function ccGuessHeader(headers, candidates){
+    const normCandidates = candidates.map(ccNormalizeHeader);
+    for(const h of headers){
+      const nh = ccNormalizeHeader(h);
+      if(normCandidates.includes(nh)) return h;
+    }
+    for(const h of headers){
+      const nh = ccNormalizeHeader(h);
+      if(normCandidates.some(c=> nh.includes(c) || c.includes(nh))) return h;
+    }
+    return "";
+  }
+  function ccFillMapSelect(id, headers, guess=""){
+    const el = $("#"+id);
+    if(!el) return;
+    el.innerHTML = `<option value="">— لا يوجد —</option>` + headers.map(h=>`<option value="${esc(h)}">${esc(h)}</option>`).join("");
+    if(guess && headers.includes(guess)) el.value = guess;
+  }
+  function ccGetRowValue(row, header){
+    if(!header) return "";
+    return ccCleanCell(row?.[header]);
+  }
+  function ccFindLocationByName(name){
+    const target = ccNormalizeHeader(name);
+    if(!target) return null;
+    for(const loc of locationsMap.values()){
+      if(ccNormalizeHeader(loc?.name || loc?.id) === target) return loc;
+    }
+    return null;
+  }
+  function ccBuildImportPreview(){
+    const box = $("#ccImportPreview");
+    const st = $("#ccImportStats");
+    if(!box) return;
+    const maps = {
+      name: $("#ccMapName")?.value || "",
+      phone: $("#ccMapPhone")?.value || "",
+      place: $("#ccMapPlace")?.value || "",
+      branch: $("#ccMapBranch")?.value || "",
+      source: $("#ccMapSource")?.value || "",
+      car: $("#ccMapCar")?.value || ""
+    };
+    const sample = ccImportRows.slice(0, 5).map(r=>({
+      name: ccGetRowValue(r,maps.name), phone: ccGetRowValue(r,maps.phone), place: ccGetRowValue(r,maps.place),
+      branch: ccGetRowValue(r,maps.branch), source: ccGetRowValue(r,maps.source), car: ccGetRowValue(r,maps.car)
+    }));
+    if(st) st.textContent = `عدد الصفوف في الشيت: ${ccImportRows.length} — المعروض عينة من أول 5 صفوف`;
+    if(!sample.length){ box.innerHTML = `<div class="mzj-empty">لا توجد صفوف في هذا الشيت.</div>`; return; }
+    box.innerHTML = `<table><thead><tr><th>اسم العميل</th><th>الجوال</th><th>المكان</th><th>الفرع</th><th>المصدر</th><th>اسم السيارة</th></tr></thead><tbody>` +
+      sample.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${esc(r.place)}</td><td>${esc(r.branch)}</td><td>${esc(r.source)}</td><td>${esc(r.car)}</td></tr>`).join("") +
+      `</tbody></table>`;
+  }
+  function ccLoadSheet(sheetName){
+    if(!ccImportWorkbook || !sheetName) return;
+    const ws = ccImportWorkbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval:"", raw:false });
+    ccImportRows = rows.map(r=>{
+      const out = {};
+      Object.keys(r || {}).forEach(k=> out[ccCleanCell(k)] = ccCleanCell(r[k]));
+      return out;
+    }).filter(r=> Object.values(r).some(v=>String(v||"").trim()));
+    ccImportHeaders = Array.from(new Set(ccImportRows.flatMap(r=>Object.keys(r))));
+    ccFillMapSelect("ccMapName", ccImportHeaders, ccGuessHeader(ccImportHeaders, ["اسم العميل","الاسم","name","customer name","client name"]));
+    ccFillMapSelect("ccMapPhone", ccImportHeaders, ccGuessHeader(ccImportHeaders, ["الجوال","رقم الجوال","الهاتف","الموبايل","phone","mobile","whatsapp"]));
+    ccFillMapSelect("ccMapPlace", ccImportHeaders, ccGuessHeader(ccImportHeaders, ["المكان","المدينة","المنطقة","place","city","location"]));
+    ccFillMapSelect("ccMapBranch", ccImportHeaders, ccGuessHeader(ccImportHeaders, ["الفرع","branch","showroom"]));
+    ccFillMapSelect("ccMapSource", ccImportHeaders, ccGuessHeader(ccImportHeaders, ["المصدر","source","platform","lead source"]));
+    ccFillMapSelect("ccMapCar", ccImportHeaders, ccGuessHeader(ccImportHeaders, ["اسم السيارة","السيارة","نوع السيارة","car","vehicle","model"]));
+    ccBuildImportPreview();
+  }
+  async function ccHandleExcelFile(file){
+    if(!file) return;
+    if(!window.XLSX){ toast("تعذر تحميل مكتبة قراءة Excel. تأكد من الاتصال بالإنترنت ثم حاول مرة أخرى.", "warn"); return; }
+    const buf = await file.arrayBuffer();
+    ccImportWorkbook = XLSX.read(buf, { type:"array" });
+    const sheetSel = $("#ccImportSheet");
+    if(!sheetSel) return;
+    const sheets = ccImportWorkbook.SheetNames || [];
+    sheetSel.innerHTML = sheets.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("");
+    if(sheets[0]){
+      sheetSel.value = sheets[0];
+      ccLoadSheet(sheets[0]);
+    }
+    ccOpenImportModal();
+  }
+  function ccBuildLeadPatchFromRow(row, maps, nowIso){
+    const phoneRaw = ccGetRowValue(row, maps.phone);
+    const phoneNormalized = normalizeSaudiPhone(phoneRaw || normalizePhone(phoneRaw));
+    const phoneClean = phoneNormalized || normalizePhone(phoneRaw).replace(/^\+/, "");
+    const branchName = ccGetRowValue(row, maps.branch);
+    const loc = ccFindLocationByName(branchName);
+    const patch = {
+      name: ccGetRowValue(row, maps.name) || "—",
+      phone: phoneClean ? (phoneClean.startsWith("966") ? "+" + phoneClean : phoneRaw) : phoneRaw,
+      phoneNormalized: phoneClean,
+      place: ccGetRowValue(row, maps.place),
+      city: ccGetRowValue(row, maps.place),
+      source: ccGetRowValue(row, maps.source) || "استيراد Excel",
+      sourceName: ccGetRowValue(row, maps.source) || "استيراد Excel",
+      carName: ccGetRowValue(row, maps.car),
+      carType: ccGetRowValue(row, maps.car),
+      importBranchName: branchName,
+      locationName: branchName,
+      branchLocationName: branchName,
+      officeBranchName: branchName,
+      ...(loc ? { locationId: loc.id, branchLocationId: loc.id, officeBranchId: loc.id } : {}),
+      importedFromExcel: true,
+      importSource: "callcenter_excel",
+      autoService: "finance",
+      serviceKey: "finance",
+      paymentType: "تمويل",
+      payType: "تمويل",
+      leadStatusName: "جديد",
+      status: "جديد",
+      leadStatus: "جديد",
+      currentStatus: "جديد",
+      updatedAt: nowIso
+    };
+    return patch;
+  }
+  async function ccFindExistingLeadByPhone(phoneNormalized){
+    const pn = String(phoneNormalized || "").trim();
+    if(!pn) return null;
+    const local = (Array.isArray(leadsCache) ? leadsCache : []).find(x=>{
+      const d = x?.data || {};
+      return String(d.phoneNormalized || "").replace(/^\+/, "") === pn || normalizeSaudiPhone(d.phone || "") === pn;
+    });
+    if(local) return local;
+    const q1 = query(collection(db,"leads"), where("phoneNormalized","==", pn), limit(1));
+    const snap = await getDocs(q1).catch(()=>null);
+    if(snap && !snap.empty){ const d=snap.docs[0]; return { id:d.id, data:d.data()||{} }; }
+    return null;
+  }
+  async function ccImportExcelRows(){
+    if(!canUseCallCenterExcelImport()) return toast("الاستيراد متاح لحسابات مدير النظام فقط", "warn");
+    const maps = {
+      name: $("#ccMapName")?.value || "",
+      phone: $("#ccMapPhone")?.value || "",
+      place: $("#ccMapPlace")?.value || "",
+      branch: $("#ccMapBranch")?.value || "",
+      source: $("#ccMapSource")?.value || "",
+      car: $("#ccMapCar")?.value || ""
+    };
+    if(!maps.name || !maps.phone) return toast("اختار عمود اسم العميل وعمود الجوال", "warn");
+    const rows = Array.isArray(ccImportRows) ? ccImportRows : [];
+    if(!rows.length) return toast("لا توجد صفوف للاستيراد", "warn");
+    const nowIso = new Date().toISOString();
+    let created = 0, updated = 0, skipped = 0;
+    const importedIds = [];
+    for(const row of rows){
+      const patch = ccBuildLeadPatchFromRow(row, maps, nowIso);
+      if(!patch.name || patch.name === "—" || !patch.phoneNormalized){ skipped++; continue; }
+      const existing = await ccFindExistingLeadByPhone(patch.phoneNormalized);
+      const leadId = existing?.id || ("excel_finance_" + patch.phoneNormalized);
+      const merged = { ...(existing?.data || {}), ...patch };
+      const currentSalesUid = String(getSalesAssignedUidFromLead(merged) || "").trim();
+      const currentSalesAgent = currentSalesUid ? (agentsUidMap.get(currentSalesUid) || agentsMap.get(currentSalesUid) || findAgentByAnyRef(currentSalesUid)) : findAgentByAnyRef(merged.salesAssignedName || merged.assignedName || "");
+      const missingSales = !currentSalesUid;
+      const wrongSalesDept = !!currentSalesAgent && !isStrictSalesAgentForService(currentSalesAgent, "finance");
+      const missingCall = !String(getCallCenterAssignedUidFromLead(merged) || "").trim();
+      const assignPatch = getDefaultAssignmentForNewLead("finance");
+      const finalPatch = { ...patch };
+      if(!existing?.data?.createdAt) finalPatch.createdAt = nowIso;
+      // استيراد الكول سنتر لازم يفضل تمويل: لو الليد موجود وممسوك بمندوب كاش، ننقله لمندوب تمويل صحيح.
+      if(missingSales || wrongSalesDept){
+        ["salesAssignedTo","salesAssignedName","assignedTo","assignedName","branchId","assignedAt","assignedBy"].forEach(k=>{ if(assignPatch[k]) finalPatch[k]=assignPatch[k]; });
+      }
+      if(missingCall){
+        ["callCenterAssignedTo","callCenterAssignedName","callCenterAssignedAt"].forEach(k=>{ if(assignPatch[k]) finalPatch[k]=assignPatch[k]; });
+      }
+      await setDoc(doc(db,"leads",leadId), finalPatch, { merge:true });
+      importedIds.push(leadId);
+      if(existing) updated++; else created++;
+    }
+    try{ await autoAssignMissingFinanceCallCenterLeads(importedIds.map(id=>({id, data:(leadsCache.find(x=>x.id===id)?.data || {})}))); }catch(e){ console.warn("cc auto assign", e); }
+    toast(`تم الاستيراد: جديد ${created} / تحديث ${updated} / متروك ${skipped}`, "ok");
+    ccCloseImportModal();
+    try{ ensureLeadsLive(); applyLeadFilters(); }catch(e){}
+  }
+  function bindCallCenterExcelImportUI(){
+    if(window.__ccImportBound) return;
+    window.__ccImportBound = true;
+    $("#btnCcImportExcel")?.addEventListener("click", ()=>{
+      if((window.__leadsViewMode || "customers") !== "customers") return toast("الاستيراد متاح داخل تاب الكول سنتر فقط", "warn");
+      if(!canUseCallCenterExcelImport()) return toast("الاستيراد متاح لحسابات مدير النظام فقط", "warn");
+      $("#ccExcelFile")?.click();
+    });
+    $("#ccExcelFile")?.addEventListener("change", async (e)=>{
+      const file = e.target?.files?.[0];
+      try{ await ccHandleExcelFile(file); }catch(err){ console.warn(err); toast("تعذر قراءة ملف Excel", "warn"); }
+      e.target.value = "";
+    });
+    $("#ccImportSheet")?.addEventListener("change", (e)=> ccLoadSheet(e.target.value));
+    ["ccMapName","ccMapPhone","ccMapPlace","ccMapBranch","ccMapSource","ccMapCar"].forEach(id=> $("#"+id)?.addEventListener("change", ccBuildImportPreview));
+    $("#ccImportConfirm")?.addEventListener("click", ()=> ccImportExcelRows());
+    $("#ccImportClose")?.addEventListener("click", ccCloseImportModal);
+    $("#ccImportCancel")?.addEventListener("click", ccCloseImportModal);
+    $("#ccImportModal")?.addEventListener("click", (e)=>{ if(e.target?.id === "ccImportModal") ccCloseImportModal(); });
+  }
+
 function applyLeadFilters(){
     try{ saveCurrentLeadFilters(window.__leadsViewMode || "customers"); }catch(e){}
     try{ updateLeadFiltersVisibility(); }catch(e){}
@@ -11996,6 +12308,7 @@ function bindTasksUI(){
   bindPipelineUI();
   bindTasksUI();
   bindAdminUsersUI();
+  bindCallCenterExcelImportUI();
 
   // ابدأ بحالة تحقق + تايمر حماية (حتى لا يظل "جار التحقق…" للأبد)
   try{ setAuthChecking(); }catch{}
