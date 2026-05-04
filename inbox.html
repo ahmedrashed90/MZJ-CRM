@@ -363,8 +363,26 @@
       mersalSelect.append(new Option("قوالب مرسال", ""));
       quickSelect.append(new Option("رسائل جاهزة", ""));
 
-      filteredTemplates("mersal").forEach(t => mersalSelect.append(new Option(t.name, t.content)));
-      filteredTemplates("quick").forEach(t => quickSelect.append(new Option(t.name, t.content)));
+      filteredTemplates("mersal").forEach(t => {
+        const opt = new Option(t.label || t.name, t.content);
+        opt.dataset.templateId = t.id || "";
+        opt.dataset.templateName = t.name || "";
+        opt.dataset.templateLabel = t.label || t.name || "";
+        opt.dataset.templateLang = t.lang || "ar";
+        opt.dataset.templateType = "mersal";
+        opt.dataset.params = JSON.stringify(t.params || []);
+        mersalSelect.append(opt);
+      });
+      filteredTemplates("quick").forEach(t => {
+        const opt = new Option(t.label || t.name, t.content);
+        opt.dataset.templateId = t.id || "";
+        opt.dataset.templateName = t.name || "";
+        opt.dataset.templateLabel = t.label || t.name || "";
+        opt.dataset.templateLang = t.lang || "ar";
+        opt.dataset.templateType = "quick";
+        opt.dataset.params = JSON.stringify(t.params || []);
+        quickSelect.append(opt);
+      });
 
       if(selectedMersal) mersalSelect.value = selectedMersal;
       if(selectedQuick) quickSelect.value = selectedQuick;
@@ -518,6 +536,30 @@
       });
     }
 
+
+    function getSelectedMessageTemplate(){
+      const mersal = el("mersalTemplates");
+      const quick = el("quickReplies");
+      let selected = null;
+
+      if(mersal && mersal.selectedIndex > 0) selected = mersal.options[mersal.selectedIndex];
+      if(quick && quick.selectedIndex > 0) selected = quick.options[quick.selectedIndex];
+
+      if(!selected) return null;
+
+      let params = [];
+      try { params = JSON.parse(selected.dataset.params || "[]"); } catch(e) {}
+
+      return {
+        id: selected.dataset.templateId || "",
+        name: selected.dataset.templateName || "",
+        label: selected.dataset.templateLabel || selected.textContent || "",
+        lang: selected.dataset.templateLang || "ar",
+        type: selected.dataset.templateType || "",
+        params
+      };
+    }
+
     async function sendReply(){
       const c = state.selected;
       const text = el("replyText").value.trim();
@@ -527,14 +569,32 @@
       const cfg = PLATFORM_CONFIG[c.platform];
       const dept = c.department || (state.department === "all" ? "cash_sales" : state.department);
 
+      const selectedTemplate = getSelectedMessageTemplate();
+
       await addDoc(collection(db, cfg.outbox), {
-        conversationId:c.id, platform:c.platform, department:dept, to:getPhone(c), text, status:"pending",
-        sentByUid:state.user.uid, sentByEmail:state.user.email, createdAt:serverTimestamp()
+        conversationId:c.id,
+        platform:c.platform,
+        department:dept,
+        to:getPhone(c),
+        text,
+        status:"pending",
+        messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
+        template: selectedTemplate,
+        sentByUid:state.user.uid,
+        sentByEmail:state.user.email,
+        createdAt:serverTimestamp()
       });
 
       await addDoc(collection(db, cfg.conversations, c.id, "messages"), {
-        text, direction:"outgoing", fromAgent:true, department:dept,
-        sentByUid:state.user.uid, sentByEmail:state.user.email, createdAt:serverTimestamp(), status:"pending"
+        text,
+        direction:"outgoing",
+        fromAgent:true,
+        department:dept,
+        template:selectedTemplate,
+        sentByUid:state.user.uid,
+        sentByEmail:state.user.email,
+        createdAt:serverTimestamp(),
+        status:"pending"
       });
 
       await updateDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, department:dept, updatedAt:serverTimestamp() }).catch(()=>{});
