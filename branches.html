@@ -24,6 +24,7 @@
       </form>
     </div>
   </section>
+
   <div class="management-page hidden" id="app">
     <aside class="sidebar">
       <div class="brand">
@@ -54,13 +55,14 @@
           <a href="./admin.html">الإدارة</a>
           </div>
         </div>
-      
+      </div>
     </aside>
+
     <main class="management-main">
       <div class="page-head">
         <div>
           <h2>الفروع</h2>
-          <p>إنشاء الفروع وربط كل فرع بمندوبي الأقسام.</p>
+          <p>إنشاء الفروع وربط كل فرع بأكثر من مندوب في كل قسم.</p>
         </div>
       </div>
 
@@ -70,10 +72,12 @@
           <form id="branchForm">
             <input type="hidden" id="branchId" />
             <div class="field"><label>اسم الفرع</label><input id="branchName" required placeholder="مثال: فرع الأونلاين" /></div>
-            <div class="field"><label>مندوب مبيعات كاش</label><select id="cashSalesUid"></select></div>
-            <div class="field"><label>مندوب مبيعات تمويل</label><select id="financeSalesUid"></select></div>
-            <div class="field"><label>مندوب خدمة عملاء</label><select id="customerServiceUid"></select></div>
-            <div class="field"><label>مندوب كول سنتر</label><select id="callCenterUid"></select></div>
+
+            <div class="field"><label>مناديب مبيعات كاش</label><select id="cashSalesUids" class="multi-select" multiple></select></div>
+            <div class="field"><label>مناديب مبيعات تمويل</label><select id="financeSalesUids" class="multi-select" multiple></select></div>
+            <div class="field"><label>مناديب خدمة عملاء</label><select id="customerServiceUids" class="multi-select" multiple></select></div>
+            <div class="field"><label>مناديب كول سنتر</label><select id="callCenterUids" class="multi-select" multiple></select></div>
+
             <div class="field"><label class="check-item"><input id="branchActive" type="checkbox" checked /> نشط</label></div>
             <div class="actions">
               <button class="primary" type="submit">حفظ الفرع</button>
@@ -96,7 +100,6 @@
   </div>
   <div class="toast" id="toast"></div>
   <script type="module">
-
     import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
     import {
@@ -180,6 +183,43 @@
 
     function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
 
+
+    function currentPageName(){
+      return location.pathname.split("/").pop() || "inbox.html";
+    }
+
+    function allowedPagesForCurrentUser(){
+      return Array.isArray(currentProfile?.pages) ? currentProfile.pages : [];
+    }
+
+    function hasPageAccess(page){
+      const pages = allowedPagesForCurrentUser();
+      return isAdmin || currentProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html";
+    }
+
+    function applyPagePermissions(){
+      const page = currentPageName();
+      const pages = allowedPagesForCurrentUser();
+      const unrestricted = isAdmin || currentProfile?.allDepartments === true || !pages.length;
+
+      document.querySelectorAll(".nav-tabs a").forEach(a => {
+        const linkPage = (a.getAttribute("href") || "").replace("./", "");
+        if(!unrestricted && !pages.includes(linkPage) && linkPage !== "dashboard.html"){
+          a.classList.add("hidden");
+        } else {
+          a.classList.remove("hidden");
+        }
+      });
+
+      if(!hasPageAccess(page)){
+        sessionStorage.setItem("mzj_no_permission_page", page);
+        window.location.replace("./dashboard.html");
+        return false;
+      }
+
+      return true;
+    }
+
     function setupAuth(pageInit, adminOnly=false){
       onAuthStateChanged(auth, async (user) => {
         if(!user){
@@ -204,6 +244,7 @@
           el("loginScreen").classList.add("hidden");
           el("app").classList.remove("hidden");
           el("userInfo").textContent = `${currentProfile.name || user.email} - ${isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department)}`;
+          if(!applyPagePermissions()) return;
           pageInit();
         } catch(err){
           console.error(err);
@@ -239,6 +280,7 @@
       return d.toLocaleString("ar-EG", {year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
     }
 
+
     let users = [];
     let branches = [];
     let unsubUsers = null;
@@ -248,11 +290,8 @@
       return users.filter(u => u.active !== false && (u.department === dept || u.role === dept));
     }
 
-    function fillUserSelect(id, dept, selected=""){
-      const s = el(id);
-      s.innerHTML = '<option value="">اختر</option>';
-      usersFor(dept).forEach(u => s.append(new Option(u.name || u.email || u.id, u.uid || u.id)));
-      s.value = selected || "";
+    function getSelectedValues(id){
+      return [...el(id).selectedOptions].map(o => o.value).filter(Boolean);
     }
 
     function userName(uid){
@@ -260,38 +299,60 @@
       return u ? (u.name || u.email || uid) : "";
     }
 
+    function userNames(uids=[]){
+      return (uids || []).map(userName).filter(Boolean);
+    }
+
+    function fillUserMulti(id, dept, selected=[]){
+      const s = el(id);
+      const current = selected.length ? selected : getSelectedValues(id);
+      s.innerHTML = "";
+      usersFor(dept).forEach(u => {
+        const uid = u.uid || u.id;
+        const opt = new Option(u.name || u.email || uid, uid);
+        opt.selected = current.includes(uid);
+        s.append(opt);
+      });
+    }
+
+    function fillAllSelects(b={}){
+      fillUserMulti("cashSalesUids", "cash_sales", b.cashSalesUids || (b.cashSalesUid ? [b.cashSalesUid] : []));
+      fillUserMulti("financeSalesUids", "finance_sales", b.financeSalesUids || (b.financeSalesUid ? [b.financeSalesUid] : []));
+      fillUserMulti("customerServiceUids", "customer_service", b.customerServiceUids || (b.customerServiceUid ? [b.customerServiceUid] : []));
+      fillUserMulti("callCenterUids", "call_center", b.callCenterUids || (b.callCenterUid ? [b.callCenterUid] : []));
+    }
+
     function resetForm(){
       el("branchId").value = "";
       el("branchName").value = "";
       el("branchActive").checked = true;
-      fillAllSelects();
-    }
-
-    function fillAllSelects(b={}){
-      fillUserSelect("cashSalesUid", "cash_sales", b.cashSalesUid);
-      fillUserSelect("financeSalesUid", "finance_sales", b.financeSalesUid);
-      fillUserSelect("customerServiceUid", "customer_service", b.customerServiceUid);
-      fillUserSelect("callCenterUid", "call_center", b.callCenterUid);
+      fillAllSelects({cashSalesUids:[], financeSalesUids:[], customerServiceUids:[], callCenterUids:[]});
     }
 
     function render(){
       fillAllSelects({
-        cashSalesUid: el("cashSalesUid").value,
-        financeSalesUid: el("financeSalesUid").value,
-        customerServiceUid: el("customerServiceUid").value,
-        callCenterUid: el("callCenterUid").value
+        cashSalesUids:getSelectedValues("cashSalesUids"),
+        financeSalesUids:getSelectedValues("financeSalesUids"),
+        customerServiceUids:getSelectedValues("customerServiceUids"),
+        callCenterUids:getSelectedValues("callCenterUids")
       });
 
       const body = el("branchesBody");
       body.innerHTML = branches.length ? "" : '<tr><td colspan="7">لا توجد فروع</td></tr>';
+
       branches.forEach(b => {
+        const cash = b.cashSalesNames || userNames(b.cashSalesUids || (b.cashSalesUid ? [b.cashSalesUid] : []));
+        const finance = b.financeSalesNames || userNames(b.financeSalesUids || (b.financeSalesUid ? [b.financeSalesUid] : []));
+        const cs = b.customerServiceNames || userNames(b.customerServiceUids || (b.customerServiceUid ? [b.customerServiceUid] : []));
+        const call = b.callCenterNames || userNames(b.callCenterUids || (b.callCenterUid ? [b.callCenterUid] : []));
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${escapeHtml(b.name)}</td>
-          <td>${escapeHtml(b.cashSalesName || userName(b.cashSalesUid))}</td>
-          <td>${escapeHtml(b.financeSalesName || userName(b.financeSalesUid))}</td>
-          <td>${escapeHtml(b.customerServiceName || userName(b.customerServiceUid))}</td>
-          <td>${escapeHtml(b.callCenterName || userName(b.callCenterUid))}</td>
+          <td class="agent-list-cell">${escapeHtml(cash.join("، "))}</td>
+          <td class="agent-list-cell">${escapeHtml(finance.join("، "))}</td>
+          <td class="agent-list-cell">${escapeHtml(cs.join("، "))}</td>
+          <td class="agent-list-cell">${escapeHtml(call.join("، "))}</td>
           <td>${b.active === false ? "لا" : "نعم"}</td>
           <td><button class="secondary" data-edit="${b.id}">تعديل</button></td>
         `;
@@ -301,49 +362,71 @@
 
     async function saveBranch(e){
       e.preventDefault();
+
       const id = el("branchId").value || ("branch_" + Date.now());
-      const cashUid = el("cashSalesUid").value;
-      const financeUid = el("financeSalesUid").value;
-      const csUid = el("customerServiceUid").value;
-      const callUid = el("callCenterUid").value;
+      const cashUids = getSelectedValues("cashSalesUids");
+      const financeUids = getSelectedValues("financeSalesUids");
+      const csUids = getSelectedValues("customerServiceUids");
+      const callUids = getSelectedValues("callCenterUids");
+
       const payload = {
         name: el("branchName").value.trim(),
-        cashSalesUid: cashUid,
-        cashSalesName: userName(cashUid),
-        financeSalesUid: financeUid,
-        financeSalesName: userName(financeUid),
-        customerServiceUid: csUid,
-        customerServiceName: userName(csUid),
-        callCenterUid: callUid,
-        callCenterName: userName(callUid),
+        cashSalesUids: cashUids,
+        cashSalesNames: userNames(cashUids),
+        financeSalesUids: financeUids,
+        financeSalesNames: userNames(financeUids),
+        customerServiceUids: csUids,
+        customerServiceNames: userNames(csUids),
+        callCenterUids: callUids,
+        callCenterNames: userNames(callUids),
         active: el("branchActive").checked,
         updatedAt: serverTimestamp(),
         updatedByUid: currentUser.uid,
         updatedByEmail: currentUser.email
       };
+
       if(!payload.name) return toast("اكتب اسم الفرع");
+
       await setDoc(doc(db, "branches", id), payload, { merge:true });
       resetForm();
       toast("تم حفظ الفرع");
     }
 
     function init(){
-      unsubUsers = onSnapshot(collection(db, "users"), snap => { users=[]; snap.forEach(d => users.push({id:d.id,uid:d.id,...d.data()})); render(); });
-      unsubBranches = onSnapshot(query(collection(db, "branches"), orderBy("name","asc")), snap => { branches=[]; snap.forEach(d => branches.push({id:d.id,...d.data()})); render(); });
+      if(unsubUsers) unsubUsers();
+      if(unsubBranches) unsubBranches();
+
+      unsubUsers = onSnapshot(collection(db, "users"), snap => {
+        users = [];
+        snap.forEach(d => users.push({id:d.id, uid:d.id, ...d.data()}));
+        render();
+      });
+
+      unsubBranches = onSnapshot(query(collection(db, "branches"), orderBy("name","asc")), snap => {
+        branches = [];
+        snap.forEach(d => branches.push({id:d.id, ...d.data()}));
+        render();
+      });
+
       el("branchForm").onsubmit = saveBranch;
       el("resetBtn").onclick = resetForm;
+
       el("branchesBody").onclick = (e) => {
         const id = e.target.dataset.edit;
         if(!id) return;
         const b = branches.find(x => x.id === id);
         if(!b) return;
+
         el("branchId").value = b.id;
         el("branchName").value = b.name || "";
         el("branchActive").checked = b.active !== false;
         fillAllSelects(b);
+        window.scrollTo({top:0, behavior:"smooth"});
       };
+
       resetForm();
     }
+
     setupAuth(init, true);
   </script>
 </body>

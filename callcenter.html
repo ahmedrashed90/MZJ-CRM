@@ -56,6 +56,7 @@
           </div>
         </div>
       
+      
     </aside>
     <main class="leads-main">
       <div class="page-head">
@@ -287,6 +288,43 @@
       return opts.join("");
     }
 
+
+    function currentPageName(){
+      return location.pathname.split("/").pop() || "inbox.html";
+    }
+
+    function allowedPagesForCurrentUser(){
+      return Array.isArray(currentProfile?.pages) ? currentProfile.pages : [];
+    }
+
+    function hasPageAccess(page){
+      const pages = allowedPagesForCurrentUser();
+      return isAdmin || currentProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html";
+    }
+
+    function applyPagePermissions(){
+      const page = currentPageName();
+      const pages = allowedPagesForCurrentUser();
+      const unrestricted = isAdmin || currentProfile?.allDepartments === true || !pages.length;
+
+      document.querySelectorAll(".nav-tabs a").forEach(a => {
+        const linkPage = (a.getAttribute("href") || "").replace("./", "");
+        if(!unrestricted && !pages.includes(linkPage) && linkPage !== "dashboard.html"){
+          a.classList.add("hidden");
+        } else {
+          a.classList.remove("hidden");
+        }
+      });
+
+      if(!hasPageAccess(page)){
+        sessionStorage.setItem("mzj_no_permission_page", page);
+        window.location.replace("./dashboard.html");
+        return false;
+      }
+
+      return true;
+    }
+
     function setupAuth(pageInit){
       onAuthStateChanged(auth, async (user) => {
         if(unsubLeads) unsubLeads();
@@ -314,6 +352,7 @@
           el("loginScreen").classList.add("hidden");
           el("app").classList.remove("hidden");
           el("userInfo").textContent = `${currentProfile.name || user.email} - ${isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department)}`;
+          if(!applyPagePermissions()) return;
           pageInit();
         } catch(err){
           console.error(err);

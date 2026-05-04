@@ -1023,3 +1023,76 @@ button:disabled{opacity:.55;cursor:not-allowed}
   background:#f8f4f0;
   color:var(--muted);
 }
+
+
+/* ===== Permissions + branches multiple agents ===== */
+.no-permission-card{
+  background:#fff8f3;
+  border:1px solid var(--brand-copper);
+  border-radius:18px;
+  padding:14px 16px;
+  margin-bottom:14px;
+  color:var(--brand-brown-dark);
+  box-shadow:var(--shadow);
+  display:none;
+}
+
+.no-permission-card.show{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.allowed-pages-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(200px,1fr));
+  gap:12px;
+  margin-top:14px;
+}
+
+.allowed-page-card{
+  display:block;
+  text-decoration:none;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:14px;
+  color:var(--text);
+  box-shadow:var(--shadow);
+  font-weight:800;
+}
+
+.allowed-page-card:hover{
+  background:#fff8f3;
+  border-color:var(--brand-copper);
+}
+
+.multi-select{
+  min-height:118px;
+  width:100%;
+  padding:8px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+  color:var(--text);
+  outline:none;
+}
+
+.multi-select option{
+  padding:7px 8px;
+}
+
+.agent-list-cell{
+  white-space:normal!important;
+  line-height:1.8;
+  min-width:180px;
+}
+
+@media(max-width:1180px){
+  .allowed-pages-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}
+}
+@media(max-width:780px){
+  .allowed-pages-grid{grid-template-columns:1fr}
+}

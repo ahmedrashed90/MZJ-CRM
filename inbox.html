@@ -56,6 +56,7 @@
           </div>
         </div>
         
+        
         <div class="user-row">
           <div class="status-text" id="userInfo"></div>
           <button class="secondary" id="logoutBtn">خروج</button>
@@ -295,6 +296,43 @@
 
     el("logoutBtn").onclick = () => signOut(auth);
 
+
+    function currentPageName(){
+      return location.pathname.split("/").pop() || "inbox.html";
+    }
+
+    function allowedPagesForCurrentUser(){
+      return Array.isArray(state.userProfile?.pages) ? state.userProfile.pages : [];
+    }
+
+    function hasPageAccess(page){
+      const pages = allowedPagesForCurrentUser();
+      return state.isAdmin || state.userProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html";
+    }
+
+    function applyPagePermissions(){
+      const page = currentPageName();
+      const pages = allowedPagesForCurrentUser();
+      const unrestricted = state.isAdmin || state.userProfile?.allDepartments === true || !pages.length;
+
+      document.querySelectorAll(".nav-tabs a").forEach(a => {
+        const linkPage = (a.getAttribute("href") || "").replace("./", "");
+        if(!unrestricted && !pages.includes(linkPage) && linkPage !== "dashboard.html"){
+          a.classList.add("hidden");
+        } else {
+          a.classList.remove("hidden");
+        }
+      });
+
+      if(!hasPageAccess(page)){
+        sessionStorage.setItem("mzj_no_permission_page", page);
+        window.location.replace("./dashboard.html");
+        return false;
+      }
+
+      return true;
+    }
+
     function applyPermissions(){
       const departmentSelect = el("departmentSelect");
       if(state.isAdmin){
@@ -310,6 +348,7 @@
       }
       departmentSelect.value = state.department;
       el("userInfo").textContent = `${state.userProfile?.name || state.user.email} - ${state.isAdmin ? "إدارة عامة" : departmentLabel(state.department)}`;
+      applyPagePermissions();
     }
 
     function cleanupListeners(){
