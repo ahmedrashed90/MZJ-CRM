@@ -722,7 +722,12 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
           `;
           messagesEl.appendChild(row);
         });
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+        requestAnimationFrame(() => {
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          requestAnimationFrame(() => {
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          });
+        });
       }, err => {
         console.error(err);
         messagesEl.innerHTML = '<div class="empty">تعذر تحميل الرسائل</div>';

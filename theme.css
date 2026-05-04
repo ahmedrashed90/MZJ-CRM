@@ -2282,3 +2282,77 @@ body:has(.mersal-inbox-main) .mersal-conversations-panel{
     max-width:86% !important;
   }
 }
+
+
+/* ===== Chat visible messages fix - no overlap with composer ===== */
+/* يمنع منطقة الكتابة والقوالب من تغطية آخر رسائل الشات */
+.app .chat{
+  display:grid !important;
+  grid-template-rows:auto minmax(0,1fr) auto !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+}
+
+.app .chat .chat-head{
+  grid-row:1 !important;
+  flex:0 0 auto !important;
+}
+
+.app .chat .messages{
+  grid-row:2 !important;
+  min-height:0 !important;
+  height:auto !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  padding-bottom:28px !important;
+  scroll-padding-bottom:28px !important;
+}
+
+.app .chat .composer{
+  grid-row:3 !important;
+  position:relative !important;
+  bottom:auto !important;
+  left:auto !important;
+  right:auto !important;
+  z-index:2 !important;
+  flex:0 0 auto !important;
+  box-shadow:0 -6px 18px rgba(75,32,27,.06) !important;
+}
+
+/* آخر رسالة لا تختفي خلف القوالب أو مربع الكتابة */
+.app .chat .messages .msg-row:last-child{
+  margin-bottom:12px !important;
+}
+
+/* الحفاظ على حجم الفقاعات الطبيعي */
+.app .chat .messages .msg-row.received-row,
+.app .chat .messages .msg-row.sent-row,
+.app .chat .messages .msg-row.in,
+.app .chat .messages .msg-row.out{
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  height:auto !important;
+  min-height:0 !important;
+}
+
+.app .chat .messages .msg-row > .msg{
+  width:fit-content !important;
+  max-width:58% !important;
+  height:auto !important;
+  min-height:0 !important;
+}
+
+/* لو المتصفح لا يدعم fit-content بشكل كامل */
+@supports not (width: fit-content){
+  .app .chat .messages .msg-row > .msg{
+    display:inline-block !important;
+    width:auto !important;
+  }
+}
+
+@media(max-width:780px){
+  .app .chat .messages .msg-row > .msg{
+    max-width:86% !important;
+  }
+}
