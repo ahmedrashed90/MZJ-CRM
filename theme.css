@@ -1096,3 +1096,14 @@ button:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:780px){
   .allowed-pages-grid{grid-template-columns:1fr}
 }
+
+
+/* ===== Strict allowed pages menu ===== */
+.nav-tabs a.hidden{
+  display:none!important;
+}
+
+.brand .nav-tabs{
+  max-height:236px!important;
+  overflow:auto!important;
+}
