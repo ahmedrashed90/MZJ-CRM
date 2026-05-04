@@ -295,3 +295,70 @@ button:disabled{opacity:.55;cursor:not-allowed}
 }
 .template-seed-box b{display:block;margin-bottom:4px}
 .template-seed-box span{font-size:12px;color:var(--muted);line-height:1.7}
+
+
+/* ===== Inbox composer and chat polish ===== */
+.chat{
+  min-height:0;
+}
+
+.messages{
+  min-height:0;
+}
+
+.composer{
+  position:sticky;
+  bottom:0;
+  z-index:8;
+  background:#fff;
+  box-shadow:0 -10px 30px rgba(75,32,27,.08);
+}
+
+.composer textarea{
+  display:block;
+  width:100%;
+  min-height:86px;
+  max-height:190px;
+  line-height:1.8;
+  font-size:15px;
+  background:#fff;
+}
+
+.send-row{
+  align-items:center;
+}
+
+.messages .msg{
+  font-size:14.5px;
+  line-height:1.85;
+}
+
+.customer .card:last-child{
+  padding-bottom:76px;
+}
+
+.customer-savebar{
+  position:sticky;
+  bottom:0;
+  z-index:7;
+  background:linear-gradient(180deg, rgba(255,255,255,.84), #fff);
+  border-top:1px solid var(--line);
+  padding-top:10px;
+  margin-top:10px;
+}
+
+.customer-savebar .primary{
+  width:100%;
+  min-height:44px;
+  font-weight:800;
+}
+
+.app.auth-loading .login-screen{
+  display:none!important;
+}
+
+@media(max-width:780px){
+  .composer textarea{
+    min-height:100px;
+  }
+}
