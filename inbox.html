@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="./theme.css" />
 </head>
 <body>
-  <section class="login-screen" id="loginScreen">
+  <section class="login-screen hidden" id="loginScreen">
     <div class="login-card">
       <div class="login-brand">
         <div class="logo-mark">MZJ</div>
@@ -40,7 +40,7 @@
           <button class="secondary" id="refreshBtn">تحديث</button>
         </div>
         <div class="nav-tabs">
-          <a href="./index.html" class="active">صندوق الوارد</a>
+          <a href="./inbox.html" class="active">صندوق الوارد</a>
           <a href="./statuses.html" id="statusesLink">حالات العملاء</a>
           <a href="./templates.html" id="templatesLink">القوالب والرسائل الجاهزة</a>
         </div>
@@ -87,7 +87,7 @@
           <select class="search" id="mersalTemplates"><option value="">قوالب مرسال</option></select>
           <select class="search" id="quickReplies"><option value="">رسائل جاهزة</option></select>
         </div>
-        <textarea id="replyText" placeholder="اكتب الرد هنا..."></textarea>
+        <textarea id="replyText" placeholder="اكتب الرسالة هنا... Enter للإرسال، و Shift + Enter لسطر جديد"></textarea>
         <div class="send-row">
           <span class="status-text" id="sendHint"></span>
           <button class="primary" id="sendBtn">إرسال</button>
@@ -142,7 +142,9 @@
               <textarea name="attachmentsNotes" placeholder="اكتب روابط الملفات أو ملاحظات المرفقات هنا"></textarea>
               <div class="status-text" id="attachmentsHint"></div>
             </div>
-            <button class="primary" type="submit" style="width:100%">حفظ بيانات العميل</button>
+            <div class="customer-savebar">
+              <button class="primary" type="submit">حفظ بيانات العميل</button>
+            </div>
           </form>
         </div>
       </div>
@@ -599,6 +601,8 @@
 
       await updateDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, department:dept, updatedAt:serverTimestamp() }).catch(()=>{});
       el("replyText").value = "";
+      clearSelectedTemplateControls();
+      autoResizeReply();
       toast("تم الإرسال");
     }
 
@@ -682,6 +686,21 @@
       quickSelect.append(new Option("رسائل جاهزة", ""));
     }
 
+
+    function autoResizeReply(){
+      const ta = el("replyText");
+      if(!ta) return;
+      ta.style.height = "auto";
+      ta.style.height = Math.min(Math.max(ta.scrollHeight, 86), 190) + "px";
+    }
+
+    function clearSelectedTemplateControls(){
+      const mersal = el("mersalTemplates");
+      const quick = el("quickReplies");
+      if(mersal) mersal.selectedIndex = 0;
+      if(quick) quick.selectedIndex = 0;
+    }
+
     el("sendBtn").onclick = sendReply;
     form.onsubmit = saveCustomer;
     el("refreshBtn").onclick = listenConversations;
@@ -706,8 +725,27 @@
       renderConversations();
     };
 
-    el("mersalTemplates").onchange = e => { if(e.target.value) el("replyText").value = e.target.value; };
-    el("quickReplies").onchange = e => { if(e.target.value) el("replyText").value = e.target.value; };
+    el("mersalTemplates").onchange = e => {
+      if(e.target.value){
+        el("quickReplies").selectedIndex = 0;
+        el("replyText").value = e.target.value;
+        autoResizeReply();
+      }
+    };
+    el("quickReplies").onchange = e => {
+      if(e.target.value){
+        el("mersalTemplates").selectedIndex = 0;
+        el("replyText").value = e.target.value;
+        autoResizeReply();
+      }
+    };
+    el("replyText").addEventListener("input", autoResizeReply);
+    el("replyText").addEventListener("keydown", (e) => {
+      if(e.key === "Enter" && !e.shiftKey){
+        e.preventDefault();
+        sendReply();
+      }
+    });
     form.oninput = () => updateCompletion(getFormData());
 
     addTemplateOptions();
