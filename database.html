@@ -287,6 +287,37 @@
     }
 
 
+
+    const NAV_ITEMS = [
+      { page:"inbox.html", label:"صندوق الوارد" },
+      { page:"callcenter.html", label:"الكول سنتر" },
+      { page:"leads-finance.html", label:"العملاء المحتملون - تمويل" },
+      { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
+      { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
+      { page:"database.html", label:"قاعدة البيانات" },
+      { page:"dashboard.html", label:"الداش بورد" },
+      { page:"reports.html", label:"التقارير" },
+      { page:"branches.html", label:"الفروع" },
+      { page:"statuses.html", label:"حالات العملاء" },
+      { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
+      { page:"admin.html", label:"الإدارة" }
+    ];
+
+    function renderAllowedNavigation(profile, adminFlag){
+      const currentPage = location.pathname.split("/").pop() || "inbox.html";
+      const pages = Array.isArray(profile?.pages) ? profile.pages : [];
+      const unrestricted = adminFlag || profile?.allDepartments === true || !pages.length;
+      const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
+      const nav = document.querySelector(".nav-tabs");
+      if(!nav) return;
+
+      nav.innerHTML = allowed.map(item => `
+        <a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">
+          ${item.label}
+        </a>
+      `).join("");
+    }
+
     function currentPageName(){
       return location.pathname.split("/").pop() || "inbox.html";
     }
@@ -350,6 +381,7 @@
           el("loginScreen").classList.add("hidden");
           el("app").classList.remove("hidden");
           el("userInfo").textContent = `${currentProfile.name || user.email} - ${isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department)}`;
+          renderAllowedNavigation(currentProfile, isAdmin);
           if(!applyPagePermissions()) return;
           pageInit();
         } catch(err){

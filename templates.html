@@ -233,6 +233,37 @@
 
     const OFFICIAL_MERSAL_TEMPLATES = [{"key": "finance_request_received", "name": "finance_request_received", "label": "إستلام طلب التمويل", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": false, "content": "مرحباً بك في مجموعة محمد ذعار العجمي للسيارات\nتم استلام طلب التمويل الخاص بك بنجاح ✅\nسيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات.", "params": []}, {"key": "finance_not_eligible", "name": "finance_not_eligible", "label": "رسالة رفض الحسبة المبدئية", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": true, "content": "طلب التمويل غير مؤهل ❌ لرفع الأوراق إلى جهات التمويل المختصة\n\nبسبب: {{1}}\n\nللمزيد من التفاصيل يرجى التواصل معنا.", "params": ["سبب عدم التأهيل"]}, {"key": "finance_pre_approved_documents", "name": "finance_pre_approved_documents", "label": "رسالة قبول الحسبة - طلب إرسال الأوراق", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": true, "content": "طلب تمويلك مؤهل ✅ لرفع الأوراق إلى جهات التمويل المختصة\n\nبرجاء إرسال الأوراق المطلوبة مبدئياً التالية:\n\n{{1}}\n\nسيتم مراجعة الأوراق والرد عليك في أقرب وقت.", "params": ["الأوراق المطلوبة"]}, {"key": "documents_received", "name": "documents_received", "label": "تم إرسال الأوراق", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": true, "content": "تم استلام أوراق طلبك بخصوص السيارة: {{1}}\n\nوجاري العمل على الطلب حالياً.\n\nفي حال وجود متطلبات إضافية سيتم التواصل معك.", "params": ["اسم السيارة"]}, {"key": "sales_support_request", "name": "sales_support_request", "label": "طلب الدعم لإختيار السيارة", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": false, "content": "سيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات\n\nلتأكيد بيانات السيارة المطلوبة واختيار السيارة المناسبة لك.", "params": []}, {"key": "finance_approved", "name": "finance_approved", "label": "الموافقة", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": false, "content": "مبروك 🎉\n\nتمت الموافقة من قبل جهة التمويل على طلبك بنجاح ✅\n\nوفي انتظار إصدار عقد التمويل الخاص بك.", "params": []}, {"key": "finance_rejected", "name": "finance_rejected", "label": "عدم الموافقة", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": true, "content": "تعذر صدور الموافقة من قبل جهة التمويل على طلبك ❌\n\nبسبب: {{1}}\n\nيمكنك التواصل معنا لمعرفة التفاصيل أو إعادة التقديم لاحقاً.", "params": ["سبب عدم الموافقة"]}, {"key": "contract_issued", "name": "contract_issued", "label": "إصدار العقد", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": false, "content": "تم إصدار عقدك من جهة التمويل الخاصة بك بنجاح ✅\n\nسيتم التواصل معك قريباً لاستكمال الإجراءات المطلوبة.", "params": []}, {"key": "contract_signed", "name": "contract_signed", "label": "تم توقيع العقد بنجاح", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": false, "content": "نهنئك 🎉\n\nتم توقيع عقد التمويل الخاص بك بنجاح ✅\n\nسيصلك إشعار قريباً بإنشاء طلب البيع الخاص بك.", "params": []}, {"key": "contract_not_signed", "name": "contract_not_signed", "label": "لم يتم توقيع العقد", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": true, "content": "تعذر توقيع العقد مع جهة التمويل الخاصة بك ❌\n\nبسبب: {{1}}\n\nيمكنك التواصل معنا لإعادة جدولة الموعد أو استكمال الإجراءات.", "params": ["سبب عدم التوقيع"]}, {"key": "finance_application_submitted", "name": "finance_application_submitted", "label": "رفع الطلب", "lang": "ar", "audience": ["finance_sales"], "legacyAudience": ["finance"], "editable": false, "content": "تم رفع طلب التمويل الخاص بك إلى جهة التمويل المختصة بنجاح ✅\n\nسيتم مراجعة الطلب وإفادتك بأي تحديثات في أقرب وقت.", "params": []}, {"key": "car_selected", "name": "car_selected", "label": "تم التواصل مع العميل و إختيار السيارة", "lang": "ar", "audience": ["finance_sales"], "legacyAudience": ["finance"], "editable": true, "content": "تم اختيار السيارة التالية بناءً على طلبكم:\n\nالسيارة: {{1}}\nالموديل: {{2}}\nاللون: {{3}}\n\nوجاري العمل على استكمال إجراءات الطلب.", "params": ["اسم السيارة", "الموديل", "اللون"]}, {"key": "car_documents_submitted", "name": "car_documents_submitted", "label": "رفع أوراق السيارة و عرض السعر", "lang": "ar", "audience": ["finance_sales"], "legacyAudience": ["finance"], "editable": false, "content": "تم رفع أوراق السيارة المختارة وعرض السعر إلى جهة التمويل المختصة بنجاح ✅\n\nسيتم متابعة الطلب وإفادتكم بأي تحديثات فور ورودها.", "params": []}];
 
+
+    const NAV_ITEMS = [
+      { page:"inbox.html", label:"صندوق الوارد" },
+      { page:"callcenter.html", label:"الكول سنتر" },
+      { page:"leads-finance.html", label:"العملاء المحتملون - تمويل" },
+      { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
+      { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
+      { page:"database.html", label:"قاعدة البيانات" },
+      { page:"dashboard.html", label:"الداش بورد" },
+      { page:"reports.html", label:"التقارير" },
+      { page:"branches.html", label:"الفروع" },
+      { page:"statuses.html", label:"حالات العملاء" },
+      { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
+      { page:"admin.html", label:"الإدارة" }
+    ];
+
+    function renderAllowedNavigation(profile, adminFlag){
+      const currentPage = location.pathname.split("/").pop() || "inbox.html";
+      const pages = Array.isArray(profile?.pages) ? profile.pages : [];
+      const unrestricted = adminFlag || profile?.allDepartments === true || !pages.length;
+      const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
+      const nav = document.querySelector(".nav-tabs");
+      if(!nav) return;
+
+      nav.innerHTML = allowed.map(item => `
+        <a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">
+          ${item.label}
+        </a>
+      `).join("");
+    }
+
     let currentUser = null;
     let currentProfile = null;
     let templates = [];
@@ -294,6 +325,7 @@
         el("loginScreen").classList.add("hidden");
         el("app").classList.remove("hidden");
         el("userInfo").textContent = `${currentProfile.name || user.email} - إدارة عامة`;
+        renderAllowedNavigation(currentProfile, true);
         listenTemplates();
         updatePreview();
       } catch(err){
