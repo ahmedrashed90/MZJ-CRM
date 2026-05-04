@@ -17,7 +17,6 @@
           <p>تسجيل الدخول إلى نظام CRM</p>
         </div>
       </div>
-
       <form class="login-form" id="loginForm">
         <input id="loginEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required />
         <input id="loginPassword" type="password" placeholder="كلمة المرور" autocomplete="current-password" required />
@@ -40,12 +39,14 @@
           </div>
           <button class="secondary" id="refreshBtn">تحديث</button>
         </div>
-
+        <div class="nav-tabs">
+          <a href="./index.html" class="active">صندوق الوارد</a>
+          <a href="./statuses.html" id="statusesLink">حالات العملاء</a>
+        </div>
         <div class="user-row">
           <div class="status-text" id="userInfo"></div>
           <button class="secondary" id="logoutBtn">خروج</button>
         </div>
-
         <select class="dept-select" id="departmentSelect">
           <option value="all">كل الأقسام</option>
           <option value="cash_sales">مبيعات الكاش</option>
@@ -64,7 +65,6 @@
           <button class="chip" data-platform="tiktok">تيك توك</button>
         </div>
       </div>
-
       <div class="list" id="conversationList"></div>
     </aside>
 
@@ -75,10 +75,6 @@
           <div class="chat-title" id="chatTitle">اختر محادثة</div>
           <div class="chat-sub" id="chatSub"></div>
         </div>
-        <div class="head-actions">
-          <button class="purple" id="statusBtn">تحديد حالة العميل</button>
-          <button class="primary" id="editCustomerBtn">تحديث/إضافة بيانات العميل</button>
-        </div>
       </div>
 
       <section class="messages" id="messages">
@@ -87,12 +83,8 @@
 
       <section class="composer">
         <div class="template-row">
-          <select class="search" id="mersalTemplates">
-            <option value="">قوالب مرسال</option>
-          </select>
-          <select class="search" id="quickReplies">
-            <option value="">رسائل جاهزة</option>
-          </select>
+          <select class="search" id="mersalTemplates"><option value="">قوالب مرسال</option></select>
+          <select class="search" id="quickReplies"><option value="">رسائل جاهزة</option></select>
         </div>
         <textarea id="replyText" placeholder="اكتب الرد هنا..."></textarea>
         <div class="send-row">
@@ -119,7 +111,6 @@
                 <option value="">اختر حالة العميل</option>
               </select>
             </div>
-
             <div class="field"><label>اسم العميل</label><input name="customerName" /></div>
             <div class="grid2">
               <div class="field"><label>رقم الجوال</label><input name="phone" /></div>
@@ -157,27 +148,10 @@
     </aside>
   </div>
 
-  <div class="modal-backdrop" id="statusModal">
-    <div class="modal">
-      <h2>تحديد حالة العميل</h2>
-      <div class="field">
-        <label>الحالة</label>
-        <select id="modalStatusSelect"></select>
-      </div>
-      <div class="field">
-        <label>ملاحظة</label>
-        <textarea id="statusNote"></textarea>
-      </div>
-      <div class="modal-actions">
-        <button class="success" id="saveStatusBtn">حفظ الحالة</button>
-        <button class="secondary" id="closeStatusModal">إلغاء</button>
-      </div>
-    </div>
-  </div>
-
   <div class="toast" id="toast"></div>
 
   <script type="module">
+
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
     import {
@@ -185,7 +159,7 @@
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
       getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, limit,
-      addDoc, setDoc, updateDoc, serverTimestamp
+      addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
     import {
       getStorage, ref, uploadBytes, getDownloadURL
@@ -207,52 +181,13 @@
     const db = getFirestore(appFirebase);
     const storage = getStorage(appFirebase);
 
-    const PLATFORM_CONFIG = {
-      whatsapp:  { label:"واتساب",   conversations:"wa_conversations", outbox:"wa_outbox" },
-      instagram: { label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
-      facebook:  { label:"فيسبوك",   conversations:"fb_conversations", outbox:"fb_outbox" },
-      tiktok:    { label:"تيك توك",  conversations:"tt_conversations", outbox:"tt_outbox" }
-    };
-
     const DEPARTMENTS = {
-      all:"كل الأقسام",
       cash_sales:"مبيعات الكاش",
       finance_sales:"مبيعات التمويل",
       customer_service:"خدمة العملاء"
     };
 
-    const CLIENT_STATUSES = [
-      "جديد",
-      "قيد المتابعة",
-      "مهتم",
-      "غير مهتم",
-      "تم إرسال عرض",
-      "تم البيع",
-      "مؤجل"
-    ];
-
-    const CUSTOMER_FIELDS = [
-      "customerName","phone","salary","obligation","location","age","salaryBank",
-      "carType","carModel","color","notes","attachments","financeType"
-    ];
-
-    const state = {
-      user: null,
-      userProfile: null,
-      role: "user",
-      isAdmin: false,
-      conversations: [],
-      selected: null,
-      selectedPlatform: "all",
-      department: "cash_sales",
-      unsubConversations: [],
-      unsubMessages: null
-    };
-
-    const el = (id) => document.getElementById(id);
-    const conversationList = el("conversationList");
-    const messagesEl = el("messages");
-    const form = el("customerForm");
+    function el(id){ return document.getElementById(id); }
 
     function toast(msg){
       const t = el("toast"); t.textContent = msg; t.style.display = "block";
@@ -265,50 +200,50 @@
     }
 
     async function loadUserProfile(user){
-      const profileRef = doc(db, "users", user.uid);
-      const profileSnap = await getDoc(profileRef);
-      if(profileSnap.exists()){
-        return profileSnap.data();
-      }
-
-      return {
-        email: user.email,
-        name: user.email,
-        role: "user",
-        department: "cash_sales",
-        active: true
-      };
+      const profileSnap = await getDoc(doc(db, "users", user.uid));
+      if(profileSnap.exists()) return profileSnap.data();
+      return { email:user.email, name:user.email, role:"user", department:"cash_sales", active:true };
     }
 
-    function applyPermissions(){
-      state.role = state.userProfile?.role || "user";
-      state.isAdmin = state.role === "admin" || state.userProfile?.allDepartments === true;
-      const departmentSelect = el("departmentSelect");
-
-      if(state.isAdmin){
-        departmentSelect.disabled = false;
-        state.department = localStorage.getItem("mzj_department") || "all";
-      } else {
-        const allowedDepartment = state.userProfile?.department || "cash_sales";
-        state.department = allowedDepartment;
-        departmentSelect.value = allowedDepartment;
-        departmentSelect.disabled = true;
-        [...departmentSelect.options].forEach(opt => {
-          opt.hidden = opt.value === "all" || opt.value !== allowedDepartment;
-        });
-      }
-
-      departmentSelect.value = state.department;
-      localStorage.setItem("mzj_department", state.department);
-      el("userInfo").textContent = `${state.userProfile?.name || state.user.email} - ${state.isAdmin ? "إدارة عامة" : departmentLabel(state.department)}`;
+    function isAdminProfile(profile){
+      return profile?.role === "admin" || profile?.allDepartments === true;
     }
+
+    function escapeHtml(str){
+      return String(str ?? "").replace(/[&<>"']/g, s => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[s]));
+    }
+
+    const PLATFORM_CONFIG = {
+      whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox" },
+      instagram:{ label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
+      facebook:{ label:"فيسبوك", conversations:"fb_conversations", outbox:"fb_outbox" },
+      tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
+    };
+
+    const CUSTOMER_FIELDS = [
+      "customerName","phone","salary","obligation","location","age","salaryBank",
+      "carType","carModel","color","notes","attachments","financeType"
+    ];
+
+    const state = {
+      user:null, userProfile:null, isAdmin:false,
+      conversations:[], statuses:[], selected:null, selectedPlatform:"all",
+      department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubStatuses:null
+    };
+
+    const conversationList = el("conversationList");
+    const messagesEl = el("messages");
+    const form = el("customerForm");
+
+    function departmentLabel(d){ return d === "all" ? "كل الأقسام" : (DEPARTMENTS[d] || d); }
+    function platformLabel(p){ return PLATFORM_CONFIG[p]?.label || p; }
 
     onAuthStateChanged(auth, async (user) => {
       cleanupListeners();
-
       if(!user){
         state.user = null;
-        state.userProfile = null;
         el("loginScreen").classList.remove("hidden");
         el("app").classList.add("hidden");
         return;
@@ -317,16 +252,17 @@
       try{
         state.user = user;
         state.userProfile = await loadUserProfile(user);
-
         if(state.userProfile.active === false){
           await signOut(auth);
           showLoginError("هذا الحساب غير مفعل.");
           return;
         }
 
+        state.isAdmin = isAdminProfile(state.userProfile);
         applyPermissions();
         el("loginScreen").classList.add("hidden");
         el("app").classList.remove("hidden");
+        listenStatuses();
         listenConversations();
       } catch(err){
         console.error(err);
@@ -337,27 +273,72 @@
     el("loginForm").onsubmit = async (e) => {
       e.preventDefault();
       el("loginError").style.display = "none";
-      const email = el("loginEmail").value.trim();
-      const password = el("loginPassword").value;
       try{
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, el("loginEmail").value.trim(), el("loginPassword").value);
       } catch(err){
         console.error(err);
         showLoginError("بيانات الدخول غير صحيحة أو الحساب غير مفعل.");
       }
     };
 
-    el("logoutBtn").onclick = async () => {
-      await signOut(auth);
-    };
+    el("logoutBtn").onclick = () => signOut(auth);
+
+    function applyPermissions(){
+      const departmentSelect = el("departmentSelect");
+      if(state.isAdmin){
+        departmentSelect.disabled = false;
+        state.department = localStorage.getItem("mzj_department") || "all";
+      } else {
+        const allowedDepartment = state.userProfile?.department || "cash_sales";
+        state.department = allowedDepartment;
+        departmentSelect.disabled = true;
+        [...departmentSelect.options].forEach(opt => opt.hidden = opt.value !== allowedDepartment);
+        el("statusesLink").classList.add("hidden");
+      }
+      departmentSelect.value = state.department;
+      el("userInfo").textContent = `${state.userProfile?.name || state.user.email} - ${state.isAdmin ? "إدارة عامة" : departmentLabel(state.department)}`;
+    }
 
     function cleanupListeners(){
       state.unsubConversations.forEach(u => u());
       state.unsubConversations = [];
       if(state.unsubMessages) state.unsubMessages();
+      if(state.unsubStatuses) state.unsubStatuses();
       state.unsubMessages = null;
+      state.unsubStatuses = null;
       state.conversations = [];
       state.selected = null;
+    }
+
+    function listenStatuses(){
+      if(state.unsubStatuses) state.unsubStatuses();
+      const q = query(collection(db, "client_statuses"), orderBy("sort", "asc"));
+      state.unsubStatuses = onSnapshot(q, snap => {
+        state.statuses = [];
+        snap.forEach(d => state.statuses.push({ id:d.id, ...d.data() }));
+        fillStatusDropdown();
+      }, err => console.error(err));
+    }
+
+    function getSelectedDepartmentForStatus(){
+      if(state.selected?.department) return state.selected.department;
+      if(state.selected?.customer?.department) return state.selected.customer.department;
+      if(state.department !== "all") return state.department;
+      return "cash_sales";
+    }
+
+    function filteredStatuses(){
+      const dept = getSelectedDepartmentForStatus();
+      return state.statuses.filter(s => s.active !== false && Array.isArray(s.departments) && s.departments.includes(dept));
+    }
+
+    function fillStatusDropdown(currentValue=""){
+      const select = el("clientStatusSelect");
+      const value = currentValue || select.value;
+      select.innerHTML = "";
+      select.append(new Option("اختر حالة العميل", ""));
+      filteredStatuses().forEach(s => select.append(new Option(s.name, s.name)));
+      if(value) select.value = value;
     }
 
     function tsToDate(v){
@@ -374,13 +355,7 @@
       return d.toLocaleString("ar-EG", {hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit"});
     }
 
-    function platformLabel(p){ return PLATFORM_CONFIG[p]?.label || p; }
-    function departmentLabel(d){ return DEPARTMENTS[d] || d; }
-
-    function getCustomerName(c){
-      return c.customerName || c.customer?.customerName || c.name || c.contactName || c.senderName || c.phone || "عميل بدون اسم";
-    }
-
+    function getCustomerName(c){ return c.customerName || c.customer?.customerName || c.name || c.contactName || c.senderName || c.phone || "عميل بدون اسم"; }
     function getPhone(c){ return c.phone || c.customer?.phone || c.customerPhone || c.from || c.sender || ""; }
     function getLastText(c){ return c.lastMessage || c.lastText || c.preview || c.message || ""; }
     function getClientStatus(c){ return c.clientStatus || c.customer?.clientStatus || ""; }
@@ -388,11 +363,11 @@
     function normalizeConversation(platform, id, data){
       return {
         id, platform, ...data,
-        customerName: data.customerName || data.customer?.customerName || data.name || data.contactName || data.senderName || "",
-        phone: data.phone || data.customer?.phone || data.customerPhone || data.from || data.sender || "",
-        clientStatus: data.clientStatus || data.customer?.clientStatus || "",
-        department: data.department || data.customer?.department || "",
-        updatedAt: data.updatedAt || data.lastMessageAt || data.createdAt || null
+        customerName:data.customerName || data.customer?.customerName || data.name || data.contactName || data.senderName || "",
+        phone:data.phone || data.customer?.phone || data.customerPhone || data.from || data.sender || "",
+        clientStatus:data.clientStatus || data.customer?.clientStatus || "",
+        department:data.department || data.customer?.department || "",
+        updatedAt:data.updatedAt || data.lastMessageAt || data.createdAt || null
       };
     }
 
@@ -401,9 +376,7 @@
       let items = state.conversations.slice();
 
       if(state.selectedPlatform !== "all") items = items.filter(c => c.platform === state.selectedPlatform);
-      if(!state.isAdmin || state.department !== "all"){
-        items = items.filter(c => !c.department || c.department === state.department);
-      }
+      if(!state.isAdmin || state.department !== "all") items = items.filter(c => !c.department || c.department === state.department);
       if(search){
         items = items.filter(c =>
           String(getCustomerName(c)).toLowerCase().includes(search) ||
@@ -439,14 +412,15 @@
       el("app").classList.add("chat-open");
       el("backBtn").classList.remove("hidden");
       el("chatTitle").textContent = getCustomerName(c);
-      el("chatSub").textContent = `${platformLabel(c.platform)} - ${departmentLabel(state.department)}${getClientStatus(c) ? " - " + getClientStatus(c) : ""}`;
+      el("chatSub").textContent = `${platformLabel(c.platform)} - ${departmentLabel(c.department || state.department)}${getClientStatus(c) ? " - " + getClientStatus(c) : ""}`;
       fillCustomerForm(c.customer || c);
       renderConversations();
       listenMessages(c);
     }
 
     function listenConversations(){
-      cleanupConversationListenersOnly();
+      state.unsubConversations.forEach(u => u());
+      state.unsubConversations = [];
       state.conversations = [];
 
       Object.entries(PLATFORM_CONFIG).forEach(([platform, cfg]) => {
@@ -459,17 +433,10 @@
         }, err => {
           console.error(err);
           el("connectionStatus").textContent = "خطأ في الاتصال";
-          if(String(err.code || "").includes("permission")){
-            toast("لا توجد صلاحية قراءة. راجع Firestore Rules وحساب المستخدم.");
-          }
+          if(String(err.code || "").includes("permission")) toast("لا توجد صلاحية قراءة.");
         });
         state.unsubConversations.push(unsub);
       });
-    }
-
-    function cleanupConversationListenersOnly(){
-      state.unsubConversations.forEach(u => u());
-      state.unsubConversations = [];
     }
 
     function listenMessages(c){
@@ -490,10 +457,7 @@
           const outgoing = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
           const div = document.createElement("div");
           div.className = "msg " + (outgoing ? "out" : "in");
-          div.innerHTML = `
-            ${escapeHtml(m.text || m.body || m.message || "")}
-            <div class="msg-meta">${outgoing ? "أنت" : "العميل"} - ${formatTime(m.createdAt || m.timestamp)}</div>
-          `;
+          div.innerHTML = `${escapeHtml(m.text || m.body || m.message || "")}<div class="msg-meta">${outgoing ? "أنت" : "العميل"} - ${formatTime(m.createdAt || m.timestamp)}</div>`;
           messagesEl.appendChild(div);
         });
         messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -510,37 +474,19 @@
       if(!text) return toast("اكتب الرسالة أولاً");
 
       const cfg = PLATFORM_CONFIG[c.platform];
-      const payload = {
-        conversationId: c.id,
-        platform: c.platform,
-        department: state.department === "all" ? (c.department || "cash_sales") : state.department,
-        to: getPhone(c),
-        text,
-        status: "pending",
-        sentByUid: state.user.uid,
-        sentByEmail: state.user.email,
-        createdAt: serverTimestamp()
-      };
+      const dept = c.department || (state.department === "all" ? "cash_sales" : state.department);
 
-      await addDoc(collection(db, cfg.outbox), payload);
-
-      await addDoc(collection(db, cfg.conversations, c.id, "messages"), {
-        text,
-        direction: "outgoing",
-        fromAgent: true,
-        department: payload.department,
-        sentByUid: state.user.uid,
-        sentByEmail: state.user.email,
-        createdAt: serverTimestamp(),
-        status: "pending"
+      await addDoc(collection(db, cfg.outbox), {
+        conversationId:c.id, platform:c.platform, department:dept, to:getPhone(c), text, status:"pending",
+        sentByUid:state.user.uid, sentByEmail:state.user.email, createdAt:serverTimestamp()
       });
 
-      await updateDoc(doc(db, cfg.conversations, c.id), {
-        lastMessage: text,
-        department: payload.department,
-        updatedAt: serverTimestamp()
-      }).catch(()=>{});
+      await addDoc(collection(db, cfg.conversations, c.id, "messages"), {
+        text, direction:"outgoing", fromAgent:true, department:dept,
+        sentByUid:state.user.uid, sentByEmail:state.user.email, createdAt:serverTimestamp(), status:"pending"
+      });
 
+      await updateDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, department:dept, updatedAt:serverTimestamp() }).catch(()=>{});
       el("replyText").value = "";
       toast("تم الإرسال");
     }
@@ -550,7 +496,7 @@
         const input = form.elements[f];
         if(input && f !== "attachments") input.value = data[f] || "";
       });
-      form.elements.clientStatus.value = data.clientStatus || "";
+      fillStatusDropdown(data.clientStatus || "");
       const attachments = data.attachments || [];
       el("attachmentsHint").textContent = attachments.length ? `الملفات: ${attachments.length}` : "";
       updateCompletion(data);
@@ -563,7 +509,7 @@
         if(f !== "attachments") data[f] = (fd.get(f) || "").toString().trim();
       });
       data.clientStatus = (fd.get("clientStatus") || "").toString().trim();
-      data.department = state.department === "all" ? (state.selected?.department || "cash_sales") : state.department;
+      data.department = state.selected?.department || (state.department === "all" ? "cash_sales" : state.department);
       return data;
     }
 
@@ -585,6 +531,7 @@
 
       const cfg = PLATFORM_CONFIG[c.platform];
       const data = getFormData();
+      const oldStatus = getClientStatus(c);
       const files = Array.from(el("fileInput").files || []);
 
       let attachments = c.attachments || c.customer?.attachments || [];
@@ -602,89 +549,23 @@
       data.updatedByEmail = state.user.email;
       data.updatedAt = serverTimestamp();
 
-      await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), {
-        ...data,
-        conversationId: c.id,
-        platform: c.platform
-      }, { merge:true });
+      await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), { ...data, conversationId:c.id, platform:c.platform }, { merge:true });
 
       await setDoc(doc(db, cfg.conversations, c.id), {
-        customer: data,
-        customerName: data.customerName,
-        phone: data.phone,
-        clientStatus: data.clientStatus,
-        department: data.department,
-        profileCompletion: data.profileCompletion,
-        updatedAt: serverTimestamp()
+        customer:data, customerName:data.customerName, phone:data.phone, clientStatus:data.clientStatus,
+        department:data.department, profileCompletion:data.profileCompletion, updatedAt:serverTimestamp()
       }, { merge:true });
+
+      if(data.clientStatus && data.clientStatus !== oldStatus){
+        await addDoc(collection(db, cfg.conversations, c.id, "status_history"), {
+          status:data.clientStatus, note:"", department:data.department,
+          createdByUid:state.user.uid, createdByEmail:state.user.email, createdAt:serverTimestamp()
+        });
+      }
 
       state.selected = { ...state.selected, ...data, customer:data };
-      toast("تم الحفظ");
-    }
-
-    function openStatusModal(){
-      if(!state.selected) return toast("اختر محادثة أولاً");
-      el("modalStatusSelect").value = getClientStatus(state.selected);
-      el("statusNote").value = "";
-      el("statusModal").style.display = "grid";
-    }
-
-    function closeStatusModal(){
-      el("statusModal").style.display = "none";
-    }
-
-    async function saveClientStatus(){
-      const c = state.selected;
-      if(!c) return toast("اختر محادثة أولاً");
-
-      const newStatus = el("modalStatusSelect").value;
-      const note = el("statusNote").value.trim();
-      if(!newStatus) return toast("اختر حالة العميل");
-
-      const cfg = PLATFORM_CONFIG[c.platform];
-      const selectedDepartment = state.department === "all" ? (c.department || "cash_sales") : state.department;
-
-      await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), {
-        clientStatus: newStatus,
-        department: selectedDepartment,
-        statusUpdatedAt: serverTimestamp(),
-        lastStatusNote: note,
-        statusUpdatedByUid: state.user.uid,
-        statusUpdatedByEmail: state.user.email,
-        conversationId: c.id,
-        platform: c.platform
-      }, { merge:true });
-
-      await setDoc(doc(db, cfg.conversations, c.id), {
-        clientStatus: newStatus,
-        "customer.clientStatus": newStatus,
-        department: selectedDepartment,
-        statusUpdatedAt: serverTimestamp(),
-        lastStatusNote: note,
-        updatedAt: serverTimestamp()
-      }, { merge:true });
-
-      await addDoc(collection(db, cfg.conversations, c.id, "status_history"), {
-        status: newStatus,
-        note,
-        department: selectedDepartment,
-        createdByUid: state.user.uid,
-        createdByEmail: state.user.email,
-        createdAt: serverTimestamp()
-      });
-
-      state.selected.clientStatus = newStatus;
-      state.selected.customer = { ...(state.selected.customer || {}), clientStatus:newStatus };
-      form.elements.clientStatus.value = newStatus;
-      closeStatusModal();
       renderConversations();
-      toast("تم تحديث الحالة");
-    }
-
-    function escapeHtml(str){
-      return String(str ?? "").replace(/[&<>"']/g, s => ({
-        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-      }[s]));
+      toast("تم الحفظ");
     }
 
     function fillSelect(select, placeholder, items){
@@ -694,39 +575,29 @@
     }
 
     function addTemplateOptions(){
-      const mersalTemplates = [
+      fillSelect(el("mersalTemplates"), "قوالب مرسال", [
         "مرحباً، نحتاج استكمال بياناتك لإتمام الطلب.",
         "فضلاً أرسل صورة الهوية ورخصة القيادة.",
         "تم استلام طلبك وسيتم التواصل معك قريباً."
-      ];
-      const quickReplies = [
+      ]);
+      fillSelect(el("quickReplies"), "رسائل جاهزة", [
         "أهلاً وسهلاً، كيف نقدر نخدمك؟",
         "ممكن ترسل رقم الجوال للتواصل؟",
         "تم تحويل طلبك للمختص وسيتم الرد عليك."
-      ];
-
-      fillSelect(el("mersalTemplates"), "قوالب مرسال", mersalTemplates);
-      fillSelect(el("quickReplies"), "رسائل جاهزة", quickReplies);
-      fillSelect(el("modalStatusSelect"), "اختر حالة العميل", CLIENT_STATUSES);
-      fillSelect(el("clientStatusSelect"), "اختر حالة العميل", CLIENT_STATUSES);
+      ]);
     }
 
     el("sendBtn").onclick = sendReply;
     form.onsubmit = saveCustomer;
     el("refreshBtn").onclick = listenConversations;
     el("searchInput").oninput = renderConversations;
-    el("editCustomerBtn").onclick = () => el("customerPanel")?.scrollTo({top:0, behavior:"smooth"});
-    el("statusBtn").onclick = openStatusModal;
-    el("closeStatusModal").onclick = closeStatusModal;
-    el("saveStatusBtn").onclick = saveClientStatus;
     el("backBtn").onclick = () => el("app").classList.remove("chat-open");
 
     el("departmentSelect").onchange = (e) => {
       state.department = e.target.value;
       localStorage.setItem("mzj_department", state.department);
-      if(state.selected){
-        el("chatSub").textContent = `${platformLabel(state.selected.platform)} - ${departmentLabel(state.department)}${getClientStatus(state.selected) ? " - " + getClientStatus(state.selected) : ""}`;
-      }
+      fillStatusDropdown();
+      if(state.selected) el("chatSub").textContent = `${platformLabel(state.selected.platform)} - ${departmentLabel(state.selected.department || state.department)}${getClientStatus(state.selected) ? " - " + getClientStatus(state.selected) : ""}`;
       renderConversations();
     };
 
