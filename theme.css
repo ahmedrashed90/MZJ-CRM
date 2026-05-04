@@ -1779,3 +1779,506 @@ body:has(.mersal-inbox-main) .mersal-conversations-panel{
     max-width:88% !important;
   }
 }
+
+
+/* ===== Final tiny natural chat bubbles ===== */
+/* أقوى Override لصندوق الوارد فقط: الفقاعة على حجم الكلام الطبيعي */
+.app .chat .messages{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:stretch !important;
+  gap:6px !important;
+  padding:18px 22px !important;
+}
+
+/* صف الرسالة لا يأخذ أي خلفية أو كارت */
+.app .chat .messages > .msg-row,
+.app .chat .messages .msg-row,
+.app .chat .messages > .msg-row.in,
+.app .chat .messages > .msg-row.out,
+.app .chat .messages .msg-row.in,
+.app .chat .messages .msg-row.out{
+  display:flex !important;
+  width:100% !important;
+  max-width:100% !important;
+  height:auto !important;
+  min-height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  border-radius:0 !important;
+}
+
+/* اتجاه الصف فقط */
+.app .chat .messages > .msg-row.in,
+.app .chat .messages .msg-row.in{
+  justify-content:flex-start !important;
+}
+
+.app .chat .messages > .msg-row.out,
+.app .chat .messages .msg-row.out{
+  justify-content:flex-end !important;
+}
+
+/* الفقاعة نفسها صغيرة على قد النص */
+.app .chat .messages > .msg-row > .msg,
+.app .chat .messages .msg-row > .msg,
+.app .chat .messages > .msg,
+.app .chat .messages .msg{
+  box-sizing:border-box !important;
+  display:block !important;
+  flex:0 1 auto !important;
+  width:auto !important;
+  min-width:0 !important;
+  max-width:min(440px, 58%) !important;
+  height:auto !important;
+  min-height:0 !important;
+  margin:0 !important;
+  padding:7px 10px 6px !important;
+  line-height:1.55 !important;
+  white-space:normal !important;
+  overflow:visible !important;
+  box-shadow:0 5px 14px rgba(75,32,27,.06) !important;
+}
+
+/* شكل فقاعة العميل */
+.app .chat .messages > .msg-row > .msg.in,
+.app .chat .messages .msg-row > .msg.in,
+.app .chat .messages > .msg.in,
+.app .chat .messages .msg.in{
+  background:#fff !important;
+  border:1px solid #eadfd5 !important;
+  color:var(--text) !important;
+  border-radius:14px 14px 14px 6px !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+}
+
+/* شكل فقاعة الموظف */
+.app .chat .messages > .msg-row > .msg.out,
+.app .chat .messages .msg-row > .msg.out,
+.app .chat .messages > .msg.out,
+.app .chat .messages .msg.out{
+  background:#f2d3c3 !important;
+  border:1px solid #dfad94 !important;
+  color:#34221f !important;
+  border-radius:14px 14px 6px 14px !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+}
+
+/* النص نفسه هو الذي يحدد العرض */
+.app .chat .messages .msg .msg-text,
+.app .chat .messages .msg-text{
+  display:block !important;
+  width:auto !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  margin:0 !important;
+  padding:0 !important;
+  font-size:13.5px !important;
+  line-height:1.55 !important;
+  white-space:pre-wrap !important;
+  word-break:break-word !important;
+  overflow-wrap:break-word !important;
+}
+
+/* الوقت صغير بدون ما يوسع الفقاعة */
+.app .chat .messages .msg .msg-meta,
+.app .chat .messages .msg-meta{
+  display:flex !important;
+  justify-content:flex-end !important;
+  align-items:center !important;
+  gap:4px !important;
+  margin-top:4px !important;
+  padding:0 !important;
+  font-size:9.5px !important;
+  line-height:1.1 !important;
+  color:#8b7b73 !important;
+  white-space:nowrap !important;
+}
+
+/* رسائل قصيرة مثل 00 / 3 / 1212 تظهر فقاعة صغيرة جداً */
+.app .chat .messages .msg-text:only-child{
+  min-width:0 !important;
+}
+
+/* إلغاء تأثير كلاس .in و .out العام داخل الشات فقط */
+.app .chat .messages .in:not(.msg),
+.app .chat .messages .out:not(.msg){
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  margin:0 !important;
+}
+
+/* على الموبايل */
+@media(max-width:780px){
+  .app .chat .messages > .msg-row > .msg,
+  .app .chat .messages .msg-row > .msg,
+  .app .chat .messages > .msg,
+  .app .chat .messages .msg{
+    max-width:86% !important;
+  }
+}
+
+
+/* ===== Final natural inbox bubbles + open department + eligibility ===== */
+
+/* إلغاء تأثير كلاس .in/.out العام من أي صف رسالة */
+.app .chat .messages .msg-row,
+.app .chat .messages .msg-row.received-row,
+.app .chat .messages .msg-row.sent-row{
+  display:flex !important;
+  width:100% !important;
+  max-width:100% !important;
+  margin:0 0 7px 0 !important;
+  padding:0 !important;
+  background:transparent !important;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  min-height:0 !important;
+  height:auto !important;
+}
+
+.app .chat .messages .msg-row.received-row{justify-content:flex-start !important;}
+.app .chat .messages .msg-row.sent-row{justify-content:flex-end !important;}
+
+.app .chat .messages .msg-row .msg{
+  display:inline-block !important;
+  width:auto !important;
+  min-width:44px !important;
+  max-width:fit-content !important;
+  height:auto !important;
+  min-height:0 !important;
+  margin:0 !important;
+  padding:7px 10px 6px !important;
+  line-height:1.55 !important;
+  white-space:normal !important;
+  box-shadow:0 4px 12px rgba(75,32,27,.06) !important;
+}
+
+.app .chat .messages .msg-row.received-row .msg{
+  max-width:min(420px, 58%) !important;
+  background:#fff !important;
+  border:1px solid #eadfd5 !important;
+  color:var(--text) !important;
+  border-radius:14px 14px 14px 6px !important;
+}
+
+.app .chat .messages .msg-row.sent-row .msg{
+  max-width:min(420px, 58%) !important;
+  background:#f2d3c3 !important;
+  border:1px solid #dfad94 !important;
+  color:#34221f !important;
+  border-radius:14px 14px 6px 14px !important;
+}
+
+.app .chat .messages .msg-row .msg-text{
+  display:block !important;
+  width:auto !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  font-size:13.5px !important;
+  line-height:1.55 !important;
+  white-space:pre-wrap !important;
+  word-break:break-word !important;
+  overflow-wrap:break-word !important;
+  margin:0 !important;
+  padding:0 !important;
+}
+
+.app .chat .messages .msg-row .msg-meta{
+  display:flex !important;
+  justify-content:flex-end !important;
+  gap:4px !important;
+  margin-top:4px !important;
+  padding:0 !important;
+  font-size:9.5px !important;
+  line-height:1.1 !important;
+  color:#8b7b73 !important;
+  white-space:nowrap !important;
+}
+
+/* رسائل قصيرة جداً مثل 00 و 3 و 1212 */
+.app .chat .messages .msg-row .msg:has(.msg-text){
+  inline-size:max-content !important;
+  max-inline-size:min(420px, 58%) !important;
+}
+
+/* fallback للمتصفحات القديمة */
+.app .chat .messages .msg-row .msg-text{
+  inline-size:auto !important;
+}
+
+/* بيانات القسم عند open */
+.chat-sub{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  align-items:center;
+}
+
+.open-status-pill,
+.dept-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  padding:3px 8px;
+  font-size:11px;
+  font-weight:800;
+  border:1px solid var(--line);
+}
+
+.open-status-pill,
+.open-status{
+  background:#dcfce7 !important;
+  color:#166534 !important;
+}
+
+.dept-pill,
+.dept-visible{
+  background:#fff0e5 !important;
+  color:var(--brand-brown) !important;
+}
+
+/* نتيجة الأهلية */
+.elig-result-box{
+  display:none;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:10px;
+  background:rgba(192,122,74,.06);
+  margin:8px 0 10px;
+}
+
+.elig-result-box.show{
+  display:block;
+}
+
+.elig-formula{
+  display:grid;
+  gap:4px;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.6;
+  margin-bottom:8px;
+}
+
+.elig-formula b{
+  color:var(--brand-brown-dark);
+}
+
+.elig-result-row{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  flex-wrap:wrap;
+  font-size:13px;
+}
+
+.elig-ok{
+  color:#166534;
+  font-weight:900;
+}
+
+.elig-no{
+  color:#991b1b;
+  font-weight:900;
+}
+
+@media(max-width:780px){
+  .app .chat .messages .msg-row.received-row .msg,
+  .app .chat .messages .msg-row.sent-row .msg{
+    max-width:86% !important;
+    max-inline-size:86% !important;
+  }
+}
+
+
+/* ===== V2 final compact chat + full wrapping + eligibility display ===== */
+
+/* container keeps all messages visible with normal scrolling */
+.app .chat .messages{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:7px !important;
+  padding:18px 22px !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  align-items:stretch !important;
+}
+
+/* message row is only alignment, never a colored rectangle */
+.app .chat .messages .msg-row,
+.app .chat .messages .msg-row.received-row,
+.app .chat .messages .msg-row.sent-row,
+.app .chat .messages .msg-row.in,
+.app .chat .messages .msg-row.out{
+  display:flex !important;
+  width:100% !important;
+  max-width:100% !important;
+  min-height:0 !important;
+  height:auto !important;
+  margin:0 !important;
+  padding:0 !important;
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  border-radius:0 !important;
+}
+
+.app .chat .messages .msg-row.received-row,
+.app .chat .messages .msg-row.in{
+  justify-content:flex-start !important;
+}
+
+.app .chat .messages .msg-row.sent-row,
+.app .chat .messages .msg-row.out{
+  justify-content:flex-end !important;
+}
+
+/* bubble is naturally small for short messages, but wraps fully for long messages */
+.app .chat .messages .msg-row > .msg{
+  flex:0 1 auto !important;
+  display:block !important;
+  width:auto !important;
+  min-width:0 !important;
+  max-width:58% !important;
+  height:auto !important;
+  min-height:0 !important;
+  margin:0 !important;
+  padding:7px 10px 6px !important;
+  overflow:visible !important;
+  line-height:1.55 !important;
+  box-shadow:0 4px 12px rgba(75,32,27,.06) !important;
+}
+
+.app .chat .messages .msg-row.received-row > .msg,
+.app .chat .messages .msg-row.in > .msg,
+.app .chat .messages .msg-row > .msg.in{
+  background:#fff !important;
+  border:1px solid #eadfd5 !important;
+  color:var(--text) !important;
+  border-radius:14px 14px 14px 6px !important;
+}
+
+.app .chat .messages .msg-row.sent-row > .msg,
+.app .chat .messages .msg-row.out > .msg,
+.app .chat .messages .msg-row > .msg.out{
+  background:#f2d3c3 !important;
+  border:1px solid #dfad94 !important;
+  color:#34221f !important;
+  border-radius:14px 14px 6px 14px !important;
+}
+
+.app .chat .messages .msg-row > .msg .msg-text{
+  display:block !important;
+  width:auto !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  margin:0 !important;
+  padding:0 !important;
+  font-size:13.5px !important;
+  line-height:1.55 !important;
+  white-space:pre-wrap !important;
+  word-break:break-word !important;
+  overflow-wrap:anywhere !important;
+}
+
+.app .chat .messages .msg-row > .msg .msg-meta{
+  display:flex !important;
+  justify-content:flex-end !important;
+  align-items:center !important;
+  gap:4px !important;
+  margin-top:4px !important;
+  padding:0 !important;
+  font-size:9.5px !important;
+  line-height:1.15 !important;
+  color:#8b7b73 !important;
+  white-space:nowrap !important;
+}
+
+/* short text bubbles become tiny */
+.app .chat .messages .msg-row > .msg:has(.msg-text){
+  width:-moz-fit-content !important;
+  width:fit-content !important;
+  max-width:58% !important;
+}
+
+/* open + department badges */
+.chat-sub{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:6px !important;
+  align-items:center !important;
+}
+
+.open-status-pill,
+.dept-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  padding:3px 8px;
+  font-size:11px;
+  font-weight:800;
+  border:1px solid var(--line);
+}
+
+.open-status-pill,
+.open-status{
+  background:#dcfce7 !important;
+  color:#166534 !important;
+}
+
+.dept-pill,
+.dept-visible{
+  background:#fff0e5 !important;
+  color:var(--brand-brown) !important;
+}
+
+/* eligibility result */
+.elig-result-box{
+  display:none;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:10px;
+  background:rgba(192,122,74,.06);
+  margin:8px 0 10px;
+}
+
+.elig-result-box.show{display:block;}
+
+.elig-formula{
+  display:grid;
+  gap:4px;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.6;
+  margin-bottom:8px;
+}
+
+.elig-formula b{color:var(--brand-brown-dark);}
+
+.elig-result-row{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  flex-wrap:wrap;
+  font-size:13px;
+}
+
+.elig-ok{color:#166534;font-weight:900;}
+.elig-no{color:#991b1b;font-weight:900;}
+
+@media(max-width:780px){
+  .app .chat .messages .msg-row > .msg,
+  .app .chat .messages .msg-row > .msg:has(.msg-text){
+    max-width:86% !important;
+  }
+}
