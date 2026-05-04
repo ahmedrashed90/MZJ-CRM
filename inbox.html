@@ -137,8 +137,8 @@
             </div>
             <div class="field"><label>ملاحظات</label><textarea name="notes"></textarea></div>
             <div class="field">
-              <label>إرفاق ملفات</label>
-              <input type="file" id="fileInput" multiple />
+              <label>روابط أو ملاحظات الملفات</label>
+              <textarea name="attachmentsNotes" placeholder="اكتب روابط الملفات أو ملاحظات المرفقات هنا"></textarea>
               <div class="status-text" id="attachmentsHint"></div>
             </div>
             <button class="primary" type="submit" style="width:100%">حفظ بيانات العميل</button>
@@ -161,9 +161,6 @@
       getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, limit,
       addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-    import {
-      getStorage, ref, uploadBytes, getDownloadURL
-    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
@@ -179,7 +176,6 @@
     try { getAnalytics(appFirebase); } catch(e) {}
     const auth = getAuth(appFirebase);
     const db = getFirestore(appFirebase);
-    const storage = getStorage(appFirebase);
 
     const DEPARTMENTS = {
       cash_sales:"مبيعات الكاش",
@@ -224,7 +220,7 @@
 
     const CUSTOMER_FIELDS = [
       "customerName","phone","salary","obligation","location","age","salaryBank",
-      "carType","carModel","color","notes","attachments","financeType"
+      "carType","carModel","color","notes","attachmentsNotes","financeType"
     ];
 
     const state = {
@@ -497,8 +493,7 @@
         if(input && f !== "attachments") input.value = data[f] || "";
       });
       fillStatusDropdown(data.clientStatus || "");
-      const attachments = data.attachments || [];
-      el("attachmentsHint").textContent = attachments.length ? `الملفات: ${attachments.length}` : "";
+      el("attachmentsHint").textContent = "";
       updateCompletion(data);
     }
 
@@ -532,18 +527,7 @@
       const cfg = PLATFORM_CONFIG[c.platform];
       const data = getFormData();
       const oldStatus = getClientStatus(c);
-      const files = Array.from(el("fileInput").files || []);
-
-      let attachments = c.attachments || c.customer?.attachments || [];
-      for(const file of files){
-        const path = `customers/${c.platform}/${c.id}/${Date.now()}-${file.name}`;
-        const fileRef = ref(storage, path);
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
-        attachments.push({ name:file.name, url, path, uploadedAt:new Date().toISOString() });
-      }
-
-      data.attachments = attachments;
+      data.attachments = [];
       data.profileCompletion = updateCompletion(data);
       data.updatedByUid = state.user.uid;
       data.updatedByEmail = state.user.email;
@@ -612,7 +596,7 @@
 
     el("mersalTemplates").onchange = e => { if(e.target.value) el("replyText").value = e.target.value; };
     el("quickReplies").onchange = e => { if(e.target.value) el("replyText").value = e.target.value; };
-    form.oninput = () => updateCompletion({...getFormData(), attachments: state.selected?.customer?.attachments || state.selected?.attachments || []});
+    form.oninput = () => updateCompletion(getFormData());
 
     addTemplateOptions();
   </script>
