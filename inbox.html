@@ -42,6 +42,7 @@
         <div class="nav-tabs">
           <a href="./index.html" class="active">صندوق الوارد</a>
           <a href="./statuses.html" id="statusesLink">حالات العملاء</a>
+          <a href="./templates.html" id="templatesLink">القوالب والرسائل الجاهزة</a>
         </div>
         <div class="user-row">
           <div class="status-text" id="userInfo"></div>
@@ -225,8 +226,8 @@
 
     const state = {
       user:null, userProfile:null, isAdmin:false,
-      conversations:[], statuses:[], selected:null, selectedPlatform:"all",
-      department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubStatuses:null
+      conversations:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
+      department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubStatuses:null, unsubTemplates:null
     };
 
     const conversationList = el("conversationList");
@@ -259,6 +260,7 @@
         el("loginScreen").classList.add("hidden");
         el("app").classList.remove("hidden");
         listenStatuses();
+        listenTemplates();
         listenConversations();
       } catch(err){
         console.error(err);
@@ -290,6 +292,7 @@
         departmentSelect.disabled = true;
         [...departmentSelect.options].forEach(opt => opt.hidden = opt.value !== allowedDepartment);
         el("statusesLink").classList.add("hidden");
+          el("templatesLink").classList.add("hidden");
       }
       departmentSelect.value = state.department;
       el("userInfo").textContent = `${state.userProfile?.name || state.user.email} - ${state.isAdmin ? "إدارة عامة" : departmentLabel(state.department)}`;
@@ -300,8 +303,10 @@
       state.unsubConversations = [];
       if(state.unsubMessages) state.unsubMessages();
       if(state.unsubStatuses) state.unsubStatuses();
+      if(state.unsubTemplates) state.unsubTemplates();
       state.unsubMessages = null;
       state.unsubStatuses = null;
+      state.unsubTemplates = null;
       state.conversations = [];
       state.selected = null;
     }
@@ -314,6 +319,55 @@
         snap.forEach(d => state.statuses.push({ id:d.id, ...d.data() }));
         fillStatusDropdown();
       }, err => console.error(err));
+    }
+
+
+    function listenTemplates(){
+      if(state.unsubTemplates) state.unsubTemplates();
+      const q = query(collection(db, "message_templates"), orderBy("sort", "asc"));
+      state.unsubTemplates = onSnapshot(q, snap => {
+        state.templates = [];
+        snap.forEach(d => state.templates.push({ id:d.id, ...d.data() }));
+        fillTemplateDropdowns();
+      }, err => console.error(err));
+    }
+
+    function getSelectedDepartmentForTemplates(){
+      if(state.selected?.department) return state.selected.department;
+      if(state.selected?.customer?.department) return state.selected.customer.department;
+      if(state.department !== "all") return state.department;
+      return "cash_sales";
+    }
+
+    function filteredTemplates(type){
+      const dept = getSelectedDepartmentForTemplates();
+      return state.templates.filter(t => {
+        const typeOk = t.type === type;
+        const activeOk = t.active !== false;
+        const deptOk = Array.isArray(t.departments) && t.departments.includes(dept);
+        const approvedOk = type === "mersal" ? t.approved === true : true;
+        return typeOk && activeOk && deptOk && approvedOk;
+      });
+    }
+
+    function fillTemplateDropdowns(){
+      const mersalSelect = el("mersalTemplates");
+      const quickSelect = el("quickReplies");
+
+      const selectedMersal = mersalSelect.value;
+      const selectedQuick = quickSelect.value;
+
+      mersalSelect.innerHTML = "";
+      quickSelect.innerHTML = "";
+
+      mersalSelect.append(new Option("قوالب مرسال", ""));
+      quickSelect.append(new Option("رسائل جاهزة", ""));
+
+      filteredTemplates("mersal").forEach(t => mersalSelect.append(new Option(t.name, t.content)));
+      filteredTemplates("quick").forEach(t => quickSelect.append(new Option(t.name, t.content)));
+
+      if(selectedMersal) mersalSelect.value = selectedMersal;
+      if(selectedQuick) quickSelect.value = selectedQuick;
     }
 
     function getSelectedDepartmentForStatus(){
@@ -410,6 +464,7 @@
       el("chatTitle").textContent = getCustomerName(c);
       el("chatSub").textContent = `${platformLabel(c.platform)} - ${departmentLabel(c.department || state.department)}${getClientStatus(c) ? " - " + getClientStatus(c) : ""}`;
       fillCustomerForm(c.customer || c);
+      fillTemplateDropdowns();
       renderConversations();
       listenMessages(c);
     }
@@ -559,16 +614,12 @@
     }
 
     function addTemplateOptions(){
-      fillSelect(el("mersalTemplates"), "قوالب مرسال", [
-        "مرحباً، نحتاج استكمال بياناتك لإتمام الطلب.",
-        "فضلاً أرسل صورة الهوية ورخصة القيادة.",
-        "تم استلام طلبك وسيتم التواصل معك قريباً."
-      ]);
-      fillSelect(el("quickReplies"), "رسائل جاهزة", [
-        "أهلاً وسهلاً، كيف نقدر نخدمك؟",
-        "ممكن ترسل رقم الجوال للتواصل؟",
-        "تم تحويل طلبك للمختص وسيتم الرد عليك."
-      ]);
+      const mersalSelect = el("mersalTemplates");
+      const quickSelect = el("quickReplies");
+      mersalSelect.innerHTML = "";
+      quickSelect.innerHTML = "";
+      mersalSelect.append(new Option("قوالب مرسال", ""));
+      quickSelect.append(new Option("رسائل جاهزة", ""));
     }
 
     el("sendBtn").onclick = sendReply;
@@ -581,6 +632,7 @@
       state.department = e.target.value;
       localStorage.setItem("mzj_department", state.department);
       fillStatusDropdown();
+      fillTemplateDropdowns();
       if(state.selected) el("chatSub").textContent = `${platformLabel(state.selected.platform)} - ${departmentLabel(state.selected.department || state.department)}${getClientStatus(state.selected) ? " - " + getClientStatus(state.selected) : ""}`;
       renderConversations();
     };
