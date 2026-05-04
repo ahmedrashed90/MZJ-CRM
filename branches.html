@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MZJ CRM - الفروع</title>
+  <link rel="stylesheet" href="./theme.css" />
+</head>
+<body>
+  <section class="login-screen hidden" id="loginScreen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="logo-mark">MZJ</div>
+        <div>
+          <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+          <p>تسجيل الدخول إلى نظام CRM</p>
+        </div>
+      </div>
+      <form class="login-form" id="loginForm">
+        <input id="loginEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required />
+        <input id="loginPassword" type="password" placeholder="كلمة المرور" autocomplete="current-password" required />
+        <div class="login-error" id="loginError"></div>
+        <button class="primary" type="submit">تسجيل الدخول</button>
+      </form>
+    </div>
+  </section>
+  <div class="management-page hidden" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="logo-box">
+            <div class="logo-mark">MZJ</div>
+            <div>
+              <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+              <div class="status-text" id="userInfo"></div>
+            </div>
+          </div>
+          <button class="secondary" id="logoutBtn">خروج</button>
+        </div>
+        <div class="nav-card">
+          <div class="menu-label">التنقل بين صفحات النظام</div>
+          <div class="nav-tabs">
+          <a href="./inbox.html">صندوق الوارد</a>
+          <a href="./callcenter.html">الكول سنتر</a>
+          <a href="./leads-finance.html">العملاء المحتملون - تمويل</a>
+          <a href="./leads-cash.html">العملاء المحتملون - كاش</a>
+          <a href="./leads-customer-service.html">العملاء المحتملون - خدمة عملاء</a>
+          <a href="./database.html">قاعدة البيانات</a>
+          <a href="./dashboard.html">الداش بورد</a>
+          <a href="./reports.html">التقارير</a>
+          <a href="./branches.html" class="active">الفروع</a>
+          <a href="./statuses.html">حالات العملاء</a>
+          <a href="./templates.html">القوالب والرسائل الجاهزة</a>
+          <a href="./admin.html">الإدارة</a>
+          </div>
+        </div>
+      
+    </aside>
+    <main class="management-main">
+      <div class="page-head">
+        <div>
+          <h2>الفروع</h2>
+          <p>إنشاء الفروع وربط كل فرع بمندوبي الأقسام.</p>
+        </div>
+      </div>
+
+      <div class="admin-grid">
+        <div class="card">
+          <h3>فرع جديد / تعديل فرع</h3>
+          <form id="branchForm">
+            <input type="hidden" id="branchId" />
+            <div class="field"><label>اسم الفرع</label><input id="branchName" required placeholder="مثال: فرع الأونلاين" /></div>
+            <div class="field"><label>مندوب مبيعات كاش</label><select id="cashSalesUid"></select></div>
+            <div class="field"><label>مندوب مبيعات تمويل</label><select id="financeSalesUid"></select></div>
+            <div class="field"><label>مندوب خدمة عملاء</label><select id="customerServiceUid"></select></div>
+            <div class="field"><label>مندوب كول سنتر</label><select id="callCenterUid"></select></div>
+            <div class="field"><label class="check-item"><input id="branchActive" type="checkbox" checked /> نشط</label></div>
+            <div class="actions">
+              <button class="primary" type="submit">حفظ الفرع</button>
+              <button class="secondary" type="button" id="resetBtn">جديد</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>الفروع المسجلة</h3>
+          <div class="table-wrap">
+            <table class="management-table">
+              <thead><tr><th>الفرع</th><th>كاش</th><th>تمويل</th><th>خدمة عملاء</th><th>كول سنتر</th><th>نشط</th><th></th></tr></thead>
+              <tbody id="branchesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script type="module">
+
+    import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
+    import {
+      getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy,
+      addDoc, setDoc, updateDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    const appFirebase = initializeApp(firebaseConfig);
+    try { getAnalytics(appFirebase); } catch(e) {}
+    const auth = getAuth(appFirebase);
+    const db = getFirestore(appFirebase);
+
+    const DEPARTMENTS = {
+      cash_sales:"مبيعات الكاش",
+      finance_sales:"مبيعات التمويل",
+      customer_service:"خدمة العملاء",
+      call_center:"الكول سنتر"
+    };
+
+    const SYSTEM_PAGES = [
+      { value:"inbox.html", label:"صندوق الوارد" },
+      { value:"callcenter.html", label:"الكول سنتر" },
+      { value:"leads-finance.html", label:"العملاء المحتملون - تمويل" },
+      { value:"leads-cash.html", label:"العملاء المحتملون - كاش" },
+      { value:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
+      { value:"database.html", label:"قاعدة البيانات" },
+      { value:"dashboard.html", label:"الداش بورد" },
+      { value:"reports.html", label:"التقارير" },
+      { value:"branches.html", label:"الفروع" },
+      { value:"admin.html", label:"الإدارة" },
+      { value:"statuses.html", label:"حالات العملاء" },
+      { value:"templates.html", label:"القوالب والرسائل الجاهزة" }
+    ];
+
+    let currentUser = null;
+    let currentProfile = null;
+    let isAdmin = false;
+
+    const el = id => document.getElementById(id);
+
+    function toast(msg){
+      const t = el("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(()=> t.style.display = "none", 2500);
+    }
+
+    function showLoginError(msg){
+      el("loginError").textContent = msg;
+      el("loginError").style.display = "block";
+    }
+
+    async function loadUserProfile(user){
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if(snap.exists()) return snap.data();
+      return { email:user.email, name:user.email, role:"user", department:"cash_sales", active:true };
+    }
+
+    function isAdminProfile(profile){
+      return profile?.role === "admin" || profile?.allDepartments === true;
+    }
+
+    function escapeHtml(str){
+      return String(str ?? "").replace(/[&<>"']/g, s => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[s]));
+    }
+
+    function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
+
+    function setupAuth(pageInit, adminOnly=false){
+      onAuthStateChanged(auth, async (user) => {
+        if(!user){
+          currentUser = null;
+          currentProfile = null;
+          el("loginScreen").classList.remove("hidden");
+          el("app").classList.add("hidden");
+          return;
+        }
+
+        try{
+          currentUser = user;
+          currentProfile = await loadUserProfile(user);
+          isAdmin = isAdminProfile(currentProfile);
+
+          if(currentProfile.active === false || (adminOnly && !isAdmin)){
+            await signOut(auth);
+            showLoginError("لا توجد صلاحية دخول لهذه الصفحة.");
+            return;
+          }
+
+          el("loginScreen").classList.add("hidden");
+          el("app").classList.remove("hidden");
+          el("userInfo").textContent = `${currentProfile.name || user.email} - ${isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department)}`;
+          pageInit();
+        } catch(err){
+          console.error(err);
+          showLoginError("تعذر تحميل صلاحيات المستخدم.");
+        }
+      });
+
+      el("loginForm").onsubmit = async (e) => {
+        e.preventDefault();
+        el("loginError").style.display = "none";
+        try{
+          await signInWithEmailAndPassword(auth, el("loginEmail").value.trim(), el("loginPassword").value);
+        } catch(err){
+          console.error(err);
+          showLoginError("بيانات الدخول غير صحيحة أو الحساب غير مفعل.");
+        }
+      };
+
+      el("logoutBtn").onclick = () => signOut(auth);
+    }
+
+    function tsToDate(v){
+      if(!v) return null;
+      if(v.toDate) return v.toDate();
+      if(typeof v === "number") return new Date(v);
+      if(typeof v === "string") return new Date(v);
+      return null;
+    }
+
+    function formatDate(v){
+      const d = tsToDate(v);
+      if(!d || isNaN(d)) return "";
+      return d.toLocaleString("ar-EG", {year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+    }
+
+    let users = [];
+    let branches = [];
+    let unsubUsers = null;
+    let unsubBranches = null;
+
+    function usersFor(dept){
+      return users.filter(u => u.active !== false && (u.department === dept || u.role === dept));
+    }
+
+    function fillUserSelect(id, dept, selected=""){
+      const s = el(id);
+      s.innerHTML = '<option value="">اختر</option>';
+      usersFor(dept).forEach(u => s.append(new Option(u.name || u.email || u.id, u.uid || u.id)));
+      s.value = selected || "";
+    }
+
+    function userName(uid){
+      const u = users.find(x => (x.uid || x.id) === uid);
+      return u ? (u.name || u.email || uid) : "";
+    }
+
+    function resetForm(){
+      el("branchId").value = "";
+      el("branchName").value = "";
+      el("branchActive").checked = true;
+      fillAllSelects();
+    }
+
+    function fillAllSelects(b={}){
+      fillUserSelect("cashSalesUid", "cash_sales", b.cashSalesUid);
+      fillUserSelect("financeSalesUid", "finance_sales", b.financeSalesUid);
+      fillUserSelect("customerServiceUid", "customer_service", b.customerServiceUid);
+      fillUserSelect("callCenterUid", "call_center", b.callCenterUid);
+    }
+
+    function render(){
+      fillAllSelects({
+        cashSalesUid: el("cashSalesUid").value,
+        financeSalesUid: el("financeSalesUid").value,
+        customerServiceUid: el("customerServiceUid").value,
+        callCenterUid: el("callCenterUid").value
+      });
+
+      const body = el("branchesBody");
+      body.innerHTML = branches.length ? "" : '<tr><td colspan="7">لا توجد فروع</td></tr>';
+      branches.forEach(b => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHtml(b.name)}</td>
+          <td>${escapeHtml(b.cashSalesName || userName(b.cashSalesUid))}</td>
+          <td>${escapeHtml(b.financeSalesName || userName(b.financeSalesUid))}</td>
+          <td>${escapeHtml(b.customerServiceName || userName(b.customerServiceUid))}</td>
+          <td>${escapeHtml(b.callCenterName || userName(b.callCenterUid))}</td>
+          <td>${b.active === false ? "لا" : "نعم"}</td>
+          <td><button class="secondary" data-edit="${b.id}">تعديل</button></td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    async function saveBranch(e){
+      e.preventDefault();
+      const id = el("branchId").value || ("branch_" + Date.now());
+      const cashUid = el("cashSalesUid").value;
+      const financeUid = el("financeSalesUid").value;
+      const csUid = el("customerServiceUid").value;
+      const callUid = el("callCenterUid").value;
+      const payload = {
+        name: el("branchName").value.trim(),
+        cashSalesUid: cashUid,
+        cashSalesName: userName(cashUid),
+        financeSalesUid: financeUid,
+        financeSalesName: userName(financeUid),
+        customerServiceUid: csUid,
+        customerServiceName: userName(csUid),
+        callCenterUid: callUid,
+        callCenterName: userName(callUid),
+        active: el("branchActive").checked,
+        updatedAt: serverTimestamp(),
+        updatedByUid: currentUser.uid,
+        updatedByEmail: currentUser.email
+      };
+      if(!payload.name) return toast("اكتب اسم الفرع");
+      await setDoc(doc(db, "branches", id), payload, { merge:true });
+      resetForm();
+      toast("تم حفظ الفرع");
+    }
+
+    function init(){
+      unsubUsers = onSnapshot(collection(db, "users"), snap => { users=[]; snap.forEach(d => users.push({id:d.id,uid:d.id,...d.data()})); render(); });
+      unsubBranches = onSnapshot(query(collection(db, "branches"), orderBy("name","asc")), snap => { branches=[]; snap.forEach(d => branches.push({id:d.id,...d.data()})); render(); });
+      el("branchForm").onsubmit = saveBranch;
+      el("resetBtn").onclick = resetForm;
+      el("branchesBody").onclick = (e) => {
+        const id = e.target.dataset.edit;
+        if(!id) return;
+        const b = branches.find(x => x.id === id);
+        if(!b) return;
+        el("branchId").value = b.id;
+        el("branchName").value = b.name || "";
+        el("branchActive").checked = b.active !== false;
+        fillAllSelects(b);
+      };
+      resetForm();
+    }
+    setupAuth(init, true);
+  </script>
+</body>
+</html>

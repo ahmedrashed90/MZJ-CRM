@@ -841,3 +841,177 @@ button:disabled{opacity:.55;cursor:not-allowed}
     max-height:220px;
   }
 }
+
+
+/* ===== Management, branches, dashboard, reports ===== */
+.management-page{
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:360px minmax(0,1fr);
+  overflow:hidden;
+}
+
+.management-main{
+  padding:18px;
+  overflow:auto;
+  min-width:0;
+}
+
+.cards-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(220px,1fr));
+  gap:14px;
+}
+
+.stat-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:16px;
+  box-shadow:var(--shadow);
+}
+
+.stat-card h3{
+  margin:0 0 10px;
+  color:var(--brand-brown-dark);
+}
+
+.stat-number{
+  font-size:34px;
+  font-weight:900;
+  color:var(--brand-brown);
+}
+
+.form-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(220px,1fr));
+  gap:12px;
+}
+
+.form-grid.three{
+  grid-template-columns:repeat(3,minmax(180px,1fr));
+}
+
+.permissions-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(180px,1fr));
+  gap:8px;
+}
+
+.permission-item{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  background:var(--soft);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:10px;
+  font-weight:700;
+}
+
+.management-table{
+  width:100%;
+  min-width:980px;
+  border-collapse:separate;
+  border-spacing:0;
+}
+
+.management-table th,
+.management-table td{
+  padding:11px 12px;
+  border-bottom:1px solid var(--line);
+  text-align:right;
+  white-space:nowrap;
+}
+
+.management-table th{
+  position:sticky;
+  top:0;
+  background:#fff8f3;
+  color:var(--brand-brown-dark);
+  z-index:2;
+}
+
+.management-table tr:hover td{
+  background:#fffaf6;
+}
+
+.report-kpis{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(180px,1fr));
+  gap:12px;
+  margin:14px 0;
+}
+
+.report-kpis .stat-card{
+  min-height:120px;
+}
+
+.report-table-section{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:14px;
+  box-shadow:var(--shadow);
+  margin-top:14px;
+}
+
+.admin-shortcuts{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(220px,1fr));
+  gap:12px;
+}
+
+.shortcut-card{
+  display:block;
+  text-decoration:none;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:14px;
+  color:var(--text);
+  box-shadow:var(--shadow);
+}
+
+.shortcut-card:hover{
+  background:#fff8f3;
+  border-color:var(--brand-copper);
+}
+
+.shortcut-card b{
+  display:block;
+  color:var(--brand-brown-dark);
+  margin-bottom:6px;
+}
+
+@media(max-width:1180px){
+  .management-page{grid-template-columns:320px minmax(0,1fr)}
+  .cards-grid,.report-kpis{grid-template-columns:repeat(2,minmax(180px,1fr))}
+  .form-grid,.form-grid.three,.permissions-grid,.admin-shortcuts{grid-template-columns:1fr}
+}
+
+@media(max-width:780px){
+  .management-page{grid-template-columns:1fr}
+  .cards-grid,.report-kpis{grid-template-columns:1fr}
+}
+
+
+/* ===== Sidebar order + 4 visible items ===== */
+.brand .nav-tabs{
+  max-height:236px !important;
+  overflow:auto !important;
+  padding-left:4px;
+  scroll-behavior:smooth;
+}
+.brand .nav-tabs a{
+  min-height:44px;
+  padding:10px 12px;
+  font-size:13px;
+}
+.brand .nav-tabs::-webkit-scrollbar{width:8px;}
+.brand .nav-tabs::-webkit-scrollbar-track{background:#f3e5db;border-radius:999px;}
+.brand .nav-tabs::-webkit-scrollbar-thumb{background:#d7aa8d;border-radius:999px;}
+.brand .nav-tabs::-webkit-scrollbar-thumb:hover{background:#c58e6a;}
+@media(max-width:1180px){
+  .brand .nav-tabs{max-height:236px !important;}
+}
