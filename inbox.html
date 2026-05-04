@@ -8,7 +8,26 @@
   <link rel="stylesheet" href="./theme.css" />
 </head>
 <body>
-  <div class="app" id="app">
+  <section class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="logo-mark">MZJ</div>
+        <div>
+          <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+          <p>تسجيل الدخول إلى نظام CRM</p>
+        </div>
+      </div>
+
+      <form class="login-form" id="loginForm">
+        <input id="loginEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required />
+        <input id="loginPassword" type="password" placeholder="كلمة المرور" autocomplete="current-password" required />
+        <div class="login-error" id="loginError"></div>
+        <button class="primary" type="submit">تسجيل الدخول</button>
+      </form>
+    </div>
+  </section>
+
+  <div class="app hidden" id="app">
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-top">
@@ -21,11 +40,17 @@
           </div>
           <button class="secondary" id="refreshBtn">تحديث</button>
         </div>
+
+        <div class="user-row">
+          <div class="status-text" id="userInfo"></div>
+          <button class="secondary" id="logoutBtn">خروج</button>
+        </div>
+
         <select class="dept-select" id="departmentSelect">
+          <option value="all">كل الأقسام</option>
           <option value="cash_sales">مبيعات الكاش</option>
           <option value="finance_sales">مبيعات التمويل</option>
           <option value="customer_service">خدمة العملاء</option>
-          <option value="general_management">الإدارة العامة</option>
         </select>
       </div>
 
@@ -156,7 +181,10 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
     import {
-      getFirestore, collection, doc, onSnapshot, query, orderBy, limit,
+      getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, limit,
       addDoc, setDoc, updateDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
     import {
@@ -175,6 +203,7 @@
 
     const appFirebase = initializeApp(firebaseConfig);
     try { getAnalytics(appFirebase); } catch(e) {}
+    const auth = getAuth(appFirebase);
     const db = getFirestore(appFirebase);
     const storage = getStorage(appFirebase);
 
@@ -186,10 +215,10 @@
     };
 
     const DEPARTMENTS = {
+      all:"كل الأقسام",
       cash_sales:"مبيعات الكاش",
       finance_sales:"مبيعات التمويل",
-      customer_service:"خدمة العملاء",
-      general_management:"الإدارة العامة"
+      customer_service:"خدمة العملاء"
     };
 
     const CLIENT_STATUSES = [
@@ -208,10 +237,14 @@
     ];
 
     const state = {
+      user: null,
+      userProfile: null,
+      role: "user",
+      isAdmin: false,
       conversations: [],
       selected: null,
       selectedPlatform: "all",
-      department: localStorage.getItem("mzj_department") || "cash_sales",
+      department: "cash_sales",
       unsubConversations: [],
       unsubMessages: null
     };
@@ -221,11 +254,110 @@
     const messagesEl = el("messages");
     const form = el("customerForm");
 
-    el("departmentSelect").value = state.department;
-
     function toast(msg){
       const t = el("toast"); t.textContent = msg; t.style.display = "block";
       setTimeout(()=> t.style.display = "none", 2500);
+    }
+
+    function showLoginError(msg){
+      el("loginError").textContent = msg;
+      el("loginError").style.display = "block";
+    }
+
+    async function loadUserProfile(user){
+      const profileRef = doc(db, "users", user.uid);
+      const profileSnap = await getDoc(profileRef);
+      if(profileSnap.exists()){
+        return profileSnap.data();
+      }
+
+      return {
+        email: user.email,
+        name: user.email,
+        role: "user",
+        department: "cash_sales",
+        active: true
+      };
+    }
+
+    function applyPermissions(){
+      state.role = state.userProfile?.role || "user";
+      state.isAdmin = state.role === "admin" || state.userProfile?.allDepartments === true;
+      const departmentSelect = el("departmentSelect");
+
+      if(state.isAdmin){
+        departmentSelect.disabled = false;
+        state.department = localStorage.getItem("mzj_department") || "all";
+      } else {
+        const allowedDepartment = state.userProfile?.department || "cash_sales";
+        state.department = allowedDepartment;
+        departmentSelect.value = allowedDepartment;
+        departmentSelect.disabled = true;
+        [...departmentSelect.options].forEach(opt => {
+          opt.hidden = opt.value === "all" || opt.value !== allowedDepartment;
+        });
+      }
+
+      departmentSelect.value = state.department;
+      localStorage.setItem("mzj_department", state.department);
+      el("userInfo").textContent = `${state.userProfile?.name || state.user.email} - ${state.isAdmin ? "إدارة عامة" : departmentLabel(state.department)}`;
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      cleanupListeners();
+
+      if(!user){
+        state.user = null;
+        state.userProfile = null;
+        el("loginScreen").classList.remove("hidden");
+        el("app").classList.add("hidden");
+        return;
+      }
+
+      try{
+        state.user = user;
+        state.userProfile = await loadUserProfile(user);
+
+        if(state.userProfile.active === false){
+          await signOut(auth);
+          showLoginError("هذا الحساب غير مفعل.");
+          return;
+        }
+
+        applyPermissions();
+        el("loginScreen").classList.add("hidden");
+        el("app").classList.remove("hidden");
+        listenConversations();
+      } catch(err){
+        console.error(err);
+        showLoginError("تعذر تحميل صلاحيات المستخدم.");
+      }
+    });
+
+    el("loginForm").onsubmit = async (e) => {
+      e.preventDefault();
+      el("loginError").style.display = "none";
+      const email = el("loginEmail").value.trim();
+      const password = el("loginPassword").value;
+      try{
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch(err){
+        console.error(err);
+        showLoginError("بيانات الدخول غير صحيحة أو الحساب غير مفعل.");
+      }
+    };
+
+    el("logoutBtn").onclick = async () => {
+      await signOut(auth);
+    };
+
+    function cleanupListeners(){
+      state.unsubConversations.forEach(u => u());
+      state.unsubConversations = [];
+      if(state.unsubMessages) state.unsubMessages();
+      state.unsubMessages = null;
+      state.conversations = [];
+      state.selected = null;
     }
 
     function tsToDate(v){
@@ -269,7 +401,7 @@
       let items = state.conversations.slice();
 
       if(state.selectedPlatform !== "all") items = items.filter(c => c.platform === state.selectedPlatform);
-      if(state.department !== "general_management"){
+      if(!state.isAdmin || state.department !== "all"){
         items = items.filter(c => !c.department || c.department === state.department);
       }
       if(search){
@@ -314,8 +446,7 @@
     }
 
     function listenConversations(){
-      state.unsubConversations.forEach(u => u());
-      state.unsubConversations = [];
+      cleanupConversationListenersOnly();
       state.conversations = [];
 
       Object.entries(PLATFORM_CONFIG).forEach(([platform, cfg]) => {
@@ -328,9 +459,17 @@
         }, err => {
           console.error(err);
           el("connectionStatus").textContent = "خطأ في الاتصال";
+          if(String(err.code || "").includes("permission")){
+            toast("لا توجد صلاحية قراءة. راجع Firestore Rules وحساب المستخدم.");
+          }
         });
         state.unsubConversations.push(unsub);
       });
+    }
+
+    function cleanupConversationListenersOnly(){
+      state.unsubConversations.forEach(u => u());
+      state.unsubConversations = [];
     }
 
     function listenMessages(c){
@@ -374,10 +513,12 @@
       const payload = {
         conversationId: c.id,
         platform: c.platform,
-        department: state.department,
+        department: state.department === "all" ? (c.department || "cash_sales") : state.department,
         to: getPhone(c),
         text,
         status: "pending",
+        sentByUid: state.user.uid,
+        sentByEmail: state.user.email,
         createdAt: serverTimestamp()
       };
 
@@ -387,14 +528,16 @@
         text,
         direction: "outgoing",
         fromAgent: true,
-        department: state.department,
+        department: payload.department,
+        sentByUid: state.user.uid,
+        sentByEmail: state.user.email,
         createdAt: serverTimestamp(),
         status: "pending"
       });
 
       await updateDoc(doc(db, cfg.conversations, c.id), {
         lastMessage: text,
-        department: state.department,
+        department: payload.department,
         updatedAt: serverTimestamp()
       }).catch(()=>{});
 
@@ -420,7 +563,7 @@
         if(f !== "attachments") data[f] = (fd.get(f) || "").toString().trim();
       });
       data.clientStatus = (fd.get("clientStatus") || "").toString().trim();
-      data.department = state.department;
+      data.department = state.department === "all" ? (state.selected?.department || "cash_sales") : state.department;
       return data;
     }
 
@@ -455,6 +598,8 @@
 
       data.attachments = attachments;
       data.profileCompletion = updateCompletion(data);
+      data.updatedByUid = state.user.uid;
+      data.updatedByEmail = state.user.email;
       data.updatedAt = serverTimestamp();
 
       await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), {
@@ -497,12 +642,15 @@
       if(!newStatus) return toast("اختر حالة العميل");
 
       const cfg = PLATFORM_CONFIG[c.platform];
+      const selectedDepartment = state.department === "all" ? (c.department || "cash_sales") : state.department;
 
       await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), {
         clientStatus: newStatus,
-        department: state.department,
+        department: selectedDepartment,
         statusUpdatedAt: serverTimestamp(),
         lastStatusNote: note,
+        statusUpdatedByUid: state.user.uid,
+        statusUpdatedByEmail: state.user.email,
         conversationId: c.id,
         platform: c.platform
       }, { merge:true });
@@ -510,7 +658,7 @@
       await setDoc(doc(db, cfg.conversations, c.id), {
         clientStatus: newStatus,
         "customer.clientStatus": newStatus,
-        department: state.department,
+        department: selectedDepartment,
         statusUpdatedAt: serverTimestamp(),
         lastStatusNote: note,
         updatedAt: serverTimestamp()
@@ -519,7 +667,9 @@
       await addDoc(collection(db, cfg.conversations, c.id, "status_history"), {
         status: newStatus,
         note,
-        department: state.department,
+        department: selectedDepartment,
+        createdByUid: state.user.uid,
+        createdByEmail: state.user.email,
         createdAt: serverTimestamp()
       });
 
@@ -594,7 +744,6 @@
     form.oninput = () => updateCompletion({...getFormData(), attachments: state.selected?.customer?.attachments || state.selected?.attachments || []});
 
     addTemplateOptions();
-    listenConversations();
   </script>
 </body>
 </html>
