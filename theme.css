@@ -1301,3 +1301,380 @@ button:disabled{opacity:.55;cursor:not-allowed}
     max-height:none;
   }
 }
+
+
+/* ===== Final inbox layout correction ===== */
+/* الصفحة كلها: يمين منيو النظام، والباقي صندوق الوارد */
+body:has(.mersal-inbox-main) .app{
+  height:100vh !important;
+  overflow:hidden !important;
+}
+
+/* تقليل عرض منيو النظام عشان الشات ياخد مساحة */
+body:has(.mersal-inbox-main) .sidebar{
+  width:310px !important;
+  min-width:310px !important;
+  max-width:310px !important;
+}
+
+body:has(.mersal-inbox-main) .mersal-inbox-main{
+  height:100vh !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+  padding:14px !important;
+}
+
+body:has(.mersal-inbox-main) .mersal-inbox-shell{
+  height:calc(100vh - 28px) !important;
+  min-height:0 !important;
+  gap:12px !important;
+}
+
+/* ترتيب الأعمدة داخل صندوق الوارد:
+   يمين: المحادثات
+   الوسط: الشات
+   شمال: بيانات العميل
+*/
+body:has(.mersal-inbox-main) .mersal-inbox-layout.old-crm-layout{
+  direction:rtl !important;
+  display:grid !important;
+  grid-template-columns:320px minmax(560px, 1fr) 315px !important;
+  gap:12px !important;
+  min-height:0 !important;
+  flex:1 !important;
+  overflow:hidden !important;
+}
+
+body:has(.mersal-inbox-main) .mersal-conversations-panel,
+body:has(.mersal-inbox-main) .mersal-chat-panel,
+body:has(.mersal-inbox-main) .customer-profile-panel{
+  height:100% !important;
+  min-height:0 !important;
+  max-height:100% !important;
+  overflow:hidden !important;
+}
+
+/* بيانات العميل شمال: اسكرول داخلي فقط */
+body:has(.mersal-inbox-main) .customer-profile-panel{
+  overflow:auto !important;
+  padding:10px !important;
+}
+
+/* قائمة المحادثات يمين */
+body:has(.mersal-inbox-main) .mersal-conv-list{
+  overflow:auto !important;
+}
+
+/* الشات في النص يكون عريض ومش مضغوط */
+body:has(.mersal-inbox-main) .mersal-chat-panel{
+  min-width:0 !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+body:has(.mersal-inbox-main) .mersal-chat-top{
+  flex:0 0 auto !important;
+  padding:12px 14px !important;
+}
+
+body:has(.mersal-inbox-main) .mersal-lead-strip{
+  flex:0 0 auto !important;
+  grid-template-columns:repeat(3, minmax(0,1fr)) !important;
+}
+
+body:has(.mersal-inbox-main) .mersal-messages{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow:auto !important;
+  padding:18px !important;
+  align-items:stretch !important;
+}
+
+/* فقاعات الرسائل ترجع شكلها الطبيعي */
+body:has(.mersal-inbox-main) .mersal-msg-row{
+  display:flex !important;
+  width:100% !important;
+  margin:2px 0 !important;
+}
+
+body:has(.mersal-inbox-main) .mersal-msg-row.in{
+  justify-content:flex-start !important;
+}
+
+body:has(.mersal-inbox-main) .mersal-msg-row.out{
+  justify-content:flex-end !important;
+}
+
+body:has(.mersal-inbox-main) .mersal-msg{
+  width:auto !important;
+  min-width:80px !important;
+  max-width:68% !important;
+  display:inline-block !important;
+  padding:10px 13px 8px !important;
+}
+
+body:has(.mersal-inbox-main) .mersal-msg-text{
+  width:auto !important;
+  line-height:1.8 !important;
+  white-space:pre-wrap !important;
+}
+
+/* منطقة الكتابة أسفل الشات */
+body:has(.mersal-inbox-main) .mersal-composer{
+  flex:0 0 auto !important;
+  grid-template-columns:210px minmax(0,1fr) 58px !important;
+  gap:8px !important;
+  padding:10px !important;
+}
+
+body:has(.mersal-inbox-main) .mersal-composer textarea{
+  min-height:66px !important;
+}
+
+/* ضغط بسيط للفورم عشان زر الحفظ يظهر بشكل أفضل */
+body:has(.mersal-inbox-main) .customer-card,
+body:has(.mersal-inbox-main) .completion-card{
+  padding:12px !important;
+  margin-bottom:10px !important;
+}
+
+body:has(.mersal-inbox-main) .customer-card input,
+body:has(.mersal-inbox-main) .customer-card select,
+body:has(.mersal-inbox-main) .customer-card textarea{
+  padding:9px !important;
+}
+
+body:has(.mersal-inbox-main) .customer-card textarea{
+  min-height:62px !important;
+}
+
+body:has(.mersal-inbox-main) .primary.full{
+  position:sticky !important;
+  bottom:8px !important;
+  z-index:5 !important;
+}
+
+/* الشاشات المتوسطة */
+@media(max-width:1400px){
+  body:has(.mersal-inbox-main) .sidebar{
+    width:285px !important;
+    min-width:285px !important;
+    max-width:285px !important;
+  }
+
+  body:has(.mersal-inbox-main) .mersal-inbox-layout.old-crm-layout{
+    grid-template-columns:300px minmax(500px, 1fr) 300px !important;
+    gap:10px !important;
+  }
+
+  body:has(.mersal-inbox-main) .mersal-composer{
+    grid-template-columns:190px minmax(0,1fr) 56px !important;
+  }
+}
+
+/* الشاشات الصغيرة */
+@media(max-width:1180px){
+  body:has(.mersal-inbox-main) .app{
+    overflow:auto !important;
+    height:auto !important;
+  }
+
+  body:has(.mersal-inbox-main) .sidebar{
+    width:auto !important;
+    min-width:0 !important;
+    max-width:none !important;
+  }
+
+  body:has(.mersal-inbox-main) .mersal-inbox-main{
+    height:auto !important;
+    overflow:visible !important;
+  }
+
+  body:has(.mersal-inbox-main) .mersal-inbox-shell{
+    height:auto !important;
+  }
+
+  body:has(.mersal-inbox-main) .mersal-inbox-layout.old-crm-layout{
+    grid-template-columns:1fr !important;
+    overflow:visible !important;
+  }
+
+  body:has(.mersal-inbox-main) .mersal-conversations-panel,
+  body:has(.mersal-inbox-main) .mersal-chat-panel,
+  body:has(.mersal-inbox-main) .customer-profile-panel{
+    height:auto !important;
+    max-height:none !important;
+  }
+
+  body:has(.mersal-inbox-main) .mersal-conv-list{
+    max-height:360px !important;
+  }
+
+  body:has(.mersal-inbox-main) .mersal-chat-panel{
+    min-height:650px !important;
+  }
+
+  body:has(.mersal-inbox-main) .mersal-composer{
+    grid-template-columns:1fr !important;
+  }
+}
+
+
+/* ===== Approved inbox layout lock ===== */
+/* الشكل المعتمد:
+   أقصى اليمين: منيو النظام
+   يمين المحتوى: قائمة المحادثات
+   الوسط: الشات
+   الشمال: بيانات العميل
+*/
+body:has(.mersal-inbox-main) .app{
+  height:100vh!important;
+  overflow:hidden!important;
+}
+
+body:has(.mersal-inbox-main) .sidebar{
+  width:310px!important;
+  min-width:310px!important;
+  max-width:310px!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-inbox-main{
+  height:100vh!important;
+  overflow:hidden!important;
+  padding:0 14px 14px!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-inbox-shell{
+  height:100%!important;
+  gap:0!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-inbox-head{
+  border-radius:0!important;
+  border-top:0!important;
+  border-left:0!important;
+  border-right:0!important;
+  box-shadow:none!important;
+  min-height:70px!important;
+  align-items:center!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-inbox-layout.old-crm-layout{
+  direction:rtl!important;
+  display:grid!important;
+  grid-template-columns:320px minmax(0,1fr) 350px!important;
+  gap:0!important;
+  min-height:0!important;
+  flex:1!important;
+  overflow:hidden!important;
+  border-top:1px solid var(--line);
+}
+
+body:has(.mersal-inbox-main) .mersal-conversations-panel{
+  border-radius:0!important;
+  border-top:0!important;
+  border-bottom:0!important;
+  border-right:1px solid var(--line)!important;
+  border-left:1px solid var(--line)!important;
+  box-shadow:none!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-chat-panel{
+  border-radius:0!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+
+body:has(.mersal-inbox-main) .customer-profile-panel{
+  border-radius:0!important;
+  border-top:0!important;
+  border-bottom:0!important;
+  border-right:1px solid var(--line)!important;
+  border-left:0!important;
+  box-shadow:none!important;
+  padding:12px!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-chat-top{
+  min-height:70px!important;
+  border-radius:0!important;
+  background:#fff!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-lead-strip{
+  display:none!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-messages{
+  background:
+    radial-gradient(circle at center, rgba(217,154,120,.08), transparent 34%),
+    linear-gradient(180deg,#fffdfb 0%,#fbf6f2 100%)!important;
+  border-top:1px solid var(--line)!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-composer{
+  border-top:1px solid var(--line)!important;
+  background:#fff!important;
+  grid-template-columns:1fr!important;
+}
+
+body:has(.mersal-inbox-main) .composer-selects{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:10px!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-composer textarea{
+  min-height:78px!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-composer #sendBtn{
+  justify-self:start!important;
+  width:64px!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-msg{
+  max-width:70%!important;
+}
+
+body:has(.mersal-inbox-main) .customer-profile-panel{
+  order:3!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-chat-panel{
+  order:2!important;
+}
+
+body:has(.mersal-inbox-main) .mersal-conversations-panel{
+  order:1!important;
+}
+
+@media(max-width:1400px){
+  body:has(.mersal-inbox-main) .sidebar{
+    width:300px!important;
+    min-width:300px!important;
+    max-width:300px!important;
+  }
+  body:has(.mersal-inbox-main) .mersal-inbox-layout.old-crm-layout{
+    grid-template-columns:300px minmax(0,1fr) 330px!important;
+  }
+}
+
+@media(max-width:1180px){
+  body:has(.mersal-inbox-main) .app{
+    height:auto!important;
+    overflow:auto!important;
+  }
+  body:has(.mersal-inbox-main) .sidebar{
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+  }
+  body:has(.mersal-inbox-main) .mersal-inbox-main{
+    height:auto!important;
+    overflow:visible!important;
+  }
+  body:has(.mersal-inbox-main) .mersal-inbox-layout.old-crm-layout{
+    grid-template-columns:1fr!important;
+  }
+}
