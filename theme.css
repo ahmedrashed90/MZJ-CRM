@@ -399,3 +399,128 @@ button:disabled{opacity:.55;cursor:not-allowed}
     display:none;
   }
 }
+
+
+/* ===== Chat professional layout ===== */
+.messages{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding:24px 26px;
+  overflow:auto;
+  background:
+    radial-gradient(circle at top right, rgba(217,154,120,.14), transparent 26%),
+    linear-gradient(180deg, #fffdfb 0%, #f7f2ee 100%);
+}
+
+.messages .empty{
+  margin:auto;
+  align-self:center;
+  padding:18px 22px;
+  border:1px dashed var(--line);
+  border-radius:16px;
+  background:rgba(255,255,255,.8);
+  color:var(--muted);
+}
+
+.msg-row{
+  display:flex;
+  width:100%;
+}
+
+.msg-row.in{
+  justify-content:flex-start;
+}
+
+.msg-row.out{
+  justify-content:flex-end;
+}
+
+.msg-row .msg{
+  margin:0;
+  max-width:min(68%, 560px);
+  padding:14px 16px 10px;
+  border-radius:18px;
+  box-shadow:0 10px 24px rgba(75,32,27,.08);
+  line-height:1.9;
+}
+
+.msg-row .msg.in{
+  background:#ffffff;
+  border:1px solid #eadfd5;
+  border-radius:18px 18px 18px 8px;
+}
+
+.msg-row .msg.out{
+  background:linear-gradient(180deg, #f2d3c3 0%, #ebc7b3 100%);
+  border:1px solid #e0b097;
+  color:#34221f;
+  border-radius:18px 18px 8px 18px;
+}
+
+.msg-text{
+  white-space:pre-wrap;
+  word-break:break-word;
+  font-size:14px;
+  line-height:1.95;
+  letter-spacing:0;
+}
+
+.msg-meta{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  justify-content:flex-end;
+  margin-top:8px;
+  font-size:11px;
+  color:#8b7b73;
+  opacity:1;
+}
+
+.chat-head{
+  padding:16px 22px;
+}
+
+.chat-title{
+  font-size:24px;
+  font-weight:800;
+}
+
+.chat-sub{
+  font-size:13px;
+  margin-top:6px;
+}
+
+.composer{
+  padding:14px 16px 16px;
+  background:#fff;
+  border-top:1px solid var(--line);
+}
+
+.composer textarea{
+  border-radius:16px;
+  padding:14px 16px;
+  font-size:14px;
+  line-height:1.9;
+}
+
+.send-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.send-row .primary{
+  min-width:84px;
+}
+
+@media(max-width:780px){
+  .messages{
+    padding:16px;
+  }
+
+  .msg-row .msg{
+    max-width:88%;
+  }
+}
