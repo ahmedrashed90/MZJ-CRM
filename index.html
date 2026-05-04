@@ -8891,6 +8891,7 @@ const APPROVED_STATUS_GROUPS = {
   ],
   finance: [
     "تم الإتصال",
+    "عميل محتمل",
     "غير مؤهل",
     "مؤجل",
     "مؤهل - لم يتم إرسال الأوراق",
@@ -8942,7 +8943,6 @@ function getStatusScopeForCurrentUser(){
 function normalizeApprovedStatusName(name=""){
   const s = String(name || "").trim();
   if(s === "تم الإنتهاء" || s === "تم الانتهاء") return "تم الانتهاء";
-  if(s === "عميل محتمل") return "محتمل";
   return s;
 }
 
@@ -10483,14 +10483,16 @@ function updateLeadsTableColumns(viewMode="customers"){
       serviceKey: "finance",
       paymentType: "تمويل",
       payType: "تمويل",
-      // Imported leads must start without a workflow status.
-      // This keeps them visible to assigned agents and lets the agent set the first real status manually.
-      leadStatusName: "—",
-      status: "—",
-      leadStatus: "—",
-      currentStatus: "—",
+      // Imported finance leads start as potential customers.
+      // This makes them visible in Call Center and Finance tabs immediately after import.
+      leadStatusName: "عميل محتمل",
+      status: "عميل محتمل",
+      leadStatus: "عميل محتمل",
+      currentStatus: "عميل محتمل",
       updatedAt: nowIso
     };
+    const importedPotentialStatus = findLeadStatusByNameExact("عميل محتمل");
+    if(importedPotentialStatus?.id) patch.leadStatusId = importedPotentialStatus.id;
     const rowSalesAgent = ccFindAgentFromExcelCell(ccGetRowValue(row, maps.salesAgent), "finance", "sales");
     if(rowSalesAgent){
       const uid = String(rowSalesAgent.uid || rowSalesAgent.id || "").trim();
@@ -10725,6 +10727,7 @@ function isCallCenterFinanceStatusVisible(lead, leadId=""){
   if(statusName === "تم الإنتهاء - إنشاء طلب البيع") return false;
   return [
     "تم الإتصال",
+    "عميل محتمل",
     "غير مؤهل",
     "مؤهل - لم يتم إرسال الأوراق",
     "مؤهل - تأخر في إرسال الأوراق",
@@ -10751,8 +10754,11 @@ function isFinanceSalesStatusVisible(lead, leadId=""){
   }
   if(!statusName || statusName === "جديد") return false;
   if(statusName === "تم الإنتهاء - إنشاء طلب البيع") return false;
-  if(["غير مؤهل","تم الإتصال","مؤهل - لم يتم إرسال الأوراق","مؤهل - تأخر في إرسال الأوراق"].includes(statusName)) return false;
+  if(["غير مؤهل","تم الإتصال"].includes(statusName)) return false;
   return [
+    "عميل محتمل",
+    "مؤهل - لم يتم إرسال الأوراق",
+    "مؤهل - تأخر في إرسال الأوراق",
     "مؤهل - تم إرسال الأوراق",
     "طلب إستكمال أوراق",
     "طلب الدعم من الكول سنتر الى المبيعات",
