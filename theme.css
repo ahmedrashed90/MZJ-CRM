@@ -1107,3 +1107,63 @@ button:disabled{opacity:.55;cursor:not-allowed}
   max-height:236px!important;
   overflow:auto!important;
 }
+
+
+/* ===== Mersal Inbox v1 ===== */
+.mersal-inbox-main{min-width:0;overflow:hidden;height:100vh;padding:18px}
+.mersal-inbox-shell{height:calc(100vh - 36px);display:flex;flex-direction:column;gap:14px}
+.mersal-inbox-head{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.mersal-inbox-head h2{margin:0;color:var(--brand-brown-dark);font-size:24px}
+.mersal-inbox-head p{margin:6px 0 0;color:var(--muted);font-size:13px}
+.mersal-head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mersal-inbox-layout{min-height:0;flex:1;display:grid;grid-template-columns:390px minmax(0,1fr);gap:14px}
+.mersal-conversations-panel,.mersal-chat-panel{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;min-height:0}
+.mersal-conversations-panel{display:flex;flex-direction:column}
+.mersal-panel-head{padding:13px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;background:#fff8f3}
+.mersal-panel-head b{color:var(--brand-brown-dark)}
+.mersal-panel-head span{background:var(--brand-copper-soft);color:var(--brand-brown);border-radius:999px;padding:4px 10px;font-weight:900;font-size:12px}
+.mersal-filters{padding:12px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#fff}
+.mersal-filters input{grid-column:1/-1}
+.mersal-filters input,.mersal-filters select,.composer-selects select,.mersal-template-params input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px;outline:none;background:#fff;color:var(--text)}
+.mersal-conv-list{overflow:auto;min-height:0;flex:1}
+.mersal-conv{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;padding:12px;border-bottom:1px solid var(--line);cursor:pointer}
+.mersal-conv:hover{background:#fff8f3}
+.mersal-conv.active{background:#f6e7dc}
+.mersal-conv-avatar,.mersal-avatar{width:42px;height:42px;border-radius:16px;background:linear-gradient(135deg,var(--brand-brown),var(--brand-copper));color:#fff;display:grid;place-items:center;font-weight:900}
+.mersal-conv-info{min-width:0}
+.mersal-conv-title{font-weight:900;color:var(--brand-brown-dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mersal-conv-last{margin-top:4px;color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mersal-conv-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.mersal-conv-tags span{background:#f8f4f0;border:1px solid var(--line);border-radius:999px;padding:3px 7px;font-size:11px;color:var(--brand-brown);font-weight:800}
+.mersal-conv-meta{display:flex;flex-direction:column;align-items:flex-end;gap:8px;color:var(--muted);font-size:11px;white-space:nowrap}
+.mersal-conv-meta b{background:#dc2626;color:#fff;min-width:22px;height:22px;padding:0 7px;border-radius:999px;display:grid;place-items:center;font-size:11px}
+.mersal-chat-panel{display:flex;flex-direction:column}
+.mersal-chat-top{padding:14px 16px;border-bottom:1px solid var(--line);background:#fff8f3;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.mersal-who{display:flex;align-items:center;gap:10px;min-width:0}
+.mersal-who h3{margin:0;color:var(--brand-brown-dark);font-size:18px}
+.mersal-who p{margin:5px 0 0;color:var(--muted);font-size:12.5px}
+.mersal-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mersal-lead-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:#fff}
+.mersal-lead-strip div{background:#fbf7f3;border:1px solid var(--line);border-radius:12px;padding:9px 10px;font-size:12px}
+.mersal-lead-strip b{color:var(--brand-brown-dark)}
+.mersal-messages{flex:1;min-height:0;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:10px;background:radial-gradient(circle at top right, rgba(217,154,120,.14), transparent 26%),linear-gradient(180deg,#fffdfb 0%,#f7f2ee 100%)}
+.mersal-msg-row{display:flex;width:100%}
+.mersal-msg-row.in{justify-content:flex-start}
+.mersal-msg-row.out{justify-content:flex-end}
+.mersal-msg{max-width:min(68%,560px);padding:12px 14px 9px;border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 24px rgba(75,32,27,.07)}
+.mersal-msg-row.in .mersal-msg{background:#fff;border-radius:18px 18px 18px 8px}
+.mersal-msg-row.out .mersal-msg{background:linear-gradient(180deg,#f2d3c3 0%,#ebc7b3 100%);border-color:#e0b097;border-radius:18px 18px 8px 18px}
+.mersal-msg-text{white-space:pre-wrap;word-break:break-word;line-height:1.9;font-size:14px}
+.mersal-msg-meta{margin-top:7px;color:#8b7b73;font-size:11px;text-align:left}
+.mersal-template-params{border-top:1px solid var(--line);padding:10px 14px;background:#fff8f3}
+#templateParamsGrid{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:8px;margin-top:8px}
+#templateParamsGrid .field{margin:0}
+#templateParamsGrid span{font-size:12px;color:var(--muted);font-weight:800}
+.mersal-composer{border-top:1px solid var(--line);padding:12px 14px;background:#fff;display:grid;grid-template-columns:260px minmax(0,1fr) auto;gap:10px;align-items:end}
+.composer-selects{display:grid;gap:8px}
+.mersal-composer textarea{width:100%;min-height:72px;max-height:190px;resize:none;border:1px solid var(--line);border-radius:16px;padding:13px 14px;outline:none;font-family:inherit;font-size:14px;line-height:1.8;background:#fff}
+.mersal-composer textarea:focus,.mersal-filters input:focus,.mersal-filters select:focus,.composer-selects select:focus{border-color:var(--brand-copper);box-shadow:0 0 0 3px rgba(217,154,120,.18)}
+.empty{color:var(--muted);padding:18px;line-height:1.8;text-align:center}
+.hidden{display:none!important}
+@media(max-width:1180px){.mersal-inbox-layout{grid-template-columns:330px minmax(0,1fr)}.mersal-composer{grid-template-columns:1fr}#templateParamsGrid{grid-template-columns:1fr}}
+@media(max-width:780px){.mersal-inbox-main{height:auto;padding:12px}.mersal-inbox-shell{height:auto}.mersal-inbox-layout{grid-template-columns:1fr}.mersal-conv-list{max-height:360px}.mersal-chat-panel{min-height:620px}.mersal-lead-strip{grid-template-columns:1fr}.mersal-msg{max-width:88%}}
