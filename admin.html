@@ -66,11 +66,12 @@
 
       <div class="admin-grid">
         <div class="card">
-          <h3>إنشاء حساب جديد</h3>
+          <h3 id="userFormTitle">إنشاء حساب جديد</h3>
           <form id="userForm">
+            <input type="hidden" id="editingUid" />
             <div class="field"><label>اسم المستخدم</label><input id="newName" required /></div>
             <div class="field"><label>البريد الإلكتروني</label><input id="newEmail" type="email" required /></div>
-            <div class="field"><label>كلمة المرور</label><input id="newPassword" type="password" required minlength="6" /></div>
+            <div class="field"><label>كلمة المرور</label><input id="newPassword" type="password" required minlength="6" /><div class="small-note" id="passwordNote">مطلوبة عند إنشاء حساب جديد فقط.</div></div>
             <div class="field">
               <label>الدور</label>
               <select id="newRole">
@@ -95,7 +96,10 @@
               <label>الصفحات المسموح بها</label>
               <div class="permissions-grid" id="pagesPermissions"></div>
             </div>
-            <button class="primary" type="submit" style="width:100%">إنشاء الحساب</button>
+            <div class="actions">
+              <button class="primary" type="submit" id="saveUserBtn" style="flex:1">إنشاء الحساب</button>
+              <button class="secondary" type="button" id="resetUserBtn">جديد</button>
+            </div>
           </form>
         </div>
 
@@ -103,7 +107,7 @@
           <h3>المستخدمون</h3>
           <div class="table-wrap">
             <table class="management-table">
-              <thead><tr><th>الاسم</th><th>الإيميل</th><th>القسم</th><th>الدور</th><th>الفرع</th><th>نشط</th></tr></thead>
+              <thead><tr><th>الاسم</th><th>الإيميل</th><th>القسم</th><th>الدور</th><th>الفرع</th><th>نشط</th><th></th></tr></thead>
               <tbody id="usersBody"></tbody>
             </table>
           </div>
@@ -294,16 +298,94 @@
 
     function renderUsers(){
       const body = el("usersBody");
-      body.innerHTML = users.length ? "" : '<tr><td colspan="6">لا يوجد مستخدمون</td></tr>';
+      body.innerHTML = users.length ? "" : '<tr><td colspan="7">لا يوجد مستخدمون</td></tr>';
       users.forEach(u => {
+        const uid = u.uid || u.id;
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.email)}</td><td>${departmentLabel(u.department)}</td><td>${escapeHtml(u.role)}</td><td>${escapeHtml(u.branchName || branchName(u.branchId))}</td><td>${u.active === false ? "لا" : "نعم"}</td>`;
+        tr.innerHTML = `
+          <td>${escapeHtml(u.name)}</td>
+          <td>${escapeHtml(u.email)}</td>
+          <td>${departmentLabel(u.department)}</td>
+          <td>${escapeHtml(u.role)}</td>
+          <td>${escapeHtml(u.branchName || branchName(u.branchId))}</td>
+          <td>${u.active === false ? "لا" : "نعم"}</td>
+          <td><button class="secondary" data-edit-user="${escapeHtml(uid)}">تعديل</button></td>
+        `;
         body.appendChild(tr);
       });
     }
 
-    async function createUserAccount(e){
+    function resetUserForm(){
+      el("editingUid").value = "";
+      el("userFormTitle").textContent = "إنشاء حساب جديد";
+      el("saveUserBtn").textContent = "إنشاء الحساب";
+      el("newEmail").disabled = false;
+      el("newPassword").disabled = false;
+      el("newPassword").required = true;
+      el("passwordNote").textContent = "مطلوبة عند إنشاء حساب جديد فقط.";
+      el("userForm").reset();
+      el("activeUser").checked = true;
+      renderPagesPermissions();
+      renderBranches();
+    }
+
+    function loadUserIntoForm(uid){
+      const u = users.find(x => (x.uid || x.id) === uid);
+      if(!u) return;
+
+      el("editingUid").value = uid;
+      el("userFormTitle").textContent = "تعديل مستخدم";
+      el("saveUserBtn").textContent = "حفظ التعديل";
+
+      el("newName").value = u.name || "";
+      el("newEmail").value = u.email || "";
+      el("newEmail").disabled = true;
+
+      el("newPassword").value = "";
+      el("newPassword").disabled = true;
+      el("newPassword").required = false;
+      el("passwordNote").textContent = "تغيير الإيميل أو كلمة المرور يحتاج Firebase Console أو Admin SDK.";
+
+      el("newRole").value = u.role || "user";
+      el("newDepartment").value = u.department || "cash_sales";
+      el("newBranch").value = u.branchId || "";
+      el("allDepartments").checked = u.allDepartments === true;
+      el("activeUser").checked = u.active !== false;
+
+      document.querySelectorAll('input[name="pages"]').forEach(ch => {
+        ch.checked = Array.isArray(u.pages) ? u.pages.includes(ch.value) : true;
+      });
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function saveUserAccount(e){
       e.preventDefault();
+
+      const editingUid = el("editingUid").value;
+      const branchId = el("newBranch").value;
+
+      const profilePayload = {
+        name: el("newName").value.trim(),
+        email: el("newEmail").value.trim(),
+        role: el("newRole").value,
+        department: el("newDepartment").value,
+        branchId,
+        branchName: branchName(branchId),
+        pages: selectedPages(),
+        allDepartments: el("allDepartments").checked,
+        active: el("activeUser").checked,
+        updatedAt: serverTimestamp(),
+        updatedByUid: currentUser.uid,
+        updatedByEmail: currentUser.email
+      };
+
+      if(editingUid){
+        await setDoc(doc(db, "users", editingUid), profilePayload, { merge:true });
+        toast("تم تعديل المستخدم");
+        resetUserForm();
+        return;
+      }
 
       const secondaryApp = initializeApp(firebaseConfig, "secondary-" + Date.now());
       const secondaryAuth = getAuth(secondaryApp);
@@ -311,18 +393,9 @@
       try{
         const cred = await createUserWithEmailAndPassword(secondaryAuth, el("newEmail").value.trim(), el("newPassword").value);
         const uid = cred.user.uid;
-        const branchId = el("newBranch").value;
 
         await setDoc(doc(db, "users", uid), {
-          name: el("newName").value.trim(),
-          email: el("newEmail").value.trim(),
-          role: el("newRole").value,
-          department: el("newDepartment").value,
-          branchId,
-          branchName: branchName(branchId),
-          pages: selectedPages(),
-          allDepartments: el("allDepartments").checked,
-          active: el("activeUser").checked,
+          ...profilePayload,
           createdAt: serverTimestamp(),
           createdByUid: currentUser.uid,
           createdByEmail: currentUser.email
@@ -331,8 +404,7 @@
         await signOut(secondaryAuth);
         await deleteApp(secondaryApp);
 
-        el("userForm").reset();
-        renderPagesPermissions();
+        resetUserForm();
         toast("تم إنشاء الحساب");
       } catch(err){
         console.error(err);
@@ -345,7 +417,12 @@
       renderPagesPermissions();
       onSnapshot(collection(db, "users"), snap => { users=[]; snap.forEach(d => users.push({id:d.id,uid:d.id,...d.data()})); renderUsers(); });
       onSnapshot(query(collection(db, "branches"), orderBy("name","asc")), snap => { branches=[]; snap.forEach(d => branches.push({id:d.id,...d.data()})); renderBranches(); renderUsers(); });
-      el("userForm").onsubmit = createUserAccount;
+      el("userForm").onsubmit = saveUserAccount;
+      el("resetUserBtn").onclick = resetUserForm;
+      el("usersBody").onclick = (e) => {
+        const uid = e.target.dataset.editUser;
+        if(uid) loadUserIntoForm(uid);
+      };
     }
     setupAuth(init, true);
   </script>

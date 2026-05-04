@@ -1015,3 +1015,11 @@ button:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:1180px){
   .brand .nav-tabs{max-height:236px !important;}
 }
+
+
+/* ===== Admin edit users ===== */
+#newEmail:disabled,
+#newPassword:disabled{
+  background:#f8f4f0;
+  color:var(--muted);
+}
