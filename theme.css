@@ -2356,3 +2356,102 @@ body:has(.mersal-inbox-main) .mersal-conversations-panel{
     max-width:86% !important;
   }
 }
+
+
+/* ===== Composer always visible fix ===== */
+/* صندوق الوارد: خلي مكان الكتابة ظاهر دائماً تحت الشات */
+.app .chat{
+  display:grid !important;
+  grid-template-rows:auto minmax(0,1fr) auto !important;
+  height:100vh !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+}
+
+.app .chat .chat-head{
+  grid-row:1 !important;
+  flex:0 0 auto !important;
+}
+
+.app .chat .messages{
+  grid-row:2 !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  padding-bottom:18px !important;
+}
+
+.app .chat .composer{
+  grid-row:3 !important;
+  display:grid !important;
+  position:relative !important;
+  bottom:auto !important;
+  left:auto !important;
+  right:auto !important;
+  z-index:20 !important;
+  width:100% !important;
+  min-height:150px !important;
+  max-height:none !important;
+  padding:10px 14px 12px !important;
+  background:#fff !important;
+  border-top:1px solid var(--line) !important;
+  box-shadow:0 -8px 20px rgba(75,32,27,.08) !important;
+}
+
+.app .chat .template-row{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+}
+
+.app .chat .composer textarea{
+  display:block !important;
+  width:100% !important;
+  min-height:72px !important;
+  max-height:150px !important;
+  resize:none !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  background:#fff !important;
+}
+
+.app .chat .send-row{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:10px !important;
+}
+
+.app .chat .send-row .primary,
+.app .chat #sendBtn{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  min-width:70px !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+
+/* في حال الشاشة قصيرة زي اللابتوب، قلل المسافات بدل ما يخفي مكان الكتابة */
+@media(max-height:760px){
+  .app .chat .composer{
+    min-height:132px !important;
+    padding:8px 12px 10px !important;
+  }
+  .app .chat .composer textarea{
+    min-height:60px !important;
+  }
+}
+
+/* الموبايل */
+@media(max-width:780px){
+  .app .chat{
+    height:100vh !important;
+  }
+  .app .chat .template-row{
+    grid-template-columns:1fr !important;
+  }
+  .app .chat .composer{
+    min-height:190px !important;
+  }
+}
