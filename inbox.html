@@ -208,7 +208,6 @@
     const db = getFirestore(appFirebase);
 
     const MERSAL_SEND_ENDPOINT = "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
-    const FACEBOOK_SEND_ENDPOINT = "https://facebook.next-erp-mzj.workers.dev/crm/send";
 
     const DEPARTMENTS = {
       cash_sales:"مبيعات الكاش",
@@ -247,7 +246,7 @@
     const PLATFORM_CONFIG = {
       whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox", provider:"mersal" },
       instagram:{ label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
-      facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"fb_outbox", provider:"meta", channelCode:"fb" },
+      facebook:{ label:"فيسبوك", conversations:"fb_conversations", outbox:"fb_outbox" },
       tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
     };
 
@@ -272,18 +271,6 @@
       return DEPARTMENTS[normalized] || d || "";
     }
     function platformLabel(p){ return PLATFORM_CONFIG[p]?.label || p; }
-
-    function inferConversationPlatform(defaultPlatform, data){
-      const channel = String(data.channel || data.channelCode || data.provider || "").toLowerCase();
-      const convId = String(data.convId || data.conversationId || data.id || "").toLowerCase();
-
-      if(channel === "fb" || channel === "facebook" || convId.startsWith("facebook:")) return "facebook";
-      if(channel === "ig" || channel === "instagram" || convId.startsWith("instagram:")) return "instagram";
-      if(channel === "tt" || channel === "tiktok" || convId.startsWith("tiktok:")) return "tiktok";
-      if(channel === "wa" || channel === "whatsapp" || data.waId) return "whatsapp";
-
-      return defaultPlatform;
-    }
 
     function normalizeDepartment(value){
       const s = String(value || "").trim();
@@ -567,17 +554,6 @@
       return `${time} - ${date}`;
     }
 
-    function getStableConversationKey(c){
-      return String(
-        c.convId ||
-        c.conversationId ||
-        c.contactKey ||
-        (c.channelCode && c.pageId && c.participantId ? `${c.channelCode}:${c.pageId}:${c.participantId}` : "") ||
-        c.id ||
-        ""
-      ).trim();
-    }
-
     function getCustomerName(c){
       return firstValue(
         c.customerName, c.customer?.customerName, c.displayName, c.name,
@@ -602,12 +578,11 @@
 function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clientStatus, c.statusLabel, c.status); }
 
     function normalizeConversation(platform, id, data){
-      const realPlatform = inferConversationPlatform(platform, { ...data, id });
       const department = normalizeDepartment(firstValue(
-        data.department, data.customer?.department, data.autoService, data.serviceKey, data.paymentType, data.branchId
+        data.department, data.customer?.department, data.autoService, data.paymentType, data.branchId
       ));
       return {
-        id, platform:realPlatform, sourcePlatform:platform, ...data,
+        id, platform, ...data,
         customerName:firstValue(data.customerName, data.customer?.customerName, data.displayName, data.name, data.contactName, data.senderName),
         phone:normalizePhone(firstValue(data.phone, data.customer?.phone, data.waId, data.customerPhone, data.from, data.sender, id)),
         clientStatus:firstValue(data.clientStatus, data.customer?.clientStatus, data.statusLabel),
@@ -618,14 +593,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
 
     function renderConversations(){
       const search = el("searchInput").value.trim().toLowerCase();
-      const seenConversations = new Set();
-      let items = state.conversations.filter(c => {
-        const key = getStableConversationKey(c);
-        if(!key) return true;
-        if(seenConversations.has(key)) return false;
-        seenConversations.add(key);
-        return true;
-      });
+      let items = state.conversations.slice();
 
       if(state.selectedPlatform !== "all") items = items.filter(c => c.platform === state.selectedPlatform);
 
@@ -697,12 +665,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       state.unsubConversations = [];
       state.conversations = [];
 
-      const watchedCollections = new Set();
-
       Object.entries(PLATFORM_CONFIG).forEach(([platform, cfg]) => {
-        if(watchedCollections.has(cfg.conversations)) return;
-        watchedCollections.add(cfg.conversations);
-
         const unsub = onSnapshot(collection(db, cfg.conversations), snap => {
           state.conversations = state.conversations.filter(c => c.platform !== platform);
           snap.forEach(d => state.conversations.push(normalizeConversation(platform, d.id, d.data())));
@@ -818,25 +781,6 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       return { waId, text };
     }
 
-    async function sendViaFacebook(c, text){
-      const convId = c.convId || c.conversationId || c.id;
-      const res = await fetch(FACEBOOK_SEND_ENDPOINT, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({ convId, conversationId:convId, text })
-      });
-
-      let result = null;
-      try { result = await res.json(); } catch(e) {}
-
-      if(!res.ok || result?.ok === false){
-        console.error("Facebook send failed", result);
-        throw new Error(result?.error || result?.message || "فشل إرسال فيسبوك");
-      }
-
-      return result || { ok:true };
-    }
-
     async function sendViaMersal(c, text, selectedTemplate){
       const payload = buildMersalPayload(c, text, selectedTemplate);
       const res = await fetch(MERSAL_SEND_ENDPOINT, {
@@ -872,8 +816,6 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       try{
         if(c.platform === "whatsapp"){
           await sendViaMersal(c, text, selectedTemplate);
-        } else if(c.platform === "facebook"){
-          await sendViaFacebook(c, text);
         } else {
           await addDoc(collection(db, cfg.outbox), {
             conversationId:c.id,
@@ -890,35 +832,33 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
           });
         }
 
-        if(c.platform !== "facebook"){
-          const msgPayload = {
-            text,
-            direction:"outgoing",
-            fromAgent:true,
-            department:dept,
-            template:selectedTemplate,
-            sentByUid:state.user.uid,
-            sentByEmail:state.user.email,
-            createdAt:serverTimestamp(),
-            sentAt:serverTimestamp(),
-            receivedAt:serverTimestamp(),
-            timestamp:serverTimestamp(),
-            status:c.platform === "whatsapp" ? "sent" : "pending"
-          };
+        const msgPayload = {
+          text,
+          direction:"outgoing",
+          fromAgent:true,
+          department:dept,
+          template:selectedTemplate,
+          sentByUid:state.user.uid,
+          sentByEmail:state.user.email,
+          createdAt:serverTimestamp(),
+          sentAt:serverTimestamp(),
+          receivedAt:serverTimestamp(),
+          timestamp:serverTimestamp(),
+          status:c.platform === "whatsapp" ? "sent" : "pending"
+        };
 
-          await addDoc(collection(db, cfg.conversations, c.id, "messages"), msgPayload);
+        await addDoc(collection(db, cfg.conversations, c.id, "messages"), msgPayload);
 
-          const updatePayload = {
-            lastMessage:text,
-            lastMessageText:text,
-            department:dept,
-            updatedAt:serverTimestamp(),
-            lastMessageAt:serverTimestamp(),
-            unreadCount:0
-          };
+        const updatePayload = {
+          lastMessage:text,
+          lastMessageText:text,
+          department:dept,
+          updatedAt:serverTimestamp(),
+          lastMessageAt:serverTimestamp(),
+          unreadCount:0
+        };
 
-          await updateDoc(doc(db, cfg.conversations, c.id), updatePayload).catch(()=>{});
-        }
+        await updateDoc(doc(db, cfg.conversations, c.id), updatePayload).catch(()=>{});
         el("replyText").value = "";
         clearSelectedTemplateControls();
         autoResizeReply();
