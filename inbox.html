@@ -567,6 +567,17 @@
       return `${time} - ${date}`;
     }
 
+    function getStableConversationKey(c){
+      return String(
+        c.convId ||
+        c.conversationId ||
+        c.contactKey ||
+        (c.channelCode && c.pageId && c.participantId ? `${c.channelCode}:${c.pageId}:${c.participantId}` : "") ||
+        c.id ||
+        ""
+      ).trim();
+    }
+
     function getCustomerName(c){
       return firstValue(
         c.customerName, c.customer?.customerName, c.displayName, c.name,
@@ -607,7 +618,14 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
 
     function renderConversations(){
       const search = el("searchInput").value.trim().toLowerCase();
-      let items = state.conversations.slice();
+      const seenConversations = new Set();
+      let items = state.conversations.filter(c => {
+        const key = getStableConversationKey(c);
+        if(!key) return true;
+        if(seenConversations.has(key)) return false;
+        seenConversations.add(key);
+        return true;
+      });
 
       if(state.selectedPlatform !== "all") items = items.filter(c => c.platform === state.selectedPlatform);
 
