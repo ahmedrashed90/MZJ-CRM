@@ -390,16 +390,18 @@
       if(state.unsubMessages) state.unsubMessages();
       const box = el("messagesList");
       box.innerHTML = '<div class="empty">جاري تحميل الرسائل...</div>';
-      const q = query(collection(db, "wa_conversations", convId, "messages"), orderBy("receivedAt", "asc"));
-      state.unsubMessages = onSnapshot(q, snap => {
+      state.unsubMessages = onSnapshot(collection(db, "wa_conversations", convId, "messages"), snap => {
         box.innerHTML = "";
         if(snap.empty){
           box.innerHTML = '<div class="empty">لا توجد رسائل داخل هذه المحادثة.</div>';
           return;
         }
 
-        snap.forEach(d => {
-          const m = d.data();
+        const rows = [];
+        snap.forEach(d => rows.push({ id:d.id, ...d.data() }));
+        rows.sort((a,b) => getSortableDate(getMsgTime(a)) - getSortableDate(getMsgTime(b)));
+
+        rows.forEach(m => {
           const outgoing = isOutgoingMessage(m);
           const row = document.createElement("div");
           row.className = "mersal-msg-row " + (outgoing ? "out" : "in");
@@ -521,7 +523,8 @@
         const now = serverTimestamp();
         const msgPayload = {
           channel:"whatsapp", provider:"mersal", direction:"out", status:"sent",
-          sentAt:now, createdAt:now, waId:phone, convId:c.id,
+          sentAt:now, createdAt:now, receivedAt:now, timestamp:now,
+          waId:phone, convId:c.id,
           type:tpl ? "template" : "text",
           text,
           template: tpl ? { name:tpl.name, lang:tpl.lang || "ar", params:collectTemplateParams(), label:tpl.label } : null,
