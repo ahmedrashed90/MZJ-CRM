@@ -3023,17 +3023,27 @@ const WA_TEMPLATES = {
   finance_request_received: {
     name: "finance_request_received",
     lang: "ar",
-    audience: ["callcenter"],
+    audience: ["callcenter", "finance"],
     label: "إستلام طلب التمويل",
     params: [],
     previewText: `مرحباً بك في مجموعة محمد ذعار العجمي للسيارات
 تم استلام طلب التمويل الخاص بك بنجاح ✅
 سيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات.`
   },
+  finance_contacted: {
+    name: "finance_contacted",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "تم الإتصال",
+    params: [],
+    previewText: `تم التواصل معكم بخصوص طلب التمويل الخاص بكم ✅
+
+وسنقوم بمتابعة الطلب وإفادتكم بأي تحديثات.`
+  },
   finance_not_eligible: {
     name: "finance_not_eligible",
     lang: "ar",
-    audience: ["callcenter"],
+    audience: ["callcenter", "finance"],
     label: "رسالة رفض الحسبة المبدئية",
     editable: true,
     params: [],
@@ -3047,10 +3057,26 @@ const WA_TEMPLATES = {
       return [extractBetweenLabels(text, 'بسبب:', 'للمزيد من التفاصيل يرجى التواصل معنا.') || '—'];
     }
   },
+  finance_postponed: {
+    name: "finance_postponed",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "مؤجل",
+    editable: true,
+    params: [],
+    previewText: `تم تأجيل متابعة طلب التمويل الخاص بكم.
+
+سبب التأجيل: {اكتب السبب هنا}
+
+سيتم التواصل معكم في الموعد المحدد للمتابعة.`,
+    extractParamsFromComposer(text){
+      return [extractBetweenLabels(text, 'سبب التأجيل:', 'سيتم التواصل معكم في الموعد المحدد للمتابعة.') || '—'];
+    }
+  },
   finance_pre_approved_documents: {
     name: "finance_pre_approved_documents",
     lang: "ar",
-    audience: ["callcenter"],
+    audience: ["callcenter", "finance"],
     label: "رسالة قبول الحسبة - طلب إرسال الأوراق",
     editable: true,
     params: [],
@@ -3066,10 +3092,20 @@ const WA_TEMPLATES = {
       return [extractBetweenLabels(text, 'برجاء إرسال الأوراق المطلوبة مبدئياً التالية:', 'سيتم مراجعة الأوراق والرد عليك في أقرب وقت.') || '—'];
     }
   },
+  finance_documents_delayed: {
+    name: "finance_documents_delayed",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "مؤهل - تأخر في إرسال الأوراق",
+    params: [],
+    previewText: `نذكّركم بإرسال الأوراق المطلوبة لاستكمال طلب التمويل.
+
+حتى الآن لم يتم استلام الأوراق المطلوبة، وسيتم متابعة الطلب فور إرسالها.`
+  },
   documents_received: {
     name: "documents_received",
     lang: "ar",
-    audience: ["callcenter"],
+    audience: ["callcenter", "finance"],
     label: "تم إرسال الأوراق",
     editable: true,
     params: [],
@@ -3085,96 +3121,47 @@ const WA_TEMPLATES = {
       return [extractAfterLabel(text, 'تم استلام أوراق طلبك بخصوص السيارة:') || '—'];
     }
   },
-  sales_support_request: {
-    name: "sales_support_request",
-    lang: "ar",
-    audience: ["callcenter"],
-    label: "طلب الدعم لإختيار السيارة",
-    params: [],
-    previewText: `سيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات
-
-لتأكيد بيانات السيارة المطلوبة واختيار السيارة المناسبة لك.`
-  },
-  finance_approved: {
-    name: "finance_approved",
-    lang: "ar",
-    audience: ["callcenter"],
-    label: "الموافقة",
-    params: [],
-    previewText: `مبروك 🎉
-
-تمت الموافقة من قبل جهة التمويل على طلبك بنجاح ✅
-
-وفي انتظار إصدار عقد التمويل الخاص بك.`
-  },
-  finance_rejected: {
-    name: "finance_rejected",
-    lang: "ar",
-    audience: ["callcenter"],
-    label: "عدم الموافقة",
-    editable: true,
-    params: [],
-    previewText: `تعذر صدور الموافقة من قبل جهة التمويل على طلبك ❌
-
-بسبب: {اكتب سبب عدم الموافقة هنا}
-
-يمكنك التواصل معنا لمعرفة التفاصيل أو إعادة التقديم لاحقاً.`,
-    extractParamsFromComposer(text){
-      return [extractBetweenLabels(text, 'بسبب:', 'يمكنك التواصل معنا لمعرفة التفاصيل أو إعادة التقديم لاحقاً.') || '—'];
-    }
-  },
-  contract_issued: {
-    name: "contract_issued",
-    lang: "ar",
-    audience: ["callcenter"],
-    label: "إصدار العقد",
-    params: [],
-    previewText: `تم إصدار عقدك من جهة التمويل الخاصة بك بنجاح ✅
-
-سيتم التواصل معك قريباً لاستكمال الإجراءات المطلوبة.`
-  },
-  contract_signed: {
-    name: "contract_signed",
-    lang: "ar",
-    audience: ["callcenter"],
-    label: "تم توقيع العقد بنجاح",
-    params: [],
-    previewText: `نهنئك 🎉
-
-تم توقيع عقد التمويل الخاص بك بنجاح ✅
-
-سيصلك إشعار قريباً بإنشاء طلب البيع الخاص بك.`
-  },
-  contract_not_signed: {
-    name: "contract_not_signed",
-    lang: "ar",
-    audience: ["callcenter"],
-    label: "لم يتم توقيع العقد",
-    editable: true,
-    params: [],
-    previewText: `تعذر توقيع العقد مع جهة التمويل الخاصة بك ❌
-
-بسبب: {اكتب سبب عدم التوقيع هنا}
-
-يمكنك التواصل معنا لإعادة جدولة الموعد أو استكمال الإجراءات.`,
-    extractParamsFromComposer(text){
-      return [extractBetweenLabels(text, 'بسبب:', 'يمكنك التواصل معنا لإعادة جدولة الموعد أو استكمال الإجراءات.') || '—'];
-    }
-  },
   finance_application_submitted: {
     name: "finance_application_submitted",
     lang: "ar",
-    audience: ["finance"],
+    audience: ["callcenter", "finance"],
     label: "رفع الطلب",
     params: [],
     previewText: `تم رفع طلب التمويل الخاص بك إلى جهة التمويل المختصة بنجاح ✅
 
 سيتم مراجعة الطلب وإفادتك بأي تحديثات في أقرب وقت.`
   },
+  finance_additional_documents: {
+    name: "finance_additional_documents",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "طلب إستكمال أوراق",
+    editable: true,
+    params: [],
+    previewText: `نحتاج إلى استكمال بعض الأوراق حتى يتم متابعة طلب التمويل.
+
+الأوراق المطلوبة:
+{اكتب الأوراق المطلوبة هنا}
+
+برجاء إرسالها ليتم استكمال الإجراءات.`,
+    extractParamsFromComposer(text){
+      return [extractBetweenLabels(text, 'الأوراق المطلوبة:', 'برجاء إرسالها ليتم استكمال الإجراءات.') || '—'];
+    }
+  },
+  sales_support_request: {
+    name: "sales_support_request",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "طلب الدعم لإختيار السيارة",
+    params: [],
+    previewText: `سيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات
+
+لتأكيد بيانات السيارة المطلوبة واختيار السيارة المناسبة لك.`
+  },
   car_selected: {
     name: "car_selected",
     lang: "ar",
-    audience: ["finance"],
+    audience: ["callcenter", "finance"],
     label: "تم التواصل مع العميل و إختيار السيارة",
     editable: true,
     params: [],
@@ -3201,15 +3188,170 @@ const WA_TEMPLATES = {
   car_documents_submitted: {
     name: "car_documents_submitted",
     lang: "ar",
-    audience: ["finance"],
+    audience: ["callcenter", "finance"],
     label: "رفع أوراق السيارة و عرض السعر",
     params: [],
     previewText: `تم رفع أوراق السيارة المختارة وعرض السعر إلى جهة التمويل المختصة بنجاح ✅
 
 سيتم متابعة الطلب وإفادتكم بأي تحديثات فور ورودها.`
+  },
+  finance_request_advanced: {
+    name: "finance_request_advanced",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "إستيفاء الطلب - متقدم",
+    params: [],
+    previewText: `تم استيفاء بيانات طلب التمويل وانتقال الطلب للمرحلة التالية ✅
+
+سيتم إبلاغكم بأي تحديث فور وروده.`
+  },
+  finance_approved: {
+    name: "finance_approved",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "الموافقة",
+    params: [],
+    previewText: `مبروك 🎉
+
+تمت الموافقة من قبل جهة التمويل على طلبك بنجاح ✅
+
+وفي انتظار إصدار عقد التمويل الخاص بك.`
+  },
+  finance_rejected: {
+    name: "finance_rejected",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "عدم الموافقة",
+    editable: true,
+    params: [],
+    previewText: `تعذر صدور الموافقة من قبل جهة التمويل على طلبك ❌
+
+بسبب: {اكتب سبب عدم الموافقة هنا}
+
+يمكنك التواصل معنا لمعرفة التفاصيل أو إعادة التقديم لاحقاً.`,
+    extractParamsFromComposer(text){
+      return [extractBetweenLabels(text, 'بسبب:', 'يمكنك التواصل معنا لمعرفة التفاصيل أو إعادة التقديم لاحقاً.') || '—'];
+    }
+  },
+  contract_issued: {
+    name: "contract_issued",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "إصدار العقد",
+    params: [],
+    previewText: `تم إصدار عقدك من جهة التمويل الخاصة بك بنجاح ✅
+
+سيتم التواصل معك قريباً لاستكمال الإجراءات المطلوبة.`
+  },
+  contract_call_to_sign: {
+    name: "contract_call_to_sign",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "تم الإتصال لتوقيع العقد",
+    params: [],
+    previewText: `تم التواصل معكم لتنسيق توقيع عقد التمويل.
+
+برجاء متابعة الاتصال لاستكمال إجراءات توقيع العقد.`
+  },
+  contract_signed: {
+    name: "contract_signed",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "تم توقيع العقد بنجاح",
+    params: [],
+    previewText: `نهنئك 🎉
+
+تم توقيع عقد التمويل الخاص بك بنجاح ✅
+
+سيصلك إشعار قريباً بإنشاء طلب البيع الخاص بك.`
+  },
+  contract_not_signed: {
+    name: "contract_not_signed",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "لم يتم توقيع العقد",
+    editable: true,
+    params: [],
+    previewText: `تعذر توقيع العقد مع جهة التمويل الخاصة بك ❌
+
+بسبب: {اكتب سبب عدم التوقيع هنا}
+
+يمكنك التواصل معنا لإعادة جدولة الموعد أو استكمال الإجراءات.`,
+    extractParamsFromComposer(text){
+      return [extractBetweenLabels(text, 'بسبب:', 'يمكنك التواصل معنا لإعادة جدولة الموعد أو استكمال الإجراءات.') || '—'];
+    }
+  },
+  sales_order_created: {
+    name: "sales_order_created",
+    lang: "ar",
+    audience: ["callcenter", "finance"],
+    label: "تم الإنتهاء - إنشاء طلب البيع",
+    params: [],
+    previewText: `تم الانتهاء من إجراءات طلب التمويل بنجاح ✅
+
+تم إنشاء طلب البيع وسيتم متابعة باقي الإجراءات معكم.`
+  },
+  cash_contacted: {
+    name: "cash_contacted",
+    lang: "ar",
+    audience: ["cash"],
+    label: "تم الرد",
+    params: [],
+    previewText: `تم التواصل معكم بخصوص طلب مبيعات الكاش ✅
+
+نسعد بخدمتكم في مجموعة محمد ذعار العجمي للسيارات.`
+  },
+  cash_potential: {
+    name: "cash_potential",
+    lang: "ar",
+    audience: ["cash"],
+    label: "محتمل",
+    params: [],
+    previewText: `شكراً لتواصلكم معنا.
+
+سيتم متابعة طلبكم وإفادتكم بأفضل الخيارات المتاحة.`
+  },
+  cash_sold: {
+    name: "cash_sold",
+    lang: "ar",
+    audience: ["cash"],
+    label: "تم البيع",
+    params: [],
+    previewText: `نبارك لكم إتمام عملية البيع 🎉
+
+نسعد دائماً بخدمتكم في مجموعة محمد ذعار العجمي للسيارات.`
+  },
+  cs_replied: {
+    name: "cs_replied",
+    lang: "ar",
+    audience: ["cs"],
+    label: "تم الرد",
+    params: [],
+    previewText: `تم استلام طلب خدمة العملاء الخاص بكم ✅
+
+وسيتم متابعته من فريق خدمة العملاء.`
+  },
+  cs_in_progress: {
+    name: "cs_in_progress",
+    lang: "ar",
+    audience: ["cs"],
+    label: "جاري العمل",
+    params: [],
+    previewText: `طلبكم حالياً قيد المعالجة لدى فريق خدمة العملاء.
+
+سيتم إفادتكم فور توفر تحديث.`
+  },
+  cs_done: {
+    name: "cs_done",
+    lang: "ar",
+    audience: ["cs"],
+    label: "تم الانتهاء",
+    params: [],
+    previewText: `تم الانتهاء من طلب خدمة العملاء الخاص بكم ✅
+
+شكراً لتواصلكم معنا.`
   }
-};
-let __selectedWaTemplateKey = null;
+};let __selectedWaTemplateKey = null;
 let __selectedMetaTemplateKey = null;
   // --- helpers: normalize & fetch lead for templates ---
   function normalizeSaudiPhone(p){
@@ -3369,9 +3511,12 @@ function extractBetweenLabels(text, startLabel, endLabel){
 }
 function getTemplateAudienceKey(){
   const branchId = getCurrentBranchId();
-  if(branchMatchesKey(branchId, 'callcenter')) return 'callcenter';
-  if(branchMatchesKey(branchId, 'finance')) return 'finance';
+  const deptKey = String(currentProfile?.deptKey || '').trim().toLowerCase();
   if(isManagementRole()) return 'all';
+  if(deptKey === 'callcenter' || branchMatchesKey(branchId, 'callcenter')) return 'callcenter';
+  if(deptKey === 'finance' || branchMatchesKey(branchId, 'finance')) return 'finance';
+  if(deptKey === 'cash' || branchMatchesKey(branchId, 'cash')) return 'cash';
+  if(deptKey === 'cs' || branchMatchesKey(branchId, 'cs')) return 'cs';
   return '';
 }
 function buildTemplatePreview(templateKey, lead){
