@@ -48,20 +48,26 @@
     </aside>
 
     <main class="template-main">
+      <div class="template-seed-box">
+        <div>
+          <b>قوالب مرسال الرسمية</b>
+          <span>القوالب الموجودة هنا بنفس أسماء مرسال. القالب لا يظهر في صندوق الوارد إلا لو نشط ومعتمد.</span>
+        </div>
+        <button class="primary" id="seedOfficialBtn" type="button">تنزيل/تحديث قوالب مرسال الرسمية</button>
+      </div>
+
       <div class="template-grid">
         <div class="card">
-          <div class="template-card-title">
-            <h3>معاينة القالب</h3>
-          </div>
+          <div class="template-card-title"><h3>معاينة القالب</h3></div>
           <div class="preview-box">
-            <div class="whatsapp-preview" id="templatePreview"></div>
+            <div class="whatsapp-preview" id="templatePreview">اكتب محتوى القالب لمعاينته هنا</div>
           </div>
         </div>
 
         <div class="card">
           <div class="template-card-title">
-            <h3>النموذج</h3>
-            <button class="secondary" id="resetBtn">جديد</button>
+            <h3>إنشاء/تعديل قالب</h3>
+            <button class="secondary" id="resetBtn" type="button">جديد</button>
           </div>
 
           <form id="templateForm">
@@ -81,38 +87,63 @@
               </div>
             </div>
 
-            <div class="field">
-              <label>اسم القالب</label>
-              <input id="templateName" required />
+            <div class="grid2">
+              <div class="field">
+                <label>اسم القالب في مرسال</label>
+                <input id="templateName" required placeholder="finance_request_received" />
+              </div>
+              <div class="field">
+                <label>الاسم الظاهر في السيستم</label>
+                <input id="templateLabel" required placeholder="إستلام طلب التمويل" />
+              </div>
             </div>
+            <div class="mersal-form-note">اسم مرسال يجب أن يكون مطابقًا للقالب المعتمد داخل مرسال.</div>
 
-            <div class="field">
-              <label>المحتوى</label>
-              <textarea id="templateContent" required placeholder="اكتب محتوى القالب هنا. مثال: مرحباً {{اسم_العميل}}"></textarea>
-              <div class="variables-row">
-                <button class="var-btn" type="button" data-var="{{اسم_العميل}}">اسم العميل</button>
-                <button class="var-btn" type="button" data-var="{{رقم_الجوال}}">رقم الجوال</button>
-                <button class="var-btn" type="button" data-var="{{نوع_السيارة}}">نوع السيارة</button>
-                <button class="var-btn" type="button" data-var="{{الموديل}}">الموديل</button>
-                <button class="var-btn" type="button" data-var="{{الراتب}}">الراتب</button>
-                <button class="var-btn" type="button" data-var="{{1}}">{{1}}</button>
-                <button class="var-btn" type="button" data-var="{{2}}">{{2}}</button>
+            <div class="grid2">
+              <div class="field">
+                <label>لغة القالب</label>
+                <select id="templateLang">
+                  <option value="ar">العربية</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>نوع العنوان</label>
+                <select id="headerType">
+                  <option value="none">لا يوجد</option>
+                  <option value="text">نص</option>
+                  <option value="image">صورة</option>
+                  <option value="video">فيديو</option>
+                  <option value="document">ملف</option>
+                </select>
               </div>
             </div>
 
             <div class="field">
-              <label>عينات لمحتوى المتغيرات</label>
-              <input id="templateSamples" placeholder="{{1}} = مثال، {{2}} = مثال آخر" />
+              <label>المحتوى</label>
+              <textarea id="templateContent" required placeholder="اكتب محتوى القالب هنا. المتغيرات تكون بالشكل {1}"></textarea>
+              <div class="variables-row">
+                <button class="var-btn" type="button" data-var="{{1}}">{{1}}</button>
+                <button class="var-btn" type="button" data-var="{{2}}">{{2}}</button>
+                <button class="var-btn" type="button" data-var="{{3}}">{{3}}</button>
+                <button class="var-btn" type="button" data-var="{{4}}">{{4}}</button>
+                <button class="var-btn" type="button" data-var="{{5}}">{{5}}</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>عينات/أسماء المتغيرات</label>
+              <div id="paramsList" class="params-list"></div>
             </div>
 
             <div class="field">
               <label>أزرار الرد السريع</label>
-              <input id="quickButtons" placeholder="افصل بين الأزرار بعلامة | مثال: اتصل برقم الهاتف | زيارة الموقع" />
+              <input id="quickButtons" placeholder="افصل بين الأزرار بعلامة | مثال: أرسل الأوراق | تواصل معي" />
             </div>
 
             <div class="field">
               <label>أزرار الحث على اتخاذ إجراء</label>
-              <input id="ctaButtons" placeholder="افصل بين الأزرار بعلامة | مثال: نسخ كود العرض | فتح الرابط" />
+              <input id="ctaButtons" placeholder="افصل بين الأزرار بعلامة | مثال: زيارة الموقع | اتصل برقم الهاتف" />
             </div>
 
             <div class="grid2">
@@ -125,7 +156,7 @@
             </div>
 
             <div class="field">
-              <label>الأقسام</label>
+              <label>الأقسام التي يظهر لها</label>
               <div class="checks">
                 <label class="check-item"><input type="checkbox" name="departments" value="cash_sales" /> مبيعات الكاش</label>
                 <label class="check-item"><input type="checkbox" name="departments" value="finance_sales" /> مبيعات التمويل</label>
@@ -164,7 +195,7 @@
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
       getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy,
-      addDoc, setDoc, deleteDoc, serverTimestamp
+      setDoc, deleteDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -187,6 +218,8 @@
       finance_sales:"مبيعات التمويل",
       customer_service:"خدمة العملاء"
     };
+
+    const OFFICIAL_MERSAL_TEMPLATES = [{"key": "finance_request_received", "name": "finance_request_received", "label": "إستلام طلب التمويل", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": false, "content": "مرحباً بك في مجموعة محمد ذعار العجمي للسيارات\nتم استلام طلب التمويل الخاص بك بنجاح ✅\nسيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات.", "params": []}, {"key": "finance_not_eligible", "name": "finance_not_eligible", "label": "رسالة رفض الحسبة المبدئية", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": true, "content": "طلب التمويل غير مؤهل ❌ لرفع الأوراق إلى جهات التمويل المختصة\n\nبسبب: {{1}}\n\nللمزيد من التفاصيل يرجى التواصل معنا.", "params": ["سبب عدم التأهيل"]}, {"key": "finance_pre_approved_documents", "name": "finance_pre_approved_documents", "label": "رسالة قبول الحسبة - طلب إرسال الأوراق", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": true, "content": "طلب تمويلك مؤهل ✅ لرفع الأوراق إلى جهات التمويل المختصة\n\nبرجاء إرسال الأوراق المطلوبة مبدئياً التالية:\n\n{{1}}\n\nسيتم مراجعة الأوراق والرد عليك في أقرب وقت.", "params": ["الأوراق المطلوبة"]}, {"key": "documents_received", "name": "documents_received", "label": "تم إرسال الأوراق", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": true, "content": "تم استلام أوراق طلبك بخصوص السيارة: {{1}}\n\nوجاري العمل على الطلب حالياً.\n\nفي حال وجود متطلبات إضافية سيتم التواصل معك.", "params": ["اسم السيارة"]}, {"key": "sales_support_request", "name": "sales_support_request", "label": "طلب الدعم لإختيار السيارة", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": false, "content": "سيتم التواصل معك قريباً من أحد ممثلي قسم المبيعات\n\nلتأكيد بيانات السيارة المطلوبة واختيار السيارة المناسبة لك.", "params": []}, {"key": "finance_approved", "name": "finance_approved", "label": "الموافقة", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": false, "content": "مبروك 🎉\n\nتمت الموافقة من قبل جهة التمويل على طلبك بنجاح ✅\n\nوفي انتظار إصدار عقد التمويل الخاص بك.", "params": []}, {"key": "finance_rejected", "name": "finance_rejected", "label": "عدم الموافقة", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": true, "content": "تعذر صدور الموافقة من قبل جهة التمويل على طلبك ❌\n\nبسبب: {{1}}\n\nيمكنك التواصل معنا لمعرفة التفاصيل أو إعادة التقديم لاحقاً.", "params": ["سبب عدم الموافقة"]}, {"key": "contract_issued", "name": "contract_issued", "label": "إصدار العقد", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": false, "content": "تم إصدار عقدك من جهة التمويل الخاصة بك بنجاح ✅\n\nسيتم التواصل معك قريباً لاستكمال الإجراءات المطلوبة.", "params": []}, {"key": "contract_signed", "name": "contract_signed", "label": "تم توقيع العقد بنجاح", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": false, "content": "نهنئك 🎉\n\nتم توقيع عقد التمويل الخاص بك بنجاح ✅\n\nسيصلك إشعار قريباً بإنشاء طلب البيع الخاص بك.", "params": []}, {"key": "contract_not_signed", "name": "contract_not_signed", "label": "لم يتم توقيع العقد", "lang": "ar", "audience": ["customer_service"], "legacyAudience": ["callcenter"], "editable": true, "content": "تعذر توقيع العقد مع جهة التمويل الخاصة بك ❌\n\nبسبب: {{1}}\n\nيمكنك التواصل معنا لإعادة جدولة الموعد أو استكمال الإجراءات.", "params": ["سبب عدم التوقيع"]}, {"key": "finance_application_submitted", "name": "finance_application_submitted", "label": "رفع الطلب", "lang": "ar", "audience": ["finance_sales"], "legacyAudience": ["finance"], "editable": false, "content": "تم رفع طلب التمويل الخاص بك إلى جهة التمويل المختصة بنجاح ✅\n\nسيتم مراجعة الطلب وإفادتك بأي تحديثات في أقرب وقت.", "params": []}, {"key": "car_selected", "name": "car_selected", "label": "تم التواصل مع العميل و إختيار السيارة", "lang": "ar", "audience": ["finance_sales"], "legacyAudience": ["finance"], "editable": true, "content": "تم اختيار السيارة التالية بناءً على طلبكم:\n\nالسيارة: {{1}}\nالموديل: {{2}}\nاللون: {{3}}\n\nوجاري العمل على استكمال إجراءات الطلب.", "params": ["اسم السيارة", "الموديل", "اللون"]}, {"key": "car_documents_submitted", "name": "car_documents_submitted", "label": "رفع أوراق السيارة و عرض السعر", "lang": "ar", "audience": ["finance_sales"], "legacyAudience": ["finance"], "editable": false, "content": "تم رفع أوراق السيارة المختارة وعرض السعر إلى جهة التمويل المختصة بنجاح ✅\n\nسيتم متابعة الطلب وإفادتكم بأي تحديثات فور ورودها.", "params": []}];
 
     let currentUser = null;
     let currentProfile = null;
@@ -294,29 +327,61 @@
       document.querySelectorAll('input[name="departments"]').forEach(c => c.checked = values.includes(c.value));
     }
 
+    function getParamsFromContent(){
+      const content = el("templateContent").value || "";
+      const found = [...content.matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map(m => Number(m[1]));
+      const unique = [...new Set(found)].sort((a,b)=>a-b);
+      return unique;
+    }
+
+    function syncParamsList(existing=[]){
+      const nums = getParamsFromContent();
+      const box = el("paramsList");
+      box.innerHTML = "";
+      if(!nums.length){
+        box.innerHTML = '<div class="status-text">لا توجد متغيرات في المحتوى.</div>';
+        return;
+      }
+      nums.forEach((n, idx) => {
+        const row = document.createElement("div");
+        row.className = "param-row";
+        row.innerHTML = `<span>{{${n}}}</span><input data-param="${n}" placeholder="اسم أو عينة المتغير" value="${escapeHtml(existing[idx] || "")}" />`;
+        box.appendChild(row);
+      });
+    }
+
+    function collectParams(){
+      return [...el("paramsList").querySelectorAll("input[data-param]")].map(i => i.value.trim()).filter(Boolean);
+    }
+
     function resetForm(){
       el("templateId").value = "";
       el("templateType").value = "mersal";
       el("templateName").value = "";
+      el("templateLabel").value = "";
+      el("templateLang").value = "ar";
+      el("headerType").value = "none";
       el("templateContent").value = "";
-      el("templateSamples").value = "";
       el("quickButtons").value = "";
       el("ctaButtons").value = "";
       el("templateSort").value = "100";
       el("templateActive").checked = true;
       el("templateApproved").checked = false;
       setDepartments([]);
+      syncParamsList([]);
       toggleApprovedField();
       updatePreview();
     }
 
     function toggleApprovedField(){
       el("approvedField").style.display = el("templateType").value === "mersal" ? "grid" : "none";
+      if(el("templateType").value === "quick") el("templateApproved").checked = true;
     }
 
     function updatePreview(){
       const content = el("templateContent").value.trim();
       el("templatePreview").textContent = content || "اكتب محتوى القالب لمعاينته هنا";
+      syncParamsList(collectParams());
     }
 
     function renderTemplates(){
@@ -332,9 +397,10 @@
         const approvedText = t.type === "mersal" ? (t.approved ? "معتمد" : "غير معتمد") : "رسالة جاهزة";
         div.innerHTML = `
           <div class="row">
-            <div class="template-item-title">${escapeHtml(t.name)}</div>
+            <div class="template-item-title">${escapeHtml(t.label || t.name)}</div>
             <span class="approval-badge ${t.approved ? "ok" : ""}">${approvedText}</span>
           </div>
+          <div class="status-text">${escapeHtml(t.name || "")}${t.lang ? " - " + escapeHtml(t.lang) : ""}</div>
           <div class="template-item-content">${escapeHtml(t.content)}</div>
           <div class="status-text">${(t.departments || []).map(departmentLabel).map(escapeHtml).join(" - ")}</div>
           <div class="actions">
@@ -346,26 +412,31 @@
       });
     }
 
-    el("templateForm").onsubmit = async (e) => {
-      e.preventDefault();
-
-      const name = el("templateName").value.trim();
-      const content = el("templateContent").value.trim();
+    async function saveTemplateFromForm(){
       const type = el("templateType").value;
+      const name = el("templateName").value.trim();
+      const label = el("templateLabel").value.trim();
+      const content = el("templateContent").value.trim();
       const departments = selectedDepartments();
 
-      if(!name) return toast("اكتب اسم القالب");
+      if(!name) return toast("اكتب اسم القالب في مرسال");
+      if(type === "mersal" && !/^[a-z0-9_]+$/.test(name)) return toast("اسم قالب مرسال يجب أن يكون حروف انجليزي صغيرة وأرقام و underscore فقط");
+      if(!label) return toast("اكتب الاسم الظاهر في السيستم");
       if(!content) return toast("اكتب محتوى القالب");
       if(!departments.length) return toast("اختر قسم واحد على الأقل");
 
+      const id = el("templateId").value || (type + "_" + name);
       const payload = {
         name,
+        label,
         content,
         type,
+        lang: el("templateLang").value || "ar",
+        headerType: el("headerType").value || "none",
         departments,
         active: el("templateActive").checked,
         approved: type === "mersal" ? el("templateApproved").checked : true,
-        samples: el("templateSamples").value.trim(),
+        params: collectParams(),
         quickButtons: parseButtons(el("quickButtons").value),
         ctaButtons: parseButtons(el("ctaButtons").value),
         sort: Number(el("templateSort").value || 100),
@@ -374,18 +445,46 @@
         updatedByEmail: currentUser.email
       };
 
-      const id = el("templateId").value;
-      if(id){
-        await setDoc(doc(db, "message_templates", id), payload, { merge:true });
-      } else {
-        payload.createdAt = serverTimestamp();
-        payload.createdByUid = currentUser.uid;
-        payload.createdByEmail = currentUser.email;
-        await addDoc(collection(db, "message_templates"), payload);
-      }
+      await setDoc(doc(db, "message_templates", id), {
+        ...payload,
+        createdAt: serverTimestamp()
+      }, { merge:true });
 
       resetForm();
       toast("تم الحفظ");
+    }
+
+    el("templateForm").onsubmit = async (e) => {
+      e.preventDefault();
+      await saveTemplateFromForm();
+    };
+
+    el("seedOfficialBtn").onclick = async () => {
+      for(let i=0; i<OFFICIAL_MERSAL_TEMPLATES.length; i++){
+        const t = OFFICIAL_MERSAL_TEMPLATES[i];
+        await setDoc(doc(db, "message_templates", "mersal_" + t.name), {
+          name: t.name,
+          label: t.label,
+          content: t.content,
+          type: "mersal",
+          lang: t.lang || "ar",
+          headerType: "none",
+          departments: t.audience || [],
+          legacyAudience: t.legacyAudience || [],
+          active: true,
+          approved: true,
+          editable: !!t.editable,
+          params: t.params || [],
+          quickButtons: [],
+          ctaButtons: [],
+          sort: i + 1,
+          officialMersal: true,
+          updatedAt: serverTimestamp(),
+          updatedByUid: currentUser.uid,
+          updatedByEmail: currentUser.email
+        }, { merge:true });
+      }
+      toast("تم تنزيل/تحديث قوالب مرسال الرسمية");
     };
 
     el("templatesList").onclick = async (e) => {
@@ -398,14 +497,17 @@
         el("templateId").value = t.id;
         el("templateType").value = t.type || "mersal";
         el("templateName").value = t.name || "";
+        el("templateLabel").value = t.label || t.name || "";
+        el("templateLang").value = t.lang || "ar";
+        el("headerType").value = t.headerType || "none";
         el("templateContent").value = t.content || "";
-        el("templateSamples").value = t.samples || "";
         el("quickButtons").value = (t.quickButtons || []).join(" | ");
         el("ctaButtons").value = (t.ctaButtons || []).join(" | ");
         el("templateSort").value = t.sort || 100;
         el("templateActive").checked = t.active !== false;
         el("templateApproved").checked = t.approved === true;
         setDepartments(t.departments || []);
+        syncParamsList(t.params || []);
         toggleApprovedField();
         updatePreview();
       }
