@@ -1,0 +1,600 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MZJ CRM - صندوق الوارد</title>
+  <link rel="stylesheet" href="./theme.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="logo-box">
+            <div class="logo-mark">MZJ</div>
+            <div>
+              <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+              <div class="status-text" id="connectionStatus">جاري الاتصال...</div>
+            </div>
+          </div>
+          <button class="secondary" id="refreshBtn">تحديث</button>
+        </div>
+        <select class="dept-select" id="departmentSelect">
+          <option value="cash_sales">مبيعات الكاش</option>
+          <option value="finance_sales">مبيعات التمويل</option>
+          <option value="customer_service">خدمة العملاء</option>
+          <option value="general_management">الإدارة العامة</option>
+        </select>
+      </div>
+
+      <div class="filters">
+        <input class="search" id="searchInput" placeholder="بحث باسم العميل أو رقم الجوال..." />
+        <div class="platforms" id="platformFilters">
+          <button class="chip active" data-platform="all">الكل</button>
+          <button class="chip" data-platform="whatsapp">واتساب</button>
+          <button class="chip" data-platform="instagram">انستجرام</button>
+          <button class="chip" data-platform="facebook">فيسبوك</button>
+          <button class="chip" data-platform="tiktok">تيك توك</button>
+        </div>
+      </div>
+
+      <div class="list" id="conversationList"></div>
+    </aside>
+
+    <main class="chat">
+      <div class="chat-head">
+        <div>
+          <button class="secondary hidden" id="backBtn">رجوع</button>
+          <div class="chat-title" id="chatTitle">اختر محادثة</div>
+          <div class="chat-sub" id="chatSub"></div>
+        </div>
+        <div class="head-actions">
+          <button class="purple" id="statusBtn">تحديد حالة العميل</button>
+          <button class="primary" id="editCustomerBtn">تحديث/إضافة بيانات العميل</button>
+        </div>
+      </div>
+
+      <section class="messages" id="messages">
+        <div class="empty">اختر محادثة من القائمة</div>
+      </section>
+
+      <section class="composer">
+        <div class="template-row">
+          <select class="search" id="mersalTemplates">
+            <option value="">قوالب مرسال</option>
+          </select>
+          <select class="search" id="quickReplies">
+            <option value="">رسائل جاهزة</option>
+          </select>
+        </div>
+        <textarea id="replyText" placeholder="اكتب الرد هنا..."></textarea>
+        <div class="send-row">
+          <span class="status-text" id="sendHint"></span>
+          <button class="primary" id="sendBtn">إرسال</button>
+        </div>
+      </section>
+    </main>
+
+    <aside class="customer" id="customerPanel">
+      <div class="customer-inner">
+        <div class="card">
+          <h3>اكتمال ملف العميل</h3>
+          <div class="progress"><div class="bar" id="completionBar"></div></div>
+          <div class="percent" id="completionText">0% مكتمل</div>
+        </div>
+
+        <div class="card">
+          <h3>بيانات العميل</h3>
+          <form id="customerForm">
+            <div class="field">
+              <label>حالة العميل</label>
+              <select name="clientStatus" id="clientStatusSelect">
+                <option value="">اختر حالة العميل</option>
+              </select>
+            </div>
+
+            <div class="field"><label>اسم العميل</label><input name="customerName" /></div>
+            <div class="grid2">
+              <div class="field"><label>رقم الجوال</label><input name="phone" /></div>
+              <div class="field"><label>العمر</label><input name="age" type="number" /></div>
+            </div>
+            <div class="grid2">
+              <div class="field"><label>الراتب</label><input name="salary" type="number" /></div>
+              <div class="field"><label>الالتزام إن وجد</label><input name="obligation" type="number" /></div>
+            </div>
+            <div class="field"><label>المكان</label><input name="location" /></div>
+            <div class="field"><label>نزول الراتب على أي بنك</label><input name="salaryBank" /></div>
+            <div class="grid2">
+              <div class="field"><label>نوع السيارة</label><input name="carType" /></div>
+              <div class="field"><label>الموديل</label><input name="carModel" /></div>
+            </div>
+            <div class="field"><label>اللون</label><input name="color" /></div>
+            <div class="field">
+              <label>نوع التمويل</label>
+              <select name="financeType">
+                <option value="">اختر</option>
+                <option value="عام 45%">عام 45%</option>
+                <option value="عقاري 65%">عقاري 65%</option>
+              </select>
+            </div>
+            <div class="field"><label>ملاحظات</label><textarea name="notes"></textarea></div>
+            <div class="field">
+              <label>إرفاق ملفات</label>
+              <input type="file" id="fileInput" multiple />
+              <div class="status-text" id="attachmentsHint"></div>
+            </div>
+            <button class="primary" type="submit" style="width:100%">حفظ بيانات العميل</button>
+          </form>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="modal-backdrop" id="statusModal">
+    <div class="modal">
+      <h2>تحديد حالة العميل</h2>
+      <div class="field">
+        <label>الحالة</label>
+        <select id="modalStatusSelect"></select>
+      </div>
+      <div class="field">
+        <label>ملاحظة</label>
+        <textarea id="statusNote"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="success" id="saveStatusBtn">حفظ الحالة</button>
+        <button class="secondary" id="closeStatusModal">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
+    import {
+      getFirestore, collection, doc, onSnapshot, query, orderBy, limit,
+      addDoc, setDoc, updateDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import {
+      getStorage, ref, uploadBytes, getDownloadURL
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    const appFirebase = initializeApp(firebaseConfig);
+    try { getAnalytics(appFirebase); } catch(e) {}
+    const db = getFirestore(appFirebase);
+    const storage = getStorage(appFirebase);
+
+    const PLATFORM_CONFIG = {
+      whatsapp:  { label:"واتساب",   conversations:"wa_conversations", outbox:"wa_outbox" },
+      instagram: { label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
+      facebook:  { label:"فيسبوك",   conversations:"fb_conversations", outbox:"fb_outbox" },
+      tiktok:    { label:"تيك توك",  conversations:"tt_conversations", outbox:"tt_outbox" }
+    };
+
+    const DEPARTMENTS = {
+      cash_sales:"مبيعات الكاش",
+      finance_sales:"مبيعات التمويل",
+      customer_service:"خدمة العملاء",
+      general_management:"الإدارة العامة"
+    };
+
+    const CLIENT_STATUSES = [
+      "جديد",
+      "قيد المتابعة",
+      "مهتم",
+      "غير مهتم",
+      "تم إرسال عرض",
+      "تم البيع",
+      "مؤجل"
+    ];
+
+    const CUSTOMER_FIELDS = [
+      "customerName","phone","salary","obligation","location","age","salaryBank",
+      "carType","carModel","color","notes","attachments","financeType"
+    ];
+
+    const state = {
+      conversations: [],
+      selected: null,
+      selectedPlatform: "all",
+      department: localStorage.getItem("mzj_department") || "cash_sales",
+      unsubConversations: [],
+      unsubMessages: null
+    };
+
+    const el = (id) => document.getElementById(id);
+    const conversationList = el("conversationList");
+    const messagesEl = el("messages");
+    const form = el("customerForm");
+
+    el("departmentSelect").value = state.department;
+
+    function toast(msg){
+      const t = el("toast"); t.textContent = msg; t.style.display = "block";
+      setTimeout(()=> t.style.display = "none", 2500);
+    }
+
+    function tsToDate(v){
+      if(!v) return null;
+      if(v.toDate) return v.toDate();
+      if(typeof v === "number") return new Date(v);
+      if(typeof v === "string") return new Date(v);
+      return null;
+    }
+
+    function formatTime(v){
+      const d = tsToDate(v);
+      if(!d || isNaN(d)) return "";
+      return d.toLocaleString("ar-EG", {hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit"});
+    }
+
+    function platformLabel(p){ return PLATFORM_CONFIG[p]?.label || p; }
+    function departmentLabel(d){ return DEPARTMENTS[d] || d; }
+
+    function getCustomerName(c){
+      return c.customerName || c.customer?.customerName || c.name || c.contactName || c.senderName || c.phone || "عميل بدون اسم";
+    }
+
+    function getPhone(c){ return c.phone || c.customer?.phone || c.customerPhone || c.from || c.sender || ""; }
+    function getLastText(c){ return c.lastMessage || c.lastText || c.preview || c.message || ""; }
+    function getClientStatus(c){ return c.clientStatus || c.customer?.clientStatus || ""; }
+
+    function normalizeConversation(platform, id, data){
+      return {
+        id, platform, ...data,
+        customerName: data.customerName || data.customer?.customerName || data.name || data.contactName || data.senderName || "",
+        phone: data.phone || data.customer?.phone || data.customerPhone || data.from || data.sender || "",
+        clientStatus: data.clientStatus || data.customer?.clientStatus || "",
+        department: data.department || data.customer?.department || "",
+        updatedAt: data.updatedAt || data.lastMessageAt || data.createdAt || null
+      };
+    }
+
+    function renderConversations(){
+      const search = el("searchInput").value.trim().toLowerCase();
+      let items = state.conversations.slice();
+
+      if(state.selectedPlatform !== "all") items = items.filter(c => c.platform === state.selectedPlatform);
+      if(state.department !== "general_management"){
+        items = items.filter(c => !c.department || c.department === state.department);
+      }
+      if(search){
+        items = items.filter(c =>
+          String(getCustomerName(c)).toLowerCase().includes(search) ||
+          String(getPhone(c)).toLowerCase().includes(search) ||
+          String(getClientStatus(c)).toLowerCase().includes(search)
+        );
+      }
+
+      items.sort((a,b) => (tsToDate(b.updatedAt)?.getTime() || 0) - (tsToDate(a.updatedAt)?.getTime() || 0));
+      conversationList.innerHTML = items.length ? "" : '<div class="empty">لا توجد محادثات</div>';
+
+      items.forEach(c => {
+        const div = document.createElement("div");
+        div.className = "conv" + (state.selected?.id === c.id && state.selected?.platform === c.platform ? " active" : "");
+        const status = getClientStatus(c);
+        div.innerHTML = `
+          <div class="row">
+            <div class="name">${escapeHtml(getCustomerName(c))}</div>
+            <span class="badge ${c.platform}">${platformLabel(c.platform)}</span>
+          </div>
+          <div class="preview">${escapeHtml(getLastText(c))}</div>
+          <div class="row">
+            <span class="time">${escapeHtml(getPhone(c))}</span>
+            ${status ? `<span class="client-status">${escapeHtml(status)}</span>` : `<span class="time">${formatTime(c.updatedAt)}</span>`}
+          </div>`;
+        div.onclick = () => selectConversation(c);
+        conversationList.appendChild(div);
+      });
+    }
+
+    function selectConversation(c){
+      state.selected = c;
+      el("app").classList.add("chat-open");
+      el("backBtn").classList.remove("hidden");
+      el("chatTitle").textContent = getCustomerName(c);
+      el("chatSub").textContent = `${platformLabel(c.platform)} - ${departmentLabel(state.department)}${getClientStatus(c) ? " - " + getClientStatus(c) : ""}`;
+      fillCustomerForm(c.customer || c);
+      renderConversations();
+      listenMessages(c);
+    }
+
+    function listenConversations(){
+      state.unsubConversations.forEach(u => u());
+      state.unsubConversations = [];
+      state.conversations = [];
+
+      Object.entries(PLATFORM_CONFIG).forEach(([platform, cfg]) => {
+        const q = query(collection(db, cfg.conversations), orderBy("updatedAt", "desc"), limit(200));
+        const unsub = onSnapshot(q, snap => {
+          state.conversations = state.conversations.filter(c => c.platform !== platform);
+          snap.forEach(d => state.conversations.push(normalizeConversation(platform, d.id, d.data())));
+          el("connectionStatus").textContent = "متصل لايف";
+          renderConversations();
+        }, err => {
+          console.error(err);
+          el("connectionStatus").textContent = "خطأ في الاتصال";
+        });
+        state.unsubConversations.push(unsub);
+      });
+    }
+
+    function listenMessages(c){
+      if(state.unsubMessages) state.unsubMessages();
+      messagesEl.innerHTML = '<div class="empty">جاري التحميل...</div>';
+
+      const cfg = PLATFORM_CONFIG[c.platform];
+      const q = query(collection(db, cfg.conversations, c.id, "messages"), orderBy("createdAt", "asc"), limit(300));
+
+      state.unsubMessages = onSnapshot(q, snap => {
+        messagesEl.innerHTML = "";
+        if(snap.empty){
+          messagesEl.innerHTML = '<div class="empty">لا توجد رسائل</div>';
+          return;
+        }
+        snap.forEach(d => {
+          const m = d.data();
+          const outgoing = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
+          const div = document.createElement("div");
+          div.className = "msg " + (outgoing ? "out" : "in");
+          div.innerHTML = `
+            ${escapeHtml(m.text || m.body || m.message || "")}
+            <div class="msg-meta">${outgoing ? "أنت" : "العميل"} - ${formatTime(m.createdAt || m.timestamp)}</div>
+          `;
+          messagesEl.appendChild(div);
+        });
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }, err => {
+        console.error(err);
+        messagesEl.innerHTML = '<div class="empty">تعذر تحميل الرسائل</div>';
+      });
+    }
+
+    async function sendReply(){
+      const c = state.selected;
+      const text = el("replyText").value.trim();
+      if(!c) return toast("اختر محادثة أولاً");
+      if(!text) return toast("اكتب الرسالة أولاً");
+
+      const cfg = PLATFORM_CONFIG[c.platform];
+      const payload = {
+        conversationId: c.id,
+        platform: c.platform,
+        department: state.department,
+        to: getPhone(c),
+        text,
+        status: "pending",
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, cfg.outbox), payload);
+
+      await addDoc(collection(db, cfg.conversations, c.id, "messages"), {
+        text,
+        direction: "outgoing",
+        fromAgent: true,
+        department: state.department,
+        createdAt: serverTimestamp(),
+        status: "pending"
+      });
+
+      await updateDoc(doc(db, cfg.conversations, c.id), {
+        lastMessage: text,
+        department: state.department,
+        updatedAt: serverTimestamp()
+      }).catch(()=>{});
+
+      el("replyText").value = "";
+      toast("تم الإرسال");
+    }
+
+    function fillCustomerForm(data = {}){
+      CUSTOMER_FIELDS.forEach(f => {
+        const input = form.elements[f];
+        if(input && f !== "attachments") input.value = data[f] || "";
+      });
+      form.elements.clientStatus.value = data.clientStatus || "";
+      const attachments = data.attachments || [];
+      el("attachmentsHint").textContent = attachments.length ? `الملفات: ${attachments.length}` : "";
+      updateCompletion(data);
+    }
+
+    function getFormData(){
+      const fd = new FormData(form);
+      const data = {};
+      CUSTOMER_FIELDS.forEach(f => {
+        if(f !== "attachments") data[f] = (fd.get(f) || "").toString().trim();
+      });
+      data.clientStatus = (fd.get("clientStatus") || "").toString().trim();
+      data.department = state.department;
+      return data;
+    }
+
+    function updateCompletion(data){
+      const filled = CUSTOMER_FIELDS.filter(f => {
+        const v = data[f];
+        return Array.isArray(v) ? v.length : String(v || "").trim();
+      }).length;
+      const percent = Math.round((filled / CUSTOMER_FIELDS.length) * 100);
+      el("completionBar").style.width = percent + "%";
+      el("completionText").textContent = `${percent}% مكتمل`;
+      return percent;
+    }
+
+    async function saveCustomer(e){
+      e.preventDefault();
+      const c = state.selected;
+      if(!c) return toast("اختر محادثة أولاً");
+
+      const cfg = PLATFORM_CONFIG[c.platform];
+      const data = getFormData();
+      const files = Array.from(el("fileInput").files || []);
+
+      let attachments = c.attachments || c.customer?.attachments || [];
+      for(const file of files){
+        const path = `customers/${c.platform}/${c.id}/${Date.now()}-${file.name}`;
+        const fileRef = ref(storage, path);
+        await uploadBytes(fileRef, file);
+        const url = await getDownloadURL(fileRef);
+        attachments.push({ name:file.name, url, path, uploadedAt:new Date().toISOString() });
+      }
+
+      data.attachments = attachments;
+      data.profileCompletion = updateCompletion(data);
+      data.updatedAt = serverTimestamp();
+
+      await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), {
+        ...data,
+        conversationId: c.id,
+        platform: c.platform
+      }, { merge:true });
+
+      await setDoc(doc(db, cfg.conversations, c.id), {
+        customer: data,
+        customerName: data.customerName,
+        phone: data.phone,
+        clientStatus: data.clientStatus,
+        department: data.department,
+        profileCompletion: data.profileCompletion,
+        updatedAt: serverTimestamp()
+      }, { merge:true });
+
+      state.selected = { ...state.selected, ...data, customer:data };
+      toast("تم الحفظ");
+    }
+
+    function openStatusModal(){
+      if(!state.selected) return toast("اختر محادثة أولاً");
+      el("modalStatusSelect").value = getClientStatus(state.selected);
+      el("statusNote").value = "";
+      el("statusModal").style.display = "grid";
+    }
+
+    function closeStatusModal(){
+      el("statusModal").style.display = "none";
+    }
+
+    async function saveClientStatus(){
+      const c = state.selected;
+      if(!c) return toast("اختر محادثة أولاً");
+
+      const newStatus = el("modalStatusSelect").value;
+      const note = el("statusNote").value.trim();
+      if(!newStatus) return toast("اختر حالة العميل");
+
+      const cfg = PLATFORM_CONFIG[c.platform];
+
+      await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), {
+        clientStatus: newStatus,
+        department: state.department,
+        statusUpdatedAt: serverTimestamp(),
+        lastStatusNote: note,
+        conversationId: c.id,
+        platform: c.platform
+      }, { merge:true });
+
+      await setDoc(doc(db, cfg.conversations, c.id), {
+        clientStatus: newStatus,
+        "customer.clientStatus": newStatus,
+        department: state.department,
+        statusUpdatedAt: serverTimestamp(),
+        lastStatusNote: note,
+        updatedAt: serverTimestamp()
+      }, { merge:true });
+
+      await addDoc(collection(db, cfg.conversations, c.id, "status_history"), {
+        status: newStatus,
+        note,
+        department: state.department,
+        createdAt: serverTimestamp()
+      });
+
+      state.selected.clientStatus = newStatus;
+      state.selected.customer = { ...(state.selected.customer || {}), clientStatus:newStatus };
+      form.elements.clientStatus.value = newStatus;
+      closeStatusModal();
+      renderConversations();
+      toast("تم تحديث الحالة");
+    }
+
+    function escapeHtml(str){
+      return String(str ?? "").replace(/[&<>"']/g, s => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[s]));
+    }
+
+    function fillSelect(select, placeholder, items){
+      select.innerHTML = "";
+      select.append(new Option(placeholder, ""));
+      items.forEach(t => select.append(new Option(t, t)));
+    }
+
+    function addTemplateOptions(){
+      const mersalTemplates = [
+        "مرحباً، نحتاج استكمال بياناتك لإتمام الطلب.",
+        "فضلاً أرسل صورة الهوية ورخصة القيادة.",
+        "تم استلام طلبك وسيتم التواصل معك قريباً."
+      ];
+      const quickReplies = [
+        "أهلاً وسهلاً، كيف نقدر نخدمك؟",
+        "ممكن ترسل رقم الجوال للتواصل؟",
+        "تم تحويل طلبك للمختص وسيتم الرد عليك."
+      ];
+
+      fillSelect(el("mersalTemplates"), "قوالب مرسال", mersalTemplates);
+      fillSelect(el("quickReplies"), "رسائل جاهزة", quickReplies);
+      fillSelect(el("modalStatusSelect"), "اختر حالة العميل", CLIENT_STATUSES);
+      fillSelect(el("clientStatusSelect"), "اختر حالة العميل", CLIENT_STATUSES);
+    }
+
+    el("sendBtn").onclick = sendReply;
+    form.onsubmit = saveCustomer;
+    el("refreshBtn").onclick = listenConversations;
+    el("searchInput").oninput = renderConversations;
+    el("editCustomerBtn").onclick = () => el("customerPanel")?.scrollTo({top:0, behavior:"smooth"});
+    el("statusBtn").onclick = openStatusModal;
+    el("closeStatusModal").onclick = closeStatusModal;
+    el("saveStatusBtn").onclick = saveClientStatus;
+    el("backBtn").onclick = () => el("app").classList.remove("chat-open");
+
+    el("departmentSelect").onchange = (e) => {
+      state.department = e.target.value;
+      localStorage.setItem("mzj_department", state.department);
+      if(state.selected){
+        el("chatSub").textContent = `${platformLabel(state.selected.platform)} - ${departmentLabel(state.department)}${getClientStatus(state.selected) ? " - " + getClientStatus(state.selected) : ""}`;
+      }
+      renderConversations();
+    };
+
+    el("platformFilters").onclick = (e) => {
+      const btn = e.target.closest(".chip");
+      if(!btn) return;
+      document.querySelectorAll(".chip").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.selectedPlatform = btn.dataset.platform;
+      renderConversations();
+    };
+
+    el("mersalTemplates").onchange = e => { if(e.target.value) el("replyText").value = e.target.value; };
+    el("quickReplies").onchange = e => { if(e.target.value) el("replyText").value = e.target.value; };
+    form.oninput = () => updateCompletion({...getFormData(), attachments: state.selected?.customer?.attachments || state.selected?.attachments || []});
+
+    addTemplateOptions();
+    listenConversations();
+  </script>
+</body>
+</html>
