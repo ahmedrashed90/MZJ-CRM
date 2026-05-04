@@ -20,6 +20,7 @@
 
 
 
+
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6086,8 +6087,8 @@ try{
 
   function shouldAssignCallCenterForService(serviceKey){
     const key = String(serviceKey || "").trim().toLowerCase();
-    // تاب الكول سنتر يعرض عملاء التمويل وخدمة العملاء؛ لذلك أي عميل يدخل هذا التاب لازم يكون مربوط بمندوب كول سنتر.
-    return key === "finance" || key === "cs";
+    // حسب المطلوب: عملاء التمويل فقط يدخلون تاب الكول سنتر بجانب تاب العملاء المحتملون - تمويل.
+    return key === "finance";
   }
 
   function pickConfiguredAgentForService(serviceKey, preferredUid=""){
@@ -6104,8 +6105,7 @@ try{
       autoService: key,
       serviceKey: key,
       ...(key ? (getPayTypeLabelByServiceKey(key) ? { paymentType: getPayTypeLabelByServiceKey(key), payType: getPayTypeLabelByServiceKey(key) } : {}) : {}),
-      leadStatusId: "",
-      leadStatusName: "—",
+      ...getServiceStatusPatch(key),
       updatedAt: nowIso
     };
 
@@ -6189,6 +6189,7 @@ try{
       autoService: key,
       serviceKey: key,
       ...(getPayTypeLabelByServiceKey(key) ? { paymentType: getPayTypeLabelByServiceKey(key), payType: getPayTypeLabelByServiceKey(key) } : {}),
+      ...getServiceStatusPatch(key),
       updatedAt: nowIso
     };
     if(needsSales && salesUid){
@@ -6378,6 +6379,7 @@ async function assignConversationToBranchRandom(convId, branchName){
       autoService: serviceKey,
       serviceKey: serviceKey,
       ...(payTypeLabel ? { paymentType: payTypeLabel, payType: payTypeLabel } : {}),
+      ...getServiceStatusPatch(serviceKey),
 
       salesAssignedTo: salesUid,
       salesAssignedName: String(salesPick?.name || salesPick?.email || salesUid),
@@ -7035,7 +7037,8 @@ scroller.addEventListener("scroll", ()=>{
           const servicePatch = existingServiceKey ? {
             autoService: existingServiceKey,
             serviceKey: existingServiceKey,
-            ...(existingPayLabel ? { paymentType: existingPayLabel, payType: existingPayLabel } : {})
+            ...(existingPayLabel ? { paymentType: existingPayLabel, payType: existingPayLabel } : {}),
+            ...getServiceStatusPatch(existingServiceKey)
           } : {};
           await setDoc(doc(db, "leads", leadId), {
             ...servicePatch,
@@ -7055,7 +7058,8 @@ scroller.addEventListener("scroll", ()=>{
         const assignedTo = String(safeSalesPick?.uid || safeSalesPick?.id || conv.salesAssignedTo || conv.assignedTo || "").trim();
         const assignedName = String(safeSalesPick?.name || conv.salesAssignedName || conv.assignedName || assignedTo || "").trim();
         const _rawCh = (conv.channel || conv.platform || conv.source || "");
-        const source = normalizeSourceLabel(_rawCh || (isIG?"instagram":(isFB?"facebook":"whatsapp")));
+        const isWA = /wa|whatsapp|واتساب/i.test(String(_rawCh || conv.waId || ""));
+        const source = isWA ? "واتساب" : normalizeSourceLabel(_rawCh || (isIG?"instagram":(isFB?"facebook":"whatsapp")));
 
         const newLeadAssign = getDefaultAssignmentForNewLead(
           convServiceKey,
@@ -9131,6 +9135,18 @@ function sortStatusesByCustomOrder(list){
     if(key === "cash") return "كاش";
     if(key === "cs") return "خدمة عملاء";
     return "";
+  }
+
+  function getServiceStatusPatch(serviceKey){
+    const label = getPayTypeLabelByServiceKey(serviceKey);
+    if(!label) return {};
+    return {
+      leadStatusId: "",
+      leadStatusName: label,
+      status: label,
+      leadStatus: label,
+      currentStatus: label
+    };
   }
 
   function normalizeLeadPaymentFieldsByService(serviceKey){
@@ -12981,7 +12997,8 @@ function bindTasksUI(){
       const phoneNorm = normalizePhone(phoneRaw).replace(/^\+/, "");
       const participantId = String(conv.participantId || conv.participant_id || conv.senderId || conv.fbId || conv.igUserId || conv.igId || conv.customerHandle || "").trim();
       const contactKey = String(conv.contactKey || conv.conversationId || convId || participantId || phoneNorm || "").trim();
-      const source = normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp");
+      const isWAConv = /wa|whatsapp|واتساب/i.test(String(conv.channel || conv.platform || conv.source || conv.waId || ""));
+      const source = isWAConv ? "واتساب" : normalizeSourceLabel(conv.channel || conv.platform || conv.source || "whatsapp");
       const inferredServiceKey = getLeadServiceKey({
         source,
         channel: conv.channel || conv.platform || "whatsapp",
@@ -13041,8 +13058,13 @@ function bindTasksUI(){
           serviceKey: serviceKey || String(newLeadAssign.serviceKey || ""),
           ...(getPayTypeLabelByServiceKey(serviceKey || newLeadAssign.autoService || "") ? { paymentType: getPayTypeLabelByServiceKey(serviceKey || newLeadAssign.autoService || ""), payType: getPayTypeLabelByServiceKey(serviceKey || newLeadAssign.autoService || "") } : {}),
           ...newLeadAssign,
-          leadStatusId: String(conv.leadStatusId || ""),
-          leadStatusName: String(conv.leadStatusName || "—"),
+          ...(String(conv.leadStatusName || conv.status || "").trim() ? {
+            leadStatusId: String(conv.leadStatusId || ""),
+            leadStatusName: String(conv.leadStatusName || conv.status || ""),
+            status: String(conv.status || conv.leadStatusName || ""),
+            leadStatus: String(conv.leadStatusName || conv.status || ""),
+            currentStatus: String(conv.leadStatusName || conv.status || "")
+          } : getServiceStatusPatch(serviceKey || newLeadAssign.autoService || "")),
           convId: convId,
           updatedAt: new Date().toISOString()
         };
@@ -13082,14 +13104,20 @@ function bindTasksUI(){
               autoService: patchServiceKey,
               serviceKey: patchServiceKey,
               ...(getPayTypeLabelByServiceKey(patchServiceKey) ? { paymentType: getPayTypeLabelByServiceKey(patchServiceKey), payType: getPayTypeLabelByServiceKey(patchServiceKey) } : {}),
+              ...getServiceStatusPatch(patchServiceKey),
               salesAssignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
               salesAssignedName: String(conv.salesAssignedName || conv.assignedName || ""),
               assignedTo: String(conv.salesAssignedTo || conv.assignedTo || ""),
               assignedName: String(conv.salesAssignedName || conv.assignedName || ""),
               callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
               callCenterAssignedName: String(conv.callCenterAssignedName || ""),
-              leadStatusId: String(conv.leadStatusId || ""),
-              leadStatusName: String(conv.leadStatusName || "—"),
+              ...(String(conv.leadStatusName || conv.status || "").trim() ? {
+                leadStatusId: String(conv.leadStatusId || ""),
+                leadStatusName: String(conv.leadStatusName || conv.status || ""),
+                status: String(conv.status || conv.leadStatusName || ""),
+                leadStatus: String(conv.leadStatusName || conv.status || ""),
+                currentStatus: String(conv.leadStatusName || conv.status || "")
+              } : {}),
               branchId: String(conv.branchId || "")
             }
           : {
@@ -13097,8 +13125,13 @@ function bindTasksUI(){
               serviceKey: "",
               callCenterAssignedTo: String(conv.callCenterAssignedTo || conv.callcenterAssignedTo || ""),
               callCenterAssignedName: String(conv.callCenterAssignedName || ""),
-              leadStatusId: String(conv.leadStatusId || ""),
-              leadStatusName: String(conv.leadStatusName || "—")
+              ...(String(conv.leadStatusName || conv.status || "").trim() ? {
+                leadStatusId: String(conv.leadStatusId || ""),
+                leadStatusName: String(conv.leadStatusName || conv.status || ""),
+                status: String(conv.status || conv.leadStatusName || ""),
+                leadStatus: String(conv.leadStatusName || conv.status || ""),
+                currentStatus: String(conv.leadStatusName || conv.status || "")
+              } : {})
             };
         const patch = {
           ...patchBaseAssign,
