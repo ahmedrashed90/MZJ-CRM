@@ -10105,35 +10105,40 @@ function updateLeadsTableColumns(viewMode="customers"){
     const rows = Array.isArray(ccImportRows) ? ccImportRows : [];
     if(!rows.length) return toast("لا توجد صفوف للاستيراد", "warn");
     const nowIso = new Date().toISOString();
-    let created = 0, updated = 0, skipped = 0;
+    let created = 0, skipped = 0, duplicateInSheet = 0, duplicateInSystem = 0;
+    const seenPhones = new Set();
     const importedIds = [];
     for(const row of rows){
       const patch = ccBuildLeadPatchFromRow(row, maps, nowIso);
       if(!patch.name || patch.name === "—" || !patch.phoneNormalized){ skipped++; continue; }
+
+      // منع تكرار نفس رقم الجوال داخل نفس الشيت المختار
+      if(seenPhones.has(patch.phoneNormalized)){
+        duplicateInSheet++;
+        continue;
+      }
+      seenPhones.add(patch.phoneNormalized);
+
+      // منع إدخال أي عميل موجود بالفعل في السيستم بنفس رقم الجوال
       const existing = await ccFindExistingLeadByPhone(patch.phoneNormalized);
-      const leadId = existing?.id || ("excel_finance_" + patch.phoneNormalized);
-      const merged = { ...(existing?.data || {}), ...patch };
-      const currentSalesUid = String(getSalesAssignedUidFromLead(merged) || "").trim();
-      const currentSalesAgent = currentSalesUid ? (agentsUidMap.get(currentSalesUid) || agentsMap.get(currentSalesUid) || findAgentByAnyRef(currentSalesUid)) : findAgentByAnyRef(merged.salesAssignedName || merged.assignedName || "");
-      const missingSales = !currentSalesUid;
-      const wrongSalesDept = !!currentSalesAgent && !isStrictSalesAgentForService(currentSalesAgent, "finance");
-      const missingCall = !String(getCallCenterAssignedUidFromLead(merged) || "").trim();
+      if(existing){
+        duplicateInSystem++;
+        continue;
+      }
+
+      const leadId = "excel_finance_" + patch.phoneNormalized;
       const assignPatch = getDefaultAssignmentForNewLead("finance");
-      const finalPatch = { ...patch };
-      if(!existing?.data?.createdAt) finalPatch.createdAt = nowIso;
-      // استيراد الكول سنتر لازم يفضل تمويل: لو الليد موجود وممسوك بمندوب كاش، ننقله لمندوب تمويل صحيح.
-      if(missingSales || wrongSalesDept){
-        ["salesAssignedTo","salesAssignedName","assignedTo","assignedName","branchId","assignedAt","assignedBy"].forEach(k=>{ if(assignPatch[k]) finalPatch[k]=assignPatch[k]; });
-      }
-      if(missingCall){
-        ["callCenterAssignedTo","callCenterAssignedName","callCenterAssignedAt"].forEach(k=>{ if(assignPatch[k]) finalPatch[k]=assignPatch[k]; });
-      }
+      const finalPatch = { ...patch, createdAt: nowIso };
+      ["salesAssignedTo","salesAssignedName","assignedTo","assignedName","branchId","assignedAt","assignedBy","callCenterAssignedTo","callCenterAssignedName","callCenterAssignedAt"].forEach(k=>{
+        if(assignPatch[k]) finalPatch[k] = assignPatch[k];
+      });
+
       await setDoc(doc(db,"leads",leadId), finalPatch, { merge:true });
       importedIds.push(leadId);
-      if(existing) updated++; else created++;
+      created++;
     }
     try{ await autoAssignMissingFinanceCallCenterLeads(importedIds.map(id=>({id, data:(leadsCache.find(x=>x.id===id)?.data || {})}))); }catch(e){ console.warn("cc auto assign", e); }
-    toast(`تم الاستيراد: جديد ${created} / تحديث ${updated} / متروك ${skipped}`, "ok");
+    toast(`تم الاستيراد: جديد ${created} / مكرر داخل الشيت ${duplicateInSheet} / مكرر في السيستم ${duplicateInSystem} / متروك ${skipped}`, "ok");
     ccCloseImportModal();
     try{ ensureLeadsLive(); applyLeadFilters(); }catch(e){}
   }
