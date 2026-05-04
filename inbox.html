@@ -71,7 +71,7 @@
           </div>
         </div>
 
-        <div class="mersal-inbox-layout">
+        <div class="mersal-inbox-layout old-crm-layout">
           <aside class="mersal-conversations-panel">
             <div class="mersal-panel-head"><b>المحادثات</b><span id="convCount">0</span></div>
             <div class="mersal-filters">
@@ -133,6 +133,91 @@
               <button class="primary" id="sendBtn" type="button">إرسال</button>
             </div>
           </section>
+
+          <aside class="customer-profile-panel" id="customerPanel">
+            <div class="completion-card">
+              <h3>اكتمال ملف العميل</h3>
+              <div class="completion-bar"><span id="completionBar"></span></div>
+              <div class="completion-percent" id="completionPercent">0% مكتمل</div>
+            </div>
+
+            <div class="customer-card">
+              <h3>بيانات العميل</h3>
+              <form id="customerForm">
+                <label>حالة العميل</label>
+                <select id="clientStatus">
+                  <option value="">اختر حالة العميل</option>
+                  <option>عميل جديد</option>
+                  <option>قيد المتابعة</option>
+                  <option>مهتم</option>
+                  <option>غير مهتم</option>
+                  <option>تم إرسال عرض</option>
+                  <option>تم البيع</option>
+                  <option>مؤجل</option>
+                </select>
+
+                <label>اسم العميل</label>
+                <input id="customerNameInput" placeholder="اسم العميل" />
+
+                <div class="two-cols">
+                  <div>
+                    <label>رقم الجوال</label>
+                    <input id="customerPhoneInput" placeholder="رقم الجوال" />
+                  </div>
+                  <div>
+                    <label>العمر</label>
+                    <input id="ageInput" placeholder="العمر" />
+                  </div>
+                </div>
+
+                <div class="two-cols">
+                  <div>
+                    <label>الراتب</label>
+                    <input id="salaryInput" placeholder="الراتب" />
+                  </div>
+                  <div>
+                    <label>الالتزام إن وجد</label>
+                    <input id="commitmentInput" placeholder="الالتزام" />
+                  </div>
+                </div>
+
+                <label>المكان</label>
+                <input id="placeInput" placeholder="المكان" />
+
+                <label>نزول الراتب على أي بنك</label>
+                <input id="bankInput" placeholder="البنك" />
+
+                <div class="two-cols">
+                  <div>
+                    <label>نوع السيارة</label>
+                    <input id="carTypeInput" placeholder="نوع السيارة" />
+                  </div>
+                  <div>
+                    <label>الموديل</label>
+                    <input id="modelInput" placeholder="الموديل" />
+                  </div>
+                </div>
+
+                <label>اللون</label>
+                <input id="colorInput" placeholder="اللون" />
+
+                <label>نوع التمويل</label>
+                <select id="financeTypeInput">
+                  <option value="">اختر</option>
+                  <option value="عام 45%">عام 45%</option>
+                  <option value="عقاري 65%">عقاري 65%</option>
+                </select>
+
+                <label>ملاحظات</label>
+                <textarea id="notesInput" placeholder="ملاحظات"></textarea>
+
+                <label>روابط أو ملاحظات الملفات</label>
+                <textarea id="filesInput" placeholder="اكتب روابط الملفات أو ملاحظات المرفقات هنا"></textarea>
+
+                <button class="primary full" type="submit">حفظ بيانات العميل</button>
+              </form>
+            </div>
+          </aside>
         </div>
       </section>
     </main>
@@ -144,7 +229,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import { getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, addDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, addDoc, setDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
@@ -376,6 +461,127 @@
       el("leadDept").textContent = deptLabel(getConvDept(c));
       el("leadPhone").textContent = phone || "—";
       el("leadStatus").textContent = c.status || "open";
+      loadCustomerPanel(c);
+    }
+
+    const customerFields = [
+      "clientStatus","customerNameInput","customerPhoneInput","ageInput","salaryInput",
+      "commitmentInput","placeInput","bankInput","carTypeInput","modelInput","colorInput",
+      "financeTypeInput","notesInput","filesInput"
+    ];
+
+    function customerFieldValues(){
+      const data = {};
+      customerFields.forEach(id => data[id] = el(id)?.value?.trim() || "");
+      return data;
+    }
+
+    function calculateCompletion(){
+      const values = customerFieldValues();
+      const countable = Object.keys(values).filter(k => k !== "filesInput");
+      const filled = countable.filter(k => values[k]).length;
+      const pct = Math.round((filled / countable.length) * 100);
+      el("completionBar").style.width = pct + "%";
+      el("completionPercent").textContent = pct + "% مكتمل";
+    }
+
+    function setCustomerValue(id, value){
+      const node = el(id);
+      if(node) node.value = value || "";
+    }
+
+    async function loadCustomerPanel(c){
+      const phone = getConvPhone(c);
+      setCustomerValue("clientStatus", c.clientStatus || c.statusLabel || "");
+      setCustomerValue("customerNameInput", getConvName(c));
+      setCustomerValue("customerPhoneInput", phone);
+      setCustomerValue("ageInput", "");
+      setCustomerValue("salaryInput", "");
+      setCustomerValue("commitmentInput", "");
+      setCustomerValue("placeInput", c.place || c.location || "");
+      setCustomerValue("bankInput", "");
+      setCustomerValue("carTypeInput", c.carType || c.carName || "");
+      setCustomerValue("modelInput", c.model || "");
+      setCustomerValue("colorInput", c.color || "");
+      setCustomerValue("financeTypeInput", c.financeType || "");
+      setCustomerValue("notesInput", c.notes || "");
+      setCustomerValue("filesInput", c.filesNotes || "");
+
+      try{
+        if(phone){
+          const leadSnap = await getDoc(doc(db, "leads", phone));
+          if(leadSnap.exists()){
+            const lead = leadSnap.data();
+            setCustomerValue("clientStatus", lead.status || lead.clientStatus || el("clientStatus").value);
+            setCustomerValue("customerNameInput", lead.customerName || lead.name || el("customerNameInput").value);
+            setCustomerValue("customerPhoneInput", lead.phone || phone);
+            setCustomerValue("ageInput", lead.age || "");
+            setCustomerValue("salaryInput", lead.salary || "");
+            setCustomerValue("commitmentInput", lead.commitment || "");
+            setCustomerValue("placeInput", lead.place || lead.location || el("placeInput").value);
+            setCustomerValue("bankInput", lead.bank || lead.salaryBank || "");
+            setCustomerValue("carTypeInput", lead.carType || lead.carName || "");
+            setCustomerValue("modelInput", lead.model || "");
+            setCustomerValue("colorInput", lead.color || "");
+            setCustomerValue("financeTypeInput", lead.financeType || "");
+            setCustomerValue("notesInput", lead.notes || "");
+            setCustomerValue("filesInput", lead.filesNotes || "");
+          }
+        }
+      }catch(err){
+        console.warn("lead load failed", err);
+      }
+
+      calculateCompletion();
+    }
+
+    async function saveCustomerData(e){
+      e.preventDefault();
+      if(!state.selected) return toast("اختر محادثة أولاً");
+
+      const phone = getConvPhone(state.selected);
+      if(!phone) return toast("رقم الجوال غير موجود");
+
+      const payload = {
+        customerName: el("customerNameInput").value.trim(),
+        name: el("customerNameInput").value.trim(),
+        phone,
+        status: el("clientStatus").value,
+        clientStatus: el("clientStatus").value,
+        age: el("ageInput").value.trim(),
+        salary: el("salaryInput").value.trim(),
+        commitment: el("commitmentInput").value.trim(),
+        place: el("placeInput").value.trim(),
+        location: el("placeInput").value.trim(),
+        bank: el("bankInput").value.trim(),
+        carType: el("carTypeInput").value.trim(),
+        carName: el("carTypeInput").value.trim(),
+        model: el("modelInput").value.trim(),
+        color: el("colorInput").value.trim(),
+        financeType: el("financeTypeInput").value,
+        notes: el("notesInput").value.trim(),
+        filesNotes: el("filesInput").value.trim(),
+        source: "whatsapp",
+        channel: "whatsapp",
+        convId: state.selected.id,
+        department: getConvDept(state.selected),
+        payment: deptLabel(getConvDept(state.selected)),
+        lastUpdated: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedByUid: state.user.uid,
+        updatedByEmail: state.user.email
+      };
+
+      await updateDoc(doc(db, "wa_conversations", state.selected.id), {
+        displayName: payload.customerName || state.selected.displayName || phone,
+        clientStatus: payload.clientStatus,
+        updatedAt: serverTimestamp()
+      });
+
+      // setDoc merge is needed for leads/{waId}; import setDoc was added below.
+      await setDoc(doc(db, "leads", phone), payload, { merge:true });
+      calculateCompletion();
+      toast("تم حفظ بيانات العميل");
     }
 
     function isOutgoingMessage(m){
@@ -648,6 +854,15 @@
       renderTemplateParams(null);
       autoResizeReply();
     };
+
+    el("customerForm").addEventListener("submit", saveCustomerData);
+    customerFields.forEach(id => {
+      const node = el(id);
+      if(node){
+        node.addEventListener("input", calculateCompletion);
+        node.addEventListener("change", calculateCompletion);
+      }
+    });
 
     el("replyText").addEventListener("input", autoResizeReply);
     el("replyText").addEventListener("keydown", (e) => {
