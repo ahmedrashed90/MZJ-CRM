@@ -1,0 +1,441 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MZJ CRM - القوالب والرسائل الجاهزة</title>
+  <link rel="stylesheet" href="./theme.css" />
+</head>
+<body>
+  <section class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="logo-mark">MZJ</div>
+        <div>
+          <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+          <p>تسجيل الدخول إلى نظام CRM</p>
+        </div>
+      </div>
+      <form class="login-form" id="loginForm">
+        <input id="loginEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required />
+        <input id="loginPassword" type="password" placeholder="كلمة المرور" autocomplete="current-password" required />
+        <div class="login-error" id="loginError"></div>
+        <button class="primary" type="submit">تسجيل الدخول</button>
+      </form>
+    </div>
+  </section>
+
+  <div class="template-layout hidden" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="logo-box">
+            <div class="logo-mark">MZJ</div>
+            <div>
+              <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+              <div class="status-text" id="userInfo"></div>
+            </div>
+          </div>
+          <button class="secondary" id="logoutBtn">خروج</button>
+        </div>
+        <div class="nav-tabs">
+          <a href="./index.html">صندوق الوارد</a>
+          <a href="./statuses.html">حالات العملاء</a>
+          <a href="./templates.html" class="active">القوالب والرسائل الجاهزة</a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="template-main">
+      <div class="template-grid">
+        <div class="card">
+          <div class="template-card-title">
+            <h3>معاينة القالب</h3>
+          </div>
+          <div class="preview-box">
+            <div class="whatsapp-preview" id="templatePreview"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="template-card-title">
+            <h3>النموذج</h3>
+            <button class="secondary" id="resetBtn">جديد</button>
+          </div>
+
+          <form id="templateForm">
+            <input type="hidden" id="templateId" />
+
+            <div class="grid2">
+              <div class="field">
+                <label>نوع الرسالة</label>
+                <select id="templateType">
+                  <option value="mersal">قالب مرسال</option>
+                  <option value="quick">رسالة جاهزة</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>ترتيب الظهور</label>
+                <input id="templateSort" type="number" value="100" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>اسم القالب</label>
+              <input id="templateName" required />
+            </div>
+
+            <div class="field">
+              <label>المحتوى</label>
+              <textarea id="templateContent" required placeholder="اكتب محتوى القالب هنا. مثال: مرحباً {{اسم_العميل}}"></textarea>
+              <div class="variables-row">
+                <button class="var-btn" type="button" data-var="{{اسم_العميل}}">اسم العميل</button>
+                <button class="var-btn" type="button" data-var="{{رقم_الجوال}}">رقم الجوال</button>
+                <button class="var-btn" type="button" data-var="{{نوع_السيارة}}">نوع السيارة</button>
+                <button class="var-btn" type="button" data-var="{{الموديل}}">الموديل</button>
+                <button class="var-btn" type="button" data-var="{{الراتب}}">الراتب</button>
+                <button class="var-btn" type="button" data-var="{{1}}">{{1}}</button>
+                <button class="var-btn" type="button" data-var="{{2}}">{{2}}</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>عينات لمحتوى المتغيرات</label>
+              <input id="templateSamples" placeholder="{{1}} = مثال، {{2}} = مثال آخر" />
+            </div>
+
+            <div class="field">
+              <label>أزرار الرد السريع</label>
+              <input id="quickButtons" placeholder="افصل بين الأزرار بعلامة | مثال: اتصل برقم الهاتف | زيارة الموقع" />
+            </div>
+
+            <div class="field">
+              <label>أزرار الحث على اتخاذ إجراء</label>
+              <input id="ctaButtons" placeholder="افصل بين الأزرار بعلامة | مثال: نسخ كود العرض | فتح الرابط" />
+            </div>
+
+            <div class="grid2">
+              <div class="field">
+                <label class="check-item"><input id="templateActive" type="checkbox" checked /> نشط</label>
+              </div>
+              <div class="field" id="approvedField">
+                <label class="check-item"><input id="templateApproved" type="checkbox" /> معتمد في مرسال</label>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>الأقسام</label>
+              <div class="checks">
+                <label class="check-item"><input type="checkbox" name="departments" value="cash_sales" /> مبيعات الكاش</label>
+                <label class="check-item"><input type="checkbox" name="departments" value="finance_sales" /> مبيعات التمويل</label>
+                <label class="check-item"><input type="checkbox" name="departments" value="customer_service" /> خدمة العملاء</label>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="primary" type="submit">حفظ القالب</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>القوالب والرسائل</h3>
+          <div class="field">
+            <select id="listTypeFilter">
+              <option value="all">الكل</option>
+              <option value="mersal">قوالب مرسال</option>
+              <option value="quick">رسائل جاهزة</option>
+            </select>
+          </div>
+          <div class="template-list" id="templatesList"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
+    import {
+      getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy,
+      addDoc, setDoc, deleteDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    const appFirebase = initializeApp(firebaseConfig);
+    try { getAnalytics(appFirebase); } catch(e) {}
+    const auth = getAuth(appFirebase);
+    const db = getFirestore(appFirebase);
+
+    const DEPARTMENTS = {
+      cash_sales:"مبيعات الكاش",
+      finance_sales:"مبيعات التمويل",
+      customer_service:"خدمة العملاء"
+    };
+
+    let currentUser = null;
+    let currentProfile = null;
+    let templates = [];
+    let unsubTemplates = null;
+
+    const el = id => document.getElementById(id);
+
+    function toast(msg){
+      const t = el("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(()=> t.style.display = "none", 2500);
+    }
+
+    function showLoginError(msg){
+      el("loginError").textContent = msg;
+      el("loginError").style.display = "block";
+    }
+
+    async function loadUserProfile(user){
+      const profileSnap = await getDoc(doc(db, "users", user.uid));
+      if(profileSnap.exists()) return profileSnap.data();
+      return { email:user.email, name:user.email, role:"user", department:"cash_sales", active:true };
+    }
+
+    function isAdminProfile(profile){
+      return profile?.role === "admin" || profile?.allDepartments === true;
+    }
+
+    function escapeHtml(str){
+      return String(str ?? "").replace(/[&<>"']/g, s => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[s]));
+    }
+
+    function departmentLabel(d){ return DEPARTMENTS[d] || d; }
+
+    onAuthStateChanged(auth, async (user) => {
+      if(unsubTemplates) unsubTemplates();
+
+      if(!user){
+        currentUser = null;
+        currentProfile = null;
+        el("loginScreen").classList.remove("hidden");
+        el("app").classList.add("hidden");
+        return;
+      }
+
+      try{
+        currentUser = user;
+        currentProfile = await loadUserProfile(user);
+
+        if(currentProfile.active === false || !isAdminProfile(currentProfile)){
+          await signOut(auth);
+          showLoginError("لا توجد صلاحية دخول لهذه الصفحة.");
+          return;
+        }
+
+        el("loginScreen").classList.add("hidden");
+        el("app").classList.remove("hidden");
+        el("userInfo").textContent = `${currentProfile.name || user.email} - إدارة عامة`;
+        listenTemplates();
+        updatePreview();
+      } catch(err){
+        console.error(err);
+        showLoginError("تعذر تحميل صلاحيات المستخدم.");
+      }
+    });
+
+    el("loginForm").onsubmit = async (e) => {
+      e.preventDefault();
+      el("loginError").style.display = "none";
+      try{
+        await signInWithEmailAndPassword(auth, el("loginEmail").value.trim(), el("loginPassword").value);
+      } catch(err){
+        console.error(err);
+        showLoginError("بيانات الدخول غير صحيحة أو الحساب غير مفعل.");
+      }
+    };
+
+    el("logoutBtn").onclick = () => signOut(auth);
+
+    function listenTemplates(){
+      const q = query(collection(db, "message_templates"), orderBy("sort", "asc"));
+      unsubTemplates = onSnapshot(q, snap => {
+        templates = [];
+        snap.forEach(d => templates.push({ id:d.id, ...d.data() }));
+        renderTemplates();
+      }, err => {
+        console.error(err);
+        toast("تعذر تحميل القوالب");
+      });
+    }
+
+    function parseButtons(value){
+      return String(value || "").split("|").map(x => x.trim()).filter(Boolean);
+    }
+
+    function selectedDepartments(){
+      return [...document.querySelectorAll('input[name="departments"]:checked')].map(c => c.value);
+    }
+
+    function setDepartments(values=[]){
+      document.querySelectorAll('input[name="departments"]').forEach(c => c.checked = values.includes(c.value));
+    }
+
+    function resetForm(){
+      el("templateId").value = "";
+      el("templateType").value = "mersal";
+      el("templateName").value = "";
+      el("templateContent").value = "";
+      el("templateSamples").value = "";
+      el("quickButtons").value = "";
+      el("ctaButtons").value = "";
+      el("templateSort").value = "100";
+      el("templateActive").checked = true;
+      el("templateApproved").checked = false;
+      setDepartments([]);
+      toggleApprovedField();
+      updatePreview();
+    }
+
+    function toggleApprovedField(){
+      el("approvedField").style.display = el("templateType").value === "mersal" ? "grid" : "none";
+    }
+
+    function updatePreview(){
+      const content = el("templateContent").value.trim();
+      el("templatePreview").textContent = content || "اكتب محتوى القالب لمعاينته هنا";
+    }
+
+    function renderTemplates(){
+      const typeFilter = el("listTypeFilter").value;
+      const list = el("templatesList");
+      const items = templates.filter(t => typeFilter === "all" || t.type === typeFilter);
+
+      list.innerHTML = items.length ? "" : '<div class="empty">لا توجد قوالب</div>';
+
+      items.forEach(t => {
+        const div = document.createElement("div");
+        div.className = "template-item";
+        const approvedText = t.type === "mersal" ? (t.approved ? "معتمد" : "غير معتمد") : "رسالة جاهزة";
+        div.innerHTML = `
+          <div class="row">
+            <div class="template-item-title">${escapeHtml(t.name)}</div>
+            <span class="approval-badge ${t.approved ? "ok" : ""}">${approvedText}</span>
+          </div>
+          <div class="template-item-content">${escapeHtml(t.content)}</div>
+          <div class="status-text">${(t.departments || []).map(departmentLabel).map(escapeHtml).join(" - ")}</div>
+          <div class="actions">
+            <button class="secondary" data-edit="${t.id}">تعديل</button>
+            <button class="danger" data-delete="${t.id}">حذف</button>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    el("templateForm").onsubmit = async (e) => {
+      e.preventDefault();
+
+      const name = el("templateName").value.trim();
+      const content = el("templateContent").value.trim();
+      const type = el("templateType").value;
+      const departments = selectedDepartments();
+
+      if(!name) return toast("اكتب اسم القالب");
+      if(!content) return toast("اكتب محتوى القالب");
+      if(!departments.length) return toast("اختر قسم واحد على الأقل");
+
+      const payload = {
+        name,
+        content,
+        type,
+        departments,
+        active: el("templateActive").checked,
+        approved: type === "mersal" ? el("templateApproved").checked : true,
+        samples: el("templateSamples").value.trim(),
+        quickButtons: parseButtons(el("quickButtons").value),
+        ctaButtons: parseButtons(el("ctaButtons").value),
+        sort: Number(el("templateSort").value || 100),
+        updatedAt: serverTimestamp(),
+        updatedByUid: currentUser.uid,
+        updatedByEmail: currentUser.email
+      };
+
+      const id = el("templateId").value;
+      if(id){
+        await setDoc(doc(db, "message_templates", id), payload, { merge:true });
+      } else {
+        payload.createdAt = serverTimestamp();
+        payload.createdByUid = currentUser.uid;
+        payload.createdByEmail = currentUser.email;
+        await addDoc(collection(db, "message_templates"), payload);
+      }
+
+      resetForm();
+      toast("تم الحفظ");
+    };
+
+    el("templatesList").onclick = async (e) => {
+      const editId = e.target.dataset.edit;
+      const deleteId = e.target.dataset.delete;
+
+      if(editId){
+        const t = templates.find(x => x.id === editId);
+        if(!t) return;
+        el("templateId").value = t.id;
+        el("templateType").value = t.type || "mersal";
+        el("templateName").value = t.name || "";
+        el("templateContent").value = t.content || "";
+        el("templateSamples").value = t.samples || "";
+        el("quickButtons").value = (t.quickButtons || []).join(" | ");
+        el("ctaButtons").value = (t.ctaButtons || []).join(" | ");
+        el("templateSort").value = t.sort || 100;
+        el("templateActive").checked = t.active !== false;
+        el("templateApproved").checked = t.approved === true;
+        setDepartments(t.departments || []);
+        toggleApprovedField();
+        updatePreview();
+      }
+
+      if(deleteId){
+        if(!confirm("حذف القالب؟")) return;
+        await deleteDoc(doc(db, "message_templates", deleteId));
+        toast("تم الحذف");
+      }
+    };
+
+    document.querySelectorAll(".var-btn").forEach(btn => {
+      btn.onclick = () => {
+        const textarea = el("templateContent");
+        const value = btn.dataset.var;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        textarea.value = textarea.value.slice(0,start) + value + textarea.value.slice(end);
+        textarea.focus();
+        textarea.selectionStart = textarea.selectionEnd = start + value.length;
+        updatePreview();
+      };
+    });
+
+    el("templateContent").oninput = updatePreview;
+    el("templateType").onchange = toggleApprovedField;
+    el("listTypeFilter").onchange = renderTemplates;
+    el("resetBtn").onclick = resetForm;
+
+    resetForm();
+  </script>
+</body>
+</html>
