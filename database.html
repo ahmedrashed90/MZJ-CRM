@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MZJ CRM - قاعدة البيانات</title>
+  <link rel="stylesheet" href="./theme.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <section class="login-screen hidden" id="loginScreen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="logo-mark">MZJ</div>
+        <div>
+          <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+          <p>تسجيل الدخول إلى نظام CRM</p>
+        </div>
+      </div>
+      <form class="login-form" id="loginForm">
+        <input id="loginEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required />
+        <input id="loginPassword" type="password" placeholder="كلمة المرور" autocomplete="current-password" required />
+        <div class="login-error" id="loginError"></div>
+        <button class="primary" type="submit">تسجيل الدخول</button>
+      </form>
+    </div>
+  </section>
+  <div class="leads-page hidden" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="logo-box">
+            <div class="logo-mark">MZJ</div>
+            <div>
+              <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+              <div class="status-text" id="userInfo"></div>
+            </div>
+          </div>
+          <button class="secondary" id="logoutBtn">خروج</button>
+        </div>
+        <div class="nav-tabs">
+          <a href="./inbox.html">صندوق الوارد</a>
+          <a href="./callcenter.html">الكول سنتر</a>
+          <a href="./leads-cash.html">العملاء المحتملون - كاش</a>
+          <a href="./leads-finance.html">العملاء المحتملون - تمويل</a>
+          <a href="./leads-customer-service.html">العملاء المحتملون - خدمة عملاء</a>
+          <a href="./database.html" class="active">قاعدة البيانات</a>
+          <a href="./statuses.html">حالات العملاء</a>
+          <a href="./templates.html">القوالب والرسائل الجاهزة</a>
+        </div>
+      </div>
+    </aside>
+    <main class="leads-main">
+      <div class="page-head">
+        <div>
+          <h2>قاعدة البيانات</h2>
+          <p>عرض وتصدير بيانات العملاء حسب الفلاتر.</p>
+        </div>
+        <div class="actions">
+          <div class="count-badge" id="countBadge">0 عميل</div>
+          <button class="primary" id="exportBtn">تصدير Excel</button>
+        </div>
+      </div>
+
+      <div class="filters-card">
+        <div class="filters-grid database">
+          <input id="dateFrom" type="date" />
+          <input id="dateTo" type="date" />
+          <select id="sourceFilter"><option value="">كل المصادر</option></select>
+          <select id="carFilter"><option value="">كل السيارات</option></select>
+          <select id="paymentFilter"><option value="">كل طرق الدفع</option></select>
+          <select id="campaignFilter"><option value="">كل الحملات</option></select>
+          <select id="branchFilter"><option value="">كل الفروع</option></select>
+          <input id="searchInput" placeholder="بحث عام..." />
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="leads-table">
+          <thead>
+            <tr>
+              <th>اسم العميل</th>
+              <th>الجوال</th>
+              <th>المكان</th>
+              <th>الفرع</th>
+              <th>المصدر</th>
+              <th>اسم السيارة</th>
+              <th>الدفع</th>
+              <th>الحالة</th>
+              <th>المسؤول</th>
+              <th>الكول سنتر</th>
+              <th>اسم الحملة</th>
+              <th>تاريخ الحملة</th>
+              <th>آخر تحديث</th>
+            </tr>
+          </thead>
+          <tbody id="leadsBody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script type="module">
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
+    import {
+      getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy,
+      addDoc, setDoc, updateDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    const appFirebase = initializeApp(firebaseConfig);
+    try { getAnalytics(appFirebase); } catch(e) {}
+    const auth = getAuth(appFirebase);
+    const db = getFirestore(appFirebase);
+
+    const DEPARTMENTS = {
+      cash_sales:"مبيعات الكاش",
+      finance_sales:"مبيعات التمويل",
+      customer_service:"خدمة العملاء",
+      call_center:"الكول سنتر"
+    };
+
+    const PAGE_PAYMENTS = {
+      cash_sales:"كاش",
+      finance_sales:"تمويل",
+      customer_service:"خدمة عملاء"
+    };
+
+    let currentUser = null;
+    let currentProfile = null;
+    let isAdmin = false;
+    let leads = [];
+    let users = [];
+    let statuses = [];
+    let unsubLeads = null;
+    let unsubUsers = null;
+    let unsubStatuses = null;
+
+    const el = id => document.getElementById(id);
+
+    function toast(msg){
+      const t = el("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(()=> t.style.display = "none", 2500);
+    }
+
+    function showLoginError(msg){
+      el("loginError").textContent = msg;
+      el("loginError").style.display = "block";
+    }
+
+    async function loadUserProfile(user){
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if(snap.exists()) return snap.data();
+      return { email:user.email, name:user.email, role:"user", department:"cash_sales", active:true };
+    }
+
+    function isAdminProfile(profile){
+      return profile?.role === "admin" || profile?.allDepartments === true;
+    }
+
+    function escapeHtml(str){
+      return String(str ?? "").replace(/[&<>"']/g, s => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[s]));
+    }
+
+    function tsToDate(v){
+      if(!v) return null;
+      if(v.toDate) return v.toDate();
+      if(typeof v === "number") return new Date(v);
+      if(typeof v === "string") return new Date(v);
+      return null;
+    }
+
+    function formatDate(v){
+      const d = tsToDate(v);
+      if(!d || isNaN(d)) return "";
+      return d.toLocaleString("ar-EG", {year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+    }
+
+    function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
+
+    function normalizePhone(phone){
+      return String(phone || "").replace(/[^\d+]/g,"").trim();
+    }
+
+    function fullName(row){
+      return [row["اسم العميل الاول"], row["الاسم الاول"], row["First Name"], row["first_name"], row["firstName"], row["الاسم"]]
+        .find(Boolean) || "";
+    }
+
+    function lastName(row){
+      return [row["الاسم الاخير"], row["Last Name"], row["last_name"], row["lastName"]].find(Boolean) || "";
+    }
+
+    function getField(row, names, fallback=""){
+      for(const n of names){
+        if(row[n] !== undefined && row[n] !== null && String(row[n]).trim() !== "") return String(row[n]).trim();
+      }
+      return fallback;
+    }
+
+    function uniqueValues(items, field){
+      return [...new Set(items.map(x => x[field]).filter(Boolean))].sort();
+    }
+
+    function fillSelectOptions(select, placeholder, values, selected=""){
+      select.innerHTML = "";
+      select.append(new Option(placeholder, ""));
+      values.forEach(v => select.append(new Option(v.label || v, v.value || v)));
+      select.value = selected;
+    }
+
+    function usersForDepartment(dept){
+      return users.filter(u => u.active !== false && (
+        u.department === dept ||
+        u.role === dept ||
+        (dept === "call_center" && (u.department === "call_center" || u.role === "call_center" || u.department === "finance_sales"))
+      ));
+    }
+
+    function canSeeLead(lead){
+      if(isAdmin) return true;
+      const uid = currentUser?.uid;
+      if(!uid) return false;
+      return lead.responsibleUid === uid || lead.callCenterUid === uid || lead.department === currentProfile?.department;
+    }
+
+    async function assignField(leadId, field, uid){
+      if(!uid) return;
+      const lead = leads.find(x => x.id === leadId);
+      if(!lead) return;
+
+      if(field === "responsible" && lead.responsibleUid) return toast("لا يمكن تغيير المسؤول بعد التوزيع");
+      if(field === "callCenter" && lead.callCenterUid) return toast("لا يمكن تغيير الكول سنتر بعد التوزيع");
+
+      const user = users.find(u => u.uid === uid || u.id === uid);
+      if(!user) return toast("المستخدم غير موجود");
+
+      const payload = {
+        lastUpdated: serverTimestamp()
+      };
+
+      if(field === "responsible"){
+        payload.responsibleUid = user.uid || user.id;
+        payload.responsibleName = user.name || user.email || "";
+      } else {
+        payload.callCenterUid = user.uid || user.id;
+        payload.callCenterName = user.name || user.email || "";
+      }
+
+      await updateDoc(doc(db, "leads", leadId), payload);
+      toast("تم التوزيع");
+    }
+
+    function userOptions(dept, selectedUid=""){
+      const opts = ['<option value="">اختر</option>'];
+      usersForDepartment(dept).forEach(u => {
+        const uid = u.uid || u.id;
+        opts.push(`<option value="${escapeHtml(uid)}" ${uid === selectedUid ? "selected" : ""}>${escapeHtml(u.name || u.email || uid)}</option>`);
+      });
+      return opts.join("");
+    }
+
+    function setupAuth(pageInit){
+      onAuthStateChanged(auth, async (user) => {
+        if(unsubLeads) unsubLeads();
+        if(unsubUsers) unsubUsers();
+        if(unsubStatuses) unsubStatuses();
+
+        if(!user){
+          currentUser = null;
+          currentProfile = null;
+          el("loginScreen").classList.remove("hidden");
+          el("app").classList.add("hidden");
+          return;
+        }
+
+        try{
+          currentUser = user;
+          currentProfile = await loadUserProfile(user);
+          if(currentProfile.active === false){
+            await signOut(auth);
+            showLoginError("هذا الحساب غير مفعل.");
+            return;
+          }
+
+          isAdmin = isAdminProfile(currentProfile);
+          el("loginScreen").classList.add("hidden");
+          el("app").classList.remove("hidden");
+          el("userInfo").textContent = `${currentProfile.name || user.email} - ${isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department)}`;
+          pageInit();
+        } catch(err){
+          console.error(err);
+          showLoginError("تعذر تحميل صلاحيات المستخدم.");
+        }
+      });
+
+      el("loginForm").onsubmit = async (e) => {
+        e.preventDefault();
+        el("loginError").style.display = "none";
+        try{
+          await signInWithEmailAndPassword(auth, el("loginEmail").value.trim(), el("loginPassword").value);
+        } catch(err){
+          console.error(err);
+          showLoginError("بيانات الدخول غير صحيحة أو الحساب غير مفعل.");
+        }
+      };
+
+      el("logoutBtn").onclick = () => signOut(auth);
+    }
+
+    function listenBase(render){
+      unsubUsers = onSnapshot(collection(db, "users"), snap => {
+        users = [];
+        snap.forEach(d => users.push({ id:d.id, uid:d.id, ...d.data() }));
+        render();
+      });
+
+      unsubStatuses = onSnapshot(query(collection(db, "client_statuses"), orderBy("sort","asc")), snap => {
+        statuses = [];
+        snap.forEach(d => statuses.push({ id:d.id, ...d.data() }));
+        render();
+      });
+
+      unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy("lastUpdated", "desc")), snap => {
+        leads = [];
+        snap.forEach(d => leads.push({ id:d.id, ...d.data() }));
+        render();
+      }, err => {
+        console.error(err);
+        toast("تعذر تحميل العملاء");
+      });
+    }
+
+
+    function applyFilterOptions(){
+      fillSelectOptions(el("sourceFilter"), "كل المصادر", uniqueValues(leads, "source"));
+      fillSelectOptions(el("carFilter"), "كل السيارات", uniqueValues(leads, "carName"));
+      fillSelectOptions(el("paymentFilter"), "كل طرق الدفع", uniqueValues(leads, "payment"));
+      fillSelectOptions(el("campaignFilter"), "كل الحملات", uniqueValues(leads, "campaignName"));
+      fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads, "branch"));
+    }
+
+    function dateOnly(v){
+      const d = tsToDate(v);
+      if(!d || isNaN(d)) return "";
+      return d.toISOString().slice(0,10);
+    }
+
+    function filteredRows(){
+      const dateFrom = el("dateFrom").value;
+      const dateTo = el("dateTo").value;
+      const source = el("sourceFilter").value;
+      const car = el("carFilter").value;
+      const payment = el("paymentFilter").value;
+      const campaign = el("campaignFilter").value;
+      const branch = el("branchFilter").value;
+      const q = el("searchInput").value.trim().toLowerCase();
+
+      return leads.filter(l => {
+        if(!canSeeLead(l)) return false;
+        const last = dateOnly(l.lastUpdated || l.createdAt);
+        if(dateFrom && last && last < dateFrom) return false;
+        if(dateTo && last && last > dateTo) return false;
+        if(source && l.source !== source) return false;
+        if(car && l.carName !== car) return false;
+        if(payment && l.payment !== payment) return false;
+        if(campaign && l.campaignName !== campaign) return false;
+        if(branch && l.branch !== branch) return false;
+        if(q){
+          const hay = [l.customerName,l.phone,l.location,l.branch,l.source,l.carName,l.payment,l.status,l.responsibleName,l.callCenterName,l.campaignName].join(" ").toLowerCase();
+          if(!hay.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function render(){
+      applyFilterOptions();
+      const rows = filteredRows();
+      el("countBadge").textContent = rows.length + " عميل";
+
+      const body = el("leadsBody");
+      body.innerHTML = rows.length ? "" : '<tr><td colspan="13">لا توجد بيانات</td></tr>';
+
+      rows.forEach(l => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHtml(l.customerName)}</td>
+          <td>${escapeHtml(l.phone)}</td>
+          <td>${escapeHtml(l.location)}</td>
+          <td>${escapeHtml(l.branch)}</td>
+          <td>${escapeHtml(l.source)}</td>
+          <td>${escapeHtml(l.carName)}</td>
+          <td>${escapeHtml(l.payment)}</td>
+          <td>${escapeHtml(l.status)}</td>
+          <td>${escapeHtml(l.responsibleName)}</td>
+          <td>${escapeHtml(l.callCenterName)}</td>
+          <td>${escapeHtml(l.campaignName)}</td>
+          <td>${escapeHtml(l.campaignDate)}</td>
+          <td>${formatDate(l.lastUpdated || l.createdAt)}</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    function exportExcel(){
+      const rows = filteredRows().map(l => ({
+        "اسم العميل": l.customerName || "",
+        "الجوال": l.phone || "",
+        "المكان": l.location || "",
+        "الفرع": l.branch || "",
+        "المصدر": l.source || "",
+        "اسم السيارة": l.carName || "",
+        "الدفع": l.payment || "",
+        "الحالة": l.status || "",
+        "المسؤول": l.responsibleName || "",
+        "الكول سنتر": l.callCenterName || "",
+        "اسم الحملة": l.campaignName || "",
+        "تاريخ الحملة": l.campaignDate || "",
+        "آخر تحديث": formatDate(l.lastUpdated || l.createdAt)
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "leads");
+      XLSX.writeFile(wb, "mzj-leads.xlsx");
+    }
+
+    function init(){
+      listenBase(render);
+      ["dateFrom","dateTo","sourceFilter","carFilter","paymentFilter","campaignFilter","branchFilter","searchInput"].forEach(id => {
+        el(id).addEventListener("input", render);
+        el(id).addEventListener("change", render);
+      });
+      el("exportBtn").onclick = exportExcel;
+    }
+
+    setupAuth(init);
+
+  </script>
+</body>
+</html>
