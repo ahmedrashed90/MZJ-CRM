@@ -343,12 +343,19 @@
         window.location.replace("./dashboard.html");
         return false;
       }
+
+      // لو المستخدم له صلاحية الداش بورد، امسح أي رسالة قديمة من تحويل سابق.
+      if(page === "dashboard.html"){
+        sessionStorage.removeItem("mzj_no_permission_page");
+        el("noPermissionCard")?.classList.remove("show");
+      }
       return true;
     }
 
     function renderNoPermissionNotice(){
       const blocked = sessionStorage.getItem("mzj_no_permission_page");
       if(blocked) el("noPermissionCard").classList.add("show");
+      else el("noPermissionCard").classList.remove("show");
     }
 
     function userCanSeeLead(lead){
@@ -407,7 +414,15 @@
     }
 
     function visibleCallCenterFinanceLeads(){
-      return visibleDepartmentLeads("call_center").filter(isFinancePayment);
+      return leads.filter(lead => {
+        if(!userCanSeeLead(lead)) return false;
+        if(!isFinancePayment(lead)) return false;
+        if(statusName(lead) !== "عميل جديد") return false;
+
+        // الكول سنتر داخل مبيعات التمويل يعتمد على وجود توزيع كول سنتر،
+        // حتى لو document.department = finance_sales.
+        return !!(lead.callCenterUid || lead.callCenterName || lead.callCenterAssignedTo || lead.callCenter);
+      });
     }
 
     function customerSourceData(lead){
@@ -535,7 +550,7 @@
         const financeCallCenterLeads = visibleCallCenterFinanceLeads();
         cards.push({
           title: "الكول سنتر",
-          subtitle: "عملاء صفحة الكول سنتر - نوع الدفع تمويل",
+          subtitle: "عملاء الكول سنتر - الدفع تمويل - الحالة عميل جديد",
           count: financeCallCenterLeads.length,
           customers: financeCallCenterLeads
         });

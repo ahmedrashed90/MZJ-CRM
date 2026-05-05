@@ -541,22 +541,15 @@
         };
       }).filter(Boolean);
 
-      const reasonRows = Array.from(document.querySelectorAll('#reasonsReport tr')).map(tr => {
-        const cells = [...tr.children].map(td => td.textContent.trim());
-        if(cells.length < 2) return null;
-        return { "السبب": cells[0], "العدد": cells[1] };
-      }).filter(Boolean);
-
-      return { summarySheet, sectionRows, agentRows, reasonRows };
+      return { summarySheet, sectionRows, agentRows };
     }
 
     function exportExcel(){
       const wb = XLSX.utils.book_new();
-      const { summarySheet, sectionRows, agentRows, reasonRows } = buildExportSheets();
+      const { summarySheet, sectionRows, agentRows } = buildExportSheets();
       XLSX.utils.book_append_sheet(wb, summarySheet, 'الملخص');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sectionRows), 'الأقسام');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(agentRows), 'المناديب');
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(reasonRows), 'الأسباب');
       XLSX.writeFile(wb, `mzj-reports-${new Date().toISOString().slice(0,10)}.xlsx`);
     }
 
