@@ -428,9 +428,66 @@
       return statuses.filter(s => s.active !== false && Array.isArray(s.departments) && s.departments.includes(PAGE_DEPARTMENT)).map(s => s.name);
     }
 
-    function applyFilterOptions(){
+    
+    function normalizeSourceAr(value){
+      const s = String(value || "").trim().toLowerCase();
+      if(s === "tiktok" || s === "tik tok" || s === "tt" || s === "تيك توك") return "تيك توك";
+      if(s === "instagram" || s === "insta" || s === "ig" || s === "انستجرام" || s === "إنستجرام") return "انستجرام";
+      if(s === "facebook" || s === "fb" || s === "messenger" || s === "فيسبوك") return "فيسبوك";
+      if(s === "whatsapp" || s === "wa" || s === "واتساب") return "واتساب";
+      return value || "";
+    }
+
+    function leadSourceRaw(l){
+      return l.source || l.sourceName || l.leadSource || l.platform || l.channel || l.channelCode || "";
+    }
+
+    function leadSourceLabel(l){
+      return normalizeSourceAr(leadSourceRaw(l));
+    }
+
+    function isWhatsappLead(l){
+      const s = String(leadSourceRaw(l)).trim().toLowerCase();
+      return s === "whatsapp" || s === "wa" || s === "واتساب";
+    }
+
+    function sourceFilterOptions(){
+      const seen = new Map();
+      leads.forEach(l => {
+        const raw = leadSourceRaw(l);
+        if(!raw) return;
+        const key = String(raw);
+        if(!seen.has(key)) seen.set(key, { label: normalizeSourceAr(raw), value: raw });
+      });
+      return Array.from(seen.values());
+    }
+
+    function buildInboxUrlForLead(l){
+      const params = new URLSearchParams();
+      const conv = l.conversationId || l.convId || l.contactKey || "";
+      const phone = l.phone || l.mobile || l.phoneNumber || l.customerPhone || "";
+      const participant = l.participantId || l.tiktokId || l.igId || l.fbId || l.manychatContactId || "";
+      if(conv) params.set("conversationId", conv);
+      if(phone) params.set("phone", phone);
+      if(participant) params.set("participantId", participant);
+      return "inbox.html" + (params.toString() ? "?" + params.toString() : "");
+    }
+
+    function linkedLeadName(l){
+      const name = l.customerName || l.name || l.fullName || l.displayName || "—";
+      if(isWhatsappLead(l)) return escapeHtml(name);
+      return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(name)}</a>`;
+    }
+
+    function linkedLeadPhone(l){
+      const phone = l.phone || l.mobile || l.phoneNumber || "—";
+      if(!isWhatsappLead(l)) return escapeHtml(phone);
+      return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(phone)}</a>`;
+    }
+
+function applyFilterOptions(){
       fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads, "branch"));
-      fillSelectOptions(el("sourceFilter"), "كل المصادر", uniqueValues(leads, "source"));
+      fillSelectOptions(el("sourceFilter"), "كل المصادر", sourceFilterOptions());
       fillSelectOptions(el("carFilter"), "كل السيارات", uniqueValues(leads, "carName"));
       fillSelectOptions(el("statusFilter"), "كل الحالات", statusValues());
       fillSelectOptions(el("responsibleFilter"), "كل مناديب خدمة العملاء", usersForDepartment(PAGE_DEPARTMENT).map(u => ({label:u.name || u.email || u.uid || u.id, value:u.uid || u.id})));
@@ -454,7 +511,7 @@
         if(status && l.status !== status) return false;
         if(responsible && l.responsibleUid !== responsible) return false;
         if(q){
-          const hay = [l.customerName,l.phone,l.location,l.branch,l.source,l.carName,l.payment,l.status,l.responsibleName,l.callCenterName].join(" ").toLowerCase();
+          const hay = [l.customerName,l.phone,l.location,l.branch,l.source,leadSourceLabel(l),l.carName,l.payment,l.status,l.responsibleName,l.callCenterName].join(" ").toLowerCase();
           if(!hay.includes(q)) return false;
         }
         return true;
@@ -475,11 +532,11 @@
         const callCenterLocked = !!l.callCenterUid;
 
         tr.innerHTML = `
-          <td>${escapeHtml(l.customerName)}</td>
-          <td>${escapeHtml(l.phone)}</td>
+          <td>${linkedLeadName(l)}</td>
+          <td>${linkedLeadPhone(l)}</td>
           <td>${escapeHtml(l.location)}</td>
           <td>${escapeHtml(l.branch)}</td>
-          <td>${escapeHtml(l.source)}</td>
+          <td>${escapeHtml(leadSourceLabel(l))}</td>
           <td>${escapeHtml(l.carName)}</td>
           <td>${escapeHtml(l.payment)}</td>
           <td>${escapeHtml(l.status)}</td>
@@ -515,111 +572,6 @@
 
     setupAuth(init);
 
-  
-    function mzjNormalizeSourceAr(value){
-      const s = String(value || "").trim().toLowerCase();
-      if(s === "tiktok" || s === "tik tok" || s === "تيك توك") return "تيك توك";
-      if(s === "instagram" || s === "insta" || s === "ig" || s === "انستجرام" || s === "إنستجرام") return "انستجرام";
-      if(s === "facebook" || s === "fb" || s === "messenger" || s === "فيسبوك") return "فيسبوك";
-      if(s === "whatsapp" || s === "wa" || s === "واتساب") return "واتساب";
-      return value || "";
-    }
-
-    function mzjLeadSource(row){
-      return mzjNormalizeSourceAr(row?.source || row?.sourceName || row?.leadSource || row?.platform || row?.channel || row?.channelCode || "");
-    }
-
-    function mzjIsWhatsapp(row){
-      const s = String(row?.source || row?.sourceName || row?.leadSource || row?.platform || row?.channel || row?.channelCode || "").trim().toLowerCase();
-      return s === "whatsapp" || s === "wa" || s === "واتساب";
-    }
-
-    function mzjInboxUrl(row){
-      const params = new URLSearchParams();
-      const conv = row?.conversationId || row?.convId || row?.contactKey || "";
-      const phone = row?.phone || row?.mobile || row?.phoneNumber || row?.customerPhone || "";
-      const participant = row?.participantId || row?.tiktokId || row?.igId || row?.fbId || row?.manychatContactId || "";
-      if(conv) params.set("conversationId", conv);
-      if(phone) params.set("phone", phone);
-      if(participant) params.set("participantId", participant);
-      return "inbox.html" + (params.toString() ? "?" + params.toString() : "");
-    }
-
-    function mzjGetLeadRows(){
-      const candidates = [
-        window.rows, window.leads, window.filteredRows, window.currentRows,
-        window.state?.rows, window.state?.leads, window.state?.filteredRows
-      ];
-      for(const c of candidates){
-        if(Array.isArray(c)) return c;
-      }
-      try{
-        if(typeof rows !== "undefined" && Array.isArray(rows)) return rows;
-      }catch(e){}
-      try{
-        if(typeof leads !== "undefined" && Array.isArray(leads)) return leads;
-      }catch(e){}
-      return [];
-    }
-
-    function mzjFindRowByTableIndex(tr){
-      const tbody = tr.closest("tbody");
-      if(!tbody) return null;
-      const trs = Array.from(tbody.querySelectorAll("tr"));
-      const idx = trs.indexOf(tr);
-      const rows = mzjGetLeadRows();
-      return rows[idx] || null;
-    }
-
-    function mzjPatchLeadTableUI(){
-      const rows = mzjGetLeadRows();
-      const tables = document.querySelectorAll("table");
-      tables.forEach(table => {
-        const headers = Array.from(table.querySelectorAll("thead th")).map(th => th.textContent.trim());
-        if(!headers.length) return;
-
-        const sourceIdx = headers.findIndex(h => h.includes("المصدر"));
-        const nameIdx = headers.findIndex(h => h.includes("اسم العميل") || h === "الاسم");
-        const phoneIdx = headers.findIndex(h => h.includes("الجوال") || h.includes("رقم"));
-
-        table.querySelectorAll("tbody tr").forEach((tr, index) => {
-          const row = rows[index] || mzjFindRowByTableIndex(tr);
-          const cells = tr.children;
-          if(!row || !cells || !cells.length) return;
-
-          if(sourceIdx >= 0 && cells[sourceIdx]){
-            cells[sourceIdx].textContent = mzjLeadSource(row) || cells[sourceIdx].textContent;
-          }
-
-          const targetIdx = mzjIsWhatsapp(row) ? phoneIdx : nameIdx;
-          if(targetIdx >= 0 && cells[targetIdx] && !cells[targetIdx].querySelector(".mzj-inbox-link")){
-            const text = cells[targetIdx].textContent.trim() || "فتح";
-            const a = document.createElement("a");
-            a.className = "mzj-inbox-link";
-            a.href = mzjInboxUrl(row);
-            a.textContent = text;
-            cells[targetIdx].textContent = "";
-            cells[targetIdx].appendChild(a);
-          }
-        });
-      });
-    }
-
-    function mzjSchedulePatchLeadTableUI(){
-      requestAnimationFrame(() => {
-        mzjPatchLeadTableUI();
-        setTimeout(mzjPatchLeadTableUI, 200);
-        setTimeout(mzjPatchLeadTableUI, 800);
-      });
-    }
-
-
-    const mzjLeadObserver = new MutationObserver(() => mzjSchedulePatchLeadTableUI());
-    window.addEventListener("DOMContentLoaded", () => {
-      mzjSchedulePatchLeadTableUI();
-      mzjLeadObserver.observe(document.body, { childList:true, subtree:true });
-    });
-
-</script>
+  </script>
 </body>
 </html>

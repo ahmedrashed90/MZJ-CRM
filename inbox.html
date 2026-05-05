@@ -593,7 +593,7 @@
     function matchesInboxOpenParams(c, params){
       if(!params) return false;
       const conv = String(c.convId || c.conversationId || c.contactKey || c.id || "");
-      const phone = String(c.phone || c.mobile || c.phoneNumber || c.customerPhone || "");
+      const phone = String(c.phone || c.mobile || c.phoneNumber || c.customerPhone || getPhone(c) || "");
       const participant = String(c.participantId || c.tiktokId || c.igId || c.fbId || c.manychatContactId || "");
       if(params.conversationId && conv === params.conversationId) return true;
       if(params.phone && phone && normalizePhone(phone) === normalizePhone(params.phone)) return true;
