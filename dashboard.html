@@ -460,62 +460,72 @@
       modal.className = "dashboard-chat-modal hidden";
       modal.innerHTML = `
         <div class="dashboard-chat-backdrop" data-chat-close></div>
-        <div class="dashboard-chat-dialog" role="dialog" aria-modal="true">
-          <div class="dashboard-chat-head">
-            <div>
-              <h3 id="chatCustomerName">عميل</h3>
-              <p id="chatCustomerMeta"></p>
+        <div class="dashboard-chat-dialog inbox-style" role="dialog" aria-modal="true">
+          <aside class="dashboard-chat-customer inbox-customer-panel">
+            <div class="customer-panel-scroll">
+              <div class="customer-progress-card">
+                <h4>اكتمال ملف العميل</h4>
+                <div class="progress-track"><span id="chatProgressBar"></span></div>
+                <small id="chatProgressText">0% مكتمل</small>
+              </div>
+
+              <div class="customer-form-card">
+                <h4>بيانات العميل</h4>
+                <label>حالة العميل<select id="chatStatus"></select></label>
+                <label>اسم العميل<input id="chatName"></label>
+                <div class="two">
+                  <label>رقم الجوال<input id="chatPhone"></label>
+                  <label>العمر<input id="chatAge"></label>
+                </div>
+                <div class="two">
+                  <label>الراتب<input id="chatSalary"></label>
+                  <label>الالتزام إن وجد<input id="chatObligation"></label>
+                </div>
+                <label>المكان<input id="chatLocation"></label>
+                <div class="two">
+                  <label>نوع السيارة<input id="chatCar"></label>
+                  <label>الموديل<input id="chatModel"></label>
+                </div>
+                <label>اللون<input id="chatColor"></label>
+                <label>نوع التمويل<input id="chatPayment"></label>
+                <label>ملاحظات<textarea id="chatNotes" rows="3"></textarea></label>
+              </div>
             </div>
-            <button type="button" class="secondary-btn" data-chat-close>إغلاق</button>
-          </div>
-
-          <div class="dashboard-chat-grid">
-            <section class="dashboard-chat-panel">
-              <div id="chatMessages" class="dashboard-chat-messages">
-                <div class="empty">جاري تحميل الرسائل...</div>
-              </div>
-              <div class="dashboard-chat-composer">
-                <div class="composer-tools">
-                  <label class="template-picker">
-                    <span>القالب</span>
-                    <select id="chatTemplateSelect">
-                      <option value="">اكتب رسالة عادية</option>
-                    </select>
-                  </label>
-                  <button type="button" class="secondary-btn" id="chatUseTemplateBtn">استخدام القالب</button>
-                  <button type="button" class="secondary-btn" id="chatClearTextBtn">مسح</button>
-                </div>
-                <div class="dashboard-chat-send">
-                  <textarea id="chatReplyText" rows="3" placeholder="اكتب رسالتك هنا أو اختر قالب من الأعلى..."></textarea>
-                  <button type="button" id="chatSendBtn">إرسال</button>
-                </div>
-                <div class="composer-hint">Enter للإرسال · Shift + Enter لسطر جديد</div>
-              </div>
-            </section>
-
-            <aside class="dashboard-chat-customer">
-              <h4>بيانات العميل</h4>
-              <label>حالة العميل<select id="chatStatus"></select></label>
-              <label>اسم العميل<input id="chatName"></label>
-              <div class="two">
-                <label>رقم الجوال<input id="chatPhone"></label>
-                <label>العمر<input id="chatAge"></label>
-              </div>
-              <div class="two">
-                <label>الراتب<input id="chatSalary"></label>
-                <label>الالتزام إن وجد<input id="chatObligation"></label>
-              </div>
-              <label>المكان<input id="chatLocation"></label>
-              <div class="two">
-                <label>نوع السيارة<input id="chatCar"></label>
-                <label>الموديل<input id="chatModel"></label>
-              </div>
-              <label>اللون<input id="chatColor"></label>
-              <label>نوع التمويل<input id="chatPayment"></label>
-              <label>ملاحظات<textarea id="chatNotes" rows="3"></textarea></label>
+            <div class="customer-save-bar">
               <button type="button" id="chatSaveBtn" class="save-chat-btn">حفظ بيانات العميل</button>
-            </aside>
-          </div>
+            </div>
+          </aside>
+
+          <section class="dashboard-chat-panel inbox-chat-panel">
+            <header class="inbox-chat-header">
+              <button type="button" class="secondary-btn close-chat-btn" data-chat-close>إغلاق</button>
+              <div class="chat-title-box">
+                <h3 id="chatCustomerName">عميل</h3>
+                <p id="chatCustomerMeta"></p>
+              </div>
+            </header>
+
+            <div id="chatMessages" class="dashboard-chat-messages inbox-messages">
+              <div class="empty">جاري تحميل الرسائل...</div>
+            </div>
+
+            <div class="dashboard-chat-composer inbox-composer">
+              <div class="composer-tools">
+                <label class="template-picker">
+                  <span>القالب</span>
+                  <select id="chatTemplateSelect">
+                    <option value="">اكتب رسالة عادية</option>
+                  </select>
+                </label>
+                <button type="button" class="secondary-btn" id="chatUseTemplateBtn">استخدام القالب</button>
+                <button type="button" class="secondary-btn" id="chatClearTextBtn">مسح</button>
+              </div>
+              <div class="dashboard-chat-send">
+                <textarea id="chatReplyText" rows="2" placeholder="اكتب رسالتك هنا... Enter للإرسال و Shift + Enter لسطر جديد"></textarea>
+                <button type="button" id="chatSendBtn">إرسال</button>
+              </div>
+            </div>
+          </section>
         </div>
       `;
       document.body.appendChild(modal);
@@ -533,6 +543,11 @@
           e.preventDefault();
           sendDashboardChatReply();
         }
+      });
+      ["chatStatus","chatName","chatPhone","chatAge","chatSalary","chatObligation","chatLocation","chatCar","chatModel","chatColor","chatPayment","chatNotes"].forEach(id => {
+        const field = el(id);
+        if(field) field.addEventListener("input", updateChatCompletionProgress);
+        if(field) field.addEventListener("change", updateChatCompletionProgress);
       });
     }
 
@@ -635,6 +650,17 @@
       el("chatColor").value = getLeadField(lead, ["color","carColor"]);
       el("chatPayment").value = getLeadField(lead, ["payment","paymentType","payType","leadPayment"]);
       el("chatNotes").value = getLeadField(lead, ["notes","remarks","comment"]);
+      updateChatCompletionProgress();
+    }
+
+    function updateChatCompletionProgress(){
+      const fields = ["chatStatus","chatName","chatPhone","chatAge","chatSalary","chatObligation","chatLocation","chatCar","chatModel","chatColor","chatPayment","chatNotes"];
+      const filled = fields.filter(id => String(el(id)?.value || "").trim()).length;
+      const pct = Math.round((filled / fields.length) * 100);
+      const bar = document.getElementById("chatProgressBar");
+      const text = document.getElementById("chatProgressText");
+      if(bar) bar.style.width = pct + "%";
+      if(text) text.textContent = pct + "% مكتمل";
     }
 
     function formatMessageTime(value){
@@ -1225,6 +1251,320 @@
           .composer-tools{ grid-template-columns:1fr; }
           .dashboard-chat-send{ grid-template-columns:1fr; }
           .dashboard-chat-send button{ min-height:48px; }
+        }
+
+        /* V33 inbox-style chat popup */
+        .dashboard-chat-modal.hidden{ display:none !important; }
+        .dashboard-chat-modal{
+          position:fixed !important;
+          inset:0 !important;
+          z-index:99999 !important;
+          display:flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          padding:14px !important;
+        }
+        .dashboard-chat-backdrop{
+          position:absolute !important;
+          inset:0 !important;
+          background:rgba(52,31,25,.46) !important;
+          backdrop-filter:blur(5px) !important;
+        }
+        .dashboard-chat-dialog.inbox-style{
+          position:relative !important;
+          width:min(1480px,98vw) !important;
+          height:min(900px,94vh) !important;
+          max-height:94vh !important;
+          border-radius:24px !important;
+          background:#fffaf6 !important;
+          border:1px solid #ead4c8 !important;
+          box-shadow:0 28px 90px rgba(45,20,16,.28) !important;
+          display:grid !important;
+          grid-template-columns:340px minmax(0,1fr) !important;
+          overflow:hidden !important;
+          direction:ltr !important;
+        }
+        .dashboard-chat-dialog.inbox-style *{
+          box-sizing:border-box !important;
+        }
+        .inbox-customer-panel{
+          direction:rtl !important;
+          min-width:0 !important;
+          height:100% !important;
+          background:#fff !important;
+          border-left:1px solid #ead4c8 !important;
+          display:flex !important;
+          flex-direction:column !important;
+          overflow:hidden !important;
+          padding:0 !important;
+        }
+        .customer-panel-scroll{
+          flex:1 !important;
+          overflow:auto !important;
+          padding:14px !important;
+          display:flex !important;
+          flex-direction:column !important;
+          gap:14px !important;
+        }
+        .customer-progress-card,
+        .customer-form-card{
+          border:1px solid #ead4c8 !important;
+          border-radius:18px !important;
+          background:#fff !important;
+          padding:14px !important;
+          box-shadow:0 10px 24px rgba(80,32,24,.05) !important;
+        }
+        .customer-progress-card h4,
+        .customer-form-card h4{
+          margin:0 0 12px !important;
+          font-size:17px !important;
+          color:#3d160f !important;
+        }
+        .progress-track{
+          height:10px !important;
+          border-radius:999px !important;
+          background:#f4dfd4 !important;
+          overflow:hidden !important;
+          margin:6px 0 8px !important;
+        }
+        .progress-track span{
+          display:block !important;
+          height:100% !important;
+          width:0%;
+          background:linear-gradient(90deg,#7b2d22,#a64b39) !important;
+          border-radius:999px !important;
+        }
+        .customer-form-card label{
+          display:flex !important;
+          flex-direction:column !important;
+          gap:5px !important;
+          color:#9a7669 !important;
+          font-size:12px !important;
+          margin-bottom:9px !important;
+        }
+        .customer-form-card input,
+        .customer-form-card select,
+        .customer-form-card textarea{
+          width:100% !important;
+          min-height:42px !important;
+          border:1px solid #ead4c8 !important;
+          border-radius:12px !important;
+          padding:9px 10px !important;
+          background:#fffdfb !important;
+          color:#3d160f !important;
+          font:inherit !important;
+        }
+        .customer-form-card textarea{
+          min-height:86px !important;
+          resize:vertical !important;
+        }
+        .customer-form-card .two{
+          display:grid !important;
+          grid-template-columns:1fr 1fr !important;
+          gap:9px !important;
+        }
+        .customer-save-bar{
+          padding:12px 14px !important;
+          border-top:1px solid #ead4c8 !important;
+          background:#fffaf6 !important;
+          box-shadow:0 -10px 24px rgba(80,32,24,.06) !important;
+        }
+        .customer-save-bar .save-chat-btn{
+          width:100% !important;
+          min-height:48px !important;
+          display:flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          border:0 !important;
+          border-radius:14px !important;
+          background:#7b2d22 !important;
+          color:#fff !important;
+          font-weight:900 !important;
+          font-size:15px !important;
+          cursor:pointer !important;
+          box-shadow:0 12px 26px rgba(123,45,34,.2) !important;
+        }
+        .inbox-chat-panel{
+          direction:rtl !important;
+          min-width:0 !important;
+          height:100% !important;
+          display:grid !important;
+          grid-template-rows:72px minmax(0,1fr) auto !important;
+          background:#fff7f1 !important;
+          overflow:hidden !important;
+        }
+        .inbox-chat-header{
+          display:flex !important;
+          align-items:center !important;
+          justify-content:space-between !important;
+          gap:12px !important;
+          padding:12px 16px !important;
+          border-bottom:1px solid #ead4c8 !important;
+          background:#fff !important;
+        }
+        .chat-title-box{
+          text-align:right !important;
+          min-width:0 !important;
+        }
+        .chat-title-box h3{
+          margin:0 !important;
+          color:#3d160f !important;
+          font-size:22px !important;
+          font-weight:900 !important;
+        }
+        .chat-title-box p{
+          margin:4px 0 0 !important;
+          color:#8f7065 !important;
+          font-size:13px !important;
+          white-space:nowrap !important;
+          overflow:hidden !important;
+          text-overflow:ellipsis !important;
+        }
+        .close-chat-btn{
+          border:1px solid #ead4c8 !important;
+          border-radius:12px !important;
+          background:#fffaf6 !important;
+          color:#3d160f !important;
+          min-width:88px !important;
+          height:40px !important;
+          cursor:pointer !important;
+          font-weight:800 !important;
+        }
+        .inbox-messages{
+          min-height:0 !important;
+          overflow:auto !important;
+          padding:18px 22px !important;
+          display:flex !important;
+          flex-direction:column !important;
+          gap:10px !important;
+          background:
+            radial-gradient(circle at 50% 10%, rgba(123,45,34,.06), transparent 24%),
+            linear-gradient(180deg,#fffaf6 0%,#fff2ea 100%) !important;
+        }
+        .dash-msg{
+          width:max-content !important;
+          max-width:min(680px,74%) !important;
+          min-width:150px !important;
+          border:1px solid #ead4c8 !important;
+          border-radius:18px !important;
+          padding:11px 13px !important;
+          line-height:1.8 !important;
+          white-space:pre-wrap !important;
+          box-shadow:0 10px 22px rgba(80,32,24,.06) !important;
+          font-size:15px !important;
+        }
+        .dash-msg.in{
+          align-self:flex-end !important;
+          background:#fff !important;
+          color:#3d160f !important;
+          border-bottom-right-radius:6px !important;
+        }
+        .dash-msg.out{
+          align-self:flex-start !important;
+          background:#eaf6ff !important;
+          color:#18324a !important;
+          border-color:#bfe0f7 !important;
+          border-bottom-left-radius:6px !important;
+        }
+        .dash-msg small{
+          display:block !important;
+          margin-top:7px !important;
+          font-size:11px !important;
+          color:inherit !important;
+          opacity:.65 !important;
+        }
+        .inbox-composer{
+          padding:12px 14px !important;
+          background:#fff !important;
+          border-top:1px solid #ead4c8 !important;
+          box-shadow:0 -12px 28px rgba(80,32,24,.06) !important;
+        }
+        .composer-tools{
+          display:grid !important;
+          grid-template-columns:minmax(220px,1fr) auto auto !important;
+          gap:10px !important;
+          align-items:end !important;
+          margin-bottom:10px !important;
+        }
+        .template-picker{
+          display:flex !important;
+          flex-direction:column !important;
+          gap:5px !important;
+          color:#8f7065 !important;
+          font-size:12px !important;
+        }
+        .template-picker select{
+          width:100% !important;
+          height:42px !important;
+          border:1px solid #ead4c8 !important;
+          border-radius:13px !important;
+          background:#fffaf6 !important;
+          color:#3d160f !important;
+          padding:0 12px !important;
+          font:inherit !important;
+        }
+        .composer-tools .secondary-btn{
+          height:42px !important;
+          border:1px solid #ead4c8 !important;
+          border-radius:13px !important;
+          background:#fffaf6 !important;
+          color:#3d160f !important;
+          cursor:pointer !important;
+          padding:0 14px !important;
+          font-weight:800 !important;
+        }
+        .dashboard-chat-send{
+          display:grid !important;
+          grid-template-columns:minmax(0,1fr) 96px !important;
+          gap:10px !important;
+          padding:0 !important;
+          border:0 !important;
+          background:transparent !important;
+        }
+        .dashboard-chat-send textarea{
+          min-height:58px !important;
+          max-height:140px !important;
+          resize:vertical !important;
+          border:1px solid #ead4c8 !important;
+          border-radius:14px !important;
+          padding:13px !important;
+          font:inherit !important;
+          line-height:1.7 !important;
+          background:#fff !important;
+          color:#3d160f !important;
+        }
+        .dashboard-chat-send button{
+          min-height:58px !important;
+          border:0 !important;
+          border-radius:14px !important;
+          background:#7b2d22 !important;
+          color:#fff !important;
+          font-weight:900 !important;
+          cursor:pointer !important;
+          box-shadow:0 12px 26px rgba(123,45,34,.2) !important;
+        }
+        @media(max-width:980px){
+          .dashboard-chat-dialog.inbox-style{
+            grid-template-columns:1fr !important;
+            overflow:auto !important;
+          }
+          .inbox-customer-panel{
+            order:2 !important;
+            height:auto !important;
+            max-height:none !important;
+            border-left:0 !important;
+            border-top:1px solid #ead4c8 !important;
+          }
+          .inbox-chat-panel{
+            order:1 !important;
+            min-height:620px !important;
+          }
+          .composer-tools{
+            grid-template-columns:1fr !important;
+          }
+          .dashboard-chat-send{
+            grid-template-columns:1fr !important;
+          }
         }
 
       `;
