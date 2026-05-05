@@ -2560,3 +2560,306 @@ body:has(.mersal-inbox-main) .mersal-conversations-panel{
     max-width:90% !important;
   }
 }
+
+
+/* ===== V8 Professional Top Bar Layout ===== */
+:root{
+  --topbar-h: 118px;
+}
+
+/* كل صفحات الإدارة: إلغاء السايد بار وتحويله لتوب بار */
+.management-page{
+  display:block !important;
+  min-height:100vh !important;
+  height:100vh !important;
+  padding-top:var(--topbar-h) !important;
+  overflow:hidden !important;
+  background:var(--bg) !important;
+}
+
+.management-page > .sidebar{
+  display:block !important;
+  width:auto !important;
+  min-width:0 !important;
+  height:0 !important;
+  border:0 !important;
+  background:transparent !important;
+}
+
+.management-main{
+  height:calc(100vh - var(--topbar-h)) !important;
+  overflow:auto !important;
+  padding:18px !important;
+  min-width:0 !important;
+}
+
+/* التوب بار العام */
+.brand{
+  position:fixed !important;
+  top:0 !important;
+  left:0 !important;
+  right:0 !important;
+  z-index:1100 !important;
+  height:var(--topbar-h) !important;
+  padding:12px 18px !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:14px !important;
+  border-bottom:1px solid var(--line) !important;
+  background:rgba(255,250,246,.96) !important;
+  backdrop-filter:blur(14px) !important;
+  box-shadow:0 10px 30px rgba(75,32,27,.10) !important;
+}
+
+.brand-top{
+  flex:0 0 auto !important;
+  min-width:250px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+}
+
+.logo-box{
+  min-width:0 !important;
+}
+
+.logo-box h1{
+  max-width:220px !important;
+  white-space:normal !important;
+}
+
+.brand .nav-card{
+  flex:1 1 auto !important;
+  min-width:260px !important;
+  max-width:none !important;
+  height:auto !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  overflow:hidden !important;
+}
+
+.brand .menu-label{
+  display:none !important;
+}
+
+.brand .nav-tabs{
+  display:flex !important;
+  grid-template-columns:none !important;
+  flex-wrap:nowrap !important;
+  gap:8px !important;
+  max-height:none !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  padding:6px 2px 8px !important;
+  margin:0 !important;
+  scrollbar-width:thin !important;
+}
+
+.brand .nav-tabs a{
+  flex:0 0 auto !important;
+  width:auto !important;
+  min-width:max-content !important;
+  justify-content:center !important;
+  padding:10px 14px !important;
+  border-radius:999px !important;
+  font-size:13px !important;
+  font-weight:800 !important;
+  white-space:nowrap !important;
+  box-shadow:0 4px 12px rgba(75,32,27,.04) !important;
+}
+
+.brand .nav-tabs a::before{
+  width:7px !important;
+  height:7px !important;
+  margin-left:8px !important;
+}
+
+.brand .user-row{
+  flex:0 0 auto !important;
+  border-top:0 !important;
+  padding-top:0 !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+  min-width:190px !important;
+  justify-content:flex-end !important;
+}
+
+.brand .dept-select{
+  flex:0 0 190px !important;
+  margin-top:0 !important;
+  padding:10px 12px !important;
+  border-radius:14px !important;
+}
+
+/* صندوق الوارد: 3 أجزاء - يمين المحادثات، وسط الشات، شمال بيانات العميل */
+.app{
+  direction:ltr !important;
+  height:100vh !important;
+  padding-top:var(--topbar-h) !important;
+  display:grid !important;
+  grid-template-columns:minmax(360px,400px) minmax(0,1fr) minmax(320px,390px) !important;
+  grid-template-areas:"customer chat convs" !important;
+  grid-template-rows:minmax(0,1fr) !important;
+  overflow:hidden !important;
+  background:var(--bg) !important;
+}
+
+.app > .sidebar{
+  direction:rtl !important;
+  grid-area:convs !important;
+  height:calc(100vh - var(--topbar-h)) !important;
+  min-width:0 !important;
+  display:grid !important;
+  grid-template-rows:auto minmax(0,1fr) !important;
+  border-left:0 !important;
+  border-right:1px solid var(--line) !important;
+  background:var(--panel) !important;
+  overflow:hidden !important;
+}
+
+.app > .chat{
+  direction:rtl !important;
+  grid-area:chat !important;
+  height:calc(100vh - var(--topbar-h)) !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+  border-left:1px solid var(--line) !important;
+  border-right:1px solid var(--line) !important;
+}
+
+.app > .customer{
+  direction:rtl !important;
+  grid-area:customer !important;
+  height:calc(100vh - var(--topbar-h)) !important;
+  min-width:0 !important;
+  overflow:auto !important;
+  border-left:0 !important;
+  border-right:0 !important;
+  background:var(--panel) !important;
+}
+
+.app > .sidebar > .brand{
+  direction:rtl !important;
+}
+
+.app > .sidebar > .filters{
+  grid-row:1 !important;
+  padding:12px !important;
+  border-top:0 !important;
+  border-bottom:1px solid var(--line) !important;
+  background:#fff !important;
+}
+
+.app > .sidebar > .list{
+  grid-row:2 !important;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:auto !important;
+  background:#fff !important;
+}
+
+.app .chat .messages{
+  min-height:0 !important;
+}
+
+.app .customer-inner{
+  min-height:100% !important;
+}
+
+/* تحسينات responsive */
+@media(max-width:1180px){
+  :root{ --topbar-h: 136px; }
+
+  .brand{
+    flex-wrap:wrap !important;
+    align-content:center !important;
+    gap:10px !important;
+  }
+
+  .brand-top{
+    min-width:220px !important;
+  }
+
+  .brand .nav-card{
+    order:3 !important;
+    flex:1 0 100% !important;
+  }
+
+  .brand .user-row{
+    min-width:auto !important;
+    margin-right:auto !important;
+  }
+
+  .brand .dept-select{
+    flex-basis:170px !important;
+  }
+
+  .app{
+    grid-template-columns:minmax(300px,360px) minmax(0,1fr) minmax(280px,330px) !important;
+  }
+}
+
+@media(max-width:900px){
+  :root{ --topbar-h: 150px; }
+
+  .app{
+    grid-template-columns:1fr !important;
+    grid-template-areas:"convs" !important;
+  }
+
+  .app > .sidebar{
+    display:grid !important;
+  }
+
+  .app > .chat,
+  .app > .customer{
+    display:none !important;
+  }
+
+  .app.mobile-chat > .sidebar{display:none !important;}
+  .app.mobile-chat > .chat{
+    display:grid !important;
+    grid-area:convs !important;
+  }
+  .app.mobile-customer > .sidebar{display:none !important;}
+  .app.mobile-customer > .customer{
+    display:block !important;
+    grid-area:convs !important;
+  }
+
+  .management-main{
+    padding:12px !important;
+  }
+}
+
+@media(max-width:640px){
+  :root{ --topbar-h: 166px; }
+
+  .brand{
+    padding:10px 12px !important;
+  }
+
+  .brand-top{
+    width:100% !important;
+    min-width:0 !important;
+  }
+
+  .logo-box h1{
+    max-width:180px !important;
+    font-size:13px !important;
+  }
+
+  .brand .user-row{
+    width:100% !important;
+    justify-content:space-between !important;
+  }
+
+  .brand .dept-select{
+    flex:1 1 100% !important;
+  }
+}
+
