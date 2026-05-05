@@ -76,14 +76,6 @@
         <button class="primary" id="importBtn">استيراد الملف</button>
       </div>
 
-      <div class="filters-card import-card">
-        <div>
-          <label class="status-text">مزامنة حاسبة التقسيط</label>
-          <div class="small-note">يقرأ الرابط من Firebase: settings_sources / installment_calculator ويضيف العملاء كتمويل - فرع الصالة.</div>
-        </div>
-        <button class="primary" id="syncCalculatorBtn">مزامنة الحاسبة</button>
-      </div>
-
       <div class="filters-card">
         <div class="filters-grid">
           <select id="branchFilter"><option value="">كل الفروع</option></select>
@@ -259,7 +251,7 @@
       if(isAdmin) return true;
       const uid = currentUser?.uid;
       if(!uid) return false;
-      return lead.responsibleUid === uid || lead.callCenterUid === uid || lead.department === currentProfile?.department;
+      return lead.responsibleUid === uid || lead.callCenterUid === uid;
     }
 
     async function assignField(leadId, field, uid){
@@ -853,7 +845,6 @@ function applyFilterOptions(){
       });
 
       el("importBtn").onclick = importExcel;
-      el("syncCalculatorBtn").onclick = syncInstallmentCalculator;
 
       el("leadsBody").addEventListener("change", (e) => {
         const select = e.target.closest("select[data-assign]");

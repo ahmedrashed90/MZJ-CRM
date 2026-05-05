@@ -257,8 +257,8 @@
 
     const state = {
       user:null, userProfile:null, isAdmin:false,
-      conversations:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
-      department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubStatuses:null, unsubTemplates:null
+      conversations:[], leads:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
+      department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubLeads:null, unsubStatuses:null, unsubTemplates:null
     };
 
     const conversationList = el("conversationList");
@@ -336,6 +336,7 @@
         el("app").classList.remove("hidden");
         listenStatuses();
         listenTemplates();
+        listenLeads();
         listenConversations();
       } catch(err){
         console.error(err);
@@ -448,12 +449,15 @@
       state.unsubConversations.forEach(u => u());
       state.unsubConversations = [];
       if(state.unsubMessages) state.unsubMessages();
+      if(state.unsubLeads) state.unsubLeads();
       if(state.unsubStatuses) state.unsubStatuses();
       if(state.unsubTemplates) state.unsubTemplates();
       state.unsubMessages = null;
+      state.unsubLeads = null;
       state.unsubStatuses = null;
       state.unsubTemplates = null;
       state.conversations = [];
+      state.leads = [];
       state.selected = null;
     }
 
@@ -680,7 +684,7 @@
 
       // 1) Prefer exact document fetch. This guarantees the opened chat is the same lead clicked.
       const exact = await fetchConversationByDeepLink(params);
-      if(exact){
+      if(exact && canSeeConversation(exact)){
         state._autoOpenedFromUrl = true;
         selectConversation(exact);
         return;
@@ -688,7 +692,7 @@
 
       // 2) Fallback to already-loaded list.
       const found = state.conversations.find(c => matchesInboxOpenParams(c, params));
-      if(found){
+      if(found && canSeeConversation(found)){
         state._autoOpenedFromUrl = true;
         selectConversation(found);
         return;
@@ -751,6 +755,71 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       };
     }
 
+
+    function leadConversationKey(l){
+      return String(l.conversationId || l.convId || l.contactKey || "").trim();
+    }
+
+    function leadParticipantId(l){
+      return String(l.participantId || l.tiktokId || l.igId || l.fbId || l.manychatContactId || "").trim();
+    }
+
+    function leadPhone(l){
+      return normalizePhone(firstValue(l.phone, l.mobile, l.phoneNumber, l.customerPhone));
+    }
+
+    function conversationParticipantId(c){
+      return String(firstValue(c.participantId, c.tiktokId, c.igId, c.fbId, c.manychatContactId)).trim();
+    }
+
+    function userAssignedLead(l){
+      const uid = state.user?.uid;
+      if(!uid) return false;
+      return l.responsibleUid === uid || l.callCenterUid === uid;
+    }
+
+    function leadMatchesConversation(l, c){
+      const conv = String(c.convId || c.conversationId || c.contactKey || c.id || "").trim();
+      const stable = String(getStableConversationKey(c) || "").trim();
+      const lConv = leadConversationKey(l);
+
+      if(lConv && (lConv === conv || lConv === stable)) return true;
+
+      const lp = leadParticipantId(l);
+      const cp = conversationParticipantId(c);
+      if(lp && cp && lp === cp) return true;
+
+      const lph = leadPhone(l);
+      const cph = normalizePhone(firstValue(c.phone, c.mobile, c.phoneNumber, c.customerPhone, c.waId, getPhone(c)));
+      if(lph && cph && lph === cph) return true;
+
+      return false;
+    }
+
+    function canSeeConversation(c){
+      if(state.isAdmin) return true;
+      const uid = state.user?.uid;
+      if(!uid) return false;
+
+      if(c.responsibleUid === uid || c.callCenterUid === uid || c.assignedTo === uid || c.salesAssignedTo === uid || c.callCenterAssignedTo === uid) return true;
+
+      return state.leads.some(l => userAssignedLead(l) && leadMatchesConversation(l, c));
+    }
+
+    function listenLeads(){
+      if(state.unsubLeads) state.unsubLeads();
+      state.unsubLeads = onSnapshot(collection(db, "leads"), snap => {
+        state.leads = [];
+        snap.forEach(d => state.leads.push({ id:d.id, ...d.data() }));
+        renderConversations();
+        autoOpenConversationFromUrl();
+      }, err => {
+        console.error(err);
+        toast("تعذر تحميل العملاء المرتبطين بالمحادثات");
+      });
+    }
+
+
     function renderConversations(){
       const search = el("searchInput").value.trim().toLowerCase();
       const seenConversations = new Set();
@@ -769,7 +838,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
           items = items.filter(c => !c.department || c.department === state.department);
         }
       } else {
-        items = items.filter(c => !c.department || c.department === state.department);
+        items = items.filter(c => canSeeConversation(c));
       }
 
       if(search){

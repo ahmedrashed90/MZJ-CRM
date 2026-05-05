@@ -247,7 +247,7 @@
       if(isAdmin) return true;
       const uid = currentUser?.uid;
       if(!uid) return false;
-      return lead.responsibleUid === uid || lead.callCenterUid === uid || lead.department === currentProfile?.department;
+      return lead.responsibleUid === uid || lead.callCenterUid === uid;
     }
 
     async function assignField(leadId, field, uid){
