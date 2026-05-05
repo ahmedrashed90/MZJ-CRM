@@ -187,10 +187,7 @@
     import {
       getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import {
-      getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, limit,
-      addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, limit, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
@@ -594,19 +591,36 @@
       return decodeURIComponent(String(v || "")).trim();
     }
 
-    function inferOpenPlatform(params){
-      const conv = String(params?.conversationId || "").toLowerCase();
+    function inferOpenPlatformFromId(id){
+      const conv = String(id || "").toLowerCase();
       if(conv.startsWith("facebook:")) return "facebook";
       if(conv.startsWith("instagram:") || conv.startsWith("ig_")) return "instagram";
       if(conv.startsWith("tiktok:") || conv.startsWith("tiktok_")) return "tiktok";
       return "whatsapp";
     }
 
-    function openParamVariants(v){
-      const raw = normalizeOpenValue(v);
-      const noSpaces = raw.replace(/\s+/g, "");
-      const safe = raw.replace(/[\/?#\[\]]/g, "_").replace(/\s+/g, "_");
-      return new Set([raw, noSpaces, safe, encodeURIComponent(raw), decodeURIComponent(raw || "")].filter(Boolean));
+    function getDeepLinkDocIds(params){
+      const ids = [];
+      const conv = normalizeOpenValue(params?.conversationId);
+      const phone = normalizePhone(params?.phone || "");
+      const participantId = normalizeOpenValue(params?.participantId);
+
+      if(conv) ids.push(conv);
+
+      // WhatsApp often uses the phone/waId as the wa_conversations document id.
+      if(phone) {
+        ids.push(phone);
+        if(phone.startsWith("+")) ids.push(phone.slice(1));
+      }
+
+      // Last resort for platform IDs if conversationId is missing.
+      if(participantId){
+        ids.push(`tiktok_${participantId}`);
+        ids.push(`instagram:${participantId}`);
+        ids.push(`facebook:${participantId}`);
+      }
+
+      return [...new Set(ids.filter(Boolean))];
     }
 
     function matchesInboxOpenParams(c, params){
@@ -620,13 +634,8 @@
         getStableConversationKey(c)
       ].map(v => String(v || ""));
 
-      if(params.conversationId){
-        const wanted = openParamVariants(params.conversationId);
-        if(convValues.some(v => wanted.has(String(v || "")))) return true;
-
-        const wantedRaw = normalizeOpenValue(params.conversationId);
-        if(wantedRaw && convValues.some(v => String(v || "").includes(wantedRaw) || wantedRaw.includes(String(v || "")))) return true;
-      }
+      const wantedIds = getDeepLinkDocIds(params);
+      if(wantedIds.some(id => convValues.includes(id))) return true;
 
       if(params.phone){
         const wantedPhone = normalizePhone(params.phone);
@@ -642,46 +651,42 @@
           c.participantId, c.tiktokId, c.igId, c.fbId, c.manychatContactId
         ) || "");
         if(wantedParticipant && participant && wantedParticipant === participant) return true;
-
-        if(wantedParticipant && convValues.some(v => String(v || "").endsWith(wantedParticipant))) return true;
       }
 
       return false;
     }
 
-    function buildFallbackConversationFromParams(params){
-      const conv = normalizeOpenValue(params.conversationId);
-      const phone = normalizePhone(params.phone);
-      const participantId = normalizeOpenValue(params.participantId);
-      const platform = inferOpenPlatform(params);
-
-      if(!conv && !phone && !participantId) return null;
-
-      const id = conv || phone || (platform === "tiktok" ? `tiktok_${participantId}` : participantId);
-      if(!id) return null;
-
-      return {
-        id,
-        convId: id,
-        conversationId: id,
-        platform,
-        sourcePlatform: platform,
-        participantId,
-        phone,
-        waId: platform === "whatsapp" ? phone : "",
-        customerName: "العميل",
-        displayName: "العميل",
-        status: "open",
-        department: state.department === "all" ? "" : state.department,
-        updatedAt: new Date().toISOString()
-      };
+    async function fetchConversationByDeepLink(params){
+      const ids = getDeepLinkDocIds(params);
+      for(const id of ids){
+        try{
+          const snap = await getDoc(doc(db, "wa_conversations", id));
+          if(snap.exists()){
+            const data = snap.data();
+            const platform = inferConversationPlatform(inferOpenPlatformFromId(id), { ...data, id });
+            return normalizeConversation(platform, snap.id, data);
+          }
+        }catch(e){
+          console.warn("Deep link fetch failed", id, e);
+        }
+      }
+      return null;
     }
 
-    function autoOpenConversationFromUrl(){
+    async function autoOpenConversationFromUrl(){
       if(state._autoOpenedFromUrl) return;
       const params = getInboxOpenParams();
       if(!params.conversationId && !params.phone && !params.participantId) return;
 
+      // 1) Prefer exact document fetch. This guarantees the opened chat is the same lead clicked.
+      const exact = await fetchConversationByDeepLink(params);
+      if(exact){
+        state._autoOpenedFromUrl = true;
+        selectConversation(exact);
+        return;
+      }
+
+      // 2) Fallback to already-loaded list.
       const found = state.conversations.find(c => matchesInboxOpenParams(c, params));
       if(found){
         state._autoOpenedFromUrl = true;
@@ -689,17 +694,8 @@
         return;
       }
 
+      // 3) Retry while realtime listeners are still loading.
       state._autoOpenTries = (state._autoOpenTries || 0) + 1;
-
-      if(state._autoOpenTries >= 6){
-        const fallback = buildFallbackConversationFromParams(params);
-        if(fallback){
-          state._autoOpenedFromUrl = true;
-          selectConversation(fallback);
-          return;
-        }
-      }
-
       if(state._autoOpenTries < 25){
         setTimeout(autoOpenConversationFromUrl, 250);
       }
