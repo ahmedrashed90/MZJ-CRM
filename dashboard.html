@@ -153,7 +153,9 @@
       lead:null,
       platform:"whatsapp",
       convId:"",
-      unsubMessages:null
+      unsubMessages:null,
+      unsubTemplates:null,
+      templates:[]
     };
 
     const SECTION_DEFS = {
@@ -472,9 +474,22 @@
               <div id="chatMessages" class="dashboard-chat-messages">
                 <div class="empty">جاري تحميل الرسائل...</div>
               </div>
-              <div class="dashboard-chat-send">
-                <textarea id="chatReplyText" rows="2" placeholder="اكتب ردك هنا..."></textarea>
-                <button type="button" id="chatSendBtn">إرسال</button>
+              <div class="dashboard-chat-composer">
+                <div class="composer-tools">
+                  <label class="template-picker">
+                    <span>القالب</span>
+                    <select id="chatTemplateSelect">
+                      <option value="">اكتب رسالة عادية</option>
+                    </select>
+                  </label>
+                  <button type="button" class="secondary-btn" id="chatUseTemplateBtn">استخدام القالب</button>
+                  <button type="button" class="secondary-btn" id="chatClearTextBtn">مسح</button>
+                </div>
+                <div class="dashboard-chat-send">
+                  <textarea id="chatReplyText" rows="3" placeholder="اكتب رسالتك هنا أو اختر قالب من الأعلى..."></textarea>
+                  <button type="button" id="chatSendBtn">إرسال</button>
+                </div>
+                <div class="composer-hint">Enter للإرسال · Shift + Enter لسطر جديد</div>
               </div>
             </section>
 
@@ -507,6 +522,89 @@
       modal.querySelectorAll("[data-chat-close]").forEach(btn => btn.onclick = closeLeadChatPopup);
       el("chatSendBtn").onclick = sendDashboardChatReply;
       el("chatSaveBtn").onclick = saveDashboardChatCustomer;
+      el("chatUseTemplateBtn").onclick = insertSelectedDashboardTemplate;
+      el("chatClearTextBtn").onclick = () => { el("chatReplyText").value = ""; el("chatReplyText").focus(); };
+      el("chatTemplateSelect").onchange = () => {
+        const t = selectedDashboardTemplate();
+        if(t?.content && !el("chatReplyText").value.trim()) insertSelectedDashboardTemplate();
+      };
+      el("chatReplyText").addEventListener("keydown", (e) => {
+        if(e.key === "Enter" && !e.shiftKey){
+          e.preventDefault();
+          sendDashboardChatReply();
+        }
+      });
+    }
+
+    function templateAppliesToLead(t, lead){
+      const dept = leadDepartment(lead);
+      const platform = platformOf(lead);
+      const departments = Array.isArray(t.departments) ? t.departments : [];
+      const platforms = Array.isArray(t.platforms) ? t.platforms : [];
+      const typeOk = !t.type || ["quick","mersal","text"].includes(String(t.type));
+      const deptOk = !departments.length || departments.includes(dept) || departments.includes("all");
+      const platformOk = !platforms.length || platforms.includes(platform) || platforms.includes("all");
+      return typeOk && deptOk && platformOk;
+    }
+
+    function renderDashboardTemplateOptions(){
+      const select = document.getElementById("chatTemplateSelect");
+      if(!select) return;
+      const lead = dashboardChatState.lead;
+      const items = dashboardChatState.templates
+        .filter(t => !lead || templateAppliesToLead(t, lead))
+        .sort((a,b) => Number(a.sort || 0) - Number(b.sort || 0));
+
+      select.innerHTML = `<option value="">اكتب رسالة عادية</option>` + items.map(t => {
+        const label = t.label || t.title || t.name || "قالب بدون اسم";
+        const type = t.type === "mersal" ? "مرسال" : "جاهزة";
+        return `<option value="${escapeHtml(t.id)}">${escapeHtml(label)} - ${escapeHtml(type)}</option>`;
+      }).join("");
+    }
+
+    function selectedDashboardTemplate(){
+      const id = document.getElementById("chatTemplateSelect")?.value || "";
+      if(!id) return null;
+      return dashboardChatState.templates.find(t => t.id === id) || null;
+    }
+
+    function applyTemplateVariables(content, lead){
+      const name = customerName(lead);
+      const phone = phoneOfLead(lead) || "";
+      const car = getLeadField(lead, ["car","carName","carType","vehicleName","model","carModel"]);
+      const status = getLeadField(lead, ["status","leadStatus","currentStatus","clientStatus","customerStatus"], "عميل جديد");
+      return String(content || "")
+        .replace(/\{\{\s*name\s*\}\}/gi, name)
+        .replace(/\{\{\s*الاسم\s*\}\}/g, name)
+        .replace(/\{\{\s*phone\s*\}\}/gi, phone)
+        .replace(/\{\{\s*الجوال\s*\}\}/g, phone)
+        .replace(/\{\{\s*car\s*\}\}/gi, car)
+        .replace(/\{\{\s*السيارة\s*\}\}/g, car)
+        .replace(/\{\{\s*status\s*\}\}/gi, status)
+        .replace(/\{\{\s*الحالة\s*\}\}/g, status);
+    }
+
+    function insertSelectedDashboardTemplate(){
+      const t = selectedDashboardTemplate();
+      if(!t) return toast("اختر قالب أولاً");
+      const text = applyTemplateVariables(t.content || t.body || t.message || "", dashboardChatState.lead || {});
+      if(!text.trim()) return toast("القالب لا يحتوي على رسالة");
+      const textarea = el("chatReplyText");
+      textarea.value = text;
+      textarea.focus();
+    }
+
+    function listenDashboardTemplates(){
+      if(dashboardChatState.unsubTemplates) dashboardChatState.unsubTemplates();
+      const q = query(collection(db, "message_templates"), orderBy("sort", "asc"));
+      dashboardChatState.unsubTemplates = onSnapshot(q, snap => {
+        dashboardChatState.templates = [];
+        snap.forEach(d => dashboardChatState.templates.push({ id:d.id, ...d.data() }));
+        renderDashboardTemplateOptions();
+      }, err => {
+        console.error(err);
+        dashboardChatState.templates = [];
+      });
     }
 
     function fillDashboardChatStatusOptions(lead){
@@ -596,6 +694,8 @@
       dashboardChatState.convId = resolveChatConversationId(lead);
 
       fillDashboardChatCustomerForm(lead);
+      renderDashboardTemplateOptions();
+      el("chatReplyText").value = "";
       document.getElementById("dashboardChatModal").classList.remove("hidden");
       el("chatMessages").innerHTML = `<div class="empty">جاري تحميل الرسائل...</div>`;
 
@@ -635,6 +735,7 @@
 
       const platform = dashboardChatState.platform;
       const cfg = chatPlatformConfig(platform);
+      const selectedTemplate = selectedDashboardTemplate();
       const convId = dashboardChatState.convId || resolveChatConversationId(lead);
       if(!convId) return toast("لا توجد محادثة أو رقم لهذا العميل");
 
@@ -648,7 +749,8 @@
               conversationId:convId,
               psid: lead.participantId || lead.fbId || lead.manychatContactId || convId,
               text,
-              message:text
+              message:text,
+              template:selectedTemplate || null
             })
           });
           const result = await res.json().catch(() => ({}));
@@ -662,6 +764,8 @@
             to: phoneOfLead(lead),
             text,
             status:"pending",
+            messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
+            template: selectedTemplate || null,
             sentByUid:state.user.uid,
             sentByEmail:state.user.email,
             createdAt:serverTimestamp()
@@ -671,6 +775,7 @@
             direction:"outgoing",
             fromAgent:true,
             department:leadDepartment(lead),
+            template: selectedTemplate || null,
             sentByUid:state.user.uid,
             sentByEmail:state.user.email,
             createdAt:serverTimestamp(),
@@ -1012,6 +1117,116 @@
           .dash-msg{ max-width:88%; }
         }
 
+        .dashboard-chat-dialog{
+          width:min(1220px,97vw);
+          max-height:94vh;
+          background:linear-gradient(180deg,#fff 0%,#fff8f3 100%);
+        }
+        .dashboard-chat-head{
+          background:linear-gradient(90deg,#fff 0%,#fff5ef 100%);
+          border-bottom:1px solid var(--line);
+        }
+        .dashboard-chat-head .secondary-btn{
+          min-width:90px;
+        }
+        .dashboard-chat-grid{
+          grid-template-columns:minmax(520px,1fr) 380px;
+        }
+        .dashboard-chat-messages{
+          background:
+            radial-gradient(circle at 20% 10%, rgba(123,45,34,.05), transparent 22%),
+            linear-gradient(180deg,#fff 0%,#fff7f1 100%);
+        }
+        .dashboard-chat-composer{
+          border-top:1px solid var(--line);
+          background:#fff;
+          padding:12px;
+        }
+        .composer-tools{
+          display:grid;
+          grid-template-columns:1fr auto auto;
+          gap:10px;
+          align-items:end;
+          margin-bottom:10px;
+        }
+        .template-picker{
+          display:flex;
+          flex-direction:column;
+          gap:5px;
+          color:var(--muted);
+          font-size:12px;
+        }
+        .template-picker select{
+          width:100%;
+          border:1px solid var(--line);
+          border-radius:13px;
+          padding:10px;
+          background:#fffaf6;
+          color:var(--text);
+          font-family:inherit;
+        }
+        .composer-tools .secondary-btn{
+          height:42px;
+          border:1px solid var(--line);
+          border-radius:13px;
+          background:#fffaf6;
+          color:var(--text);
+          cursor:pointer;
+          font-weight:700;
+          padding:0 14px;
+        }
+        .composer-tools .secondary-btn:hover{
+          border-color:var(--accent);
+          color:var(--accent);
+        }
+        .dashboard-chat-send{
+          grid-template-columns:1fr 104px;
+          padding:0;
+          border-top:0;
+          background:transparent;
+        }
+        .dashboard-chat-send textarea{
+          min-height:88px;
+          resize:vertical;
+          font-size:14px;
+          line-height:1.8;
+          background:#fff;
+        }
+        .dashboard-chat-send button{
+          min-height:88px;
+          box-shadow:0 10px 24px rgba(123,45,34,.16);
+        }
+        .composer-hint{
+          margin-top:7px;
+          color:var(--muted);
+          font-size:12px;
+        }
+        .dash-msg{
+          border-radius:18px;
+          padding:11px 13px;
+        }
+        .dash-msg.out{
+          background:linear-gradient(135deg,#7b2d22,#9b3d2f);
+        }
+        .dashboard-chat-customer{
+          border-right:1px solid rgba(123,45,34,.08);
+        }
+        .dashboard-chat-customer h4{
+          position:sticky;
+          top:0;
+          background:#fff;
+          padding:4px 0 10px;
+          z-index:1;
+        }
+        .save-chat-btn{
+          box-shadow:0 10px 24px rgba(123,45,34,.14);
+        }
+        @media(max-width:900px){
+          .composer-tools{ grid-template-columns:1fr; }
+          .dashboard-chat-send{ grid-template-columns:1fr; }
+          .dashboard-chat-send button{ min-height:48px; }
+        }
+
       `;
       document.head.appendChild(style);
     }
@@ -1019,6 +1234,7 @@
     function init(){
       injectDashboardStyles();
       renderNoPermissionNotice();
+      listenDashboardTemplates();
       el("backToSectionsBtn").onclick = () => {
         selectedSectionKey = "";
         el("dashboardBoard").classList.add("hidden");
