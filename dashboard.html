@@ -61,7 +61,7 @@
       <div class="no-permission-card" id="noPermissionCard">
         <div>
           <b>لا توجد صلاحية لدخول الصفحة المطلوبة.</b>
-          <div class="small-note">تم تحويلك إلى الداش بورد. الصفحات المسموح بها فقط ظاهرة هنا.</div>
+          <div class="small-note">تم تحويلك إلى الداش بورد.</div>
         </div>
         <button class="secondary" onclick="sessionStorage.removeItem('mzj_no_permission_page')">تم</button>
       </div>
@@ -84,11 +84,6 @@
           <button class="secondary" id="backToSectionsBtn">رجوع للأقسام</button>
         </div>
         <div class="dashboard-status-grid" id="statusCards"></div>
-      </div>
-
-      <div class="report-table-section">
-        <h3>الصفحات المسموح بها</h3>
-        <div class="allowed-pages-grid" id="allowedPagesGrid"></div>
       </div>
     </main>
   </div>
@@ -274,15 +269,6 @@
         return false;
       }
       return true;
-    }
-
-    function renderAllowedPagesGrid(){
-      const box = el("allowedPagesGrid");
-      if(!box) return;
-      const pages = allowedPagesForCurrentUser();
-      const unrestricted = isAdmin || currentProfile?.allDepartments === true || !pages.length;
-      const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
-      box.innerHTML = allowed.map(item => `<a class="allowed-page-card" href="./${item.page}">${item.label}</a>`).join("");
     }
 
     function renderNoPermissionNotice(){
@@ -584,7 +570,6 @@
     function init(){
       injectDashboardStyles();
       renderNoPermissionNotice();
-      renderAllowedPagesGrid();
       el("backToSectionsBtn").onclick = () => {
         selectedSectionKey = "";
         el("dashboardBoard").classList.add("hidden");
