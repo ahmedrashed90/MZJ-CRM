@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -96,7 +97,7 @@
       getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
-      getFirestore, collection, doc, getDoc, onSnapshot
+      getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, addDoc, updateDoc, setDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -135,6 +136,25 @@
       { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
       { page:"admin.html", label:"الإدارة" }
     ];
+
+    const CHAT_PLATFORM_CONFIG = {
+      whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox" },
+      facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"" },
+      instagram:{ label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
+      tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
+    };
+
+    const FACEBOOK_SEND_ENDPOINT =
+      window.FB_SEND_ENDPOINT ||
+      localStorage.getItem("FB_SEND_ENDPOINT") ||
+      "https://facebook.next-erp-mzj.workers.dev/crm/send";
+
+    let dashboardChatState = {
+      lead:null,
+      platform:"whatsapp",
+      convId:"",
+      unsubMessages:null
+    };
 
     const SECTION_DEFS = {
       cash: {
@@ -392,30 +412,333 @@
       return l.conversationId || l.convId || l.contactKey || l.participantId || l.fbId || l.igId || l.tiktokId || l.id || "";
     }
 
+    function normalizeKsaPhone(phone){
+      let p = String(phone || "").trim();
+      if(!p) return "";
+      if(/[eE]\+?/.test(p)){
+        const n = Number(p);
+        if(Number.isFinite(n)) p = String(Math.trunc(n));
+      }
+      p = p.replace(/[^\d+]/g,"");
+      p = p.replace(/^00/,"+").replace(/^\+/,"");
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0,12);
+      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) return "966" + p;
+      return p;
+    }
+
+    function getLeadField(lead, names, fallback=""){
+      for(const name of names){
+        if(lead && lead[name] !== undefined && lead[name] !== null && String(lead[name]).trim() !== "") return lead[name];
+      }
+      return fallback;
+    }
+
+    function chatPlatformConfig(platform){
+      return CHAT_PLATFORM_CONFIG[platform] || CHAT_PLATFORM_CONFIG.whatsapp;
+    }
+
     function openLeadConversation(lead){
+      openLeadChatPopup(lead);
+    }
+
+    function resolveChatConversationId(lead){
       const platform = platformOf(lead);
-      const conversationId = conversationIdOf(lead);
-      const phone = phoneOfLead(lead);
-      if(!conversationId && !phone){
-        toast("لا يوجد رقم/محادثة لهذا العميل");
+      const phone = normalizeKsaPhone(phoneOfLead(lead));
+      if(platform === "whatsapp"){
+        return lead.convId || lead.conversationId || lead.waId || lead.participantId || String(lead.id || "").replace(/^wa_/, "") || phone;
+      }
+      return lead.conversationId || lead.convId || lead.contactKey || lead.participantId || lead.fbId || lead.igId || lead.tiktokId || lead.__id || "";
+    }
+
+    function ensureDashboardChatModal(){
+      if(document.getElementById("dashboardChatModal")) return;
+      const modal = document.createElement("div");
+      modal.id = "dashboardChatModal";
+      modal.className = "dashboard-chat-modal hidden";
+      modal.innerHTML = `
+        <div class="dashboard-chat-backdrop" data-chat-close></div>
+        <div class="dashboard-chat-dialog" role="dialog" aria-modal="true">
+          <div class="dashboard-chat-head">
+            <div>
+              <h3 id="chatCustomerName">عميل</h3>
+              <p id="chatCustomerMeta"></p>
+            </div>
+            <button type="button" class="secondary-btn" data-chat-close>إغلاق</button>
+          </div>
+
+          <div class="dashboard-chat-grid">
+            <section class="dashboard-chat-panel">
+              <div id="chatMessages" class="dashboard-chat-messages">
+                <div class="empty">جاري تحميل الرسائل...</div>
+              </div>
+              <div class="dashboard-chat-send">
+                <textarea id="chatReplyText" rows="2" placeholder="اكتب ردك هنا..."></textarea>
+                <button type="button" id="chatSendBtn">إرسال</button>
+              </div>
+            </section>
+
+            <aside class="dashboard-chat-customer">
+              <h4>بيانات العميل</h4>
+              <label>حالة العميل<select id="chatStatus"></select></label>
+              <label>اسم العميل<input id="chatName"></label>
+              <div class="two">
+                <label>رقم الجوال<input id="chatPhone"></label>
+                <label>العمر<input id="chatAge"></label>
+              </div>
+              <div class="two">
+                <label>الراتب<input id="chatSalary"></label>
+                <label>الالتزام إن وجد<input id="chatObligation"></label>
+              </div>
+              <label>المكان<input id="chatLocation"></label>
+              <div class="two">
+                <label>نوع السيارة<input id="chatCar"></label>
+                <label>الموديل<input id="chatModel"></label>
+              </div>
+              <label>اللون<input id="chatColor"></label>
+              <label>نوع التمويل<input id="chatPayment"></label>
+              <label>ملاحظات<textarea id="chatNotes" rows="3"></textarea></label>
+              <button type="button" id="chatSaveBtn" class="save-chat-btn">حفظ بيانات العميل</button>
+            </aside>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.querySelectorAll("[data-chat-close]").forEach(btn => btn.onclick = closeLeadChatPopup);
+      el("chatSendBtn").onclick = sendDashboardChatReply;
+      el("chatSaveBtn").onclick = saveDashboardChatCustomer;
+    }
+
+    function fillDashboardChatStatusOptions(lead){
+      const select = el("chatStatus");
+      const current = getLeadField(lead, ["status","leadStatus","currentStatus","clientStatus","customerStatus","pipelineStatus"], "عميل جديد");
+      const base = [
+        current, "عميل جديد", "تم الرد", "غير مؤهل", "مؤجل", "محتمل", "تم البيع",
+        "جاري العمل", "تم الانتهاء", "تم الاتصال", "مؤهل - لم يتم إرسال الأوراق",
+        "مؤهل - تأخر في إرسال الأوراق", "مؤهل - تم إرسال الأوراق", "تم الإنتهاء - إنشاء طلب البيع"
+      ].filter(Boolean);
+      const unique = [...new Set(base)];
+      select.innerHTML = unique.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+      select.value = current;
+    }
+
+    function fillDashboardChatCustomerForm(lead){
+      el("chatCustomerName").textContent = customerName(lead);
+      el("chatCustomerMeta").textContent = customerMeta(lead) || "لا توجد بيانات إضافية";
+      fillDashboardChatStatusOptions(lead);
+      el("chatName").value = customerName(lead) === "عميل بدون اسم" ? "" : customerName(lead);
+      el("chatPhone").value = phoneOfLead(lead) || "";
+      el("chatAge").value = getLeadField(lead, ["age","customerAge"]);
+      el("chatSalary").value = getLeadField(lead, ["salary","monthlySalary"]);
+      el("chatObligation").value = getLeadField(lead, ["obligation","commitment"]);
+      el("chatLocation").value = getLeadField(lead, ["location","city","place"]);
+      el("chatCar").value = getLeadField(lead, ["car","carName","carType","vehicleName"]);
+      el("chatModel").value = getLeadField(lead, ["model","carModel"]);
+      el("chatColor").value = getLeadField(lead, ["color","carColor"]);
+      el("chatPayment").value = getLeadField(lead, ["payment","paymentType","payType","leadPayment"]);
+      el("chatNotes").value = getLeadField(lead, ["notes","remarks","comment"]);
+    }
+
+    function formatMessageTime(value){
+      const d = value?.toDate ? value.toDate() : value ? new Date(value) : null;
+      if(!d || Number.isNaN(d.getTime())) return "";
+      return d.toLocaleString("ar-EG", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit" });
+    }
+
+    function messageText(m){
+      return m.text || m.body || m.message || m.caption || m.content || m.lastMessageText || "";
+    }
+
+    function renderDashboardMessages(messages){
+      const box = el("chatMessages");
+      if(!messages.length){
+        box.innerHTML = `<div class="empty">لا توجد رسائل لهذه المحادثة.</div>`;
         return;
       }
-      const department = leadDepartment(lead);
-      const target = {
-        platform,
-        conversationId: conversationId || "",
-        phone: phone || "",
-        leadId: lead.id || lead.__id || "",
-        name: customerName(lead) || "",
-        department,
-        fromDashboard: "1",
-        ts: Date.now()
-      };
+      box.innerHTML = messages.map(m => {
+        const outgoing = m.direction === "outgoing" || m.fromAgent || m.senderType === "agent";
+        return `
+          <div class="dash-msg ${outgoing ? "out" : "in"}">
+            <div>${escapeHtml(messageText(m) || "رسالة")}</div>
+            <small>${escapeHtml(formatMessageTime(m.createdAt || m.timestamp || m.time || m.sentAt))}</small>
+          </div>
+        `;
+      }).join("");
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function listenDashboardChatMessages(){
+      if(dashboardChatState.unsubMessages) dashboardChatState.unsubMessages();
+      dashboardChatState.unsubMessages = null;
+
+      const cfg = chatPlatformConfig(dashboardChatState.platform);
+      const convId = dashboardChatState.convId;
+      if(!convId){
+        renderDashboardMessages([]);
+        return;
+      }
+
+      const q = query(collection(db, cfg.conversations, convId, "messages"), orderBy("createdAt", "asc"));
+      dashboardChatState.unsubMessages = onSnapshot(q, snap => {
+        const messages = [];
+        snap.forEach(d => messages.push({ id:d.id, ...d.data() }));
+        renderDashboardMessages(messages);
+      }, err => {
+        console.error(err);
+        el("chatMessages").innerHTML = `<div class="empty">تعذر تحميل رسائل المحادثة.</div>`;
+      });
+    }
+
+    async function openLeadChatPopup(lead){
+      ensureDashboardChatModal();
+      dashboardChatState.lead = lead;
+      dashboardChatState.platform = platformOf(lead);
+      dashboardChatState.convId = resolveChatConversationId(lead);
+
+      fillDashboardChatCustomerForm(lead);
+      document.getElementById("dashboardChatModal").classList.remove("hidden");
+      el("chatMessages").innerHTML = `<div class="empty">جاري تحميل الرسائل...</div>`;
+
+      const cfg = chatPlatformConfig(dashboardChatState.platform);
+      if(dashboardChatState.convId){
+        try{
+          await setDoc(doc(db, cfg.conversations, dashboardChatState.convId), {
+            conversationId: dashboardChatState.convId,
+            convId: dashboardChatState.convId,
+            platform: dashboardChatState.platform,
+            channel: dashboardChatState.platform,
+            channelCode: dashboardChatState.platform === "facebook" ? "fb" : dashboardChatState.platform === "whatsapp" ? "wa" : dashboardChatState.platform,
+            customerName: customerName(lead),
+            phone: phoneOfLead(lead) || "",
+            phoneNormalized: normalizeKsaPhone(phoneOfLead(lead)),
+            department: leadDepartment(lead),
+            updatedAt: serverTimestamp()
+          }, { merge:true });
+        }catch(e){ console.warn("conversation upsert skipped", e); }
+      }
+      listenDashboardChatMessages();
+    }
+
+    function closeLeadChatPopup(){
+      if(dashboardChatState.unsubMessages) dashboardChatState.unsubMessages();
+      dashboardChatState.unsubMessages = null;
+      dashboardChatState.lead = null;
+      const modal = document.getElementById("dashboardChatModal");
+      if(modal) modal.classList.add("hidden");
+    }
+
+    async function sendDashboardChatReply(){
+      const lead = dashboardChatState.lead;
+      const text = el("chatReplyText").value.trim();
+      if(!lead) return toast("لا يوجد عميل محدد");
+      if(!text) return toast("اكتب الرسالة أولاً");
+
+      const platform = dashboardChatState.platform;
+      const cfg = chatPlatformConfig(platform);
+      const convId = dashboardChatState.convId || resolveChatConversationId(lead);
+      if(!convId) return toast("لا توجد محادثة أو رقم لهذا العميل");
+
       try{
-        sessionStorage.setItem("mzj_inbox_open_target", JSON.stringify(target));
-      }catch(e){}
-      const params = new URLSearchParams(target);
-      window.location.href = `./inbox.html?${params.toString()}`;
+        if(platform === "facebook"){
+          const res = await fetch(FACEBOOK_SEND_ENDPOINT, {
+            method:"POST",
+            headers:{ "content-type":"application/json" },
+            body:JSON.stringify({
+              convId,
+              conversationId:convId,
+              psid: lead.participantId || lead.fbId || lead.manychatContactId || convId,
+              text,
+              message:text
+            })
+          });
+          const result = await res.json().catch(() => ({}));
+          if(!res.ok || result.ok === false) throw new Error(result.error || "facebook send failed");
+        } else {
+          if(!cfg.outbox) throw new Error("لا يوجد مسار إرسال مضبوط لهذه المنصة");
+          await addDoc(collection(db, cfg.outbox), {
+            conversationId:convId,
+            platform,
+            department:leadDepartment(lead),
+            to: phoneOfLead(lead),
+            text,
+            status:"pending",
+            sentByUid:state.user.uid,
+            sentByEmail:state.user.email,
+            createdAt:serverTimestamp()
+          });
+          await addDoc(collection(db, cfg.conversations, convId, "messages"), {
+            text,
+            direction:"outgoing",
+            fromAgent:true,
+            department:leadDepartment(lead),
+            sentByUid:state.user.uid,
+            sentByEmail:state.user.email,
+            createdAt:serverTimestamp(),
+            status:"pending"
+          });
+          await setDoc(doc(db, cfg.conversations, convId), {
+            lastMessage:text,
+            lastMessageText:text,
+            updatedAt:serverTimestamp()
+          }, { merge:true });
+        }
+        el("chatReplyText").value = "";
+        toast("تم الإرسال");
+      }catch(err){
+        console.error(err);
+        toast("فشل الإرسال. راجع إعدادات الإرسال أو الصلاحيات.");
+      }
+    }
+
+    async function saveDashboardChatCustomer(){
+      const lead = dashboardChatState.lead;
+      if(!lead?.__id) return toast("لا يوجد ليد محدد للحفظ");
+
+      const status = el("chatStatus").value;
+      const payload = {
+        customerName: el("chatName").value.trim(),
+        fullName: el("chatName").value.trim(),
+        name: el("chatName").value.trim(),
+        phone: el("chatPhone").value.trim(),
+        mobile: el("chatPhone").value.trim(),
+        phoneNumber: el("chatPhone").value.trim(),
+        phoneNormalized: normalizeKsaPhone(el("chatPhone").value),
+        age: el("chatAge").value.trim(),
+        salary: el("chatSalary").value.trim(),
+        obligation: el("chatObligation").value.trim(),
+        commitment: el("chatObligation").value.trim(),
+        location: el("chatLocation").value.trim(),
+        car: el("chatCar").value.trim(),
+        carName: el("chatCar").value.trim(),
+        carType: el("chatCar").value.trim(),
+        model: el("chatModel").value.trim(),
+        carModel: el("chatModel").value.trim(),
+        color: el("chatColor").value.trim(),
+        payment: el("chatPayment").value.trim(),
+        paymentType: el("chatPayment").value.trim(),
+        payType: el("chatPayment").value.trim(),
+        notes: el("chatNotes").value.trim(),
+        status,
+        statusLabel: status,
+        leadStatus: status,
+        currentStatus: status,
+        currentStatusLabel: status,
+        clientStatus: status,
+        customerStatus: status,
+        updatedAt: serverTimestamp(),
+        lastUpdated: serverTimestamp()
+      };
+
+      try{
+        await updateDoc(doc(db, "leads", lead.__id), payload);
+        Object.assign(lead, payload);
+        renderDashboard();
+        fillDashboardChatCustomerForm(lead);
+        toast("تم حفظ بيانات العميل");
+      }catch(err){
+        console.error(err);
+        toast("فشل حفظ بيانات العميل");
+      }
     }
 
     function renderStatusCards(){
@@ -569,6 +892,126 @@
           .dashboard-section-cards{grid-template-columns:1fr;}
           .board-head{align-items:flex-start;flex-direction:column;}
         }
+        .dashboard-chat-modal.hidden{ display:none; }
+        .dashboard-chat-modal{
+          position:fixed;
+          inset:0;
+          z-index:9999;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          padding:24px;
+        }
+        .dashboard-chat-backdrop{
+          position:absolute;
+          inset:0;
+          background:rgba(45,20,16,.42);
+          backdrop-filter:blur(3px);
+        }
+        .dashboard-chat-dialog{
+          position:relative;
+          width:min(1120px,96vw);
+          max-height:92vh;
+          overflow:hidden;
+          border-radius:24px;
+          background:#fffaf6;
+          border:1px solid var(--line);
+          box-shadow:0 26px 80px rgba(45,20,16,.22);
+          display:flex;
+          flex-direction:column;
+        }
+        .dashboard-chat-head{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:12px;
+          padding:16px 18px;
+          border-bottom:1px solid var(--line);
+          background:#fff;
+        }
+        .dashboard-chat-head h3{ margin:0; font-size:22px; }
+        .dashboard-chat-head p{ margin:4px 0 0; color:var(--muted); font-size:13px; }
+        .dashboard-chat-grid{
+          display:grid;
+          grid-template-columns:minmax(420px,1fr) 340px;
+          min-height:620px;
+          max-height:calc(92vh - 74px);
+        }
+        .dashboard-chat-panel{
+          display:flex;
+          flex-direction:column;
+          min-width:0;
+          border-left:1px solid var(--line);
+        }
+        .dashboard-chat-messages{
+          flex:1;
+          overflow:auto;
+          padding:18px;
+          background:linear-gradient(180deg,#fff 0%,#fff7f1 100%);
+          display:flex;
+          flex-direction:column;
+          gap:10px;
+        }
+        .dash-msg{
+          max-width:72%;
+          border:1px solid var(--line);
+          border-radius:16px;
+          padding:10px 12px;
+          background:#fff;
+          box-shadow:0 8px 20px rgba(80,32,24,.06);
+          line-height:1.8;
+          white-space:pre-wrap;
+        }
+        .dash-msg.out{ align-self:flex-start; background:#7b2d22; color:#fff; border-color:#7b2d22; }
+        .dash-msg.in{ align-self:flex-end; background:#fff; color:var(--text); }
+        .dash-msg small{ display:block; opacity:.75; font-size:11px; margin-top:4px; }
+        .dashboard-chat-send{
+          display:grid;
+          grid-template-columns:1fr 92px;
+          gap:10px;
+          padding:12px;
+          border-top:1px solid var(--line);
+          background:#fff;
+        }
+        .dashboard-chat-send textarea,
+        .dashboard-chat-customer input,
+        .dashboard-chat-customer select,
+        .dashboard-chat-customer textarea{
+          width:100%;
+          border:1px solid var(--line);
+          border-radius:12px;
+          padding:10px;
+          background:#fff;
+          font-family:inherit;
+          color:var(--text);
+        }
+        .dashboard-chat-send button,
+        .save-chat-btn{
+          border:0;
+          border-radius:14px;
+          background:var(--accent);
+          color:#fff;
+          font-weight:800;
+          cursor:pointer;
+        }
+        .dashboard-chat-customer{
+          overflow:auto;
+          padding:16px;
+          background:#fff;
+          display:flex;
+          flex-direction:column;
+          gap:10px;
+        }
+        .dashboard-chat-customer h4{ margin:0 0 6px; font-size:18px; }
+        .dashboard-chat-customer label{ display:flex; flex-direction:column; gap:5px; color:var(--muted); font-size:12px; }
+        .dashboard-chat-customer .two{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .save-chat-btn{ padding:13px; margin-top:4px; }
+        @media(max-width:900px){
+          .dashboard-chat-grid{ grid-template-columns:1fr; overflow:auto; }
+          .dashboard-chat-customer{ max-height:none; }
+          .dash-msg{ max-width:88%; }
+        }
+
       `;
       document.head.appendChild(style);
     }
