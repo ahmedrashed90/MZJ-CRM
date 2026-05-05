@@ -305,7 +305,27 @@
     }
 
     function normalizePhone(value){
-      return String(value || "").replace(/[^\d]/g, "");
+      let raw = String(value ?? "").trim();
+
+      if(/^[0-9]+(?:\.[0-9]+)?e\+?[0-9]+$/i.test(raw)){
+        const num = Number(raw);
+        if(Number.isFinite(num)){
+          raw = Math.trunc(num).toString();
+        }
+      }
+
+      let p = raw.replace(/[^\d+]/g, "");
+      if(!p) return "";
+
+      if(p.startsWith("00966")) p = "966" + p.slice(5);
+      if(p.startsWith("+966")) p = "966" + p.slice(4);
+      if(p.startsWith("+")) p = p.slice(1);
+
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0, 12);
+      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) return "966" + p;
+
+      return p;
     }
 
     function firstValue(...values){
@@ -677,6 +697,55 @@
       return null;
     }
 
+
+    function assignedLeadFromOpenParams(params){
+      const phone = normalizePhone(params?.phone || "");
+      const participantId = String(params?.participantId || "").trim();
+      const conv = String(params?.conversationId || "").trim();
+
+      return state.leads.find(l => {
+        if(!userAssignedLead(l)) return false;
+
+        const lPhone = leadPhone(l);
+        if(phone && lPhone && phone === lPhone) return true;
+
+        const lParticipant = leadParticipantId(l);
+        if(participantId && lParticipant && participantId === lParticipant) return true;
+
+        const lConv = leadConversationKey(l);
+        if(conv && lConv && conv === lConv) return true;
+
+        return false;
+      });
+    }
+
+    function buildWhatsappConversationFromLead(lead, params){
+      const phone = normalizePhone(firstValue(params?.phone, lead.phone, lead.mobile, lead.phoneNumber, lead.customerPhone));
+      const id = phone || lead.conversationId || lead.convId || lead.id;
+
+      return {
+        id,
+        convId:id,
+        conversationId:id,
+        platform:"whatsapp",
+        sourcePlatform:"whatsapp",
+        channel:"whatsapp",
+        channelCode:"wa",
+        provider:"mersal",
+        customerName:firstValue(lead.customerName, lead.name, lead.fullName, lead.displayName, "عميل"),
+        displayName:firstValue(lead.customerName, lead.name, lead.fullName, lead.displayName, "عميل"),
+        phone,
+        waId:phone,
+        department:lead.department || "finance_sales",
+        clientStatus:lead.clientStatus || lead.statusLabel || lead.status || "",
+        status:"open",
+        responsibleUid:lead.responsibleUid || "",
+        callCenterUid:lead.callCenterUid || "",
+        updatedAt:lead.updatedAt || lead.lastUpdated || new Date().toISOString(),
+        customer:lead
+      };
+    }
+
     async function autoOpenConversationFromUrl(){
       if(state._autoOpenedFromUrl) return;
       const params = getInboxOpenParams();
@@ -698,7 +767,16 @@
         return;
       }
 
-      // 3) Retry while realtime listeners are still loading.
+      // 3) If this is an imported/calculator lead with no previous conversation,
+      // open a new WhatsApp conversation in the CRM using the assigned lead phone.
+      const assignedLead = assignedLeadFromOpenParams(params);
+      if(assignedLead){
+        state._autoOpenedFromUrl = true;
+        selectConversation(buildWhatsappConversationFromLead(assignedLead, params));
+        return;
+      }
+
+      // 4) Retry while realtime listeners are still loading.
       state._autoOpenTries = (state._autoOpenTries || 0) + 1;
       if(state._autoOpenTries < 25){
         setTimeout(autoOpenConversationFromUrl, 250);

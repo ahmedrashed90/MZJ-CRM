@@ -209,7 +209,27 @@
     function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
 
     function normalizePhone(phone){
-      return String(phone || "").replace(/[^\d+]/g,"").trim();
+      let raw = String(phone ?? "").trim();
+
+      if(/^[0-9]+(?:\.[0-9]+)?e\+?[0-9]+$/i.test(raw)){
+        const num = Number(raw);
+        if(Number.isFinite(num)){
+          raw = Math.trunc(num).toString();
+        }
+      }
+
+      let p = raw.replace(/[^\d+]/g,"").trim();
+      if(!p) return "";
+
+      if(p.startsWith("00966")) p = "966" + p.slice(5);
+      if(p.startsWith("+966")) p = "966" + p.slice(4);
+      if(p.startsWith("+")) p = p.slice(1);
+
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0, 12);
+      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) return "966" + p;
+
+      return p;
     }
 
     function fullName(row){
@@ -223,7 +243,11 @@
 
     function getField(row, names, fallback=""){
       for(const n of names){
-        if(row[n] !== undefined && row[n] !== null && String(row[n]).trim() !== "") return String(row[n]).trim();
+        if(row[n] !== undefined && row[n] !== null && String(row[n]).trim() !== ""){
+          const v = row[n];
+          if(typeof v === "number" && Number.isFinite(v)) return Math.trunc(v).toString();
+          return String(v).trim();
+        }
       }
       return fallback;
     }
@@ -533,9 +557,7 @@
       const phone = l.phone || l.mobile || l.phoneNumber || "—";
 
       if(isImportedFinanceLead(l)){
-        const waUrl = buildWhatsappUrlForLead(l);
-        if(!waUrl) return escapeHtml(phone);
-        return `<a class="lead-inbox-link" href="${escapeHtml(waUrl)}" target="_blank" rel="noopener">${escapeHtml(phone)}</a>`;
+        return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(phone)}</a>`;
       }
 
       if(!isWhatsappLead(l)) return escapeHtml(phone);
