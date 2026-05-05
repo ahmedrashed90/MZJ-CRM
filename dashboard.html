@@ -1567,6 +1567,48 @@
           }
         }
 
+        /* V34 compact message bubbles */
+        .inbox-messages{
+          align-items:stretch !important;
+        }
+        .dash-msg{
+          width:fit-content !important;
+          width:-moz-fit-content !important;
+          min-width:0 !important;
+          max-width:64% !important;
+          padding:9px 12px !important;
+          border-radius:15px !important;
+          line-height:1.7 !important;
+          font-size:14px !important;
+          box-shadow:0 6px 16px rgba(80,32,24,.05) !important;
+        }
+        .dash-msg > div{
+          display:block !important;
+          width:auto !important;
+          max-width:100% !important;
+          white-space:pre-wrap !important;
+          overflow-wrap:anywhere !important;
+          word-break:normal !important;
+        }
+        .dash-msg small{
+          margin-top:5px !important;
+          font-size:10px !important;
+        }
+        .dash-msg.in{
+          align-self:flex-end !important;
+        }
+        .dash-msg.out{
+          align-self:flex-start !important;
+        }
+        .dash-msg:has(div:empty){
+          min-width:80px !important;
+        }
+        @media(max-width:900px){
+          .dash-msg{
+            max-width:82% !important;
+          }
+        }
+
       `;
       document.head.appendChild(style);
     }
