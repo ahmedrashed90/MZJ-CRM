@@ -5017,7 +5017,7 @@ body:has(.app){
    - تصغير زر حفظ بيانات العميل وتثبيته داخل عمود بيانات العميل فقط بدون تغطية زر إرسال.
 */
 .app{
-  --side-nav-w: 360px !important;
+  --side-nav-w: 420px !important;
   --inbox-list-w: 390px !important;
   --customer-w: 360px !important;
   --chat-min-w: 500px !important;
