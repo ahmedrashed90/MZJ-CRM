@@ -85,6 +85,11 @@
         </div>
         <div class="dashboard-status-grid" id="statusCards"></div>
       </div>
+
+      <div class="report-table-section">
+        <h3>الصفحات المسموح بها</h3>
+        <div class="allowed-pages-grid" id="allowedPagesGrid"></div>
+      </div>
     </main>
   </div>
   <div class="toast" id="toast"></div>
@@ -388,32 +393,37 @@
       return p || "whatsapp";
     }
 
+    function phoneOfLead(l){
+      return l.phoneNormalized || l.phone || l.mobile || l.phoneNumber || l.customerPhone || "";
+    }
+
     function conversationIdOf(l){
       const platform = platformOf(l);
+      const phone = phoneOfLead(l);
       if(platform === "whatsapp"){
-        return (
-          l.convId ||
-          l.conversationId ||
-          l.waId ||
-          l.participantId ||
-          String(l.contactKey || "").replace(/^wa:/, "") ||
-          String(l.id || "").replace(/^wa_/, "") ||
-          String(l.__id || "").replace(/^wa_/, "")
-        );
+        return l.convId || l.conversationId || l.waId || l.participantId || String(l.id || "").replace(/^wa_/, "") || phone;
       }
-      return l.conversationId || l.convId || l.contactKey || l.participantId || l.id || l.__id || "";
+      return l.conversationId || l.convId || l.contactKey || l.participantId || l.fbId || l.igId || l.tiktokId || l.id || "";
     }
 
     function openLeadConversation(lead){
       const platform = platformOf(lead);
       const conversationId = conversationIdOf(lead);
-      if(!conversationId){
+      const phone = phoneOfLead(lead);
+      if(!conversationId && !phone){
         toast("لا يوجد رقم/محادثة لهذا العميل");
         return;
       }
       const department = leadDepartment(lead);
-      const url = `./inbox.html?platform=${encodeURIComponent(platform)}&conversationId=${encodeURIComponent(conversationId)}&department=${encodeURIComponent(department)}`;
-      window.location.href = url;
+      const params = new URLSearchParams({
+        platform,
+        conversationId: conversationId || "",
+        phone: phone || "",
+        leadId: lead.id || lead.__id || "",
+        name: customerName(lead) || "",
+        department
+      });
+      window.location.href = `./inbox.html?${params.toString()}`;
     }
 
     function renderStatusCards(){
@@ -574,12 +584,12 @@
     function init(){
       injectDashboardStyles();
       renderNoPermissionNotice();
+      renderAllowedPagesGrid();
       el("backToSectionsBtn").onclick = () => {
         selectedSectionKey = "";
         el("dashboardBoard").classList.add("hidden");
         renderSectionCards();
       };
-      renderDashboard();
       if(unsub) unsub();
       unsub = onSnapshot(collection(db, "leads"), snap => {
         leads = [];

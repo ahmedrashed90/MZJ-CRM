@@ -197,7 +197,36 @@
     function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
 
     function normalizePhone(phone){
-      return String(phone || "").replace(/[^\d+]/g,"").trim();
+      let p = String(phone || "").trim();
+      if(/[eE]\+?/.test(p)){
+        const n = Number(p);
+        if(Number.isFinite(n)) p = String(Math.trunc(n));
+      }
+      p = p.replace(/[^\d+]/g,"");
+      p = p.replace(/^00/,"+").replace(/^\+/,"");
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0,12);
+      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) return "966" + p;
+      return p;
+    }
+
+    function openWhatsappInboxByPhone(phone, name=""){
+      const p = normalizePhone(phone);
+      if(!p) return toast("لا يوجد رقم جوال صالح");
+      const params = new URLSearchParams({
+        platform:"whatsapp",
+        phone:p,
+        conversationId:p,
+        name:name || "",
+        department:PAGE_DEPARTMENT || ""
+      });
+      window.location.href = `./inbox.html?${params.toString()}`;
+    }
+
+    function phoneLinkHtml(phone, name=""){
+      const p = normalizePhone(phone);
+      if(!p) return escapeHtml(phone || "");
+      return `<button type="button" class="phone-open-chat" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}">${escapeHtml(phone || p)}</button>`;
     }
 
     function fullName(row){
@@ -239,7 +268,7 @@
       if(isAdmin) return true;
       const uid = currentUser?.uid;
       if(!uid) return false;
-      return lead.responsibleUid === uid || lead.callCenterUid === uid;
+      return lead.responsibleUid === uid || lead.callCenterUid === uid || lead.department === currentProfile?.department;
     }
 
     async function assignField(leadId, field, uid){
@@ -428,66 +457,9 @@
       return statuses.filter(s => s.active !== false && Array.isArray(s.departments) && s.departments.includes(PAGE_DEPARTMENT)).map(s => s.name);
     }
 
-    
-    function normalizeSourceAr(value){
-      const s = String(value || "").trim().toLowerCase();
-      if(s === "tiktok" || s === "tik tok" || s === "tt" || s === "تيك توك") return "تيك توك";
-      if(s === "instagram" || s === "insta" || s === "ig" || s === "انستجرام" || s === "إنستجرام") return "انستجرام";
-      if(s === "facebook" || s === "fb" || s === "messenger" || s === "فيسبوك") return "فيسبوك";
-      if(s === "whatsapp" || s === "wa" || s === "واتساب") return "واتساب";
-      return value || "";
-    }
-
-    function leadSourceRaw(l){
-      return l.source || l.sourceName || l.leadSource || l.platform || l.channel || l.channelCode || "";
-    }
-
-    function leadSourceLabel(l){
-      return normalizeSourceAr(leadSourceRaw(l));
-    }
-
-    function isWhatsappLead(l){
-      const s = String(leadSourceRaw(l)).trim().toLowerCase();
-      return s === "whatsapp" || s === "wa" || s === "واتساب";
-    }
-
-    function sourceFilterOptions(){
-      const seen = new Map();
-      leads.forEach(l => {
-        const raw = leadSourceRaw(l);
-        if(!raw) return;
-        const key = String(raw);
-        if(!seen.has(key)) seen.set(key, { label: normalizeSourceAr(raw), value: raw });
-      });
-      return Array.from(seen.values());
-    }
-
-    function buildInboxUrlForLead(l){
-      const params = new URLSearchParams();
-      const conv = l.conversationId || l.convId || l.contactKey || "";
-      const phone = l.phone || l.mobile || l.phoneNumber || l.customerPhone || "";
-      const participant = l.participantId || l.tiktokId || l.igId || l.fbId || l.manychatContactId || "";
-      if(conv) params.set("conversationId", conv);
-      if(phone) params.set("phone", phone);
-      if(participant) params.set("participantId", participant);
-      return "inbox.html" + (params.toString() ? "?" + params.toString() : "");
-    }
-
-    function linkedLeadName(l){
-      const name = l.customerName || l.name || l.fullName || l.displayName || "—";
-      if(isWhatsappLead(l)) return escapeHtml(name);
-      return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(name)}</a>`;
-    }
-
-    function linkedLeadPhone(l){
-      const phone = l.phone || l.mobile || l.phoneNumber || "—";
-      if(!isWhatsappLead(l)) return escapeHtml(phone);
-      return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(phone)}</a>`;
-    }
-
-function applyFilterOptions(){
+    function applyFilterOptions(){
       fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads, "branch"));
-      fillSelectOptions(el("sourceFilter"), "كل المصادر", sourceFilterOptions());
+      fillSelectOptions(el("sourceFilter"), "كل المصادر", uniqueValues(leads, "source"));
       fillSelectOptions(el("carFilter"), "كل السيارات", uniqueValues(leads, "carName"));
       fillSelectOptions(el("statusFilter"), "كل الحالات", statusValues());
       fillSelectOptions(el("responsibleFilter"), "كل مناديب مبيعات الكاش", usersForDepartment(PAGE_DEPARTMENT).map(u => ({label:u.name || u.email || u.uid || u.id, value:u.uid || u.id})));
@@ -511,7 +483,7 @@ function applyFilterOptions(){
         if(status && l.status !== status) return false;
         if(responsible && l.responsibleUid !== responsible) return false;
         if(q){
-          const hay = [l.customerName,l.phone,l.location,l.branch,l.source,leadSourceLabel(l),l.carName,l.payment,l.status,l.responsibleName,l.callCenterName].join(" ").toLowerCase();
+          const hay = [l.customerName,l.phone,l.location,l.branch,l.source,l.carName,l.payment,l.status,l.responsibleName,l.callCenterName].join(" ").toLowerCase();
           if(!hay.includes(q)) return false;
         }
         return true;
@@ -532,11 +504,11 @@ function applyFilterOptions(){
         const callCenterLocked = !!l.callCenterUid;
 
         tr.innerHTML = `
-          <td>${linkedLeadName(l)}</td>
-          <td>${linkedLeadPhone(l)}</td>
+          <td>${escapeHtml(l.customerName)}</td>
+          <td>${phoneLinkHtml(l.phone, l.customerName)}</td>
           <td>${escapeHtml(l.location)}</td>
           <td>${escapeHtml(l.branch)}</td>
-          <td>${escapeHtml(leadSourceLabel(l))}</td>
+          <td>${escapeHtml(l.source)}</td>
           <td>${escapeHtml(l.carName)}</td>
           <td>${escapeHtml(l.payment)}</td>
           <td>${escapeHtml(l.status)}</td>
@@ -567,6 +539,12 @@ function applyFilterOptions(){
         const select = e.target.closest("select[data-assign]");
         if(!select) return;
         assignField(select.dataset.id, select.dataset.assign, select.value);
+      });
+
+      el("leadsBody").addEventListener("click", (e) => {
+        const btn = e.target.closest(".phone-open-chat");
+        if(!btn) return;
+        openWhatsappInboxByPhone(btn.dataset.phone, btn.dataset.name);
       });
     }
 

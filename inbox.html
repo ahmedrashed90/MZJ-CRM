@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -231,6 +230,7 @@
     const PLATFORM_CONFIG = {
       whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox" },
       instagram:{ label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
+      // فيسبوك محفوظ في نفس مسار صندوق الوارد الموحد.
       facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"" },
       tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
     };
@@ -248,6 +248,7 @@
     const state = {
       user:null, userProfile:null, isAdmin:false,
       conversations:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
+      pendingOpenTarget:null,
       department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubStatuses:null, unsubTemplates:null
     };
 
@@ -550,7 +551,22 @@
     }
 
     function cleanIdValue(v){
-      return String(v || "").replace(/^fb:/,"").replace(/^wa:/,"").replace(/^\+/,"").trim();
+      return String(v || "").replace(/^fb:/,"").replace(/^wa:/,"").replace(/^wa_/,"").replace(/^\+/,"").replace(/\D/g,"").trim() || String(v || "").trim();
+    }
+
+    function normalizeKsaPhone(phone){
+      let p = String(phone || "").trim();
+      if(!p) return "";
+      if(/[eE]\+?/.test(p)){
+        const n = Number(p);
+        if(Number.isFinite(n)) p = String(Math.trunc(n));
+      }
+      p = p.replace(/[^\d+]/g,"");
+      p = p.replace(/^00/,"+").replace(/^\+/,"");
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0,12);
+      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) return "966" + p;
+      return p;
     }
 
     function conversationDedupeKey(c){
@@ -570,6 +586,100 @@
         if(!prev || cTime >= pTime) map.set(key, c);
       }
       return [...map.values()];
+    }
+
+    function readInboxOpenTarget(){
+      const params = new URLSearchParams(location.search);
+      const platform = String(params.get("platform") || "").trim();
+      const conversationId = String(params.get("conversationId") || params.get("convId") || params.get("id") || "").trim();
+      const phone = normalizeKsaPhone(params.get("phone") || "");
+      const name = String(params.get("name") || "").trim();
+      const department = String(params.get("department") || "").trim();
+      const leadId = String(params.get("leadId") || "").trim();
+      if(!platform && !conversationId && !phone && !leadId) return null;
+      return { platform: platform || "whatsapp", conversationId, phone, name, department, leadId };
+    }
+
+    function applyInboxOpenTarget(){
+      const target = readInboxOpenTarget();
+      if(!target) return;
+      state.pendingOpenTarget = target;
+
+      if(target.department && (state.isAdmin || state.userProfile?.allDepartments === true)){
+        state.department = target.department;
+        const departmentSelect = el("departmentSelect");
+        if(departmentSelect && [...departmentSelect.options].some(o => o.value === target.department)){
+          departmentSelect.value = target.department;
+        }
+      }
+
+      if(target.platform){
+        state.selectedPlatform = target.platform;
+        document.querySelectorAll("[data-platform]").forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.platform === target.platform);
+        });
+      }
+    }
+
+    function conversationMatchesTarget(c, target){
+      if(!target) return false;
+      if(target.platform && c.platform !== target.platform) return false;
+      const wanted = String(target.conversationId || "").replace(/^\+/,"");
+      const wantedClean = cleanIdValue(wanted);
+      const phone = normalizeKsaPhone(target.phone || "");
+      const ids = [
+        c.id, c.conversationId, c.convId, c.contactKey, c.waId, c.participantId,
+        c.fbId, c.igId, c.tiktokId, c.manychatContactId, c.phone, c.phoneNumber,
+        c.mobile, c.phoneNormalized
+      ].filter(Boolean).map(x => String(x));
+      return ids.some(x => {
+        const raw = x.replace(/^\+/,"");
+        return (wanted && (raw === wanted || raw === wanted.replace(/^wa_/,""))) ||
+               (wantedClean && cleanIdValue(raw) === wantedClean) ||
+               (phone && normalizeKsaPhone(raw) === phone);
+      });
+    }
+
+    function buildVirtualWhatsappConversation(target){
+      const phone = normalizeKsaPhone(target.phone || target.conversationId || "");
+      const id = phone || String(target.conversationId || "").replace(/^wa_/,"");
+      return {
+        id,
+        platform:"whatsapp",
+        channel:"whatsapp",
+        channelCode:"wa",
+        conversationId:id,
+        convId:id,
+        waId:id,
+        participantId:id,
+        phone:id ? "+" + id : "",
+        phoneNormalized:id,
+        customerName: target.name || id || "محادثة واتساب جديدة",
+        department: target.department || state.department || "cash_sales",
+        status:"open",
+        clientStatus:"open",
+        updatedAt:new Date().toISOString(),
+        __virtual:true
+      };
+    }
+
+    function tryOpenPendingConversation(){
+      const target = state.pendingOpenTarget;
+      if(!target) return;
+
+      const match = state.conversations.find(c => conversationMatchesTarget(c, target));
+      if(match){
+        state.pendingOpenTarget = null;
+        selectConversation(match);
+        history.replaceState(null, "", location.pathname);
+        return;
+      }
+
+      if((target.platform || "whatsapp") === "whatsapp" && (target.phone || target.conversationId)){
+        state.pendingOpenTarget = null;
+        selectConversation(buildVirtualWhatsappConversation(target));
+        history.replaceState(null, "", location.pathname);
+      }
     }
 
     function renderConversations(){
@@ -612,6 +722,8 @@
         div.onclick = () => selectConversation(c);
         conversationList.appendChild(div);
       });
+
+      tryOpenPendingConversation();
     }
 
     function selectConversation(c){
@@ -760,6 +872,27 @@
 
       if(!cfg.outbox) return toast("لا يوجد مسار إرسال مضبوط لهذه المنصة.");
 
+      if(c.__virtual || c.platform === "whatsapp"){
+        await setDoc(doc(db, cfg.conversations, c.id), {
+          conversationId:c.id,
+          convId:c.id,
+          waId:c.id,
+          participantId:c.id,
+          platform:"whatsapp",
+          channel:"whatsapp",
+          channelCode:"wa",
+          phone:getPhone(c),
+          phoneNormalized:normalizeKsaPhone(getPhone(c)),
+          customerName:getCustomerName(c),
+          department:dept,
+          status:c.status || "open",
+          lastMessageText:text,
+          lastMessage:text,
+          updatedAt:serverTimestamp(),
+          lastUpdated:serverTimestamp()
+        }, { merge:true }).catch(console.error);
+      }
+
       await addDoc(collection(db, cfg.outbox), {
         conversationId:c.id,
         platform:c.platform,
@@ -786,7 +919,7 @@
         status:"pending"
       });
 
-      await updateDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, lastMessageText:text, department:dept, updatedAt:serverTimestamp() }).catch(()=>{});
+      await setDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, lastMessageText:text, department:dept, updatedAt:serverTimestamp(), lastUpdated:serverTimestamp() }, { merge:true }).catch(()=>{});
       el("replyText").value = "";
       clearSelectedTemplateControls();
       autoResizeReply();

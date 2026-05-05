@@ -156,11 +156,9 @@
     let leads = [];
     let users = [];
     let statuses = [];
-    let branches = [];
     let unsubLeads = null;
     let unsubUsers = null;
     let unsubStatuses = null;
-    let unsubBranches = null;
 
     const el = id => document.getElementById(id);
 
@@ -209,27 +207,36 @@
     function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
 
     function normalizePhone(phone){
-      let raw = String(phone ?? "").trim();
-
-      if(/^[0-9]+(?:\.[0-9]+)?e\+?[0-9]+$/i.test(raw)){
-        const num = Number(raw);
-        if(Number.isFinite(num)){
-          raw = Math.trunc(num).toString();
-        }
+      let p = String(phone || "").trim();
+      if(/[eE]\+?/.test(p)){
+        const n = Number(p);
+        if(Number.isFinite(n)) p = String(Math.trunc(n));
       }
-
-      let p = raw.replace(/[^\d+]/g,"").trim();
-      if(!p) return "";
-
-      if(p.startsWith("00966")) p = "966" + p.slice(5);
-      if(p.startsWith("+966")) p = "966" + p.slice(4);
-      if(p.startsWith("+")) p = p.slice(1);
-
-      if(p.startsWith("966") && p.length >= 12) return p.slice(0, 12);
+      p = p.replace(/[^\d+]/g,"");
+      p = p.replace(/^00/,"+").replace(/^\+/,"");
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0,12);
       if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
       if(p.startsWith("5") && p.length === 9) return "966" + p;
-
       return p;
+    }
+
+    function openWhatsappInboxByPhone(phone, name=""){
+      const p = normalizePhone(phone);
+      if(!p) return toast("لا يوجد رقم جوال صالح");
+      const params = new URLSearchParams({
+        platform:"whatsapp",
+        phone:p,
+        conversationId:p,
+        name:name || "",
+        department:PAGE_DEPARTMENT || ""
+      });
+      window.location.href = `./inbox.html?${params.toString()}`;
+    }
+
+    function phoneLinkHtml(phone, name=""){
+      const p = normalizePhone(phone);
+      if(!p) return escapeHtml(phone || "");
+      return `<button type="button" class="phone-open-chat" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}">${escapeHtml(phone || p)}</button>`;
     }
 
     function fullName(row){
@@ -243,11 +250,7 @@
 
     function getField(row, names, fallback=""){
       for(const n of names){
-        if(row[n] !== undefined && row[n] !== null && String(row[n]).trim() !== ""){
-          const v = row[n];
-          if(typeof v === "number" && Number.isFinite(v)) return Math.trunc(v).toString();
-          return String(v).trim();
-        }
+        if(row[n] !== undefined && row[n] !== null && String(row[n]).trim() !== "") return String(row[n]).trim();
       }
       return fallback;
     }
@@ -275,7 +278,7 @@
       if(isAdmin) return true;
       const uid = currentUser?.uid;
       if(!uid) return false;
-      return lead.responsibleUid === uid || lead.callCenterUid === uid;
+      return lead.responsibleUid === uid || lead.callCenterUid === uid || lead.department === currentProfile?.department;
     }
 
     async function assignField(leadId, field, uid){
@@ -387,7 +390,6 @@
         if(unsubLeads) unsubLeads();
         if(unsubUsers) unsubUsers();
         if(unsubStatuses) unsubStatuses();
-        if(unsubBranches) unsubBranches();
 
         if(!user){
           currentUser = null;
@@ -446,12 +448,6 @@
         render();
       });
 
-      unsubBranches = onSnapshot(query(collection(db, "branches"), orderBy("name","asc")), snap => {
-        branches = [];
-        snap.forEach(d => branches.push({ id:d.id, ...d.data() }));
-        render();
-      });
-
       unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy("lastUpdated", "desc")), snap => {
         leads = [];
         snap.forEach(d => leads.push({ id:d.id, ...d.data() }));
@@ -467,106 +463,9 @@
       return statuses.filter(s => s.active !== false && Array.isArray(s.departments) && s.departments.includes("finance_sales")).map(s => s.name);
     }
 
-    
-    function normalizeSourceAr(value){
-      const s = String(value || "").trim().toLowerCase();
-      if(s === "tiktok" || s === "tik tok" || s === "tt" || s === "تيك توك") return "تيك توك";
-      if(s === "instagram" || s === "insta" || s === "ig" || s === "انستجرام" || s === "إنستجرام") return "انستجرام";
-      if(s === "facebook" || s === "fb" || s === "messenger" || s === "فيسبوك") return "فيسبوك";
-      if(s === "whatsapp" || s === "wa" || s === "واتساب") return "واتساب";
-      return value || "";
-    }
-
-    function leadSourceRaw(l){
-      return l.source || l.sourceName || l.leadSource || l.platform || l.channel || l.channelCode || "";
-    }
-
-    function leadSourceLabel(l){
-      return normalizeSourceAr(leadSourceRaw(l));
-    }
-
-    function isWhatsappLead(l){
-      const s = String(leadSourceRaw(l)).trim().toLowerCase();
-      return s === "whatsapp" || s === "wa" || s === "واتساب";
-    }
-
-    function isImportedFinanceLead(l){
-      const source = String(leadSourceRaw(l) || "").trim().toLowerCase();
-      const sourceType = String(l.sourceType || "").trim().toLowerCase();
-
-      return (
-        sourceType === "excel_import" ||
-        sourceType === "installment_calculator" ||
-        source === "installment_calculator" ||
-        source === "حاسبة التقسيط" ||
-        source === "excel" ||
-        source === "اكسل" ||
-        source.includes("حاسبة") ||
-        source.includes("تقسيط") ||
-        source.includes("تيك توك ليد") ||
-        source.includes("tiktok lead") ||
-        source.includes("سناب شات ليد") ||
-        source.includes("snapchat lead")
-      );
-    }
-
-    function normalizeWhatsappPhone(phone){
-      let p = String(phone || "").replace(/[^\d+]/g, "");
-      if(!p) return "";
-      if(p.startsWith("00")) p = p.slice(2);
-      if(p.startsWith("+")) p = p.slice(1);
-      if(p.startsWith("0") && p.length === 10) p = "966" + p.slice(1);
-      if(p.startsWith("5") && p.length === 9) p = "966" + p;
-      return p;
-    }
-
-    function buildWhatsappUrlForLead(l){
-      const phone = normalizeWhatsappPhone(l.phone || l.mobile || l.phoneNumber || l.customerPhone || "");
-      return phone ? `https://wa.me/${phone}` : "";
-    }
-
-    function sourceFilterOptions(){
-      const seen = new Map();
-      leads.forEach(l => {
-        const raw = leadSourceRaw(l);
-        if(!raw) return;
-        const key = String(raw);
-        if(!seen.has(key)) seen.set(key, { label: normalizeSourceAr(raw), value: raw });
-      });
-      return Array.from(seen.values());
-    }
-
-    function buildInboxUrlForLead(l){
-      const params = new URLSearchParams();
-      const conv = l.conversationId || l.convId || l.contactKey || "";
-      const phone = l.phone || l.mobile || l.phoneNumber || l.customerPhone || "";
-      const participant = l.participantId || l.tiktokId || l.igId || l.fbId || l.manychatContactId || "";
-      if(conv) params.set("conversationId", conv);
-      if(phone) params.set("phone", phone);
-      if(participant) params.set("participantId", participant);
-      return "inbox.html" + (params.toString() ? "?" + params.toString() : "");
-    }
-
-    function linkedLeadName(l){
-      const name = l.customerName || l.name || l.fullName || l.displayName || "—";
-      if(isWhatsappLead(l) || isImportedFinanceLead(l)) return escapeHtml(name);
-      return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(name)}</a>`;
-    }
-
-    function linkedLeadPhone(l){
-      const phone = l.phone || l.mobile || l.phoneNumber || "—";
-
-      if(isImportedFinanceLead(l)){
-        return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(phone)}</a>`;
-      }
-
-      if(!isWhatsappLead(l)) return escapeHtml(phone);
-      return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(phone)}</a>`;
-    }
-
-function applyFilterOptions(){
+    function applyFilterOptions(){
       fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads, "branch"));
-      fillSelectOptions(el("sourceFilter"), "كل المصادر", sourceFilterOptions());
+      fillSelectOptions(el("sourceFilter"), "كل المصادر", uniqueValues(leads, "source"));
       fillSelectOptions(el("carFilter"), "كل السيارات", uniqueValues(leads, "carName"));
       fillSelectOptions(el("statusFilter"), "كل الحالات", statusValues());
       fillSelectOptions(el("callCenterFilter"), "كل مناديب كول سنتر", usersForDepartment("call_center").map(u => ({label:u.name || u.email || u.uid || u.id, value:u.uid || u.id})));
@@ -589,7 +488,7 @@ function applyFilterOptions(){
         if(status && l.status !== status) return false;
         if(callCenter && l.callCenterUid !== callCenter) return false;
         if(q){
-          const hay = [l.customerName,l.phone,l.location,l.branch,l.source,leadSourceLabel(l),l.carName,l.payment,l.status,l.responsibleName,l.callCenterName].join(" ").toLowerCase();
+          const hay = [l.customerName,l.phone,l.location,l.branch,l.source,l.carName,l.payment,l.status,l.responsibleName,l.callCenterName].join(" ").toLowerCase();
           if(!hay.includes(q)) return false;
         }
         return true;
@@ -610,11 +509,11 @@ function applyFilterOptions(){
         const callCenterLocked = !!l.callCenterUid;
 
         tr.innerHTML = `
-          <td>${linkedLeadName(l)}</td>
-          <td>${linkedLeadPhone(l)}</td>
+          <td>${escapeHtml(l.customerName)}</td>
+          <td>${phoneLinkHtml(l.phone, l.customerName)}</td>
           <td>${escapeHtml(l.location)}</td>
           <td>${escapeHtml(l.branch)}</td>
-          <td>${escapeHtml(leadSourceLabel(l))}</td>
+          <td>${escapeHtml(l.source)}</td>
           <td>${escapeHtml(l.carName)}</td>
           <td>${escapeHtml(l.payment)}</td>
           <td>${escapeHtml(l.status)}</td>
@@ -633,101 +532,6 @@ function applyFilterOptions(){
         body.appendChild(tr);
       });
     }
-
-
-    function distUserId(u){ return u.uid || u.id || ""; }
-    function distUserName(u){ return u.name || u.email || distUserId(u); }
-    function distUserActive(u){ return u && u.active !== false && String(u.active).toLowerCase() !== "false"; }
-    function distUserDept(u, dept){
-      if(dept === "call_center") return u.department === "call_center" || u.role === "call_center";
-      return u.department === dept || u.role === dept;
-    }
-    function distBranchMatches(b, value){
-      const v = String(value || "").trim();
-      return v && [b.id,b.name,b.branchId,b.branchName].some(x => String(x || "").trim() === v);
-    }
-    function distBranchUids(b, dept){
-      if(dept === "cash_sales") return b.cashSalesUids || (b.cashSalesUid ? [b.cashSalesUid] : []);
-      if(dept === "finance_sales") return b.financeSalesUids || (b.financeSalesUid ? [b.financeSalesUid] : []);
-      if(dept === "customer_service") return b.customerServiceUids || (b.customerServiceUid ? [b.customerServiceUid] : []);
-      if(dept === "call_center") return b.callCenterUids || (b.callCenterUid ? [b.callCenterUid] : []);
-      return [];
-    }
-    function distCandidates(dept, branchValue){
-      const base = users.filter(u => distUserActive(u) && distUserDept(u, dept));
-      const value = String(branchValue || "").trim();
-      if(!value) return base;
-
-      const matched = branches.filter(b => b.active !== false && distBranchMatches(b, value));
-      const allowed = new Set();
-      matched.forEach(b => distBranchUids(b, dept).forEach(uid => allowed.add(String(uid))));
-
-      if(allowed.size){
-        const byBranch = base.filter(u => allowed.has(String(distUserId(u))));
-        if(byBranch.length) return byBranch;
-      }
-
-      const byUserBranch = base.filter(u => String(u.branchId || u.branchName || "").trim() === value);
-      return byUserBranch.length ? byUserBranch : base;
-    }
-    function distPick(key, candidates){
-      if(!candidates.length) return null;
-      const storageKey = "mzj_dist_" + key;
-      const last = Number(localStorage.getItem(storageKey) || -1);
-      const next = (last + 1) % candidates.length;
-      localStorage.setItem(storageKey, String(next));
-      return candidates[next];
-    }
-    function distSetBranchFromAgent(payload, agent){
-      const current = String(payload.branchId || payload.branch || payload.branchName || "").trim();
-      const b = String(agent?.branchId || agent?.branchName || "").trim();
-      const bn = String(agent?.branchName || agent?.branchId || "").trim();
-      if(!current && b){
-        payload.branchId = b;
-        payload.branch = bn || b;
-        payload.branchName = bn || b;
-      }
-    }
-    function applyDistributionClient(payload){
-      const dept = payload.department;
-      const branchValue = payload.branchId || payload.branch || payload.branchName || "";
-      if(!payload.responsibleUid){
-        const cands = distCandidates(dept, branchValue);
-        const agent = distPick(`${dept}_${branchValue || "all"}`, cands);
-        if(agent){
-          const uid = distUserId(agent);
-          const name = distUserName(agent);
-          payload.responsibleUid = uid;
-          payload.responsibleName = name;
-          payload.assignedTo = uid;
-          payload.assignedName = name;
-          payload.salesAssignedTo = uid;
-          payload.salesAssignedName = name;
-          payload.assignedBy = "auto_distribution";
-          distSetBranchFromAgent(payload, agent);
-        }
-      }
-
-      if(dept === "finance_sales" && !payload.callCenterUid){
-        const callBranch = payload.branchId || payload.branch || payload.branchName || branchValue || "";
-        const cands = distCandidates("call_center", callBranch);
-        const agent = distPick(`call_center_${callBranch || "all"}`, cands);
-        if(agent){
-          const uid = distUserId(agent);
-          const name = distUserName(agent);
-          payload.callCenterUid = uid;
-          payload.callCenterName = name;
-          payload.callCenterAssignedTo = uid;
-          payload.callCenterAssignedName = name;
-          payload.callCenterAssignedAt = serverTimestamp();
-        }
-      }
-
-      payload.distributionApplied = true;
-      payload.distributionUpdatedAt = serverTimestamp();
-      return payload;
-    }
-
 
     async function importExcel(){
       const file = el("excelFile").files[0];
@@ -749,25 +553,16 @@ function applyFilterOptions(){
         const phone = normalizePhone(getField(row, ["رقم الجوال","الجوال","phone","Phone","mobile","Mobile"]));
         if(!phone && !customerName) continue;
 
-        const branchValue = getField(row, ["الفرع","branch","Branch"], "فرع الصالة");
-        const leadPayload = applyDistributionClient({
+        await addDoc(collection(db, "leads"), {
           customerName,
           phone,
           location: getField(row, ["المكان","المدينة","location","Location"]),
-          branchId: branchValue,
-          branch: branchValue,
-          branchName: branchValue,
-          source: getField(row, ["المصدر","source","Source"], "Excel"),
+          branch: getField(row, ["الفرع","branch","Branch"], "فرع الاونلاين"),
+          source: getField(row, ["المصدر","source","Source"]),
           carName: getField(row, ["اسم السيارة","السيارة","car","Car","carName"]),
           payment: "تمويل",
-          leadPayment: "تمويل",
-          payType: "تمويل",
-          paymentType: "تمويل",
           status: "عميل جديد",
-          leadStatus: "عميل جديد",
           department: "finance_sales",
-          serviceKey: "finance",
-          autoService: "finance",
           responsibleUid: "",
           responsibleName: "",
           callCenterUid: "",
@@ -776,130 +571,14 @@ function applyFilterOptions(){
           importedByUid: currentUser.uid,
           importedByEmail: currentUser.email,
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
           lastUpdated: serverTimestamp()
         });
-
-        await addDoc(collection(db, "leads"), leadPayload);
         imported++;
       }
 
       el("excelFile").value = "";
       toast("تم استيراد " + imported + " عميل");
     }
-
-
-    function parseDelimitedText(text, delimiter="\t"){
-      const lines = String(text || "").replace(/\r/g, "").split("\n").filter(line => line.trim() !== "");
-      if(!lines.length) return [];
-      const headers = lines[0].split(delimiter).map(h => h.trim());
-      return lines.slice(1).map(line => {
-        const values = line.split(delimiter);
-        const row = {};
-        headers.forEach((h,i) => row[h] = (values[i] ?? "").trim());
-        return row;
-      });
-    }
-
-    function calculatorRowName(row){
-      return getField(row, [
-        "اسم العميل","العميل","name","Name","fullName","Full Name",
-        "customerName","Customer Name","الاسم"
-      ]);
-    }
-
-    function calculatorRowPhone(row){
-      return normalizePhone(getField(row, [
-        "رقم الجوال","الجوال","phone","Phone","mobile","Mobile",
-        "phoneNumber","Phone Number","رقم الهاتف"
-      ]));
-    }
-
-    function calculatorRowCar(row){
-      return getField(row, [
-        "اسم السيارة","السيارة","car","Car","carName","vehicleName",
-        "نوع السيارة","الموديل"
-      ]);
-    }
-
-    async function syncInstallmentCalculator(){
-      try{
-        const srcSnap = await getDoc(doc(db, "settings_sources", "installment_calculator"));
-        if(!srcSnap.exists()) return toast("مصدر حاسبة التقسيط غير موجود");
-
-        const source = srcSnap.data();
-        if(source.isActive === false) return toast("مصدر حاسبة التقسيط غير مفعل");
-
-        const tsvUrl = source.tsvUrl || source.url || "";
-        if(!tsvUrl) return toast("رابط TSV غير موجود في settings_sources/installment_calculator");
-
-        const res = await fetch(tsvUrl, { cache:"no-store" });
-        if(!res.ok) return toast("تعذر قراءة ملف الحاسبة");
-
-        const text = await res.text();
-        const rows = parseDelimitedText(text, "\t");
-
-        if(!rows.length) return toast("ملف الحاسبة فارغ");
-
-        let imported = 0;
-        let skipped = 0;
-
-        for(const row of rows){
-          const customerName = calculatorRowName(row);
-          const phone = calculatorRowPhone(row);
-          if(!phone && !customerName){
-            skipped++;
-            continue;
-          }
-
-          const branchValue = "فرع الصالة";
-          const docId = "installment_" + normalizePhone(phone || customerName).replace(/\D/g, "").slice(-12) + "_" + String(customerName || "").replace(/\s+/g,"_").slice(0,40);
-
-          const leadPayload = applyDistributionClient({
-            customerName,
-            phone,
-            location: getField(row, ["المكان","المدينة","location","Location","city","City"]),
-            branchId: branchValue,
-            branch: branchValue,
-            branchName: branchValue,
-            source: "حاسبة التقسيط",
-            sourceName: "حاسبة التقسيط",
-            sourceLabel: "حاسبة التقسيط",
-            carName: calculatorRowCar(row),
-            car: calculatorRowCar(row),
-            vehicleName: calculatorRowCar(row),
-            payment: "تمويل",
-            leadPayment: "تمويل",
-            payType: "تمويل",
-            paymentType: "تمويل",
-            status: "عميل جديد",
-            leadStatus: "عميل جديد",
-            department: "finance_sales",
-            serviceKey: "finance",
-            autoService: "finance",
-            responsibleUid: "",
-            responsibleName: "",
-            callCenterUid: "",
-            callCenterName: "",
-            sourceType: "installment_calculator",
-            importedByUid: currentUser.uid,
-            importedByEmail: currentUser.email,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            lastUpdated: serverTimestamp()
-          });
-
-          await setDoc(doc(db, "leads", docId), leadPayload, { merge:true });
-          imported++;
-        }
-
-        toast("تمت مزامنة الحاسبة: " + imported + " عميل" + (skipped ? " / تم تجاهل " + skipped : ""));
-      }catch(err){
-        console.error(err);
-        toast("تعذر مزامنة حاسبة التقسيط");
-      }
-    }
-
 
     function init(){
       listenBase(render);
@@ -914,6 +593,12 @@ function applyFilterOptions(){
         const select = e.target.closest("select[data-assign]");
         if(!select) return;
         assignField(select.dataset.id, select.dataset.assign, select.value);
+      });
+
+      el("leadsBody").addEventListener("click", (e) => {
+        const btn = e.target.closest(".phone-open-chat");
+        if(!btn) return;
+        openWhatsappInboxByPhone(btn.dataset.phone, btn.dataset.name);
       });
     }
 
