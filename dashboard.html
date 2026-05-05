@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -996,25 +997,33 @@
     function renderCompletionBadge(lead){
       const id = lead.__id || lead.id || "";
       const cached = id && typeof dashboardChatState.completionByLead[id] === "number";
-      return `<span class="lead-completion-badge" data-completion-lead-id="${escapeHtml(id)}">${cached ? dashboardChatState.completionByLead[id] + "% مكتمل" : "..."}</span>`;
+      const pct =
+        cached ? dashboardChatState.completionByLead[id] :
+        typeof lead.profileCompletion === "number" ? lead.profileCompletion :
+        typeof lead.customer?.profileCompletion === "number" ? lead.customer.profileCompletion :
+        leadCompletionFromLeadData(lead);
+      return `<span class="lead-completion-badge" title="اكتمال ملف العميل" data-completion-lead-id="${escapeHtml(id)}">${pct}% مكتمل</span>`;
     }
 
     async function hydrateStatusCompletionBadges(items){
       const visible = items.filter(l => l && (l.__id || l.id));
       await Promise.all(visible.map(async (lead) => {
         const id = lead.__id || lead.id;
-        if(typeof dashboardChatState.completionByLead[id] === "number") return;
         const pct = await loadActualInboxCompletionForLead(lead).catch(() => null);
         dashboardChatState.completionByLead[id] =
           typeof pct === "number" ? pct :
           typeof lead.profileCompletion === "number" ? lead.profileCompletion :
+          typeof lead.customer?.profileCompletion === "number" ? lead.customer.profileCompletion :
           leadCompletionFromLeadData(lead);
       }));
 
       visible.forEach(lead => {
         const id = lead.__id || lead.id;
-        const badge = document.querySelector(`[data-completion-lead-id="${CSS.escape(id)}"]`);
-        if(badge) badge.textContent = `${dashboardChatState.completionByLead[id]}% مكتمل`;
+        document.querySelectorAll("[data-completion-lead-id]").forEach(badge => {
+          if(String(badge.dataset.completionLeadId) === String(id)){
+            badge.textContent = `${dashboardChatState.completionByLead[id]}% مكتمل`;
+          }
+        });
       });
     }
 
