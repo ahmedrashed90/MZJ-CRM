@@ -3137,3 +3137,368 @@ body:has(.mersal-inbox-main) .mersal-conversations-panel{
   .app > .customer{display:none !important;}
 }
 
+
+/* ===== V10 Right Sidebar Layout =====
+   إلغاء التوب بار نهائياً والرجوع لسايد بار يمين احترافي.
+   صندوق الوارد = 4 أجزاء:
+   أقصى اليمين: القائمة الرئيسية
+   بعده: قائمة المحادثات
+   الوسط: الشات
+   أقصى الشمال: بيانات العميل
+*/
+:root{
+  --side-nav-w: 280px !important;
+  --inbox-list-w: 360px !important;
+  --customer-w: 370px !important;
+}
+
+/* إلغاء تأثيرات V8/V9 Topbar */
+.management-page{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) var(--side-nav-w) !important;
+  grid-template-areas:"main nav" !important;
+  height:100vh !important;
+  min-height:100vh !important;
+  padding-top:0 !important;
+  overflow:hidden !important;
+  background:var(--bg) !important;
+}
+
+.management-page > .sidebar{
+  grid-area:nav !important;
+  position:relative !important;
+  display:block !important;
+  width:var(--side-nav-w) !important;
+  min-width:var(--side-nav-w) !important;
+  height:100vh !important;
+  overflow:hidden !important;
+  border-right:0 !important;
+  border-left:1px solid var(--line) !important;
+  background:linear-gradient(180deg,#fffaf6 0%,#fff 100%) !important;
+  box-shadow:-10px 0 30px rgba(75,32,27,.06) !important;
+}
+
+.management-main{
+  grid-area:main !important;
+  height:100vh !important;
+  min-height:0 !important;
+  overflow:auto !important;
+  padding:22px !important;
+  background:var(--bg) !important;
+}
+
+/* السايد بار نفسه */
+.brand{
+  position:static !important;
+  inset:auto !important;
+  z-index:auto !important;
+  width:100% !important;
+  height:100vh !important;
+  min-height:0 !important;
+  padding:14px !important;
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  grid-template-rows:auto minmax(0,1fr) auto !important;
+  grid-template-areas:"brand-top" "nav-card" "user-row" !important;
+  align-items:stretch !important;
+  gap:12px !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  backdrop-filter:none !important;
+}
+
+.brand-top{
+  grid-area:brand-top !important;
+  width:100% !important;
+  min-width:0 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:10px !important;
+}
+
+.logo-box{
+  min-width:0 !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+}
+
+.logo-mark{
+  flex:0 0 44px !important;
+  width:44px !important;
+  height:44px !important;
+  border-radius:14px !important;
+  font-size:15px !important;
+}
+
+.logo-box h1{
+  margin:0 !important;
+  max-width:170px !important;
+  white-space:normal !important;
+  overflow:visible !important;
+  text-overflow:clip !important;
+  font-size:14px !important;
+  line-height:1.5 !important;
+}
+
+.status-text{
+  font-size:11px !important;
+  line-height:1.5 !important;
+}
+
+.brand .nav-card{
+  grid-area:nav-card !important;
+  width:100% !important;
+  min-width:0 !important;
+  height:auto !important;
+  min-height:0 !important;
+  padding:12px !important;
+  border:1px solid var(--line) !important;
+  border-radius:22px !important;
+  background:#fff !important;
+  box-shadow:0 8px 22px rgba(75,32,27,.05) !important;
+  overflow:visible !important;
+}
+
+.brand .menu-label{
+  display:block !important;
+  margin:0 0 10px !important;
+  font-size:12px !important;
+  color:var(--muted) !important;
+}
+
+.brand .nav-tabs{
+  display:flex !important;
+  flex-direction:column !important;
+  flex-wrap:nowrap !important;
+  gap:8px !important;
+  height:auto !important;
+  max-height:none !important;
+  overflow:visible !important;
+  padding:0 !important;
+  margin:0 !important;
+  scrollbar-width:none !important;
+}
+
+.brand .nav-tabs a{
+  width:100% !important;
+  min-width:0 !important;
+  flex:0 0 auto !important;
+  display:flex !important;
+  justify-content:space-between !important;
+  align-items:center !important;
+  padding:11px 13px !important;
+  border-radius:16px !important;
+  font-size:13px !important;
+  font-weight:800 !important;
+  white-space:normal !important;
+  background:#fffaf7 !important;
+  border:1px solid #ead7cb !important;
+  color:var(--text) !important;
+  box-shadow:none !important;
+}
+
+.brand .nav-tabs a.active{
+  background:#7c3428 !important;
+  border-color:#7c3428 !important;
+  color:#fff !important;
+}
+
+.brand .nav-tabs a::before{
+  content:"" !important;
+  width:8px !important;
+  height:8px !important;
+  margin-left:8px !important;
+  border-radius:50% !important;
+  background:currentColor !important;
+  opacity:.38 !important;
+  flex:0 0 auto !important;
+}
+
+.brand .dept-select{
+  width:100% !important;
+  height:42px !important;
+  margin:0 !important;
+  padding:9px 12px !important;
+  border-radius:14px !important;
+  background:#fff !important;
+}
+
+.brand .user-row{
+  grid-area:user-row !important;
+  width:100% !important;
+  min-width:0 !important;
+  margin:0 !important;
+  padding-top:12px !important;
+  border-top:1px solid var(--line) !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:10px !important;
+  white-space:normal !important;
+}
+
+.brand .user-row .secondary,
+.brand-top > .secondary{
+  padding:10px 14px !important;
+  border-radius:15px !important;
+  flex:0 0 auto !important;
+}
+
+/* صندوق الوارد: 4 أجزاء */
+.app{
+  direction:ltr !important;
+  height:100vh !important;
+  min-height:100vh !important;
+  padding-top:0 !important;
+  display:grid !important;
+  grid-template-columns:var(--customer-w) minmax(0,1fr) calc(var(--inbox-list-w) + var(--side-nav-w)) !important;
+  grid-template-areas:"customer chat sidearea" !important;
+  grid-template-rows:minmax(0,1fr) !important;
+  overflow:hidden !important;
+  background:var(--bg) !important;
+}
+
+.app > .sidebar{
+  direction:rtl !important;
+  grid-area:sidearea !important;
+  width:auto !important;
+  min-width:0 !important;
+  height:100vh !important;
+  display:grid !important;
+  grid-template-columns:var(--inbox-list-w) var(--side-nav-w) !important;
+  grid-template-rows:auto minmax(0,1fr) !important;
+  grid-template-areas:
+    "filters nav"
+    "list nav" !important;
+  border-left:1px solid var(--line) !important;
+  border-right:0 !important;
+  background:#fff !important;
+  overflow:hidden !important;
+  box-shadow:-8px 0 28px rgba(75,32,27,.05) !important;
+}
+
+.app > .sidebar > .brand{
+  grid-area:nav !important;
+  height:100vh !important;
+  border-right:1px solid var(--line) !important;
+  border-left:0 !important;
+  background:linear-gradient(180deg,#fffaf6 0%,#fff 100%) !important;
+}
+
+.app > .sidebar > .filters{
+  grid-area:filters !important;
+  padding:12px !important;
+  border-top:0 !important;
+  border-bottom:1px solid var(--line) !important;
+  background:#fff !important;
+  min-width:0 !important;
+}
+
+.app > .sidebar > .list{
+  grid-area:list !important;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:auto !important;
+  background:#fff !important;
+}
+
+.app > .chat{
+  direction:rtl !important;
+  grid-area:chat !important;
+  height:100vh !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+  border-left:1px solid var(--line) !important;
+  border-right:1px solid var(--line) !important;
+  background:#fff !important;
+  display:grid !important;
+}
+
+.app > .customer{
+  direction:rtl !important;
+  grid-area:customer !important;
+  height:100vh !important;
+  min-width:0 !important;
+  overflow:auto !important;
+  background:#fff !important;
+}
+
+.app .chat .messages{
+  min-height:0 !important;
+}
+
+/* إخفاء الاسكرول الداخلي للقائمة الرئيسية فقط لأنها تظهر كاملة */
+.brand .nav-tabs::-webkit-scrollbar{
+  display:none !important;
+}
+
+/* Responsive */
+@media(max-width:1250px){
+  :root{
+    --side-nav-w:250px !important;
+    --inbox-list-w:330px !important;
+    --customer-w:340px !important;
+  }
+
+  .brand .nav-tabs a{
+    padding:10px 11px !important;
+    font-size:12px !important;
+  }
+
+  .logo-box h1{
+    max-width:145px !important;
+    font-size:13px !important;
+  }
+}
+
+@media(max-width:980px){
+  :root{
+    --side-nav-w:230px !important;
+    --inbox-list-w:310px !important;
+    --customer-w:320px !important;
+  }
+
+  .management-page{
+    grid-template-columns:minmax(0,1fr) var(--side-nav-w) !important;
+  }
+
+  .management-main{
+    padding:14px !important;
+  }
+}
+
+@media(max-width:760px){
+  .management-page{
+    grid-template-columns:1fr !important;
+    grid-template-areas:"main" !important;
+  }
+
+  .management-page > .sidebar{
+    display:none !important;
+  }
+
+  .app{
+    grid-template-columns:1fr !important;
+    grid-template-areas:"sidearea" !important;
+  }
+
+  .app > .sidebar{
+    grid-template-columns:1fr !important;
+    grid-template-areas:
+      "filters"
+      "list" !important;
+  }
+
+  .app > .sidebar > .brand{
+    display:none !important;
+  }
+
+  .app > .chat,
+  .app > .customer{
+    display:none !important;
+  }
+}
+
