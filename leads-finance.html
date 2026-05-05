@@ -174,6 +174,16 @@
       return profile?.role === "admin" || profile?.allDepartments === true;
     }
 
+    function normalizeSourceLabel(value){
+      const raw = String(value || "").trim();
+      const low = raw.toLowerCase();
+      if(low === "tikok" || low === "tiktok" || low === "tt" || raw.includes("تيك")) return "تيك توك";
+      if(low === "fb" || low.includes("facebook") || raw.includes("فيس")) return "فيسبوك";
+      if(low === "ig" || low.includes("instagram") || raw.includes("انست")) return "انستجرام";
+      if(low === "wa" || low.includes("whatsapp") || raw.includes("واتساب")) return "واتساب";
+      return raw;
+    }
+
     function escapeHtml(str){
       return String(str ?? "").replace(/[&<>"']/g, s => ({
         "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
@@ -508,7 +518,7 @@
           <td>${phoneLinkHtml(l.phone, l.customerName)}</td>
           <td>${escapeHtml(l.location)}</td>
           <td>${escapeHtml(l.branch)}</td>
-          <td>${escapeHtml(l.source)}</td>
+          <td>${escapeHtml(normalizeSourceLabel(l.source))}</td>
           <td>${escapeHtml(l.carName)}</td>
           <td>${escapeHtml(l.payment)}</td>
           <td>${escapeHtml(l.status)}</td>

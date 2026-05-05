@@ -247,7 +247,7 @@
       if(isAdmin) return true;
       const uid = currentUser?.uid;
       if(!uid) return false;
-      return lead.responsibleUid === uid || lead.callCenterUid === uid;
+      return lead.responsibleUid === uid || lead.callCenterUid === uid || lead.department === currentProfile?.department;
     }
 
     async function assignField(leadId, field, uid){
@@ -428,65 +428,8 @@
     }
 
 
-    
-    function normalizeSourceAr(value){
-      const s = String(value || "").trim().toLowerCase();
-      if(s === "tiktok" || s === "tik tok" || s === "tt" || s === "تيك توك") return "تيك توك";
-      if(s === "instagram" || s === "insta" || s === "ig" || s === "انستجرام" || s === "إنستجرام") return "انستجرام";
-      if(s === "facebook" || s === "fb" || s === "messenger" || s === "فيسبوك") return "فيسبوك";
-      if(s === "whatsapp" || s === "wa" || s === "واتساب") return "واتساب";
-      return value || "";
-    }
-
-    function leadSourceRaw(l){
-      return l.source || l.sourceName || l.leadSource || l.platform || l.channel || l.channelCode || "";
-    }
-
-    function leadSourceLabel(l){
-      return normalizeSourceAr(leadSourceRaw(l));
-    }
-
-    function isWhatsappLead(l){
-      const s = String(leadSourceRaw(l)).trim().toLowerCase();
-      return s === "whatsapp" || s === "wa" || s === "واتساب";
-    }
-
-    function sourceFilterOptions(){
-      const seen = new Map();
-      leads.forEach(l => {
-        const raw = leadSourceRaw(l);
-        if(!raw) return;
-        const key = String(raw);
-        if(!seen.has(key)) seen.set(key, { label: normalizeSourceAr(raw), value: raw });
-      });
-      return Array.from(seen.values());
-    }
-
-    function buildInboxUrlForLead(l){
-      const params = new URLSearchParams();
-      const conv = l.conversationId || l.convId || l.contactKey || "";
-      const phone = l.phone || l.mobile || l.phoneNumber || l.customerPhone || "";
-      const participant = l.participantId || l.tiktokId || l.igId || l.fbId || l.manychatContactId || "";
-      if(conv) params.set("conversationId", conv);
-      if(phone) params.set("phone", phone);
-      if(participant) params.set("participantId", participant);
-      return "inbox.html" + (params.toString() ? "?" + params.toString() : "");
-    }
-
-    function linkedLeadName(l){
-      const name = l.customerName || l.name || l.fullName || l.displayName || "—";
-      if(isWhatsappLead(l)) return escapeHtml(name);
-      return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(name)}</a>`;
-    }
-
-    function linkedLeadPhone(l){
-      const phone = l.phone || l.mobile || l.phoneNumber || "—";
-      if(!isWhatsappLead(l)) return escapeHtml(phone);
-      return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(phone)}</a>`;
-    }
-
-function applyFilterOptions(){
-      fillSelectOptions(el("sourceFilter"), "كل المصادر", sourceFilterOptions());
+    function applyFilterOptions(){
+      fillSelectOptions(el("sourceFilter"), "كل المصادر", uniqueValues(leads, "source"));
       fillSelectOptions(el("carFilter"), "كل السيارات", uniqueValues(leads, "carName"));
       fillSelectOptions(el("paymentFilter"), "كل طرق الدفع", uniqueValues(leads, "payment"));
       fillSelectOptions(el("campaignFilter"), "كل الحملات", uniqueValues(leads, "campaignName"));
@@ -520,11 +463,201 @@ function applyFilterOptions(){
         if(campaign && l.campaignName !== campaign) return false;
         if(branch && l.branch !== branch) return false;
         if(q){
-          const hay = [l.customerName,l.phone,l.location,l.branch,l.source,leadSourceLabel(l),l.carName,l.payment,l.status,l.responsibleName,l.callCenterName,l.campaignName].join(" ").toLowerCase();
+          const hay = [l.customerName,l.phone,l.location,l.branch,l.source,l.carName,l.payment,l.status,l.responsibleName,l.callCenterName,l.campaignName].join(" ").toLowerCase();
           if(!hay.includes(q)) return false;
         }
         return true;
       });
+    }
+
+    function normalizeSourceLabel(value){
+      const raw = String(value || "").trim();
+      const low = raw.toLowerCase();
+      if(low === "tikok" || low === "tiktok" || low === "tt" || raw.includes("تيك")) return "تيك توك";
+      if(low === "fb" || low.includes("facebook") || raw.includes("فيس")) return "فيسبوك";
+      if(low === "ig" || low.includes("instagram") || raw.includes("انست")) return "انستجرام";
+      if(low === "wa" || low.includes("whatsapp") || raw.includes("واتساب")) return "واتساب";
+      return raw;
+    }
+
+    function sourcePlatform(row, forceWhatsapp=false){
+      if(forceWhatsapp) return "whatsapp";
+      const raw = String(row.platform || row.channel || row.channelCode || row.source || row.sourceName || "").toLowerCase();
+      if(raw.includes("facebook") || raw === "fb" || raw.includes("فيس")) return "facebook";
+      if(raw.includes("instagram") || raw === "ig" || raw.includes("انست")) return "instagram";
+      if(raw.includes("tiktok") || raw.includes("tikok") || raw === "tt" || raw.includes("تيك")) return "tiktok";
+      return "whatsapp";
+    }
+
+    function chatConfig(platform){
+      return {
+        whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox" },
+        facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"" },
+        instagram:{ label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
+        tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
+      }[platform] || { label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox" };
+    }
+
+    function normalizeDbPhone(phone){
+      let p = String(phone || "").trim();
+      if(/[eE]\+?/.test(p)){
+        const n = Number(p);
+        if(Number.isFinite(n)) p = String(Math.trunc(n));
+      }
+      p = p.replace(/[^\d+]/g,"").replace(/^00/,"+").replace(/^\+/,"");
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0,12);
+      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) return "966" + p;
+      return p;
+    }
+
+    function dbPhoneButton(phone, name=""){
+      const p = normalizeDbPhone(phone);
+      if(!p) return escapeHtml(phone || "");
+      return `<button type="button" class="phone-open-chat" data-db-whatsapp="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}">${escapeHtml(phone || p)}</button>`;
+    }
+
+    function dbNameButton(row){
+      return `<button type="button" class="db-chat-name" data-db-chat="${escapeHtml(row.id)}">${escapeHtml(row.customerName || "عميل بدون اسم")}</button>`;
+    }
+
+    function dbConvId(row, platform){
+      const phone = normalizeDbPhone(row.phone);
+      if(platform === "whatsapp") return row.convId || row.conversationId || row.waId || row.participantId || phone || row.id;
+      return row.conversationId || row.convId || row.contactKey || row.participantId || row.fbId || row.igId || row.tiktokId || row.id;
+    }
+
+    let dbChatState = { row:null, platform:"whatsapp", convId:"", unsub:null };
+
+    function ensureDbChatModal(){
+      if(document.getElementById("dbChatModal")) return;
+      const modal = document.createElement("div");
+      modal.id = "dbChatModal";
+      modal.className = "db-chat-modal hidden";
+      modal.innerHTML = `
+        <div class="db-chat-backdrop" data-db-close></div>
+        <div class="db-chat-dialog">
+          <div class="db-chat-head">
+            <div><h3 id="dbChatTitle">عميل</h3><p id="dbChatMeta"></p></div>
+            <button type="button" class="db-chat-close" data-db-close>إغلاق</button>
+          </div>
+          <div class="db-chat-messages" id="dbChatMessages"><div class="empty">جاري تحميل الرسائل...</div></div>
+          <div class="db-chat-composer">
+            <textarea id="dbChatReply" rows="2" placeholder="اكتب رسالة..."></textarea>
+            <button type="button" id="dbChatSend">إرسال</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.querySelectorAll("[data-db-close]").forEach(b => b.onclick = closeDbChatPopup);
+      el("dbChatSend").onclick = sendDbChatReply;
+    }
+
+    function dbMsgTime(m){
+      const v = m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.updatedAt || "";
+      if(v?.toDate) return v.toDate().getTime();
+      if(typeof v === "number") return v < 9999999999 ? v * 1000 : v;
+      const t = Date.parse(v);
+      return Number.isFinite(t) ? t : 0;
+    }
+
+    function fmtDbTime(v){
+      let d = v?.toDate ? v.toDate() : null;
+      if(!d && typeof v === "number") d = new Date(v < 9999999999 ? v * 1000 : v);
+      if(!d && v) d = new Date(v);
+      if(!d || Number.isNaN(d.getTime())) return "";
+      return d.toLocaleString("ar-EG",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
+    }
+
+    function renderDbMessages(items){
+      const box = el("dbChatMessages");
+      if(!items.length){ box.innerHTML = '<div class="empty">لا توجد رسائل</div>'; return; }
+      box.innerHTML = items.map(m => {
+        const out = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
+        const txt = m.text || m.body || m.message || m.caption || m.content || "";
+        return `<div class="db-msg ${out ? "out" : "in"}">${escapeHtml(txt)}<small>${escapeHtml(fmtDbTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.updatedAt))}</small></div>`;
+      }).join("");
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function openDbChatPopup(row, forceWhatsapp=false){
+      ensureDbChatModal();
+      dbChatState.row = row;
+      dbChatState.platform = sourcePlatform(row, forceWhatsapp);
+      dbChatState.convId = forceWhatsapp ? normalizeDbPhone(row.phone) : dbConvId(row, dbChatState.platform);
+      const cfg = chatConfig(dbChatState.platform);
+      el("dbChatTitle").textContent = row.customerName || "عميل بدون اسم";
+      el("dbChatMeta").textContent = `${cfg.label} - ${row.phone || ""} - ${row.responsibleName || ""}`;
+      document.getElementById("dbChatModal").classList.remove("hidden");
+      el("dbChatMessages").innerHTML = '<div class="empty">جاري تحميل الرسائل...</div>';
+
+      if(dbChatState.unsub) dbChatState.unsub();
+      const ids = [...new Set([dbChatState.convId, normalizeDbPhone(row.phone), row.conversationId, row.convId].filter(Boolean))];
+      let idx = 0;
+      const attach = () => {
+        const id = ids[idx] || dbChatState.convId;
+        dbChatState.unsub = onSnapshot(collection(db, cfg.conversations, id, "messages"), snap => {
+          const arr = [];
+          snap.forEach(d => arr.push({id:d.id, ...d.data()}));
+          if(!arr.length && idx < ids.length - 1){
+            if(dbChatState.unsub) dbChatState.unsub();
+            idx += 1;
+            attach();
+            return;
+          }
+          arr.sort((a,b) => dbMsgTime(a) - dbMsgTime(b));
+          renderDbMessages(arr);
+        }, err => {
+          console.error(err);
+          el("dbChatMessages").innerHTML = '<div class="empty">تعذر تحميل الرسائل</div>';
+        });
+      };
+      attach();
+    }
+
+    function closeDbChatPopup(){
+      if(dbChatState.unsub) dbChatState.unsub();
+      dbChatState.unsub = null;
+      document.getElementById("dbChatModal")?.classList.add("hidden");
+    }
+
+    async function sendDbChatReply(){
+      const text = el("dbChatReply").value.trim();
+      if(!text) return toast("اكتب الرسالة أولاً");
+      const row = dbChatState.row;
+      if(!row) return toast("لا يوجد عميل محدد");
+      const cfg = chatConfig(dbChatState.platform);
+      const convId = dbChatState.convId || dbConvId(row, dbChatState.platform);
+      try{
+        if(!cfg.outbox && dbChatState.platform === "facebook"){
+          // فيسبوك الإرسال من صفحة قاعدة البيانات غير مفعل إلا عبر وركر خارجي
+          return toast("إرسال فيسبوك من قاعدة البيانات يحتاج وركر الإرسال.");
+        }
+        await addDoc(collection(db, cfg.outbox), {
+          conversationId:convId,
+          platform:dbChatState.platform,
+          to:row.phone || "",
+          text,
+          status:"pending",
+          sentByUid:currentUser?.uid || "",
+          sentByEmail:currentUser?.email || "",
+          createdAt:serverTimestamp()
+        });
+        await addDoc(collection(db, cfg.conversations, convId, "messages"), {
+          text,
+          direction:"outgoing",
+          fromAgent:true,
+          sentByUid:currentUser?.uid || "",
+          sentByEmail:currentUser?.email || "",
+          createdAt:serverTimestamp(),
+          status:"pending"
+        });
+        el("dbChatReply").value = "";
+        toast("تم الإرسال");
+      }catch(e){
+        console.error(e);
+        toast("فشل الإرسال");
+      }
     }
 
     function render(){
@@ -538,11 +671,11 @@ function applyFilterOptions(){
       rows.forEach(l => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${linkedLeadName(l)}</td>
-          <td>${linkedLeadPhone(l)}</td>
+          <td>${dbNameButton(l)}</td>
+          <td>${dbPhoneButton(l.phone, l.customerName)}</td>
           <td>${escapeHtml(l.location)}</td>
           <td>${escapeHtml(l.branch)}</td>
-          <td>${escapeHtml(leadSourceLabel(l))}</td>
+          <td>${escapeHtml(normalizeSourceLabel(l.source))}</td>
           <td>${escapeHtml(l.carName)}</td>
           <td>${escapeHtml(l.payment)}</td>
           <td>${escapeHtml(l.status)}</td>
@@ -586,6 +719,19 @@ function applyFilterOptions(){
         el(id).addEventListener("change", render);
       });
       el("exportBtn").onclick = exportExcel;
+      el("leadsBody").addEventListener("click", (e) => {
+        const nameBtn = e.target.closest("[data-db-chat]");
+        if(nameBtn){
+          const row = leads.find(x => x.id === nameBtn.dataset.dbChat);
+          if(row) openDbChatPopup(row, false);
+          return;
+        }
+        const phoneBtn = e.target.closest("[data-db-whatsapp]");
+        if(phoneBtn){
+          const row = leads.find(x => normalizeDbPhone(x.phone) === phoneBtn.dataset.dbWhatsapp) || { customerName:phoneBtn.dataset.name || "عميل", phone:phoneBtn.dataset.dbWhatsapp, source:"واتساب" };
+          openDbChatPopup(row, true);
+        }
+      });
     }
 
     setupAuth(init);

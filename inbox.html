@@ -257,7 +257,11 @@
     const form = el("customerForm");
 
     function departmentLabel(d){ return d === "all" ? "كل الأقسام" : (DEPARTMENTS[d] || d); }
-    function platformLabel(p){ return PLATFORM_CONFIG[p]?.label || p; }
+    function platformLabel(p){
+      const v = String(p || "").toLowerCase();
+      if(v === "tikok" || v === "tiktok" || v === "tt") return "تيك توك";
+      return PLATFORM_CONFIG[p]?.label || p;
+    }
 
     onAuthStateChanged(auth, async (user) => {
       cleanupListeners();
@@ -585,7 +589,7 @@
       const raw = String(data.platform || data.channel || data.channelCode || defaultPlatform || "").toLowerCase();
       if(raw === "fb" || raw.includes("facebook") || raw.includes("فيس")) return "facebook";
       if(raw === "ig" || raw.includes("instagram") || raw.includes("انست")) return "instagram";
-      if(raw === "tt" || raw.includes("tiktok") || raw.includes("تيك")) return "tiktok";
+      if(raw === "tt" || raw.includes("tiktok") || raw.includes("tikok") || raw.includes("تيك")) return "tiktok";
       if(raw === "wa" || raw.includes("whatsapp") || raw.includes("واتساب")) return "whatsapp";
       return defaultPlatform || "whatsapp";
     }
@@ -942,42 +946,92 @@
       });
     }
 
+    function messageSortTime(m){
+      const value = m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt || "";
+      if(value?.toDate) return value.toDate().getTime();
+      if(typeof value === "number") return value < 9999999999 ? value * 1000 : value;
+      const parsed = Date.parse(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function messageTextOf(m){
+      return m.text || m.body || m.message || m.caption || m.content || m.lastMessageText || "";
+    }
+
+    function messageCandidateIds(c){
+      const ids = [
+        c.id, c.conversationId, c.convId, c.waId, c.participantId,
+        c.phoneNormalized, c.phone, c.phoneNumber, c.mobile
+      ].filter(Boolean).map(x => String(x).replace(/^\+/, ""));
+      const extra = [];
+      ids.forEach(id => {
+        extra.push(id);
+        if(id.startsWith("wa_")) extra.push(id.replace(/^wa_/, ""));
+        if(!id.startsWith("wa_") && c.platform === "whatsapp") extra.push("wa_" + id);
+      });
+      return [...new Set(extra.filter(Boolean))];
+    }
+
     function listenMessages(c){
       if(state.unsubMessages) state.unsubMessages();
       messagesEl.innerHTML = '<div class="empty">جاري التحميل...</div>';
 
-      const cfg = PLATFORM_CONFIG[c.platform];
-      const q = query(collection(db, cfg.conversations, c.id, "messages"), orderBy("createdAt", "asc"), limit(300));
+      const cfg = PLATFORM_CONFIG[c.platform] || PLATFORM_CONFIG.whatsapp;
+      const ids = messageCandidateIds(c);
+      let idx = 0;
 
-      state.unsubMessages = onSnapshot(q, snap => {
-        messagesEl.innerHTML = "";
-        if(snap.empty){
-          messagesEl.innerHTML = '<div class="empty">لا توجد رسائل</div>';
-          return;
-        }
-        snap.forEach(d => {
-          const m = d.data();
-          const outgoing = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
-          const row = document.createElement("div");
-          row.className = "msg-row " + (outgoing ? "out" : "in");
-          row.innerHTML = `
-            <div class="msg ${outgoing ? "out" : "in"}">
-              <div class="msg-text">${escapeHtml(m.text || m.body || m.message || "")}</div>
-              <div class="msg-meta">
-                <span>${outgoing ? "أنت" : "العميل"}</span>
-                <span>•</span>
-                <span>${formatTime(m.createdAt || m.timestamp)}</span>
+      const attach = () => {
+        const convId = ids[idx] || c.id;
+        const colRef = collection(db, cfg.conversations, convId, "messages");
+
+        state.unsubMessages = onSnapshot(colRef, snap => {
+          const messages = [];
+          snap.forEach(d => messages.push({ id:d.id, ...d.data() }));
+
+          if(!messages.length && idx < ids.length - 1){
+            if(state.unsubMessages) state.unsubMessages();
+            idx += 1;
+            attach();
+            return;
+          }
+
+          messages.sort((a,b) => messageSortTime(a) - messageSortTime(b));
+          messagesEl.innerHTML = "";
+          if(!messages.length){
+            messagesEl.innerHTML = '<div class="empty">لا توجد رسائل</div>';
+            return;
+          }
+
+          messages.forEach(m => {
+            const outgoing = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
+            const row = document.createElement("div");
+            row.className = "msg-row " + (outgoing ? "out" : "in");
+            row.innerHTML = `
+              <div class="msg ${outgoing ? "out" : "in"}">
+                <div class="msg-text">${escapeHtml(messageTextOf(m))}</div>
+                <div class="msg-meta">
+                  <span>${outgoing ? "أنت" : "العميل"}</span>
+                  <span>•</span>
+                  <span>${formatTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt)}</span>
+                </div>
               </div>
-            </div>
-          `;
-          messagesEl.appendChild(row);
+            `;
+            messagesEl.appendChild(row);
+          });
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }, err => {
+          console.error(err);
+          if(idx < ids.length - 1){
+            idx += 1;
+            attach();
+            return;
+          }
+          messagesEl.innerHTML = '<div class="empty">تعذر تحميل الرسائل</div>';
+          if(state.limitedInboxMode) el("connectionStatus").textContent = "وضع محدود";
         });
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      }, err => {
-        console.error(err);
-        messagesEl.innerHTML = '<div class="empty">تعذر تحميل الرسائل</div>';
-        if(state.limitedInboxMode) el("connectionStatus").textContent = "وضع محدود";
-      });
+      };
+
+      attach();
     }
 
 
