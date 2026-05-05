@@ -1318,6 +1318,35 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
 
 
 
+
+    function removeUndefinedDeep(value){
+      if(value === undefined) return null;
+      if(value === null) return null;
+      if(Array.isArray(value)) return value.map(removeUndefinedDeep);
+      if(typeof value === "object"){
+        // اترك Firebase FieldValue زي serverTimestamp كما هو
+        if(value && typeof value.isEqual === "function") return value;
+        const out = {};
+        Object.entries(value).forEach(([k, v]) => {
+          if(v !== undefined) out[k] = removeUndefinedDeep(v);
+        });
+        return out;
+      }
+      return value;
+    }
+
+    function safeDocSegment(value){
+      return String(value || "")
+        .trim()
+        .replace(/[\/#?\[\]]/g, "_")
+        .slice(0, 180);
+    }
+
+    function userEmailSafe(){
+      return state.user?.email || "";
+    }
+
+
     function normalizeNameForMatch(v){
       return String(v || "")
         .trim()
@@ -1406,13 +1435,13 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
         updatedAt: serverTimestamp(),
         lastUpdated: serverTimestamp(),
         updatedByUid: state.user.uid,
-        updatedByEmail: state.user.email
+        updatedByEmail: userEmailSafe()
       };
 
       let updated = 0;
       for(const lead of matchedLeads){
         if(!lead?.id) continue;
-        await setDoc(doc(db, "leads", lead.id), payload, { merge:true });
+        await setDoc(doc(db, "leads", safeDocSegment(lead.id)), removeUndefinedDeep(payload), { merge:true });
         updated += 1;
       }
 
@@ -1445,28 +1474,43 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       data.updatedAt = serverTimestamp();
 
       try{
-        await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), { ...data, conversationId:c.id, platform:c.platform }, { merge:true });
+        await setDoc(
+          doc(db, "customers", safeDocSegment(`${c.platform}_${c.id}`)),
+          removeUndefinedDeep({ ...data, conversationId:c.id, platform:c.platform }),
+          { merge:true }
+        );
 
         const leadUpdateResult = await updateMatchedLeadStatusFromCustomer(c, data);
 
-        await setDoc(doc(db, cfg.conversations, c.id), {
-          customer:data,
-          customerName:data.customerName,
-          displayName:data.customerName,
-          phone:data.phone,
-          waId:data.phone || c.waId || c.id,
-          clientStatus:data.clientStatus,
-          statusLabel:data.clientStatus,
-          department:data.department,
-          profileCompletion:data.profileCompletion,
-          updatedAt:serverTimestamp()
-        }, { merge:true });
+        await setDoc(
+          doc(db, cfg.conversations, safeDocSegment(c.id)),
+          removeUndefinedDeep({
+            customer:data,
+            customerName:data.customerName,
+            displayName:data.customerName,
+            phone:data.phone,
+            waId:data.phone || c.waId || c.id,
+            clientStatus:data.clientStatus,
+            statusLabel:data.clientStatus,
+            department:data.department,
+            profileCompletion:data.profileCompletion,
+            updatedAt:serverTimestamp()
+          }),
+          { merge:true }
+        );
 
         if(data.clientStatus && data.clientStatus !== oldStatus){
-          await addDoc(collection(db, cfg.conversations, c.id, "status_history"), {
-            status:data.clientStatus, note:"", department:data.department,
-            createdByUid:state.user.uid, createdByEmail:state.user.email, createdAt:serverTimestamp()
-          });
+          await addDoc(
+            collection(db, cfg.conversations, safeDocSegment(c.id), "status_history"),
+            removeUndefinedDeep({
+              status:data.clientStatus,
+              note:"",
+              department:data.department,
+              createdByUid:state.user.uid,
+              createdByEmail:userEmailSafe(),
+              createdAt:serverTimestamp()
+            })
+          );
         }
 
         const matchedIds = new Set((leadUpdateResult.ids || []));
@@ -1498,7 +1542,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
         }
       } catch(err){
         console.error(err);
-        toast("فشل حفظ حالة العميل: " + (err.code || err.message || ""));
+        toast("فشل حفظ حالة العميل: " + (err.code || "") + " " + (err.message || ""));
       }
     }
 
