@@ -5,6 +5,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MZJ CRM - الداش بورد</title>
   <link rel="stylesheet" href="./theme.css" />
+  <style>
+    .dashboard-shell{display:flex; flex-direction:column; gap:18px;}
+    .dashboard-note{color:#8d6e63; font-size:13px;}
+    .dept-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px;}
+    .dept-card,
+    .status-board-card{background:#fff; border:1px solid #ead7cb; border-radius:22px; box-shadow:0 8px 24px rgba(95, 58, 36, .08); overflow:hidden;}
+    .dept-card{cursor:pointer; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;}
+    .dept-card:hover{transform:translateY(-2px); box-shadow:0 12px 28px rgba(95,58,36,.14); border-color:#d8b8a5;}
+    .dept-card.active{border-color:#8b4a2f; box-shadow:0 14px 30px rgba(95,58,36,.16);}
+    .dept-card-head{padding:18px 18px 12px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
+    .dept-card-head h3{margin:0; font-size:24px; color:#2f1b12;}
+    .dept-card-head p{margin:8px 0 0; font-size:13px; color:#8d6e63; line-height:1.7;}
+    .dept-badge{min-width:56px; height:56px; border-radius:18px; border:1px solid #efc8ad; background:#fbf3ee; display:flex; align-items:center; justify-content:center; font-weight:800; color:#c56d27; font-size:22px; flex-shrink:0;}
+    .dept-card-foot{padding:0 18px 18px; display:flex; justify-content:space-between; align-items:center; gap:10px; color:#8d6e63; font-size:13px;}
+    .dept-open{color:#8b4a2f; font-weight:700;}
+    .board-panel{background:#fff; border:1px solid #ead7cb; border-radius:26px; box-shadow:0 10px 28px rgba(95,58,36,.08); padding:18px;}
+    .board-panel.hidden{display:none;}
+    .board-head{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px;}
+    .board-head h3{margin:0; font-size:28px; color:#2f1b12;}
+    .board-head p{margin:6px 0 0; color:#8d6e63; font-size:13px; line-height:1.8;}
+    .board-actions{display:flex; gap:10px; flex-wrap:wrap;}
+    .status-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; align-items:start;}
+    .status-board-card{display:flex; flex-direction:column; min-height:260px;}
+    .status-board-head{padding:16px 16px 10px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid #f0e0d7;}
+    .status-board-head h4{margin:0; color:#2f1b12; font-size:28px; line-height:1.35;}
+    .status-board-body{padding:16px; display:flex; flex-direction:column; gap:10px; flex:1;}
+    .status-count{min-width:46px; height:46px; padding:0 10px; border-radius:16px; border:1px solid #efc8ad; background:#fbf3ee; color:#c56d27; font-size:24px; font-weight:800; display:flex; align-items:center; justify-content:center;}
+    .customer-list{display:flex; flex-direction:column; gap:10px;}
+    .customer-chip{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border:1px solid #f1e1d7; background:#fffaf7; border-radius:16px; font-size:14px;}
+    .customer-chip b{color:#2f1b12;}
+    .customer-chip small{color:#8d6e63;}
+    .muted-empty{margin:auto 0; text-align:center; color:#8d6e63; font-size:14px; line-height:1.8;}
+    .board-link{display:inline-flex; align-items:center; gap:6px; color:#8b4a2f; text-decoration:none; font-weight:700;}
+    .board-link:hover{text-decoration:underline;}
+    @media (max-width: 768px){
+      .dept-card-head h3,.board-head h3{font-size:22px;}
+      .status-board-head h4{font-size:22px;}
+      .board-head{flex-direction:column;}
+      .board-actions{width:100%;}
+    }
+  </style>
 </head>
 <body>
   <section class="login-screen hidden" id="loginScreen">
@@ -24,6 +65,7 @@
       </form>
     </div>
   </section>
+
   <div class="management-page hidden" id="app">
     <aside class="sidebar">
       <div class="brand">
@@ -40,23 +82,23 @@
         <div class="nav-card">
           <div class="menu-label">التنقل بين صفحات النظام</div>
           <div class="nav-tabs">
-          <a href="./inbox.html">صندوق الوارد</a>
-          <a href="./callcenter.html">الكول سنتر</a>
-          <a href="./leads-finance.html">العملاء المحتملون - تمويل</a>
-          <a href="./leads-cash.html">العملاء المحتملون - كاش</a>
-          <a href="./leads-customer-service.html">العملاء المحتملون - خدمة عملاء</a>
-          <a href="./database.html">قاعدة البيانات</a>
-          <a href="./dashboard.html" class="active">الداش بورد</a>
-          <a href="./reports.html">التقارير</a>
-          <a href="./branches.html">الفروع</a>
-          <a href="./statuses.html">حالات العملاء</a>
-          <a href="./templates.html">القوالب والرسائل الجاهزة</a>
-          <a href="./admin.html">الإدارة</a>
+            <a href="./inbox.html">صندوق الوارد</a>
+            <a href="./callcenter.html">الكول سنتر</a>
+            <a href="./leads-finance.html">العملاء المحتملون - تمويل</a>
+            <a href="./leads-cash.html">العملاء المحتملون - كاش</a>
+            <a href="./leads-customer-service.html">العملاء المحتملون - خدمة عملاء</a>
+            <a href="./database.html">قاعدة البيانات</a>
+            <a href="./dashboard.html" class="active">الداش بورد</a>
+            <a href="./reports.html">التقارير</a>
+            <a href="./branches.html">الفروع</a>
+            <a href="./statuses.html">حالات العملاء</a>
+            <a href="./templates.html">القوالب والرسائل الجاهزة</a>
+            <a href="./admin.html">الإدارة</a>
           </div>
         </div>
-      
-      
+      </div>
     </aside>
+
     <main class="management-main">
       <div class="no-permission-card" id="noPermissionCard">
         <div>
@@ -69,45 +111,38 @@
       <div class="page-head">
         <div>
           <h2>الداش بورد</h2>
-          <p>ملخص الأقسام الرئيسية في النظام.</p>
-        </div>
-      </div>
-      <div class="cards-grid">
-        <div class="stat-card">
-          <h3>مبيعات الكاش</h3>
-          <div class="stat-number" id="cashCount">0</div>
-          <div class="small-note">إجمالي العملاء المحتملين - كاش</div>
-        </div>
-        <div class="stat-card">
-          <h3>مبيعات التمويل</h3>
-          <div class="stat-number" id="financeCount">0</div>
-          <div class="small-note">إجمالي العملاء المحتملين - تمويل</div>
-        </div>
-        <div class="stat-card">
-          <h3>خدمة العملاء</h3>
-          <div class="stat-number" id="csCount">0</div>
-          <div class="small-note">إجمالي عملاء خدمة العملاء</div>
+          <p>متابعة سريعة للأقسام والحالات. اضغط على أي قسم لعرض الكروت الموجودة بداخله.</p>
         </div>
       </div>
 
-      <div class="report-table-section">
-        <h3>الصفحات المسموح بها</h3>
-        <div class="allowed-pages-grid" id="allowedPagesGrid"></div>
-      </div>
+      <section class="dashboard-shell">
+        <div class="dashboard-note">إجمالي العملاء في كل قسم = عدد العملاء الموجودين بنفس الصفحة وحالتهم <b>عميل جديد</b>، ويتم التحديث تلقائياً بمجرد تغيير الحالة.</div>
+        <div class="dept-grid" id="deptGrid"></div>
+
+        <section class="board-panel hidden" id="detailsPanel">
+          <div class="board-head">
+            <div>
+              <h3 id="detailsTitle">تفاصيل القسم</h3>
+              <p id="detailsSub">اضغط على أي حالة لمراجعة العملاء الموجودين داخلها.</p>
+            </div>
+            <div class="board-actions">
+              <a class="secondary" id="detailsPageLink" href="#">فتح الصفحة</a>
+              <button class="secondary" id="backToDepartmentsBtn">رجوع للأقسام</button>
+            </div>
+          </div>
+          <div class="status-grid" id="statusGrid"></div>
+        </section>
+      </section>
     </main>
   </div>
-  <div class="toast" id="toast"></div>
-  <script type="module">
 
-    import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
-    import {
-      getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword
-    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import {
-      getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy,
-      addDoc, setDoc, updateDoc, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
@@ -125,38 +160,62 @@
     const db = getFirestore(appFirebase);
 
     const DEPARTMENTS = {
-      cash_sales:"مبيعات الكاش",
-      finance_sales:"مبيعات التمويل",
-      customer_service:"خدمة العملاء",
-      call_center:"الكول سنتر"
+      cash_sales: {
+        title: "مبيعات الكاش",
+        page: "leads-cash.html",
+        hint: "إجمالي العملاء هنا يساوي العملاء الموجودين في صفحة العملاء المحتملون - كاش وحالتهم عميل جديد.",
+        statusHint: "كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على اسم العميل من الصفحة المختصة لتفاصيل أكثر."
+      },
+      finance_sales: {
+        title: "مبيعات التمويل",
+        page: "leads-finance.html",
+        hint: "إجمالي العملاء هنا يساوي العملاء الموجودين في صفحة العملاء المحتملون - تمويل وحالتهم عميل جديد.",
+        statusHint: "كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على العميل من الصفحة المختصة لتفاصيل أكثر."
+      },
+      customer_service: {
+        title: "خدمة العملاء",
+        page: "leads-customer-service.html",
+        hint: "إجمالي العملاء هنا يساوي العملاء الموجودين في صفحة العملاء المحتملون - خدمة عملاء وحالتهم عميل جديد.",
+        statusHint: "كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على العميل من الصفحة المختصة لتفاصيل أكثر."
+      },
+      call_center: {
+        title: "الكول سنتر",
+        page: "callcenter.html",
+        hint: "إجمالي العملاء هنا يساوي العملاء الموجودين في صفحة الكول سنتر وحالتهم عميل جديد.",
+        statusHint: "كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على العميل من الصفحة المختصة لتفاصيل أكثر."
+      }
     };
 
-    const SYSTEM_PAGES = [
-      { value:"inbox.html", label:"صندوق الوارد" },
-      { value:"callcenter.html", label:"الكول سنتر" },
-      { value:"leads-finance.html", label:"العملاء المحتملون - تمويل" },
-      { value:"leads-cash.html", label:"العملاء المحتملون - كاش" },
-      { value:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
-      { value:"database.html", label:"قاعدة البيانات" },
-      { value:"dashboard.html", label:"الداش بورد" },
-      { value:"reports.html", label:"التقارير" },
-      { value:"branches.html", label:"الفروع" },
-      { value:"admin.html", label:"الإدارة" },
-      { value:"statuses.html", label:"حالات العملاء" },
-      { value:"templates.html", label:"القوالب والرسائل الجاهزة" }
+    const NAV_ITEMS = [
+      { page:"inbox.html", label:"صندوق الوارد" },
+      { page:"callcenter.html", label:"الكول سنتر" },
+      { page:"leads-finance.html", label:"العملاء المحتملون - تمويل" },
+      { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
+      { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
+      { page:"database.html", label:"قاعدة البيانات" },
+      { page:"dashboard.html", label:"الداش بورد" },
+      { page:"reports.html", label:"التقارير" },
+      { page:"branches.html", label:"الفروع" },
+      { page:"statuses.html", label:"حالات العملاء" },
+      { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
+      { page:"admin.html", label:"الإدارة" }
     ];
 
+    const el = id => document.getElementById(id);
     let currentUser = null;
     let currentProfile = null;
     let isAdmin = false;
-
-    const el = id => document.getElementById(id);
+    let leads = [];
+    let statuses = [];
+    let activeDepartment = null;
+    let unsubLeads = null;
+    let unsubStatuses = null;
 
     function toast(msg){
       const t = el("toast");
       t.textContent = msg;
       t.style.display = "block";
-      setTimeout(()=> t.style.display = "none", 2500);
+      setTimeout(() => t.style.display = "none", 2500);
     }
 
     function showLoginError(msg){
@@ -174,30 +233,11 @@
       return profile?.role === "admin" || profile?.allDepartments === true;
     }
 
+    function departmentLabel(key){ return DEPARTMENTS[key]?.title || key || ""; }
+
     function escapeHtml(str){
-      return String(str ?? "").replace(/[&<>"']/g, s => ({
-        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-      }[s]));
+      return String(str ?? "").replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     }
-
-    function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
-
-
-
-    const NAV_ITEMS = [
-      { page:"inbox.html", label:"صندوق الوارد" },
-      { page:"callcenter.html", label:"الكول سنتر" },
-      { page:"leads-finance.html", label:"العملاء المحتملون - تمويل" },
-      { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
-      { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
-      { page:"database.html", label:"قاعدة البيانات" },
-      { page:"dashboard.html", label:"الداش بورد" },
-      { page:"reports.html", label:"التقارير" },
-      { page:"branches.html", label:"الفروع" },
-      { page:"statuses.html", label:"حالات العملاء" },
-      { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
-      { page:"admin.html", label:"الإدارة" }
-    ];
 
     function renderAllowedNavigation(profile, adminFlag){
       const currentPage = location.pathname.split("/").pop() || "inbox.html";
@@ -206,51 +246,207 @@
       const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
       const nav = document.querySelector(".nav-tabs");
       if(!nav) return;
-
       nav.innerHTML = allowed.map(item => `
-        <a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">
-          ${item.label}
-        </a>
+        <a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">${item.label}</a>
       `).join("");
     }
 
-    function currentPageName(){
-      return location.pathname.split("/").pop() || "inbox.html";
-    }
-
-    function allowedPagesForCurrentUser(){
-      return Array.isArray(currentProfile?.pages) ? currentProfile.pages : [];
-    }
-
+    function currentPageName(){ return location.pathname.split("/").pop() || "inbox.html"; }
+    function allowedPagesForCurrentUser(){ return Array.isArray(currentProfile?.pages) ? currentProfile.pages : []; }
     function hasPageAccess(page){
       const pages = allowedPagesForCurrentUser();
       return isAdmin || currentProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html";
     }
-
     function applyPagePermissions(){
       const page = currentPageName();
       const pages = allowedPagesForCurrentUser();
       const unrestricted = isAdmin || currentProfile?.allDepartments === true || !pages.length;
-
       document.querySelectorAll(".nav-tabs a").forEach(a => {
         const linkPage = (a.getAttribute("href") || "").replace("./", "");
-        if(!unrestricted && !pages.includes(linkPage) && linkPage !== "dashboard.html"){
-          a.classList.add("hidden");
-        } else {
-          a.classList.remove("hidden");
-        }
+        if(!unrestricted && !pages.includes(linkPage) && linkPage !== "dashboard.html") a.classList.add("hidden");
+        else a.classList.remove("hidden");
       });
-
       if(!hasPageAccess(page)){
         sessionStorage.setItem("mzj_no_permission_page", page);
         window.location.replace("./dashboard.html");
         return false;
       }
-
       return true;
     }
 
-    function setupAuth(pageInit, adminOnly=false){
+    function renderNoPermissionNotice(){
+      const blocked = sessionStorage.getItem("mzj_no_permission_page");
+      if(blocked) el("noPermissionCard").classList.add("show");
+    }
+
+    function userCanSeeLead(lead){
+      if(isAdmin) return true;
+      const uid = currentUser?.uid;
+      if(!uid) return false;
+      const dept = currentProfile?.department || currentProfile?.role || "";
+      if(dept === "call_center") return lead.callCenterUid === uid;
+      if(["cash_sales","finance_sales","customer_service"].includes(dept)) return lead.responsibleUid === uid;
+      return lead.responsibleUid === uid || lead.callCenterUid === uid;
+    }
+
+    function isLeadInDepartment(lead, dept){
+      if(!lead) return false;
+      if(dept === "cash_sales") return lead.department === "cash_sales";
+      if(dept === "finance_sales") return lead.department === "finance_sales";
+      if(dept === "customer_service") return lead.department === "customer_service";
+      if(dept === "call_center"){
+        if(lead.department === "call_center") return true;
+        if(lead.callCenterUid || lead.callCenterName || lead.callCenterAssignedTo || lead.callCenter) return true;
+        return false;
+      }
+      return false;
+    }
+
+    function visibleDepartmentLeads(dept){
+      return leads.filter(lead => isLeadInDepartment(lead, dept) && userCanSeeLead(lead));
+    }
+
+    function departmentStatuses(dept){
+      const names = statuses
+        .filter(s => s.active !== false && Array.isArray(s.departments) && s.departments.includes(dept))
+        .sort((a,b) => Number(a.sort || 0) - Number(b.sort || 0))
+        .map(s => String(s.name || "").trim())
+        .filter(Boolean);
+      return [...new Set(names)];
+    }
+
+    function countNewCustomers(dept){
+      return visibleDepartmentLeads(dept).filter(l => String(l.status || "").trim() === "عميل جديد").length;
+    }
+
+    function cardCustomers(leadsList){
+      return leadsList.slice(0, 8).map(lead => {
+        const name = lead.customerName || lead.displayName || lead.name || "عميل";
+        const phone = lead.phone || lead.mobile || lead.phoneNumber || lead.participantId || "";
+        return `
+          <div class="customer-chip">
+            <b>${escapeHtml(name)}</b>
+            <small>${escapeHtml(phone)}</small>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderDepartmentCards(){
+      const holder = el("deptGrid");
+      const order = ["cash_sales","finance_sales","customer_service","call_center"];
+      holder.innerHTML = order.map(dept => {
+        const meta = DEPARTMENTS[dept];
+        const count = countNewCustomers(dept);
+        return `
+          <article class="dept-card ${activeDepartment === dept ? "active" : ""}" data-dept="${dept}">
+            <div class="dept-card-head">
+              <div>
+                <h3>${meta.title}</h3>
+                <p>${meta.hint}</p>
+              </div>
+              <div class="dept-badge">${count}</div>
+            </div>
+            <div class="dept-card-foot">
+              <span>إجمالي العملاء</span>
+              <span class="dept-open">اضغط لعرض الكروت</span>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderDetails(){
+      const panel = el("detailsPanel");
+      const grid = el("statusGrid");
+      if(!activeDepartment || !DEPARTMENTS[activeDepartment]){
+        panel.classList.add("hidden");
+        grid.innerHTML = "";
+        return;
+      }
+
+      const meta = DEPARTMENTS[activeDepartment];
+      const deptLeads = visibleDepartmentLeads(activeDepartment);
+      const statusNames = departmentStatuses(activeDepartment).filter(name => name !== "عميل جديد");
+      const cards = [];
+      const newLeads = deptLeads.filter(l => String(l.status || "").trim() === "عميل جديد");
+
+      cards.push({
+        title: "إجمالي العملاء",
+        count: newLeads.length,
+        customers: newLeads
+      });
+
+      statusNames.forEach(name => {
+        const items = deptLeads.filter(l => String(l.status || "").trim() === name);
+        cards.push({ title:name, count:items.length, customers:items });
+      });
+
+      panel.classList.remove("hidden");
+      el("detailsTitle").textContent = meta.title;
+      el("detailsSub").textContent = meta.statusHint;
+      el("detailsPageLink").href = `./${meta.page}`;
+
+      grid.innerHTML = cards.map(card => `
+        <article class="status-board-card">
+          <div class="status-board-head">
+            <div class="status-count">${card.count}</div>
+            <h4>${escapeHtml(card.title)}</h4>
+          </div>
+          <div class="status-board-body">
+            ${card.customers.length ? `<div class="customer-list">${cardCustomers(card.customers)}</div>` : `<div class="muted-empty">لا يوجد عملاء داخل هذه الحالة.</div>`}
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function renderAll(){
+      renderDepartmentCards();
+      renderDetails();
+    }
+
+    function listenData(){
+      if(unsubLeads) unsubLeads();
+      if(unsubStatuses) unsubStatuses();
+
+      unsubStatuses = onSnapshot(query(collection(db, "client_statuses"), orderBy("sort", "asc")), snap => {
+        statuses = [];
+        snap.forEach(d => statuses.push({ id:d.id, ...d.data() }));
+        renderAll();
+      });
+
+      unsubLeads = onSnapshot(collection(db, "leads"), snap => {
+        leads = [];
+        snap.forEach(d => leads.push({ id:d.id, ...d.data() }));
+        renderAll();
+      }, err => {
+        console.error(err);
+        toast("تعذر تحميل بيانات الداش بورد");
+      });
+    }
+
+    function init(){
+      renderNoPermissionNotice();
+      renderAll();
+      listenData();
+
+      el("deptGrid").addEventListener("click", e => {
+        const card = e.target.closest(".dept-card[data-dept]");
+        if(!card) return;
+        activeDepartment = card.dataset.dept;
+        renderAll();
+        const panel = el("detailsPanel");
+        if(panel) panel.scrollIntoView({ behavior:"smooth", block:"start" });
+      });
+
+      el("backToDepartmentsBtn").addEventListener("click", () => {
+        activeDepartment = null;
+        renderAll();
+        document.querySelector('.page-head')?.scrollIntoView({ behavior:"smooth", block:"start" });
+      });
+    }
+
+    function setupAuth(pageInit){
       onAuthStateChanged(auth, async (user) => {
         if(!user){
           currentUser = null;
@@ -259,18 +455,15 @@
           el("app").classList.add("hidden");
           return;
         }
-
         try{
           currentUser = user;
           currentProfile = await loadUserProfile(user);
           isAdmin = isAdminProfile(currentProfile);
-
-          if(currentProfile.active === false || (adminOnly && !isAdmin)){
+          if(currentProfile.active === false){
             await signOut(auth);
             showLoginError("لا توجد صلاحية دخول لهذه الصفحة.");
             return;
           }
-
           el("loginScreen").classList.add("hidden");
           el("app").classList.remove("hidden");
           el("userInfo").textContent = `${currentProfile.name || user.email} - ${isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department)}`;
@@ -297,56 +490,6 @@
       el("logoutBtn").onclick = () => signOut(auth);
     }
 
-    function tsToDate(v){
-      if(!v) return null;
-      if(v.toDate) return v.toDate();
-      if(typeof v === "number") return new Date(v);
-      if(typeof v === "string") return new Date(v);
-      return null;
-    }
-
-    function formatDate(v){
-      const d = tsToDate(v);
-      if(!d || isNaN(d)) return "";
-      return d.toLocaleString("ar-EG", {year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
-    }
-
-    let unsub = null;
-
-    function renderAllowedPagesGrid(){
-      const box = el("allowedPagesGrid");
-      if(!box) return;
-      const pages = allowedPagesForCurrentUser();
-      const unrestricted = isAdmin || currentProfile?.allDepartments === true || !pages.length;
-      const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
-
-      box.innerHTML = allowed.map(item => `<a class="allowed-page-card" href="./${item.page}">${item.label}</a>`).join("");
-    }
-
-    function renderNoPermissionNotice(){
-      const blocked = sessionStorage.getItem("mzj_no_permission_page");
-      if(blocked){
-        el("noPermissionCard").classList.add("show");
-      }
-    }
-
-    function init(){
-      renderNoPermissionNotice();
-      renderAllowedPagesGrid();
-      if(unsub) unsub();
-      unsub = onSnapshot(collection(db, "leads"), snap => {
-        let cash=0, finance=0, cs=0;
-        snap.forEach(d => {
-          const x = d.data();
-          if(x.department === "cash_sales") cash++;
-          if(x.department === "finance_sales") finance++;
-          if(x.department === "customer_service") cs++;
-        });
-        el("cashCount").textContent = cash;
-        el("financeCount").textContent = finance;
-        el("csCount").textContent = cs;
-      });
-    }
     setupAuth(init);
   </script>
 </body>
