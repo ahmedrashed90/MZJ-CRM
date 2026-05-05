@@ -463,12 +463,6 @@
         <div class="dashboard-chat-dialog inbox-style" role="dialog" aria-modal="true">
           <aside class="dashboard-chat-customer inbox-customer-panel">
             <div class="customer-panel-scroll">
-              <div class="customer-progress-card">
-                <h4>اكتمال ملف العميل</h4>
-                <div class="progress-track"><span id="chatProgressBar"></span></div>
-                <small id="chatProgressText">0% مكتمل</small>
-              </div>
-
               <div class="customer-form-card">
                 <h4>بيانات العميل</h4>
                 <label>حالة العميل<select id="chatStatus"></select></label>
@@ -500,7 +494,10 @@
             <header class="inbox-chat-header">
               <button type="button" class="secondary-btn close-chat-btn" data-chat-close>إغلاق</button>
               <div class="chat-title-box">
-                <h3 id="chatCustomerName">عميل</h3>
+                <div class="chat-title-line">
+                  <h3 id="chatCustomerName">عميل</h3>
+                  <span id="chatProgressBadge" class="chat-progress-badge">0% مكتمل</span>
+                </div>
                 <p id="chatCustomerMeta"></p>
               </div>
             </header>
@@ -711,10 +708,8 @@
         };
         pct = inboxCompletionFromData(data);
       }
-      const bar = document.getElementById("chatProgressBar");
-      const text = document.getElementById("chatProgressText");
-      if(bar) bar.style.width = pct + "%";
-      if(text) text.textContent = pct + "% مكتمل";
+      const badge = document.getElementById("chatProgressBadge");
+      if(badge) badge.textContent = pct + "% مكتمل";
     }
 
     function formatMessageTime(value){
@@ -1758,6 +1753,29 @@
             max-width:86% !important;
           }
         }
+        /* V39 completion badge beside customer name */
+        .chat-title-line{
+          display:flex !important;
+          align-items:center !important;
+          gap:10px !important;
+          justify-content:flex-start !important;
+          flex-wrap:wrap !important;
+        }
+        .chat-progress-badge{
+          display:inline-flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          min-height:28px !important;
+          padding:4px 10px !important;
+          border-radius:999px !important;
+          border:1px solid #ead4c8 !important;
+          background:#fff7f1 !important;
+          color:#7b2d22 !important;
+          font-size:12px !important;
+          font-weight:900 !important;
+          white-space:nowrap !important;
+        }
+        .customer-progress-card{display:none !important;}
 
       `;
       document.head.appendChild(style);

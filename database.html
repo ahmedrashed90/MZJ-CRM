@@ -671,8 +671,8 @@
       rows.forEach(l => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${dbNameButton(l)}</td>
-          <td>${dbPhoneButton(l.phone, l.customerName)}</td>
+          <td>${escapeHtml(l.customerName)}</td>
+          <td>${escapeHtml(l.phone)}</td>
           <td>${escapeHtml(l.location)}</td>
           <td>${escapeHtml(l.branch)}</td>
           <td>${escapeHtml(normalizeSourceLabel(l.source))}</td>
@@ -719,19 +719,7 @@
         el(id).addEventListener("change", render);
       });
       el("exportBtn").onclick = exportExcel;
-      el("leadsBody").addEventListener("click", (e) => {
-        const nameBtn = e.target.closest("[data-db-chat]");
-        if(nameBtn){
-          const row = leads.find(x => x.id === nameBtn.dataset.dbChat);
-          if(row) openDbChatPopup(row, false);
-          return;
-        }
-        const phoneBtn = e.target.closest("[data-db-whatsapp]");
-        if(phoneBtn){
-          const row = leads.find(x => normalizeDbPhone(x.phone) === phoneBtn.dataset.dbWhatsapp) || { customerName:phoneBtn.dataset.name || "عميل", phone:phoneBtn.dataset.dbWhatsapp, source:"واتساب" };
-          openDbChatPopup(row, true);
-        }
-      });
+      // V39: تم إلغاء فتح الشات من اسم العميل أو رقم الجوال في صفحة قاعدة البيانات.
     }
 
     setupAuth(init);
