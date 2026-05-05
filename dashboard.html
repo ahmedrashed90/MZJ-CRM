@@ -154,7 +154,8 @@
       convId:"",
       unsubMessages:null,
       unsubTemplates:null,
-      templates:[]
+      templates:[],
+      actualCompletion:null
     };
 
     const SECTION_DEFS = {
@@ -652,36 +653,64 @@
       updateChatCompletionProgress();
     }
 
-    function updateChatCompletionProgress(){
-      // نفس منطق صندوق الوارد: 13 حقل أساسي
-      const inboxEquivalentFields = [
-        "chatName",       // customerName
-        "chatPhone",      // phone
-        "chatSalary",     // salary
-        "chatObligation", // obligation
-        "chatLocation",   // location
-        "chatAge",        // age
-        null,             // salaryBank غير ظاهر في popup
-        "chatCar",        // carType
-        "chatModel",      // carModel
-        "chatColor",      // color
-        "chatNotes",      // notes
-        null,             // attachmentsNotes غير ظاهر في popup
-        "chatPayment"     // financeType/payment
+    function inboxCompletionFromData(data = {}){
+      const fields = [
+        "customerName","phone","salary","obligation","location","age","salaryBank",
+        "carType","carModel","color","notes","attachmentsNotes","financeType"
       ];
-      const lead = dashboardChatState.lead || {};
-      const fallbackValues = {
-        salaryBank: getLeadField(lead, ["salaryBank","bank"]),
-        attachmentsNotes: getLeadField(lead, ["attachmentsNotes","attachmentNotes","fileNotes"])
-      };
-      let filled = 0;
-      inboxEquivalentFields.forEach((id, index) => {
-        let value = id ? String(el(id)?.value || "").trim() : "";
-        if(!id && index === 6) value = String(fallbackValues.salaryBank || "").trim();
-        if(!id && index === 11) value = String(fallbackValues.attachmentsNotes || "").trim();
-        if(value) filled += 1;
-      });
-      const pct = Math.round((filled / inboxEquivalentFields.length) * 100);
+      const filled = fields.filter(f => {
+        const v = data[f];
+        return Array.isArray(v) ? v.length : String(v || "").trim();
+      }).length;
+      return Math.round((filled / fields.length) * 100);
+    }
+
+    async function loadActualInboxCompletionForLead(lead){
+      const platform = platformOf(lead);
+      const cfg = chatPlatformConfig(platform);
+      const convId = resolveChatConversationId(lead);
+      const candidates = [...new Set([
+        convId,
+        String(convId || "").replace(/^wa_/, ""),
+        normalizeKsaPhone(phoneOfLead(lead)),
+        normalizeKsaPhone(phoneOfLead(lead)) ? "wa_" + normalizeKsaPhone(phoneOfLead(lead)) : ""
+      ].filter(Boolean))];
+
+      for(const id of candidates){
+        try{
+          const snap = await getDoc(doc(db, cfg.conversations, id));
+          if(!snap.exists()) continue;
+          const data = snap.data() || {};
+          if(typeof data.profileCompletion === "number") return data.profileCompletion;
+          if(data.customer && typeof data.customer.profileCompletion === "number") return data.customer.profileCompletion;
+          if(data.customer) return inboxCompletionFromData(data.customer);
+        }catch(e){
+          console.warn("completion read skipped", id, e);
+        }
+      }
+      return null;
+    }
+
+    function updateChatCompletionProgress(){
+      let pct = dashboardChatState.actualCompletion;
+      if(typeof pct !== "number"){
+        const data = {
+          customerName: el("chatName")?.value || "",
+          phone: el("chatPhone")?.value || "",
+          salary: el("chatSalary")?.value || "",
+          obligation: el("chatObligation")?.value || "",
+          location: el("chatLocation")?.value || "",
+          age: el("chatAge")?.value || "",
+          salaryBank: getLeadField(dashboardChatState.lead || {}, ["salaryBank","bank"]),
+          carType: el("chatCar")?.value || "",
+          carModel: el("chatModel")?.value || "",
+          color: el("chatColor")?.value || "",
+          notes: el("chatNotes")?.value || "",
+          attachmentsNotes: getLeadField(dashboardChatState.lead || {}, ["attachmentsNotes","attachmentNotes","fileNotes"]),
+          financeType: el("chatPayment")?.value || ""
+        };
+        pct = inboxCompletionFromData(data);
+      }
       const bar = document.getElementById("chatProgressBar");
       const text = document.getElementById("chatProgressText");
       if(bar) bar.style.width = pct + "%";
@@ -759,6 +788,7 @@
       dashboardChatState.lead = lead;
       dashboardChatState.platform = platformOf(lead);
       dashboardChatState.convId = resolveChatConversationId(lead);
+      dashboardChatState.actualCompletion = null;
 
       fillDashboardChatCustomerForm(lead);
       renderDashboardTemplateOptions();
@@ -784,6 +814,12 @@
         }catch(e){ console.warn("conversation upsert skipped", e); }
       }
       listenDashboardChatMessages();
+      loadActualInboxCompletionForLead(lead).then(pct => {
+        if(typeof pct === "number"){
+          dashboardChatState.actualCompletion = pct;
+          updateChatCompletionProgress();
+        }
+      }).catch(console.warn);
     }
 
     function closeLeadChatPopup(){
@@ -904,6 +940,21 @@
       try{
         await updateDoc(doc(db, "leads", lead.__id), payload);
         Object.assign(lead, payload);
+        dashboardChatState.actualCompletion = inboxCompletionFromData({
+          customerName: payload.customerName,
+          phone: payload.phone,
+          salary: payload.salary,
+          obligation: payload.obligation,
+          location: payload.location,
+          age: payload.age,
+          salaryBank: payload.salaryBank || "",
+          carType: payload.carType,
+          carModel: payload.carModel,
+          color: payload.color,
+          notes: payload.notes,
+          attachmentsNotes: payload.attachmentsNotes || "",
+          financeType: payload.financeType || payload.paymentType || payload.payment
+        });
         renderDashboard();
         fillDashboardChatCustomerForm(lead);
         toast("تم حفظ بيانات العميل");
