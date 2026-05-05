@@ -670,18 +670,28 @@
       const convId = resolveChatConversationId(lead);
       const candidates = [...new Set([
         convId,
+        lead.conversationId,
+        lead.convId,
+        lead.contactKey,
+        lead.participantId,
+        lead.fbId,
+        lead.igId,
+        lead.tiktokId,
+        lead.__id,
         String(convId || "").replace(/^wa_/, ""),
         normalizeKsaPhone(phoneOfLead(lead)),
         normalizeKsaPhone(phoneOfLead(lead)) ? "wa_" + normalizeKsaPhone(phoneOfLead(lead)) : ""
-      ].filter(Boolean))];
+      ].filter(Boolean).map(String))];
 
       for(const id of candidates){
         try{
           const snap = await getDoc(doc(db, cfg.conversations, id));
           if(!snap.exists()) continue;
           const data = snap.data() || {};
-          // لا نستخدم profileCompletion المخزن لأنه ممكن يكون محسوب بالمعادلة القديمة.
-          // نحسب مباشرة من بيانات customer بنفس منطق صندوق الوارد الحالي.
+          // V42: نفس النسبة الظاهرة في صندوق الوارد فعلياً.
+          // صندوق الوارد يحفظ profileCompletion على وثيقة المحادثة بعد حسابه.
+          if(typeof data.profileCompletion === "number") return data.profileCompletion;
+          if(data.customer && typeof data.customer.profileCompletion === "number") return data.customer.profileCompletion;
           if(data.customer) return inboxCompletionFromData(data.customer);
           return inboxCompletionFromData(data);
         }catch(e){
@@ -984,7 +994,9 @@
     }
 
     function renderCompletionBadge(lead){
-      return `<span class="lead-completion-badge" data-completion-lead-id="${escapeHtml(lead.__id || lead.id || "")}">${leadCompletionPercent(lead)}% مكتمل</span>`;
+      const id = lead.__id || lead.id || "";
+      const cached = id && typeof dashboardChatState.completionByLead[id] === "number";
+      return `<span class="lead-completion-badge" data-completion-lead-id="${escapeHtml(id)}">${cached ? dashboardChatState.completionByLead[id] + "% مكتمل" : "..."}</span>`;
     }
 
     async function hydrateStatusCompletionBadges(items){
@@ -993,7 +1005,10 @@
         const id = lead.__id || lead.id;
         if(typeof dashboardChatState.completionByLead[id] === "number") return;
         const pct = await loadActualInboxCompletionForLead(lead).catch(() => null);
-        dashboardChatState.completionByLead[id] = typeof pct === "number" ? pct : leadCompletionFromLeadData(lead);
+        dashboardChatState.completionByLead[id] =
+          typeof pct === "number" ? pct :
+          typeof lead.profileCompletion === "number" ? lead.profileCompletion :
+          leadCompletionFromLeadData(lead);
       }));
 
       visible.forEach(lead => {
