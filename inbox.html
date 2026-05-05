@@ -1317,15 +1317,43 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
     }
 
 
-    function findMatchingLeadForConversation(c){
-      if(!c) return null;
+
+    function normalizeNameForMatch(v){
+      return String(v || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[اأإآ]/g, "ا")
+        .replace(/[ة]/g, "ه")
+        .replace(/\s+/g, " ");
+    }
+
+    function getConversationNameForMatch(c){
+      return normalizeNameForMatch(firstValue(
+        c.customerName, c.customer?.customerName, c.displayName, c.name,
+        c.contactName, c.senderName
+      ));
+    }
+
+    function getLeadNameForMatch(l){
+      return normalizeNameForMatch(firstValue(
+        l.customerName, l.name, l.fullName, l.displayName
+      ));
+    }
+
+    function getMatchingLeadsForConversation(c){
+      if(!c) return [];
 
       const conv = String(c.convId || c.conversationId || c.contactKey || c.id || "").trim();
       const stable = String(getStableConversationKey(c) || "").trim();
       const phone = normalizePhone(firstValue(c.phone, c.customer?.phone, c.mobile, c.phoneNumber, c.customerPhone, c.waId, getPhone(c)));
       const participant = String(firstValue(c.participantId, c.tiktokId, c.igId, c.fbId, c.manychatContactId)).trim();
+      const explicitLeadId = String(firstValue(c.leadId, c.customer?.leadId, c.customer?.id)).trim();
+      const convName = getConversationNameForMatch(c);
+      const convDept = normalizeDepartment(firstValue(c.department, c.customer?.department, state.department));
 
-      return state.leads.find(l => {
+      const exact = state.leads.filter(l => {
+        if(explicitLeadId && (l.id === explicitLeadId || l.leadId === explicitLeadId)) return true;
+
         const lConv = leadConversationKey(l);
         if(lConv && (lConv === conv || lConv === stable)) return true;
 
@@ -1336,15 +1364,32 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
         if(participant && lParticipant && participant === lParticipant) return true;
 
         return false;
-      }) || c.customer || null;
+      });
+
+      if(exact.length) return exact;
+
+      // Fallback آمن: لو المحادثة ظاهرة للمندوب بسبب التوزيع، ونفس الاسم والقسم.
+      const loose = state.leads.filter(l => {
+        if(!userAssignedLead(l)) return false;
+        const leadName = getLeadNameForMatch(l);
+        if(!convName || !leadName || convName !== leadName) return false;
+        const leadDept = normalizeDepartment(l.department || "");
+        if(convDept && leadDept && convDept !== leadDept) return false;
+        return true;
+      });
+
+      return loose;
+    }
+
+    function findMatchingLeadForConversation(c){
+      return getMatchingLeadsForConversation(c)[0] || c?.customer || null;
     }
 
     async function updateMatchedLeadStatusFromCustomer(c, data){
-      const matchedLead = findMatchingLeadForConversation(c);
-      const leadId = matchedLead?.id || "";
-      if(!leadId) return;
-
+      const matchedLeads = getMatchingLeadsForConversation(c);
       const newStatus = data.clientStatus || data.status || "";
+      if(!newStatus) return { updated:0, reason:"empty_status" };
+
       const payload = {
         status: newStatus,
         statusLabel: newStatus,
@@ -1364,8 +1409,14 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
         updatedByEmail: state.user.email
       };
 
-      // لا نغير بيانات التوزيع ولا بيانات العميل هنا؛ فقط الحالة والتواريخ.
-      await updateDoc(doc(db, "leads", leadId), payload);
+      let updated = 0;
+      for(const lead of matchedLeads){
+        if(!lead?.id) continue;
+        await setDoc(doc(db, "leads", lead.id), payload, { merge:true });
+        updated += 1;
+      }
+
+      return { updated, ids: matchedLeads.map(l => l.id).filter(Boolean) };
     }
 
 
@@ -1393,51 +1444,62 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       data.updatedByEmail = state.user.email;
       data.updatedAt = serverTimestamp();
 
-      await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), { ...data, conversationId:c.id, platform:c.platform }, { merge:true });
+      try{
+        await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), { ...data, conversationId:c.id, platform:c.platform }, { merge:true });
 
-      // تحديث حالة الليد نفسه مهم للداش بورد والتقارير وصفحات العملاء.
-      // التحديث هنا حالة فقط حتى تسمح به قواعد Firebase للمندوب المتوزع عليه العميل.
-      await updateMatchedLeadStatusFromCustomer(c, data).catch(err => {
-        console.warn("lead status update skipped", err);
-      });
+        const leadUpdateResult = await updateMatchedLeadStatusFromCustomer(c, data);
 
-      await setDoc(doc(db, cfg.conversations, c.id), {
-        customer:data, customerName:data.customerName, displayName:data.customerName,
-        phone:data.phone, waId:data.phone || c.waId || c.id,
-        clientStatus:data.clientStatus,
-        statusLabel:data.clientStatus,
-        department:data.department, profileCompletion:data.profileCompletion, updatedAt:serverTimestamp()
-      }, { merge:true });
-
-      if(data.clientStatus && data.clientStatus !== oldStatus){
-        await addDoc(collection(db, cfg.conversations, c.id, "status_history"), {
-          status:data.clientStatus, note:"", department:data.department,
-          createdByUid:state.user.uid, createdByEmail:state.user.email, createdAt:serverTimestamp()
-        });
-      }
-
-      const matchedLead = findMatchingLeadForConversation(c);
-      if(matchedLead?.id){
-        state.leads = state.leads.map(l => l.id === matchedLead.id ? {
-          ...l,
-          status:data.clientStatus,
+        await setDoc(doc(db, cfg.conversations, c.id), {
+          customer:data,
+          customerName:data.customerName,
+          displayName:data.customerName,
+          phone:data.phone,
+          waId:data.phone || c.waId || c.id,
+          clientStatus:data.clientStatus,
           statusLabel:data.clientStatus,
-          leadStatus:data.clientStatus,
-          currentStatus:data.clientStatus,
-          currentStatusLabel:data.clientStatus,
-          customerStatus:data.clientStatus,
-          customerStatusLabel:data.clientStatus,
-          pipelineStatus:data.clientStatus,
-          pipelineStatusLabel:data.clientStatus,
-          stage:data.clientStatus,
-          stageLabel:data.clientStatus,
-          clientStatus:data.clientStatus
-        } : l);
-      }
+          department:data.department,
+          profileCompletion:data.profileCompletion,
+          updatedAt:serverTimestamp()
+        }, { merge:true });
 
-      state.selected = { ...state.selected, ...data, customer:data, clientStatus:data.clientStatus, statusLabel:data.clientStatus };
-      renderConversations();
-      toast("تم الحفظ");
+        if(data.clientStatus && data.clientStatus !== oldStatus){
+          await addDoc(collection(db, cfg.conversations, c.id, "status_history"), {
+            status:data.clientStatus, note:"", department:data.department,
+            createdByUid:state.user.uid, createdByEmail:state.user.email, createdAt:serverTimestamp()
+          });
+        }
+
+        const matchedIds = new Set((leadUpdateResult.ids || []));
+        if(matchedIds.size){
+          state.leads = state.leads.map(l => matchedIds.has(l.id) ? {
+            ...l,
+            status:data.clientStatus,
+            statusLabel:data.clientStatus,
+            leadStatus:data.clientStatus,
+            currentStatus:data.clientStatus,
+            currentStatusLabel:data.clientStatus,
+            customerStatus:data.clientStatus,
+            customerStatusLabel:data.clientStatus,
+            pipelineStatus:data.clientStatus,
+            pipelineStatusLabel:data.clientStatus,
+            stage:data.clientStatus,
+            stageLabel:data.clientStatus,
+            clientStatus:data.clientStatus
+          } : l);
+        }
+
+        state.selected = { ...state.selected, ...data, customer:data, clientStatus:data.clientStatus, statusLabel:data.clientStatus };
+        renderConversations();
+
+        if(!leadUpdateResult.updated){
+          toast("تم الحفظ، لكن لم يتم العثور على الليد المرتبط لتحديث الصفحة");
+        } else {
+          toast("تم الحفظ وتحديث حالة العميل");
+        }
+      } catch(err){
+        console.error(err);
+        toast("فشل حفظ حالة العميل: " + (err.code || err.message || ""));
+      }
     }
 
     function fillSelect(select, placeholder, items){
