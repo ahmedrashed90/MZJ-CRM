@@ -3502,3 +3502,205 @@ body:has(.mersal-inbox-main) .mersal-conversations-panel{
   }
 }
 
+
+/* ===== V11 Inbox Fixed 4 Columns =====
+   صفحة صندوق الوارد فقط:
+   من اليمين للشمال:
+   1) السايد بار
+   2) المحادثات
+   3) الشات
+   4) بيانات العميل
+*/
+.app{
+  direction:ltr !important;
+  height:100vh !important;
+  min-height:100vh !important;
+  padding-top:0 !important;
+  display:grid !important;
+  grid-template-columns:
+    minmax(320px, var(--customer-w))
+    minmax(0, 1fr)
+    minmax(320px, var(--inbox-list-w))
+    var(--side-nav-w) !important;
+  grid-template-rows:auto minmax(0, 1fr) !important;
+  grid-template-areas:
+    "customer chat filters nav"
+    "customer chat list nav" !important;
+  overflow:hidden !important;
+  background:var(--bg) !important;
+}
+
+/* نخلي parent بتاع صندوق الوارد transparent في الجريد، عشان أولاده يترتبوا 4 أعمدة */
+.app > .sidebar{
+  display:contents !important;
+  width:auto !important;
+  min-width:0 !important;
+  height:auto !important;
+  border:0 !important;
+  box-shadow:none !important;
+  background:transparent !important;
+  overflow:visible !important;
+}
+
+/* السايد بار الرئيسي أقصى اليمين */
+.app > .sidebar > .brand{
+  direction:rtl !important;
+  grid-area:nav !important;
+  position:relative !important;
+  width:var(--side-nav-w) !important;
+  min-width:var(--side-nav-w) !important;
+  height:100vh !important;
+  max-height:100vh !important;
+  padding:14px !important;
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  grid-template-rows:auto minmax(0, 1fr) auto !important;
+  grid-template-areas:"brand-top" "nav-card" "user-row" !important;
+  gap:12px !important;
+  border-left:0 !important;
+  border-right:1px solid var(--line) !important;
+  background:linear-gradient(180deg,#fffaf6 0%,#fff 100%) !important;
+  box-shadow:-8px 0 24px rgba(75,32,27,.05) !important;
+  overflow:hidden !important;
+  z-index:5 !important;
+}
+
+/* المحادثات بعد السايد بار */
+.app > .sidebar > .filters{
+  direction:rtl !important;
+  grid-area:filters !important;
+  min-width:0 !important;
+  width:auto !important;
+  padding:12px !important;
+  background:#fff !important;
+  border-top:0 !important;
+  border-right:1px solid var(--line) !important;
+  border-left:1px solid var(--line) !important;
+  border-bottom:1px solid var(--line) !important;
+  overflow:hidden !important;
+}
+
+.app > .sidebar > .list{
+  direction:rtl !important;
+  grid-area:list !important;
+  min-width:0 !important;
+  width:auto !important;
+  min-height:0 !important;
+  height:auto !important;
+  overflow:auto !important;
+  background:#fff !important;
+  border-right:1px solid var(--line) !important;
+  border-left:1px solid var(--line) !important;
+}
+
+/* الشات في الوسط */
+.app > .chat{
+  direction:rtl !important;
+  grid-area:chat !important;
+  height:100vh !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+  border-left:0 !important;
+  border-right:0 !important;
+  background:#fff !important;
+  display:grid !important;
+}
+
+/* بيانات العميل أقصى الشمال */
+.app > .customer{
+  direction:rtl !important;
+  grid-area:customer !important;
+  height:100vh !important;
+  min-width:0 !important;
+  width:auto !important;
+  overflow:auto !important;
+  background:#fff !important;
+  border-left:0 !important;
+  border-right:1px solid var(--line) !important;
+}
+
+/* ترتيب وتثبيت محتوى السايد بار داخل صندوق الوارد */
+.app > .sidebar > .brand .brand-top{
+  grid-area:brand-top !important;
+}
+
+.app > .sidebar > .brand .nav-card{
+  grid-area:nav-card !important;
+  min-height:0 !important;
+  height:auto !important;
+  overflow:visible !important;
+}
+
+.app > .sidebar > .brand .nav-tabs{
+  overflow:visible !important;
+  max-height:none !important;
+}
+
+.app > .sidebar > .brand .user-row{
+  grid-area:user-row !important;
+}
+
+/* على الشاشات الصغيرة نقلل العرض بدل ما الأعمدة تدخل في بعض */
+@media(max-width:1350px){
+  :root{
+    --side-nav-w:240px !important;
+    --inbox-list-w:310px !important;
+    --customer-w:320px !important;
+  }
+
+  .app{
+    grid-template-columns:
+      minmax(300px, var(--customer-w))
+      minmax(0, 1fr)
+      minmax(290px, var(--inbox-list-w))
+      var(--side-nav-w) !important;
+  }
+
+  .app > .sidebar > .brand .nav-tabs a{
+    padding:9px 10px !important;
+    font-size:12px !important;
+  }
+}
+
+@media(max-width:1050px){
+  :root{
+    --side-nav-w:220px !important;
+    --inbox-list-w:280px !important;
+    --customer-w:300px !important;
+  }
+
+  .app{
+    grid-template-columns:
+      minmax(280px, var(--customer-w))
+      minmax(0, 1fr)
+      minmax(260px, var(--inbox-list-w))
+      var(--side-nav-w) !important;
+  }
+}
+
+@media(max-width:760px){
+  .app{
+    grid-template-columns:1fr !important;
+    grid-template-rows:auto minmax(0,1fr) !important;
+    grid-template-areas:
+      "filters"
+      "list" !important;
+  }
+
+  .app > .sidebar{
+    display:contents !important;
+  }
+
+  .app > .sidebar > .brand,
+  .app > .chat,
+  .app > .customer{
+    display:none !important;
+  }
+
+  .app > .sidebar > .filters,
+  .app > .sidebar > .list{
+    border-left:0 !important;
+    border-right:0 !important;
+  }
+}
+
