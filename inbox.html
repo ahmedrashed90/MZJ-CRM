@@ -580,6 +580,38 @@
       return `${time} - ${date}`;
     }
 
+
+    function getInboxOpenParams(){
+      const params = new URLSearchParams(location.search);
+      return {
+        conversationId: params.get("conversationId") || params.get("convId") || "",
+        phone: params.get("phone") || "",
+        participantId: params.get("participantId") || ""
+      };
+    }
+
+    function matchesInboxOpenParams(c, params){
+      if(!params) return false;
+      const conv = String(c.convId || c.conversationId || c.contactKey || c.id || "");
+      const phone = String(c.phone || c.mobile || c.phoneNumber || c.customerPhone || "");
+      const participant = String(c.participantId || c.tiktokId || c.igId || c.fbId || c.manychatContactId || "");
+      if(params.conversationId && conv === params.conversationId) return true;
+      if(params.phone && phone && normalizePhone(phone) === normalizePhone(params.phone)) return true;
+      if(params.participantId && participant === params.participantId) return true;
+      return false;
+    }
+
+    function autoOpenConversationFromUrl(){
+      if(state._autoOpenedFromUrl) return;
+      const params = getInboxOpenParams();
+      if(!params.conversationId && !params.phone && !params.participantId) return;
+      const found = state.conversations.find(c => matchesInboxOpenParams(c, params));
+      if(found){
+        state._autoOpenedFromUrl = true;
+        selectConversation(getStableConversationKey(found) || found.id);
+      }
+    }
+
     function getStableConversationKey(c){
       return String(
         c?.convId ||
@@ -703,6 +735,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       fillCustomerForm(c.customer || c);
       fillTemplateDropdowns();
       renderConversations();
+        autoOpenConversationFromUrl();
       listenMessages(c);
     }
 
