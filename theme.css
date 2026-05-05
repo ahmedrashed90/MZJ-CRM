@@ -4296,3 +4296,246 @@ body:has(.app){
   }
 }
 
+
+/* ===== V14 Inbox No Gap + Bigger Right Sidebar =====
+   إصلاح صندوق الوارد فقط:
+   - إزالة الفراغ بين السايد بار والمحادثات.
+   - تكبير السايد بار حتى يظهر التنقل كامل.
+   - الترتيب من الشمال لليمين في CSS:
+     بيانات العميل | الشات | المحادثات | السايد بار
+     وبالتالي بصرياً من اليمين للشمال:
+     السايد بار | المحادثات | الشات | بيانات العميل
+*/
+.app{
+  direction:ltr !important;
+  --side-nav-w: 380px !important;
+  --inbox-list-w: 390px !important;
+  --chat-min-w: 500px !important;
+  --customer-w: 360px !important;
+
+  height:100vh !important;
+  min-height:100vh !important;
+  padding-top:0 !important;
+  display:grid !important;
+  grid-template-columns:
+    var(--customer-w)
+    minmax(var(--chat-min-w), 1fr)
+    var(--inbox-list-w)
+    var(--side-nav-w) !important;
+  grid-template-rows:auto minmax(0,1fr) !important;
+  grid-template-areas:
+    "customer chat filters nav"
+    "customer chat list    nav" !important;
+  min-width:calc(var(--customer-w) + var(--chat-min-w) + var(--inbox-list-w) + var(--side-nav-w)) !important;
+  overflow:hidden !important;
+  background:var(--bg) !important;
+}
+
+/* في صندوق الوارد: وزع عناصر sidebar مباشرة على الجريد */
+.app > .sidebar{
+  display:contents !important;
+  direction:rtl !important;
+  width:auto !important;
+  min-width:0 !important;
+  height:auto !important;
+  border:0 !important;
+  box-shadow:none !important;
+  background:transparent !important;
+  overflow:visible !important;
+}
+
+/* السايد بار الرئيسي أقصى اليمين */
+.app > .sidebar > .brand{
+  direction:rtl !important;
+  grid-area:nav !important;
+  width:var(--side-nav-w) !important;
+  min-width:var(--side-nav-w) !important;
+  height:100vh !important;
+  max-height:100vh !important;
+  padding:12px !important;
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  grid-template-rows:auto minmax(0,1fr) auto !important;
+  grid-template-areas:"brand-top" "nav-card" "user-row" !important;
+  gap:10px !important;
+  border-right:0 !important;
+  border-left:1px solid var(--line) !important;
+  background:linear-gradient(180deg,#fffaf6 0%,#fff 100%) !important;
+  box-shadow:-8px 0 24px rgba(75,32,27,.05) !important;
+  overflow:hidden !important;
+  z-index:5 !important;
+}
+
+/* المحادثات مباشرة بجانب السايد بار بدون فراغ */
+.app > .sidebar > .filters{
+  direction:rtl !important;
+  grid-area:filters !important;
+  min-width:0 !important;
+  width:var(--inbox-list-w) !important;
+  padding:12px !important;
+  background:#fff !important;
+  border-top:0 !important;
+  border-right:0 !important;
+  border-left:1px solid var(--line) !important;
+  border-bottom:1px solid var(--line) !important;
+  overflow:hidden !important;
+}
+
+.app > .sidebar > .list{
+  direction:rtl !important;
+  grid-area:list !important;
+  min-width:0 !important;
+  width:var(--inbox-list-w) !important;
+  min-height:0 !important;
+  height:auto !important;
+  overflow:auto !important;
+  background:#fff !important;
+  border-right:0 !important;
+  border-left:1px solid var(--line) !important;
+}
+
+/* الشات */
+.app > .chat{
+  direction:rtl !important;
+  grid-area:chat !important;
+  height:100vh !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+  border-left:1px solid var(--line) !important;
+  border-right:0 !important;
+  background:#fff !important;
+  display:grid !important;
+}
+
+/* بيانات العميل */
+.app > .customer{
+  direction:rtl !important;
+  grid-area:customer !important;
+  height:100vh !important;
+  min-width:0 !important;
+  width:var(--customer-w) !important;
+  overflow:auto !important;
+  background:#fff !important;
+  border-left:0 !important;
+  border-right:0 !important;
+}
+
+/* السايد بار أوسع: خلي النصوص أوضح */
+.app > .sidebar > .brand .logo-box h1{
+  max-width:255px !important;
+  font-size:14px !important;
+  line-height:1.35 !important;
+}
+
+.app > .sidebar > .brand .nav-card{
+  padding:10px !important;
+  border-radius:20px !important;
+  overflow:hidden !important;
+}
+
+.app > .sidebar > .brand .nav-tabs{
+  gap:6px !important;
+  overflow:visible !important;
+  max-height:none !important;
+}
+
+.app > .sidebar > .brand .nav-tabs a{
+  min-height:35px !important;
+  padding:8px 12px !important;
+  border-radius:14px !important;
+  font-size:12.5px !important;
+  line-height:1.2 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+.app > .sidebar > .brand .user-row .status-text{
+  max-width:250px !important;
+}
+
+/* خلي الصفحة تعمل horizontal scroll لو الشاشة أضيق بدل ما تعمل فراغات أو تكسر */
+html:has(.app),
+body:has(.app){
+  overflow:auto !important;
+}
+
+body:has(.app){
+  min-width:calc(var(--customer-w) + var(--chat-min-w) + var(--inbox-list-w) + var(--side-nav-w)) !important;
+}
+
+/* أحجام متوسطة */
+@media(max-width:1500px){
+  .app{
+    --side-nav-w: 360px !important;
+    --inbox-list-w: 380px !important;
+    --chat-min-w: 480px !important;
+    --customer-w: 340px !important;
+  }
+}
+
+@media(max-height:720px){
+  .app > .sidebar > .brand{
+    padding:9px !important;
+    gap:7px !important;
+  }
+
+  .app > .sidebar > .brand .logo-mark{
+    width:36px !important;
+    height:36px !important;
+    flex-basis:36px !important;
+  }
+
+  .app > .sidebar > .brand .logo-box h1{
+    font-size:12.5px !important;
+    max-width:245px !important;
+  }
+
+  .app > .sidebar > .brand .nav-card{
+    padding:7px !important;
+  }
+
+  .app > .sidebar > .brand .nav-tabs{
+    gap:4px !important;
+  }
+
+  .app > .sidebar > .brand .nav-tabs a{
+    min-height:29px !important;
+    padding:6px 9px !important;
+    font-size:11.2px !important;
+  }
+}
+
+/* موبايل */
+@media(max-width:760px){
+  body:has(.app){
+    min-width:0 !important;
+  }
+
+  .app{
+    min-width:0 !important;
+    grid-template-columns:1fr !important;
+    grid-template-rows:auto minmax(0,1fr) !important;
+    grid-template-areas:
+      "filters"
+      "list" !important;
+  }
+
+  .app > .sidebar{
+    display:contents !important;
+  }
+
+  .app > .sidebar > .brand,
+  .app > .chat,
+  .app > .customer{
+    display:none !important;
+  }
+
+  .app > .sidebar > .filters,
+  .app > .sidebar > .list{
+    width:auto !important;
+    border-left:0 !important;
+    border-right:0 !important;
+  }
+}
+
