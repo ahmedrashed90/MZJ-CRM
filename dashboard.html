@@ -6,44 +6,68 @@
   <title>MZJ CRM - الداش بورد</title>
   <link rel="stylesheet" href="./theme.css" />
   <style>
-    .dashboard-shell{display:flex; flex-direction:column; gap:18px;}
-    .dashboard-note{color:#8d6e63; font-size:13px;}
-    .dept-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px;}
-    .dept-card,
-    .status-board-card{background:#fff; border:1px solid #ead7cb; border-radius:22px; box-shadow:0 8px 24px rgba(95, 58, 36, .08); overflow:hidden;}
-    .dept-card{cursor:pointer; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;}
-    .dept-card:hover{transform:translateY(-2px); box-shadow:0 12px 28px rgba(95,58,36,.14); border-color:#d8b8a5;}
-    .dept-card.active{border-color:#8b4a2f; box-shadow:0 14px 30px rgba(95,58,36,.16);}
-    .dept-card-head{padding:18px 18px 12px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
-    .dept-card-head h3{margin:0; font-size:24px; color:#2f1b12;}
-    .dept-card-head p{margin:8px 0 0; font-size:13px; color:#8d6e63; line-height:1.7;}
-    .dept-badge{min-width:56px; height:56px; border-radius:18px; border:1px solid #efc8ad; background:#fbf3ee; display:flex; align-items:center; justify-content:center; font-weight:800; color:#c56d27; font-size:22px; flex-shrink:0;}
-    .dept-card-foot{padding:0 18px 18px; display:flex; justify-content:space-between; align-items:center; gap:10px; color:#8d6e63; font-size:13px;}
-    .dept-open{color:#8b4a2f; font-weight:700;}
-    .board-panel{background:#fff; border:1px solid #ead7cb; border-radius:26px; box-shadow:0 10px 28px rgba(95,58,36,.08); padding:18px;}
+    .dashboard-shell{display:flex;flex-direction:column;gap:18px;}
+    .dashboard-note{color:#8d6e63;font-size:13px;line-height:1.9;}
+    .dept-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
+    .dept-card,.status-board-card{background:#fff;border:1px solid #ead7cb;border-radius:22px;box-shadow:0 8px 24px rgba(95,58,36,.08);overflow:hidden;}
+    .dept-card{cursor:pointer;transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;}
+    .dept-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(95,58,36,.14);border-color:#d8b8a5;}
+    .dept-card.active{border-color:#8b4a2f;box-shadow:0 14px 30px rgba(95,58,36,.16);}
+    .dept-card-head{padding:18px 18px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+    .dept-card-head h3{margin:0;font-size:24px;color:#2f1b12;}
+    .dept-card-head p{margin:8px 0 0;font-size:13px;color:#8d6e63;line-height:1.8;}
+    .dept-badge{min-width:56px;height:56px;border-radius:18px;border:1px solid #efc8ad;background:#fbf3ee;display:flex;align-items:center;justify-content:center;font-weight:800;color:#c56d27;font-size:22px;flex-shrink:0;}
+    .dept-card-foot{padding:0 18px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px;color:#8d6e63;font-size:13px;}
+    .dept-open{color:#8b4a2f;font-weight:700;}
+    .board-panel{background:#fff;border:1px solid #ead7cb;border-radius:26px;box-shadow:0 10px 28px rgba(95,58,36,.08);padding:18px;}
     .board-panel.hidden{display:none;}
-    .board-head{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px;}
-    .board-head h3{margin:0; font-size:28px; color:#2f1b12;}
-    .board-head p{margin:6px 0 0; color:#8d6e63; font-size:13px; line-height:1.8;}
-    .board-actions{display:flex; gap:10px; flex-wrap:wrap;}
-    .status-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; align-items:start;}
-    .status-board-card{display:flex; flex-direction:column; min-height:260px;}
-    .status-board-head{padding:16px 16px 10px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid #f0e0d7;}
-    .status-board-head h4{margin:0; color:#2f1b12; font-size:28px; line-height:1.35;}
-    .status-board-body{padding:16px; display:flex; flex-direction:column; gap:10px; flex:1;}
-    .status-count{min-width:46px; height:46px; padding:0 10px; border-radius:16px; border:1px solid #efc8ad; background:#fbf3ee; color:#c56d27; font-size:24px; font-weight:800; display:flex; align-items:center; justify-content:center;}
-    .customer-list{display:flex; flex-direction:column; gap:10px;}
-    .customer-chip{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border:1px solid #f1e1d7; background:#fffaf7; border-radius:16px; font-size:14px;}
-    .customer-chip b{color:#2f1b12;}
-    .customer-chip small{color:#8d6e63;}
-    .muted-empty{margin:auto 0; text-align:center; color:#8d6e63; font-size:14px; line-height:1.8;}
-    .board-link{display:inline-flex; align-items:center; gap:6px; color:#8b4a2f; text-decoration:none; font-weight:700;}
+    .board-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;}
+    .board-head h3{margin:0;font-size:28px;color:#2f1b12;}
+    .board-head p{margin:6px 0 0;color:#8d6e63;font-size:13px;line-height:1.8;}
+    .board-actions{display:flex;gap:10px;flex-wrap:wrap;}
+    .status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;align-items:start;}
+    .status-board-card{display:flex;flex-direction:column;min-height:260px;}
+    .status-board-head{padding:16px 16px 10px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid #f0e0d7;}
+    .status-board-head h4{margin:0;color:#2f1b12;font-size:28px;line-height:1.35;}
+    .status-head-text{display:flex;flex-direction:column;gap:6px;}
+    .status-subtitle{font-size:12px;color:#8d6e63;line-height:1.7;}
+    .status-board-body{padding:16px;display:flex;flex-direction:column;gap:10px;flex:1;}
+    .status-count{min-width:46px;height:46px;padding:0 10px;border-radius:16px;border:1px solid #efc8ad;background:#fbf3ee;color:#c56d27;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+    .customer-list{display:flex;flex-direction:column;gap:10px;}
+    .customer-chip{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #f1e1d7;background:#fffaf7;border-radius:16px;font-size:14px;}
+    .customer-main{display:flex;flex-direction:column;gap:5px;min-width:0;}
+    .customer-main b{color:#2f1b12;word-break:break-word;}
+    .customer-main small{color:#8d6e63;word-break:break-word;}
+    .profile-link{display:inline-flex;align-items:center;gap:6px;width:max-content;padding:4px 10px;border-radius:999px;border:1px solid #efc8ad;background:#fbf3ee;color:#8b4a2f;font-size:12px;font-weight:700;cursor:pointer;transition:.18s ease;}
+    .profile-link:hover{background:#f7e9df;border-color:#dcb9a4;}
+    .profile-link.ok{color:#2e7d32;border-color:#b9d5bb;background:#eef8ef;}
+    .customer-actions{display:flex;align-items:center;flex-shrink:0;}
+    .muted-empty{margin:auto 0;text-align:center;color:#8d6e63;font-size:14px;line-height:1.8;}
+    .board-link{display:inline-flex;align-items:center;gap:6px;color:#8b4a2f;text-decoration:none;font-weight:700;}
     .board-link:hover{text-decoration:underline;}
+    .profile-modal{position:fixed;inset:0;background:rgba(44,28,19,.4);display:none;align-items:center;justify-content:center;padding:18px;z-index:1200;}
+    .profile-modal.show{display:flex;}
+    .profile-modal-card{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid #ead7cb;border-radius:26px;box-shadow:0 18px 50px rgba(44,28,19,.2);padding:20px;}
+    .profile-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:18px;}
+    .profile-modal-head h3{margin:0;font-size:28px;color:#2f1b12;}
+    .profile-modal-head p{margin:6px 0 0;color:#8d6e63;line-height:1.8;font-size:13px;}
+    .profile-progress{display:flex;align-items:center;gap:14px;background:#fffaf7;border:1px solid #f0ddd2;border-radius:18px;padding:14px;margin-bottom:16px;}
+    .profile-progress-track{flex:1;height:12px;border-radius:999px;background:#efe5dd;overflow:hidden;}
+    .profile-progress-bar{height:100%;background:linear-gradient(90deg,#e3b58f,#c56d27);border-radius:999px;}
+    .profile-progress-value{font-weight:800;color:#8b4a2f;white-space:nowrap;}
+    .profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
+    .profile-field{border:1px solid #f0ddd2;border-radius:16px;padding:12px;background:#fffaf7;}
+    .profile-field label{display:block;font-size:12px;color:#8d6e63;margin-bottom:6px;}
+    .profile-field div{color:#2f1b12;line-height:1.8;word-break:break-word;}
+    .profile-modal-close{border:none;background:transparent;color:#8b4a2f;font-size:28px;line-height:1;cursor:pointer;padding:4px 8px;}
     @media (max-width: 768px){
-      .dept-card-head h3,.board-head h3{font-size:22px;}
+      .dept-card-head h3,.board-head h3,.profile-modal-head h3{font-size:22px;}
       .status-board-head h4{font-size:22px;}
-      .board-head{flex-direction:column;}
+      .board-head,.profile-modal-head{flex-direction:column;}
       .board-actions{width:100%;}
+      .customer-chip{flex-direction:column;}
+      .customer-actions{width:100%;justify-content:flex-start;}
+      .profile-progress{flex-direction:column;align-items:stretch;}
     }
   </style>
 </head>
@@ -116,14 +140,17 @@
       </div>
 
       <section class="dashboard-shell">
-        <div class="dashboard-note">إجمالي العملاء في كل قسم = عدد العملاء الموجودين بنفس الصفحة وحالتهم <b>عميل جديد</b>، ويتم التحديث تلقائياً بمجرد تغيير الحالة.</div>
+        <div class="dashboard-note">
+          إجمالي العملاء في كل قسم = عدد العملاء الموجودين بنفس الصفحة وحالتهم <b>عميل جديد</b>، ويتم التحديث تلقائياً بمجرد تغيير الحالة.<br>
+          داخل <b>مبيعات التمويل</b> تم استبدال كارت <b>إجمالي العملاء</b> بكارت <b>الكول سنتر</b>، ويعرض فقط عملاء الكول سنتر الذين نوع الدفع لديهم <b>تمويل</b>.
+        </div>
         <div class="dept-grid" id="deptGrid"></div>
 
         <section class="board-panel hidden" id="detailsPanel">
           <div class="board-head">
             <div>
               <h3 id="detailsTitle">تفاصيل القسم</h3>
-              <p id="detailsSub">اضغط على أي حالة لمراجعة العملاء الموجودين داخلها.</p>
+              <p id="detailsSub">اضغط على نسبة اكتمال ملف العميل لفتح ملفه في نافذة منبثقة.</p>
             </div>
             <div class="board-actions">
               <a class="secondary" id="detailsPageLink" href="#">فتح الصفحة</a>
@@ -134,6 +161,23 @@
         </section>
       </section>
     </main>
+  </div>
+
+  <div class="profile-modal" id="profileModal" aria-hidden="true">
+    <div class="profile-modal-card">
+      <div class="profile-modal-head">
+        <div>
+          <h3 id="profileModalTitle">ملف العميل</h3>
+          <p id="profileModalSub">تفاصيل ملف العميل ونسبة الاكتمال.</p>
+        </div>
+        <button class="profile-modal-close" id="closeProfileModal" type="button" aria-label="إغلاق">×</button>
+      </div>
+      <div class="profile-progress">
+        <div class="profile-progress-track"><div class="profile-progress-bar" id="profileModalBar"></div></div>
+        <div class="profile-progress-value" id="profileModalPercent">0%</div>
+      </div>
+      <div class="profile-grid" id="profileFieldsGrid"></div>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -164,27 +208,54 @@
         title: "مبيعات الكاش",
         page: "leads-cash.html",
         hint: "إجمالي العملاء هنا يساوي العملاء الموجودين في صفحة العملاء المحتملون - كاش وحالتهم عميل جديد.",
-        statusHint: "كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على اسم العميل من الصفحة المختصة لتفاصيل أكثر."
+        statusHint: "كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على نسبة اكتمال الملف لفتح ملف العميل."
       },
       finance_sales: {
         title: "مبيعات التمويل",
         page: "leads-finance.html",
         hint: "إجمالي العملاء هنا يساوي العملاء الموجودين في صفحة العملاء المحتملون - تمويل وحالتهم عميل جديد.",
-        statusHint: "كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على العميل من الصفحة المختصة لتفاصيل أكثر."
+        statusHint: "أول كارت داخل هذا القسم هو كارت الكول سنتر لعملاء الدفع تمويل، وبعده باقي حالات التمويل."
       },
       customer_service: {
         title: "خدمة العملاء",
         page: "leads-customer-service.html",
         hint: "إجمالي العملاء هنا يساوي العملاء الموجودين في صفحة العملاء المحتملون - خدمة عملاء وحالتهم عميل جديد.",
-        statusHint: "كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على العميل من الصفحة المختصة لتفاصيل أكثر."
+        statusHint: "كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على نسبة اكتمال الملف لفتح ملف العميل."
       },
       call_center: {
         title: "الكول سنتر",
         page: "callcenter.html",
-        hint: "إجمالي العملاء هنا يساوي العملاء الموجودين في صفحة الكول سنتر وحالتهم عميل جديد.",
-        statusHint: "كل حالة موضح تحتها العملاء الموجودون فيها. اضغط على العميل من الصفحة المختصة لتفاصيل أكثر."
+        hint: "عملاء الكول سنتر حسب نوع الدفع.",
+        statusHint: ""
       }
     };
+
+    const PROFILE_FIELDS = [
+      ["customerName","اسم العميل"],
+      ["phone","رقم الجوال"],
+      ["department","القسم"],
+      ["status","الحالة"],
+      ["branch","الفرع"],
+      ["source","المصدر"],
+      ["payment","نوع الدفع"],
+      ["salary","الراتب"],
+      ["obligation","الالتزامات"],
+      ["location","المدينة"],
+      ["age","العمر"],
+      ["salaryBank","بنك الراتب"],
+      ["carName","السيارة"],
+      ["carType","نوع السيارة"],
+      ["carModel","موديل السيارة"],
+      ["color","اللون"],
+      ["financeType","نوع التمويل"],
+      ["notes","ملاحظات"],
+      ["attachmentsNotes","ملاحظات المرفقات"]
+    ];
+
+    const COMPLETION_FIELDS = [
+      "customerName","phone","salary","obligation","location","age","salaryBank",
+      "carType","carModel","color","notes","attachmentsNotes","financeType"
+    ];
 
     const NAV_ITEMS = [
       { page:"inbox.html", label:"صندوق الوارد" },
@@ -206,10 +277,12 @@
     let currentProfile = null;
     let isAdmin = false;
     let leads = [];
+    let customers = [];
     let statuses = [];
     let activeDepartment = null;
     let unsubLeads = null;
     let unsubStatuses = null;
+    let unsubCustomers = null;
 
     function toast(msg){
       const t = el("toast");
@@ -246,9 +319,7 @@
       const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
       const nav = document.querySelector(".nav-tabs");
       if(!nav) return;
-      nav.innerHTML = allowed.map(item => `
-        <a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">${item.label}</a>
-      `).join("");
+      nav.innerHTML = allowed.map(item => `<a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">${item.label}</a>`).join("");
     }
 
     function currentPageName(){ return location.pathname.split("/").pop() || "inbox.html"; }
@@ -257,6 +328,7 @@
       const pages = allowedPagesForCurrentUser();
       return isAdmin || currentProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html";
     }
+
     function applyPagePermissions(){
       const page = currentPageName();
       const pages = allowedPagesForCurrentUser();
@@ -291,15 +363,12 @@
 
     function isLeadInDepartment(lead, dept){
       if(!lead) return false;
-      if(dept === "cash_sales") return lead.department === "cash_sales";
-      if(dept === "finance_sales") return lead.department === "finance_sales";
-      if(dept === "customer_service") return lead.department === "customer_service";
       if(dept === "call_center"){
         if(lead.department === "call_center") return true;
-        if(lead.callCenterUid || lead.callCenterName || lead.callCenterAssignedTo || lead.callCenter) return true;
+        if(!lead.department && (lead.callCenterUid || lead.callCenterName)) return true;
         return false;
       }
-      return false;
+      return lead.department === dept;
     }
 
     function visibleDepartmentLeads(dept){
@@ -315,18 +384,110 @@
       return [...new Set(names)];
     }
 
-    function countNewCustomers(dept){
-      return visibleDepartmentLeads(dept).filter(l => String(l.status || "").trim() === "عميل جديد").length;
+    function statusName(lead){ return String(lead?.status || lead?.clientStatus || "").trim(); }
+    function countNewCustomers(dept){ return visibleDepartmentLeads(dept).filter(l => statusName(l) === "عميل جديد").length; }
+
+    function normalizePhone(phone){
+      let p = String(phone || "").replace(/[^\d+]/g, "");
+      if(!p) return "";
+      if(p.startsWith("00")) p = p.slice(2);
+      if(p.startsWith("+")) p = p.slice(1);
+      if(p.startsWith("0") && p.length === 10) p = "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) p = "966" + p;
+      return p;
     }
 
-    function cardCustomers(leadsList){
+    function leadPaymentValue(lead){
+      return String(lead.payment || lead.paymentType || lead.payType || lead.financeType || lead.customer?.financeType || "").trim();
+    }
+
+    function isFinancePayment(lead){
+      const value = leadPaymentValue(lead).toLowerCase();
+      return value.includes("تمويل") || value.includes("finance");
+    }
+
+    function visibleCallCenterFinanceLeads(){
+      return visibleDepartmentLeads("call_center").filter(isFinancePayment);
+    }
+
+    function customerSourceData(lead){
+      const phone = normalizePhone(lead.phone || lead.mobile || lead.phoneNumber || lead.customerPhone || "");
+      const conv = String(lead.conversationId || lead.convId || lead.contactKey || "").trim();
+      const byConversation = customers.find(c => String(c.conversationId || "").trim() && String(c.conversationId || "").trim() === conv);
+      if(byConversation) return byConversation;
+      const byPhone = customers.find(c => normalizePhone(c.phone || c.mobile || c.phoneNumber || "") === phone && phone);
+      return byPhone || null;
+    }
+
+    function mergedLeadData(lead){
+      const customer = customerSourceData(lead) || {};
+      const merged = { ...lead, ...customer };
+      merged.customerName = merged.customerName || merged.name || merged.displayName || "عميل";
+      merged.phone = merged.phone || merged.mobile || merged.phoneNumber || merged.customerPhone || "";
+      merged.department = merged.department || lead.department || "";
+      merged.status = merged.status || lead.status || lead.clientStatus || "";
+      merged.source = merged.source || lead.source || lead.sourceName || lead.leadSource || lead.platform || "";
+      merged.payment = merged.payment || lead.payment || lead.paymentType || lead.payType || merged.financeType || "";
+      merged.carName = merged.carName || lead.carName || lead.carType || "";
+      return merged;
+    }
+
+    function computeCompletion(data){
+      const filled = COMPLETION_FIELDS.filter(key => String(data?.[key] || "").trim()).length;
+      return Math.round((filled / COMPLETION_FIELDS.length) * 100);
+    }
+
+    function getLeadProfileCompletion(lead){
+      const merged = mergedLeadData(lead);
+      const explicit = Number(merged.profileCompletion);
+      if(Number.isFinite(explicit) && explicit >= 0) return Math.max(0, Math.min(100, Math.round(explicit)));
+      return computeCompletion(merged);
+    }
+
+    function renderProfileFields(data){
+      const grid = el("profileFieldsGrid");
+      grid.innerHTML = PROFILE_FIELDS.map(([key,label]) => {
+        let value = data?.[key];
+        if(key === "department") value = departmentLabel(value);
+        if(key === "status") value = value || "—";
+        return `<div class="profile-field"><label>${escapeHtml(label)}</label><div>${escapeHtml(String(value || "—"))}</div></div>`;
+      }).join("");
+    }
+
+    function openCustomerPopupByLeadId(leadId){
+      const lead = leads.find(item => item.id === leadId);
+      if(!lead) return;
+      const data = mergedLeadData(lead);
+      const percent = getLeadProfileCompletion(lead);
+      el("profileModalTitle").textContent = data.customerName || "ملف العميل";
+      el("profileModalSub").textContent = `${departmentLabel(data.department)}${data.status ? ` - ${data.status}` : ""}`;
+      el("profileModalBar").style.width = `${percent}%`;
+      el("profileModalPercent").textContent = `${percent}%`;
+      renderProfileFields(data);
+      el("profileModal").classList.add("show");
+      el("profileModal").setAttribute("aria-hidden", "false");
+    }
+
+    function closeProfileModal(){
+      el("profileModal").classList.remove("show");
+      el("profileModal").setAttribute("aria-hidden", "true");
+    }
+
+    function customerCardsMarkup(leadsList){
       return leadsList.slice(0, 8).map(lead => {
-        const name = lead.customerName || lead.displayName || lead.name || "عميل";
-        const phone = lead.phone || lead.mobile || lead.phoneNumber || lead.participantId || "";
+        const data = mergedLeadData(lead);
+        const phone = data.phone || "—";
+        const percent = getLeadProfileCompletion(lead);
         return `
           <div class="customer-chip">
-            <b>${escapeHtml(name)}</b>
-            <small>${escapeHtml(phone)}</small>
+            <div class="customer-main">
+              <b>${escapeHtml(data.customerName || "عميل")}</b>
+              <small>${escapeHtml(phone)}</small>
+              <button class="profile-link ${percent >= 100 ? "ok" : ""}" type="button" data-open-profile="${escapeHtml(lead.id)}">
+                ملف العميل: ${percent}%
+              </button>
+            </div>
+            <div class="customer-actions"></div>
           </div>
         `;
       }).join("");
@@ -334,7 +495,7 @@
 
     function renderDepartmentCards(){
       const holder = el("deptGrid");
-      const order = ["cash_sales","finance_sales","customer_service","call_center"];
+      const order = ["cash_sales","finance_sales","customer_service"];
       holder.innerHTML = order.map(dept => {
         const meta = DEPARTMENTS[dept];
         const count = countNewCustomers(dept);
@@ -369,17 +530,28 @@
       const deptLeads = visibleDepartmentLeads(activeDepartment);
       const statusNames = departmentStatuses(activeDepartment).filter(name => name !== "عميل جديد");
       const cards = [];
-      const newLeads = deptLeads.filter(l => String(l.status || "").trim() === "عميل جديد");
 
-      cards.push({
-        title: "إجمالي العملاء",
-        count: newLeads.length,
-        customers: newLeads
-      });
+      if(activeDepartment === "finance_sales"){
+        const financeCallCenterLeads = visibleCallCenterFinanceLeads();
+        cards.push({
+          title: "الكول سنتر",
+          subtitle: "عملاء صفحة الكول سنتر - نوع الدفع تمويل",
+          count: financeCallCenterLeads.length,
+          customers: financeCallCenterLeads
+        });
+      } else {
+        const newLeads = deptLeads.filter(l => statusName(l) === "عميل جديد");
+        cards.push({
+          title: "إجمالي العملاء",
+          subtitle: "العملاء داخل الحالة: عميل جديد",
+          count: newLeads.length,
+          customers: newLeads
+        });
+      }
 
       statusNames.forEach(name => {
-        const items = deptLeads.filter(l => String(l.status || "").trim() === name);
-        cards.push({ title:name, count:items.length, customers:items });
+        const items = deptLeads.filter(l => statusName(l) === name);
+        cards.push({ title:name, subtitle:"", count:items.length, customers:items });
       });
 
       panel.classList.remove("hidden");
@@ -391,10 +563,13 @@
         <article class="status-board-card">
           <div class="status-board-head">
             <div class="status-count">${card.count}</div>
-            <h4>${escapeHtml(card.title)}</h4>
+            <div class="status-head-text">
+              <h4>${escapeHtml(card.title)}</h4>
+              ${card.subtitle ? `<div class="status-subtitle">${escapeHtml(card.subtitle)}</div>` : ""}
+            </div>
           </div>
           <div class="status-board-body">
-            ${card.customers.length ? `<div class="customer-list">${cardCustomers(card.customers)}</div>` : `<div class="muted-empty">لا يوجد عملاء داخل هذه الحالة.</div>`}
+            ${card.customers.length ? `<div class="customer-list">${customerCardsMarkup(card.customers)}</div>` : `<div class="muted-empty">لا يوجد عملاء داخل هذه الحالة.</div>`}
           </div>
         </article>
       `).join("");
@@ -408,6 +583,7 @@
     function listenData(){
       if(unsubLeads) unsubLeads();
       if(unsubStatuses) unsubStatuses();
+      if(unsubCustomers) unsubCustomers();
 
       unsubStatuses = onSnapshot(query(collection(db, "client_statuses"), orderBy("sort", "asc")), snap => {
         statuses = [];
@@ -422,6 +598,14 @@
       }, err => {
         console.error(err);
         toast("تعذر تحميل بيانات الداش بورد");
+      });
+
+      unsubCustomers = onSnapshot(collection(db, "customers"), snap => {
+        customers = [];
+        snap.forEach(d => customers.push({ id:d.id, ...d.data() }));
+        renderAll();
+      }, err => {
+        console.warn(err);
       });
     }
 
@@ -439,10 +623,24 @@
         if(panel) panel.scrollIntoView({ behavior:"smooth", block:"start" });
       });
 
+      el("statusGrid").addEventListener("click", e => {
+        const btn = e.target.closest("[data-open-profile]");
+        if(!btn) return;
+        openCustomerPopupByLeadId(btn.dataset.openProfile);
+      });
+
       el("backToDepartmentsBtn").addEventListener("click", () => {
         activeDepartment = null;
         renderAll();
         document.querySelector('.page-head')?.scrollIntoView({ behavior:"smooth", block:"start" });
+      });
+
+      el("closeProfileModal").addEventListener("click", closeProfileModal);
+      el("profileModal").addEventListener("click", e => {
+        if(e.target === el("profileModal")) closeProfileModal();
+      });
+      document.addEventListener("keydown", e => {
+        if(e.key === "Escape") closeProfileModal();
       });
     }
 
