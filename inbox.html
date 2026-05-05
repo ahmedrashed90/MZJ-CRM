@@ -100,12 +100,10 @@
           <select class="search" id="mersalTemplates"><option value="">قوالب مرسال</option></select>
           <select class="search" id="quickReplies"><option value="">رسائل جاهزة</option></select>
         </div>
-        <div class="composer-line">
-          <textarea id="replyText" placeholder="اكتب الرسالة هنا... Enter للإرسال، و Shift + Enter لسطر جديد"></textarea>
-          <button class="primary" id="sendBtn">إرسال</button>
-        </div>
+        <textarea id="replyText" placeholder="اكتب الرسالة هنا... Enter للإرسال، و Shift + Enter لسطر جديد"></textarea>
         <div class="send-row">
           <span class="status-text" id="sendHint"></span>
+          <button class="primary" id="sendBtn">إرسال</button>
         </div>
       </section>
     </main>
@@ -151,18 +149,6 @@
                 <option value="عقاري 65%">عقاري 65%</option>
               </select>
             </div>
-
-            <div id="eligResultBox" class="elig-result-box">
-              <div class="elig-formula">
-                <b>المعادلة</b>
-                <span>(الراتب × 45% أو 65%) − الالتزامات = الحد الائتماني</span>
-              </div>
-              <div class="elig-result-row">
-                <div><b>الحد الائتماني:</b> <span id="eligLimit">—</span> ريال</div>
-                <div><b>النتيجة:</b> <span id="eligStatus">—</span></div>
-              </div>
-            </div>
-
             <div class="field"><label>ملاحظات</label><textarea name="notes"></textarea></div>
             <div class="field">
               <label>روابط أو ملاحظات الملفات</label>
@@ -187,7 +173,10 @@
     import {
       getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import { getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, limit, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import {
+      getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, limit,
+      addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
@@ -203,11 +192,6 @@
     try { getAnalytics(appFirebase); } catch(e) {}
     const auth = getAuth(appFirebase);
     const db = getFirestore(appFirebase);
-
-    const MERSAL_SEND_ENDPOINT = "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
-    const TIKTOK_SEND_ENDPOINT = "https://test.next-erp-mzj.workers.dev/crm/send";
-    const INSTAGRAM_SEND_ENDPOINT = "https://instagram.next-erp-mzj.workers.dev/crm/send";
-    const FACEBOOK_SEND_ENDPOINT = "https://facebook.next-erp-mzj.workers.dev/crm/send";
 
     const DEPARTMENTS = {
       cash_sales:"مبيعات الكاش",
@@ -244,10 +228,10 @@
     }
 
     const PLATFORM_CONFIG = {
-      whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox", provider:"mersal" },
-      instagram:{ label:"إنستجرام", conversations:"wa_conversations", outbox:"ig_outbox", provider:"meta", channelCode:"ig" },
-      facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"fb_outbox", provider:"meta", channelCode:"fb" },
-      tiktok:{ label:"تيك توك", conversations:"wa_conversations", outbox:"tt_outbox", provider:"manychat", channelCode:"tiktok" }
+      whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox" },
+      instagram:{ label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
+      facebook:{ label:"فيسبوك", conversations:"fb_conversations", outbox:"fb_outbox" },
+      tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
     };
 
     const CUSTOMER_FIELDS = [
@@ -257,79 +241,72 @@
 
     const state = {
       user:null, userProfile:null, isAdmin:false,
-      conversations:[], leads:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
-      department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubLeads:null, unsubStatuses:null, unsubTemplates:null
+      conversations:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
+      pendingOpenTarget:null,
+      department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubStatuses:null, unsubTemplates:null
     };
 
     const conversationList = el("conversationList");
     const messagesEl = el("messages");
     const form = el("customerForm");
 
-    function departmentLabel(d){
-      if(d === "all") return "كل الأقسام";
-      const normalized = normalizeDepartment(d);
-      return DEPARTMENTS[normalized] || d || "";
-    }
+    function departmentLabel(d){ return d === "all" ? "كل الأقسام" : (DEPARTMENTS[d] || d); }
     function platformLabel(p){ return PLATFORM_CONFIG[p]?.label || p; }
 
-    function displayPlatformLabel(c){
-      const raw = String(c?.platform || c?.channelCode || c?.channel || "").toLowerCase();
-      const conv = String(c?.convId || c?.conversationId || c?.id || "").toLowerCase();
-      if(raw === "tiktok" || raw === "tt" || raw === "تيك توك" || conv.startsWith("tiktok_") || conv.startsWith("tiktok:")) return "تيك توك";
-      if(raw === "instagram" || raw === "ig" || conv.startsWith("instagram:") || conv.startsWith("ig_")) return "إنستجرام";
-      if(raw === "facebook" || raw === "fb" || conv.startsWith("facebook:")) return "فيسبوك";
-      if(raw === "whatsapp" || raw === "wa" || c?.waId) return "واتساب";
-      return platformLabel(c?.platform || raw);
+    function readInboxOpenTarget(){
+      const params = new URLSearchParams(location.search);
+      const platform = String(params.get("platform") || "").trim();
+      const conversationId = String(params.get("conversationId") || params.get("convId") || params.get("id") || "").trim();
+      const department = String(params.get("department") || "").trim();
+      if(!platform && !conversationId && !department) return null;
+      return { platform, conversationId, department };
     }
 
-    function inferConversationPlatform(defaultPlatform, data){
-      const channelRaw = String(data.channel || data.channelCode || data.provider || "").trim();
-      const channel = channelRaw.toLowerCase();
-      const id = String(data.convId || data.conversationId || data.id || "").toLowerCase();
+    function applyInboxOpenTarget(){
+      const target = readInboxOpenTarget();
+      if(!target) return;
+      state.pendingOpenTarget = target;
 
-      if(channel === "fb" || channel === "facebook" || id.startsWith("facebook:")) return "facebook";
-      if(channel === "ig" || channel === "instagram" || id.startsWith("instagram:") || id.startsWith("ig_")) return "instagram";
-      if(channel === "tt" || channel === "tiktok" || channelRaw === "تيك توك" || id.startsWith("tiktok:") || id.startsWith("tiktok_")) return "tiktok";
-      if(channel === "wa" || channel === "whatsapp" || data.waId) return "whatsapp";
-
-      return defaultPlatform;
-    }
-
-    function normalizeDepartment(value){
-      const s = String(value || "").trim();
-      if(!s) return "";
-      if(s === "cash" || s === "cash_sales" || s.includes("الكاش")) return "cash_sales";
-      if(s === "finance" || s === "finance_sales" || s.includes("التمويل")) return "finance_sales";
-      if(s === "cs" || s === "customer_service" || s.includes("خدمة العملاء") || s.includes("خدمه العملاء")) return "customer_service";
-      return s;
-    }
-
-    function normalizePhone(value){
-      let raw = String(value ?? "").trim();
-
-      if(/^[0-9]+(?:\.[0-9]+)?e\+?[0-9]+$/i.test(raw)){
-        const num = Number(raw);
-        if(Number.isFinite(num)){
-          raw = Math.trunc(num).toString();
+      if(target.department && (state.isAdmin || state.userProfile?.allDepartments === true)){
+        state.department = target.department;
+        const departmentSelect = el("departmentSelect");
+        if(departmentSelect && [...departmentSelect.options].some(o => o.value === target.department)){
+          departmentSelect.value = target.department;
         }
       }
 
-      let p = raw.replace(/[^\d+]/g, "");
-      if(!p) return "";
-
-      if(p.startsWith("00966")) p = "966" + p.slice(5);
-      if(p.startsWith("+966")) p = "966" + p.slice(4);
-      if(p.startsWith("+")) p = p.slice(1);
-
-      if(p.startsWith("966") && p.length >= 12) return p.slice(0, 12);
-      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
-      if(p.startsWith("5") && p.length === 9) return "966" + p;
-
-      return p;
+      if(target.platform && PLATFORM_CONFIG[target.platform]){
+        state.selectedPlatform = target.platform;
+        document.querySelectorAll("[data-platform]").forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.platform === target.platform);
+        });
+      }
     }
 
-    function firstValue(...values){
-      return values.find(v => v !== undefined && v !== null && String(v).trim() !== "") || "";
+    function tryOpenPendingConversation(){
+      const target = state.pendingOpenTarget;
+      if(!target || !target.conversationId) return;
+
+      const wanted = String(target.conversationId);
+      const wantedClean = wanted.replace(/^wa_/, "");
+      const match = state.conversations.find(c => {
+        if(target.platform && c.platform !== target.platform) return false;
+        const ids = [
+          c.id,
+          c.conversationId,
+          c.convId,
+          c.waId,
+          c.participantId,
+          getPhone(c),
+          String(c.contactKey || "").replace(/^wa:/, "")
+        ].filter(Boolean).map(x => String(x).replace(/^\+/, "").replace(/^wa_/, ""));
+        return ids.includes(wantedClean) || ids.includes(wanted);
+      });
+
+      if(match){
+        state.pendingOpenTarget = null;
+        selectConversation(match);
+      }
     }
 
     onAuthStateChanged(auth, async (user) => {
@@ -352,11 +329,11 @@
 
         state.isAdmin = isAdminProfile(state.userProfile);
         applyPermissions();
+        applyInboxOpenTarget();
         el("loginScreen").classList.add("hidden");
         el("app").classList.remove("hidden");
         listenStatuses();
         listenTemplates();
-        listenLeads();
         listenConversations();
       } catch(err){
         console.error(err);
@@ -449,15 +426,14 @@
       const departmentSelect = el("departmentSelect");
       if(state.isAdmin){
         departmentSelect.disabled = false;
-        state.department = "all";
-        localStorage.setItem("mzj_department", "all");
+        state.department = localStorage.getItem("mzj_department") || "all";
       } else {
         const allowedDepartment = state.userProfile?.department || "cash_sales";
         state.department = allowedDepartment;
         departmentSelect.disabled = true;
         [...departmentSelect.options].forEach(opt => opt.hidden = opt.value !== allowedDepartment);
-        document.querySelector('a[href="./statuses.html"]')?.classList.add("hidden");
-        document.querySelector('a[href="./templates.html"]')?.classList.add("hidden");
+        el("statusesLink").classList.add("hidden");
+          el("templatesLink").classList.add("hidden");
       }
       departmentSelect.value = state.department;
       el("userInfo").textContent = `${state.userProfile?.name || state.user.email} - ${state.isAdmin ? "إدارة عامة" : departmentLabel(state.department)}`;
@@ -469,15 +445,12 @@
       state.unsubConversations.forEach(u => u());
       state.unsubConversations = [];
       if(state.unsubMessages) state.unsubMessages();
-      if(state.unsubLeads) state.unsubLeads();
       if(state.unsubStatuses) state.unsubStatuses();
       if(state.unsubTemplates) state.unsubTemplates();
       state.unsubMessages = null;
-      state.unsubLeads = null;
       state.unsubStatuses = null;
       state.unsubTemplates = null;
       state.conversations = [];
-      state.leads = [];
       state.selected = null;
     }
 
@@ -593,342 +566,28 @@
       return d.toLocaleString("ar-EG", {hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit"});
     }
 
-    function formatMessageTime(v){
-      const d = tsToDate(v);
-      if(!d || isNaN(d)) return "";
-      const time = d.toLocaleTimeString("ar-EG", {hour:"2-digit", minute:"2-digit"});
-      const date = d.toLocaleDateString("ar-EG", {year:"numeric", month:"2-digit", day:"2-digit"});
-      return `${time} - ${date}`;
-    }
-
-
-    function getInboxOpenParams(){
-      const params = new URLSearchParams(location.search);
-      return {
-        conversationId: params.get("conversationId") || params.get("convId") || "",
-        phone: params.get("phone") || "",
-        participantId: params.get("participantId") || ""
-      };
-    }
-
-    function normalizeOpenValue(v){
-      return decodeURIComponent(String(v || "")).trim();
-    }
-
-    function inferOpenPlatformFromId(id){
-      const conv = String(id || "").toLowerCase();
-      if(conv.startsWith("facebook:")) return "facebook";
-      if(conv.startsWith("instagram:") || conv.startsWith("ig_")) return "instagram";
-      if(conv.startsWith("tiktok:") || conv.startsWith("tiktok_")) return "tiktok";
-      return "whatsapp";
-    }
-
-    function getDeepLinkDocIds(params){
-      const ids = [];
-      const conv = normalizeOpenValue(params?.conversationId);
-      const phone = normalizePhone(params?.phone || "");
-      const participantId = normalizeOpenValue(params?.participantId);
-
-      if(conv) ids.push(conv);
-
-      // WhatsApp often uses the phone/waId as the wa_conversations document id.
-      if(phone) {
-        ids.push(phone);
-        if(phone.startsWith("+")) ids.push(phone.slice(1));
-      }
-
-      // Last resort for platform IDs if conversationId is missing.
-      if(participantId){
-        ids.push(`tiktok_${participantId}`);
-        ids.push(`instagram:${participantId}`);
-        ids.push(`facebook:${participantId}`);
-      }
-
-      return [...new Set(ids.filter(Boolean))];
-    }
-
-    function matchesInboxOpenParams(c, params){
-      if(!params) return false;
-
-      const convValues = [
-        c.convId,
-        c.conversationId,
-        c.contactKey,
-        c.id,
-        getStableConversationKey(c)
-      ].map(v => String(v || ""));
-
-      const wantedIds = getDeepLinkDocIds(params);
-      if(wantedIds.some(id => convValues.includes(id))) return true;
-
-      if(params.phone){
-        const wantedPhone = normalizePhone(params.phone);
-        const phone = normalizePhone(firstValue(
-          c.phone, c.mobile, c.phoneNumber, c.customerPhone, c.customer?.phone, c.waId, getPhone(c)
-        ));
-        if(wantedPhone && phone && wantedPhone === phone) return true;
-      }
-
-      if(params.participantId){
-        const wantedParticipant = normalizeOpenValue(params.participantId);
-        const participant = String(firstValue(
-          c.participantId, c.tiktokId, c.igId, c.fbId, c.manychatContactId
-        ) || "");
-        if(wantedParticipant && participant && wantedParticipant === participant) return true;
-      }
-
-      return false;
-    }
-
-    async function fetchConversationByDeepLink(params){
-      const ids = getDeepLinkDocIds(params);
-      for(const id of ids){
-        try{
-          const snap = await getDoc(doc(db, "wa_conversations", id));
-          if(snap.exists()){
-            const data = snap.data();
-            const platform = inferConversationPlatform(inferOpenPlatformFromId(id), { ...data, id });
-            return normalizeConversation(platform, snap.id, data);
-          }
-        }catch(e){
-          console.warn("Deep link fetch failed", id, e);
-        }
-      }
-      return null;
-    }
-
-
-    function assignedLeadFromOpenParams(params){
-      const phone = normalizePhone(params?.phone || "");
-      const participantId = String(params?.participantId || "").trim();
-      const conv = String(params?.conversationId || "").trim();
-
-      return state.leads.find(l => {
-        if(!userAssignedLead(l)) return false;
-
-        const lPhone = leadPhone(l);
-        if(phone && lPhone && phone === lPhone) return true;
-
-        const lParticipant = leadParticipantId(l);
-        if(participantId && lParticipant && participantId === lParticipant) return true;
-
-        const lConv = leadConversationKey(l);
-        if(conv && lConv && conv === lConv) return true;
-
-        return false;
-      });
-    }
-
-    function buildWhatsappConversationFromLead(lead, params){
-      const phone = normalizePhone(firstValue(params?.phone, lead.phone, lead.mobile, lead.phoneNumber, lead.customerPhone));
-      const id = phone || lead.conversationId || lead.convId || lead.id;
-
-      return {
-        id,
-        convId:id,
-        conversationId:id,
-        platform:"whatsapp",
-        sourcePlatform:"whatsapp",
-        channel:"whatsapp",
-        channelCode:"wa",
-        provider:"mersal",
-        customerName:firstValue(lead.customerName, lead.name, lead.fullName, lead.displayName, "عميل"),
-        displayName:firstValue(lead.customerName, lead.name, lead.fullName, lead.displayName, "عميل"),
-        phone,
-        waId:phone,
-        department:lead.department || "finance_sales",
-        clientStatus:lead.clientStatus || lead.statusLabel || lead.status || "",
-        status:"open",
-        responsibleUid:lead.responsibleUid || "",
-        callCenterUid:lead.callCenterUid || "",
-        updatedAt:lead.updatedAt || lead.lastUpdated || new Date().toISOString(),
-        customer:lead
-      };
-    }
-
-    async function autoOpenConversationFromUrl(){
-      if(state._autoOpenedFromUrl) return;
-      const params = getInboxOpenParams();
-      if(!params.conversationId && !params.phone && !params.participantId) return;
-
-      // 1) Prefer exact document fetch. This guarantees the opened chat is the same lead clicked.
-      const exact = await fetchConversationByDeepLink(params);
-      if(exact && canSeeConversation(exact)){
-        state._autoOpenedFromUrl = true;
-        selectConversation(exact);
-        return;
-      }
-
-      // 2) Fallback to already-loaded list.
-      const found = state.conversations.find(c => matchesInboxOpenParams(c, params));
-      if(found && canSeeConversation(found)){
-        state._autoOpenedFromUrl = true;
-        selectConversation(found);
-        return;
-      }
-
-      // 3) If this is an imported/calculator lead with no previous conversation,
-      // open a new WhatsApp conversation in the CRM using the assigned lead phone.
-      const assignedLead = assignedLeadFromOpenParams(params);
-      if(assignedLead){
-        state._autoOpenedFromUrl = true;
-        selectConversation(buildWhatsappConversationFromLead(assignedLead, params));
-        return;
-      }
-
-      // 4) Retry while realtime listeners are still loading.
-      state._autoOpenTries = (state._autoOpenTries || 0) + 1;
-      if(state._autoOpenTries < 25){
-        setTimeout(autoOpenConversationFromUrl, 250);
-      }
-    }
-
-    function getStableConversationKey(c){
-      return String(
-        c?.convId ||
-        c?.conversationId ||
-        c?.contactKey ||
-        (c?.channelCode && c?.pageId && c?.participantId ? `${c.channelCode}:${c.pageId}:${c.participantId}` : "") ||
-        (c?.platform && c?.participantId ? `${c.platform}:${c.participantId}` : "") ||
-        c?.id ||
-        ""
-      ).trim();
-    }
-
-    function getCustomerName(c){
-      return firstValue(
-        c.customerName, c.customer?.customerName, c.displayName, c.name,
-        c.contactName, c.senderName, c.phone, c.waId, c.id, "عميل بدون اسم"
-      );
-    }
-    function getPhone(c){
-      return normalizePhone(firstValue(
-        c.phone, c.customer?.phone, c.waId, c.customerPhone, c.from, c.sender, c.id
-      ));
-    }
-    function getLastText(c){
-      return firstValue(c.lastMessageText, c.last_message_text, c.lastMessage, c.lastText, c.preview, c.message);
-    }
-    
-    function getConversationDepartmentBadge(c){
-      const dept = departmentLabel(c.department || c.autoService || c.paymentType || c.branchId);
-      const isOpen = String(c.status || "").toLowerCase() === "open" || !c.status;
-      return `${isOpen ? '<span class="client-status open-status">open</span>' : ''}${dept ? `<span class="client-status dept-visible">${escapeHtml(dept)}</span>` : ''}`;
-    }
-
-function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clientStatus, c.statusLabel, c.status); }
+    function getCustomerName(c){ return c.customerName || c.customer?.customerName || c.name || c.contactName || c.senderName || c.phone || "عميل بدون اسم"; }
+    function getPhone(c){ return c.phone || c.customer?.phone || c.customerPhone || c.from || c.sender || ""; }
+    function getLastText(c){ return c.lastMessage || c.lastText || c.preview || c.message || ""; }
+    function getClientStatus(c){ return c.clientStatus || c.customer?.clientStatus || ""; }
 
     function normalizeConversation(platform, id, data){
-      const realPlatform = inferConversationPlatform(platform, { ...data, id });
-      const department = normalizeDepartment(firstValue(
-        data.department, data.customer?.department, data.autoService, data.serviceKey, data.paymentType, data.branchId
-      ));
       return {
-        id, platform:realPlatform, sourcePlatform:platform, ...data,
-        customerName:firstValue(data.customerName, data.customer?.customerName, data.displayName, data.name, data.contactName, data.senderName),
-        phone:normalizePhone(firstValue(data.phone, data.customer?.phone, data.waId, data.customerPhone, data.from, data.sender, id)),
-        clientStatus:firstValue(data.clientStatus, data.customer?.clientStatus, data.statusLabel),
-        department,
-        updatedAt:data.updatedAt || data.lastMessageAt || data.createdAt || data.receivedAt || null
+        id, platform, ...data,
+        customerName:data.customerName || data.customer?.customerName || data.name || data.contactName || data.senderName || "",
+        phone:data.phone || data.customer?.phone || data.customerPhone || data.from || data.sender || "",
+        clientStatus:data.clientStatus || data.customer?.clientStatus || "",
+        department:data.department || data.customer?.department || "",
+        updatedAt:data.updatedAt || data.lastMessageAt || data.createdAt || null
       };
-    }
-
-
-    function leadConversationKey(l){
-      return String(l.conversationId || l.convId || l.contactKey || "").trim();
-    }
-
-    function leadParticipantId(l){
-      return String(l.participantId || l.tiktokId || l.igId || l.fbId || l.manychatContactId || "").trim();
-    }
-
-    function leadPhone(l){
-      return normalizePhone(firstValue(l.phone, l.mobile, l.phoneNumber, l.customerPhone));
-    }
-
-    function conversationParticipantId(c){
-      return String(firstValue(c.participantId, c.tiktokId, c.igId, c.fbId, c.manychatContactId)).trim();
-    }
-
-    function userAssignedLead(l){
-      const uid = state.user?.uid;
-      if(!uid) return false;
-      return l.responsibleUid === uid || l.callCenterUid === uid;
-    }
-
-    function leadMatchesConversation(l, c){
-      const conv = String(c.convId || c.conversationId || c.contactKey || c.id || "").trim();
-      const stable = String(getStableConversationKey(c) || "").trim();
-      const lConv = leadConversationKey(l);
-
-      if(lConv && (lConv === conv || lConv === stable)) return true;
-
-      const lp = leadParticipantId(l);
-      const cp = conversationParticipantId(c);
-      if(lp && cp && lp === cp) return true;
-
-      const lph = leadPhone(l);
-      const cph = normalizePhone(firstValue(c.phone, c.mobile, c.phoneNumber, c.customerPhone, c.waId, getPhone(c)));
-      if(lph && cph && lph === cph) return true;
-
-      return false;
-    }
-
-    function canSeeConversation(c){
-      if(state.isAdmin) return true;
-      const uid = state.user?.uid;
-      if(!uid) return false;
-
-      if(c.responsibleUid === uid || c.callCenterUid === uid || c.assignedTo === uid || c.salesAssignedTo === uid || c.callCenterAssignedTo === uid) return true;
-
-      return state.leads.some(l => userAssignedLead(l) && leadMatchesConversation(l, c));
-    }
-
-    function listenLeads(){
-      if(state.unsubLeads) state.unsubLeads();
-      state.unsubLeads = onSnapshot(collection(db, "leads"), snap => {
-        state.leads = [];
-        snap.forEach(d => state.leads.push({ id:d.id, ...d.data() }));
-        renderConversations();
-        autoOpenConversationFromUrl();
-      }, err => {
-        console.error(err);
-        toast("تعذر تحميل العملاء المرتبطين بالمحادثات");
-      });
-    }
-
-
-    function getLinkedLeadForConversation(c){
-      return state.leads.find(l => leadMatchesConversation(l, c)) || null;
-    }
-
-    function getResponsibleDisplay(c){
-      const linked = getLinkedLeadForConversation(c) || {};
-      const name = c.responsibleName || c.assignedName || c.salesAssignedName || c.callCenterName || c.callCenterAssignedName || linked.responsibleName || linked.assignedName || linked.salesAssignedName || linked.callCenterName || linked.callCenterAssignedName || "";
-      return String(name || "").trim();
     }
 
     function renderConversations(){
       const search = el("searchInput").value.trim().toLowerCase();
-      const seenConversations = new Set();
-      let items = state.conversations.filter(c => {
-        const key = getStableConversationKey(c);
-        if(!key) return true;
-        if(seenConversations.has(key)) return false;
-        seenConversations.add(key);
-        return true;
-      });
+      let items = state.conversations.slice();
 
       if(state.selectedPlatform !== "all") items = items.filter(c => c.platform === state.selectedPlatform);
-
-      if(state.isAdmin){
-        if(state.department !== "all"){
-          items = items.filter(c => !c.department || c.department === state.department);
-        }
-      } else {
-        items = items.filter(c => canSeeConversation(c));
-      }
-
+      if(!state.isAdmin || state.department !== "all") items = items.filter(c => !c.department || c.department === state.department);
       if(search){
         items = items.filter(c =>
           String(getCustomerName(c)).toLowerCase().includes(search) ||
@@ -937,11 +596,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
         );
       }
 
-      items.sort((a,b) => {
-        const bt = tsToDate(b.updatedAt || b.lastMessageAt || b.createdAt)?.getTime() || 0;
-        const at = tsToDate(a.updatedAt || a.lastMessageAt || a.createdAt)?.getTime() || 0;
-        return bt - at;
-      });
+      items.sort((a,b) => (tsToDate(b.updatedAt)?.getTime() || 0) - (tsToDate(a.updatedAt)?.getTime() || 0));
       conversationList.innerHTML = items.length ? "" : '<div class="empty">لا توجد محادثات</div>';
 
       items.forEach(c => {
@@ -951,9 +606,8 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
         div.innerHTML = `
           <div class="row">
             <div class="name">${escapeHtml(getCustomerName(c))}</div>
-            <span class="badge ${c.platform}">${displayPlatformLabel(c)}</span>
+            <span class="badge ${c.platform}">${platformLabel(c.platform)}</span>
           </div>
-          ${getResponsibleDisplay(c) ? `<div class="preview">المسؤول: ${escapeHtml(getResponsibleDisplay(c))}</div>` : ""}
           <div class="preview">${escapeHtml(getLastText(c))}</div>
           <div class="row">
             <span class="time">${escapeHtml(getPhone(c))}</span>
@@ -962,6 +616,8 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
         div.onclick = () => selectConversation(c);
         conversationList.appendChild(div);
       });
+
+      tryOpenPendingConversation();
     }
 
     function selectConversation(c){
@@ -969,16 +625,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       el("app").classList.add("chat-open");
       el("backBtn").classList.remove("hidden");
       el("chatTitle").textContent = getCustomerName(c);
-      const openDept = departmentLabel(c.department || c.autoService || c.paymentType || c.branchId);
-      const openStatus = getClientStatus(c);
-      const isOpen = String(c.status || "").toLowerCase() === "open" || !c.status;
-      el("chatSub").innerHTML = `
-        ${isOpen ? `<span class="open-status-pill">open</span>` : ""}
-        <span class="dept-pill">${escapeHtml(openDept || "قسم غير محدد")}</span>
-        <span>${escapeHtml(platformLabel(c.platform))}</span>
-        <span>${escapeHtml(getPhone(c))}</span>
-        ${openStatus ? `<span>${escapeHtml(openStatus)}</span>` : ""}
-      `;
+      el("chatSub").textContent = `${platformLabel(c.platform)} - ${departmentLabel(c.department || state.department)}${getClientStatus(c) ? " - " + getClientStatus(c) : ""}`;
       fillCustomerForm(c.customer || c);
       fillTemplateDropdowns();
       renderConversations();
@@ -990,24 +637,13 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       state.unsubConversations = [];
       state.conversations = [];
 
-      const watchedCollections = new Set();
-
       Object.entries(PLATFORM_CONFIG).forEach(([platform, cfg]) => {
-        if(watchedCollections.has(cfg.conversations)) return;
-        watchedCollections.add(cfg.conversations);
-
-        const unsub = onSnapshot(collection(db, cfg.conversations), snap => {
+        const q = query(collection(db, cfg.conversations), orderBy("updatedAt", "desc"), limit(200));
+        const unsub = onSnapshot(q, snap => {
           state.conversations = state.conversations.filter(c => c.platform !== platform);
           snap.forEach(d => state.conversations.push(normalizeConversation(platform, d.id, d.data())));
           el("connectionStatus").textContent = "متصل لايف";
-
-          if(state.selected && state.selected.platform === platform){
-            const fresh = state.conversations.find(x => x.platform === platform && x.id === state.selected.id);
-            if(fresh) state.selected = fresh;
-          }
-
           renderConversations();
-          autoOpenConversationFromUrl();
         }, err => {
           console.error(err);
           el("connectionStatus").textContent = "خطأ في الاتصال";
@@ -1017,54 +653,37 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       });
     }
 
-    function getMessageTime(m){
-      return m.createdAt || m.receivedAt || m.sentAt || m.timestamp || m.time || null;
-    }
-
-    function messageSortValue(m){
-      const d = tsToDate(getMessageTime(m));
-      return d && !isNaN(d) ? d.getTime() : 0;
-    }
-
-    function getMessageText(m){
-      return firstValue(m.text, m.body, m.message, m.caption, m.buttonTitle);
-    }
-
     function listenMessages(c){
       if(state.unsubMessages) state.unsubMessages();
       messagesEl.innerHTML = '<div class="empty">جاري التحميل...</div>';
 
       const cfg = PLATFORM_CONFIG[c.platform];
+      const q = query(collection(db, cfg.conversations, c.id, "messages"), orderBy("createdAt", "asc"), limit(300));
 
-      state.unsubMessages = onSnapshot(collection(db, cfg.conversations, c.id, "messages"), snap => {
+      state.unsubMessages = onSnapshot(q, snap => {
         messagesEl.innerHTML = "";
         if(snap.empty){
           messagesEl.innerHTML = '<div class="empty">لا توجد رسائل</div>';
           return;
         }
-
-        const rows = [];
-        snap.forEach(d => rows.push({ id:d.id, ...d.data() }));
-        rows.sort((a,b) => messageSortValue(a) - messageSortValue(b));
-
-        rows.slice(-300).forEach(m => {
+        snap.forEach(d => {
+          const m = d.data();
           const outgoing = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
           const row = document.createElement("div");
-          row.className = "msg-row " + (outgoing ? "sent-row" : "received-row");
+          row.className = "msg-row " + (outgoing ? "out" : "in");
           row.innerHTML = `
             <div class="msg ${outgoing ? "out" : "in"}">
-              <div class="msg-text">${escapeHtml(getMessageText(m))}</div>
-              <div class="msg-meta">${formatMessageTime(getMessageTime(m))}</div>
+              <div class="msg-text">${escapeHtml(m.text || m.body || m.message || "")}</div>
+              <div class="msg-meta">
+                <span>${outgoing ? "أنت" : "العميل"}</span>
+                <span>•</span>
+                <span>${formatTime(m.createdAt || m.timestamp)}</span>
+              </div>
             </div>
           `;
           messagesEl.appendChild(row);
         });
-        requestAnimationFrame(() => {
-          messagesEl.scrollTop = messagesEl.scrollHeight;
-          requestAnimationFrame(() => {
-            messagesEl.scrollTop = messagesEl.scrollHeight;
-          });
-        });
+        messagesEl.scrollTop = messagesEl.scrollHeight;
       }, err => {
         console.error(err);
         messagesEl.innerHTML = '<div class="empty">تعذر تحميل الرسائل</div>';
@@ -1091,128 +710,8 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
         label: selected.dataset.templateLabel || selected.textContent || "",
         lang: selected.dataset.templateLang || "ar",
         type: selected.dataset.templateType || "",
-        content: selected.value || "",
         params
       };
-    }
-
-
-    function buildMersalPayload(c, text, selectedTemplate){
-      const waId = getPhone(c);
-      if(selectedTemplate?.type === "mersal" && selectedTemplate.name){
-        return {
-          waId,
-          template:{
-            name:selectedTemplate.name,
-            lang:selectedTemplate.lang || "ar",
-            params:selectedTemplate.params || []
-          }
-        };
-      }
-      return { waId, text };
-    }
-
-    async function sendViaFacebook(c, text){
-      const convId = c.convId || c.conversationId || c.id;
-      const res = await fetch(FACEBOOK_SEND_ENDPOINT, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({ convId, conversationId:convId, text })
-      });
-
-      let result = null;
-      try { result = await res.json(); } catch(e) {}
-
-      if(!res.ok || result?.ok === false){
-        console.error("Facebook send failed", result);
-        throw new Error(result?.error || result?.message || "فشل إرسال فيسبوك");
-      }
-
-      return result || { ok:true };
-    }
-
-    async function sendViaInstagram(c, text){
-      const convId = c.convId || c.conversationId || c.id;
-      const participantId = c.participantId || c.igId || String(convId).split(":").pop();
-      const pageId = c.pageId || "";
-
-      const res = await fetch(INSTAGRAM_SEND_ENDPOINT, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({
-          convId,
-          conversationId:convId,
-          subscriber_id:participantId,
-          subscriberId:participantId,
-          participantId,
-          pageId,
-          text,
-          message:text,
-          displayName:getCustomerName(c)
-        })
-      });
-
-      let result = null;
-      try { result = await res.json(); } catch(e) {}
-
-      if(!res.ok || result?.ok === false){
-        console.error("Instagram send failed", result);
-        throw new Error(result?.error || result?.message || "فشل إرسال إنستجرام");
-      }
-
-      return result || { ok:true };
-    }
-
-    async function sendViaTikTok(c, text){
-      const conversationId = c.convId || c.conversationId || c.id;
-      const participantId = c.participantId || c.tiktokId || String(conversationId).replace(/^tiktok[:_]/,"");
-
-      const res = await fetch(TIKTOK_SEND_ENDPOINT, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({
-          convId:conversationId,
-          conversationId,
-          subscriber_id:participantId,
-          subscriberId:participantId,
-          participantId,
-          tiktokId:participantId,
-          text,
-          message:text,
-          displayName:getCustomerName(c),
-          channel:"tiktok",
-          platform:"tiktok"
-        })
-      });
-
-      let result = null;
-      try { result = await res.json(); } catch(e) {}
-
-      if(!res.ok || result?.ok === false){
-        console.error("TikTok send failed", result);
-        throw new Error(result?.error || result?.message || "فشل إرسال تيك توك");
-      }
-
-      return result || { ok:true };
-    }
-
-    async function sendViaMersal(c, text, selectedTemplate){
-      const payload = buildMersalPayload(c, text, selectedTemplate);
-      const res = await fetch(MERSAL_SEND_ENDPOINT, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify(payload)
-      });
-
-      let result = null;
-      try { result = await res.json(); } catch(e) {}
-
-      if(!res.ok || result?.ok === false){
-        console.error("Mersal send failed", result);
-        throw new Error(result?.error || result?.message || "فشل إرسال مرسال");
-      }
-
-      return result || { ok:true };
     }
 
     async function sendReply(){
@@ -1223,75 +722,40 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
 
       const cfg = PLATFORM_CONFIG[c.platform];
       const dept = c.department || (state.department === "all" ? "cash_sales" : state.department);
+
       const selectedTemplate = getSelectedMessageTemplate();
-      const sendBtn = el("sendBtn");
 
-      sendBtn.disabled = true;
+      await addDoc(collection(db, cfg.outbox), {
+        conversationId:c.id,
+        platform:c.platform,
+        department:dept,
+        to:getPhone(c),
+        text,
+        status:"pending",
+        messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
+        template: selectedTemplate,
+        sentByUid:state.user.uid,
+        sentByEmail:state.user.email,
+        createdAt:serverTimestamp()
+      });
 
-      try{
-        if(c.platform === "whatsapp"){
-          await sendViaMersal(c, text, selectedTemplate);
-        } else if(c.platform === "facebook"){
-          await sendViaFacebook(c, text);
-        } else if(c.platform === "instagram"){
-          await sendViaInstagram(c, text);
-        } else if(c.platform === "tiktok"){
-          await sendViaTikTok(c, text);
-        } else {
-          await addDoc(collection(db, cfg.outbox), {
-            conversationId:c.id,
-            platform:c.platform,
-            department:dept,
-            to:getPhone(c),
-            text,
-            status:"pending",
-            messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
-            template: selectedTemplate,
-            sentByUid:state.user.uid,
-            sentByEmail:state.user.email,
-            createdAt:serverTimestamp()
-          });
-        }
+      await addDoc(collection(db, cfg.conversations, c.id, "messages"), {
+        text,
+        direction:"outgoing",
+        fromAgent:true,
+        department:dept,
+        template:selectedTemplate,
+        sentByUid:state.user.uid,
+        sentByEmail:state.user.email,
+        createdAt:serverTimestamp(),
+        status:"pending"
+      });
 
-        if(c.platform !== "facebook" && c.platform !== "instagram" && c.platform !== "tiktok"){
-          const msgPayload = {
-            text,
-            direction:"outgoing",
-            fromAgent:true,
-            department:dept,
-            template:selectedTemplate,
-            sentByUid:state.user.uid,
-            sentByEmail:state.user.email,
-            createdAt:serverTimestamp(),
-            sentAt:serverTimestamp(),
-            receivedAt:serverTimestamp(),
-            timestamp:serverTimestamp(),
-            status:c.platform === "whatsapp" ? "sent" : "pending"
-          };
-
-          await addDoc(collection(db, cfg.conversations, c.id, "messages"), msgPayload);
-
-          const updatePayload = {
-            lastMessage:text,
-            lastMessageText:text,
-            department:dept,
-            updatedAt:serverTimestamp(),
-            lastMessageAt:serverTimestamp(),
-            unreadCount:0
-          };
-
-          await updateDoc(doc(db, cfg.conversations, c.id), updatePayload).catch(()=>{});
-        }
-        el("replyText").value = "";
-        clearSelectedTemplateControls();
-        autoResizeReply();
-        toast("تم الإرسال");
-      } catch(err){
-        console.error(err);
-        toast("فشل الإرسال: " + (err.message || ""));
-      } finally {
-        sendBtn.disabled = false;
-      }
+      await updateDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, department:dept, updatedAt:serverTimestamp() }).catch(()=>{});
+      el("replyText").value = "";
+      clearSelectedTemplateControls();
+      autoResizeReply();
+      toast("تم الإرسال");
     }
 
     function fillCustomerForm(data = {}){
@@ -1302,7 +766,6 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       fillStatusDropdown(data.clientStatus || "");
       el("attachmentsHint").textContent = "";
       updateCompletion(data);
-          calculateEligibility();
     }
 
     function getFormData(){
@@ -1327,139 +790,6 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       return percent;
     }
 
-
-
-
-    function removeUndefinedDeep(value){
-      if(value === undefined) return null;
-      if(value === null) return null;
-      if(Array.isArray(value)) return value.map(removeUndefinedDeep);
-      if(typeof value === "object"){
-        // اترك Firebase FieldValue زي serverTimestamp كما هو
-        if(value && typeof value.isEqual === "function") return value;
-        const out = {};
-        Object.entries(value).forEach(([k, v]) => {
-          if(v !== undefined) out[k] = removeUndefinedDeep(v);
-        });
-        return out;
-      }
-      return value;
-    }
-
-    function safeDocSegment(value){
-      return String(value || "")
-        .trim()
-        .replace(/[\/#?\[\]]/g, "_")
-        .slice(0, 180);
-    }
-
-    function userEmailSafe(){
-      return state.user?.email || "";
-    }
-
-
-    function normalizeNameForMatch(v){
-      return String(v || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[اأإآ]/g, "ا")
-        .replace(/[ة]/g, "ه")
-        .replace(/\s+/g, " ");
-    }
-
-    function getConversationNameForMatch(c){
-      return normalizeNameForMatch(firstValue(
-        c.customerName, c.customer?.customerName, c.displayName, c.name,
-        c.contactName, c.senderName
-      ));
-    }
-
-    function getLeadNameForMatch(l){
-      return normalizeNameForMatch(firstValue(
-        l.customerName, l.name, l.fullName, l.displayName
-      ));
-    }
-
-    function getMatchingLeadsForConversation(c){
-      if(!c) return [];
-
-      const conv = String(c.convId || c.conversationId || c.contactKey || c.id || "").trim();
-      const stable = String(getStableConversationKey(c) || "").trim();
-      const phone = normalizePhone(firstValue(c.phone, c.customer?.phone, c.mobile, c.phoneNumber, c.customerPhone, c.waId, getPhone(c)));
-      const participant = String(firstValue(c.participantId, c.tiktokId, c.igId, c.fbId, c.manychatContactId)).trim();
-      const explicitLeadId = String(firstValue(c.leadId, c.customer?.leadId, c.customer?.id)).trim();
-      const convName = getConversationNameForMatch(c);
-      const convDept = normalizeDepartment(firstValue(c.department, c.customer?.department, state.department));
-
-      const exact = state.leads.filter(l => {
-        if(explicitLeadId && (l.id === explicitLeadId || l.leadId === explicitLeadId)) return true;
-
-        const lConv = leadConversationKey(l);
-        if(lConv && (lConv === conv || lConv === stable)) return true;
-
-        const lPhone = leadPhone(l);
-        if(phone && lPhone && phone === lPhone) return true;
-
-        const lParticipant = leadParticipantId(l);
-        if(participant && lParticipant && participant === lParticipant) return true;
-
-        return false;
-      });
-
-      if(exact.length) return exact;
-
-      // Fallback آمن: لو المحادثة ظاهرة للمندوب بسبب التوزيع، ونفس الاسم والقسم.
-      const loose = state.leads.filter(l => {
-        if(!userAssignedLead(l)) return false;
-        const leadName = getLeadNameForMatch(l);
-        if(!convName || !leadName || convName !== leadName) return false;
-        const leadDept = normalizeDepartment(l.department || "");
-        if(convDept && leadDept && convDept !== leadDept) return false;
-        return true;
-      });
-
-      return loose;
-    }
-
-    function findMatchingLeadForConversation(c){
-      return getMatchingLeadsForConversation(c)[0] || c?.customer || null;
-    }
-
-    async function updateMatchedLeadStatusFromCustomer(c, data){
-      const matchedLeads = getMatchingLeadsForConversation(c);
-      const newStatus = data.clientStatus || data.status || "";
-      if(!newStatus) return { updated:0, reason:"empty_status" };
-
-      const payload = {
-        status: newStatus,
-        statusLabel: newStatus,
-        leadStatus: newStatus,
-        currentStatus: newStatus,
-        currentStatusLabel: newStatus,
-        customerStatus: newStatus,
-        customerStatusLabel: newStatus,
-        pipelineStatus: newStatus,
-        pipelineStatusLabel: newStatus,
-        stage: newStatus,
-        stageLabel: newStatus,
-        clientStatus: newStatus,
-        updatedAt: serverTimestamp(),
-        lastUpdated: serverTimestamp(),
-        updatedByUid: state.user.uid,
-        updatedByEmail: userEmailSafe()
-      };
-
-      let updated = 0;
-      for(const lead of matchedLeads){
-        if(!lead?.id) continue;
-        await setDoc(doc(db, "leads", safeDocSegment(lead.id)), removeUndefinedDeep(payload), { merge:true });
-        updated += 1;
-      }
-
-      return { updated, ids: matchedLeads.map(l => l.id).filter(Boolean) };
-    }
-
-
     async function saveCustomer(e){
       e.preventDefault();
       const c = state.selected;
@@ -1470,91 +800,27 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       const oldStatus = getClientStatus(c);
       data.attachments = [];
       data.profileCompletion = updateCompletion(data);
-
-      const eligibility = calculateEligibility();
-      data.eligibility = eligibility;
-      data.creditLimit = eligibility.limit;
-      data.creditLimitRaw = eligibility.rawLimit;
-      data.eligibilityStatus = eligibility.status;
-      data.eligibilityRate = eligibility.rate;
-      data.eligibilityRatePercent = eligibility.ratePercent;
-      data.eligibilityFinanceType = eligibility.financeType;
-
       data.updatedByUid = state.user.uid;
       data.updatedByEmail = state.user.email;
       data.updatedAt = serverTimestamp();
 
-      try{
-        await setDoc(
-          doc(db, "customers", safeDocSegment(`${c.platform}_${c.id}`)),
-          removeUndefinedDeep({ ...data, conversationId:c.id, platform:c.platform }),
-          { merge:true }
-        );
+      await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), { ...data, conversationId:c.id, platform:c.platform }, { merge:true });
 
-        const leadUpdateResult = await updateMatchedLeadStatusFromCustomer(c, data);
+      await setDoc(doc(db, cfg.conversations, c.id), {
+        customer:data, customerName:data.customerName, phone:data.phone, clientStatus:data.clientStatus,
+        department:data.department, profileCompletion:data.profileCompletion, updatedAt:serverTimestamp()
+      }, { merge:true });
 
-        await setDoc(
-          doc(db, cfg.conversations, safeDocSegment(c.id)),
-          removeUndefinedDeep({
-            customer:data,
-            customerName:data.customerName,
-            displayName:data.customerName,
-            phone:data.phone,
-            waId:data.phone || c.waId || c.id,
-            clientStatus:data.clientStatus,
-            statusLabel:data.clientStatus,
-            department:data.department,
-            profileCompletion:data.profileCompletion,
-            updatedAt:serverTimestamp()
-          }),
-          { merge:true }
-        );
-
-        if(data.clientStatus && data.clientStatus !== oldStatus){
-          await addDoc(
-            collection(db, cfg.conversations, safeDocSegment(c.id), "status_history"),
-            removeUndefinedDeep({
-              status:data.clientStatus,
-              note:"",
-              department:data.department,
-              createdByUid:state.user.uid,
-              createdByEmail:userEmailSafe(),
-              createdAt:serverTimestamp()
-            })
-          );
-        }
-
-        const matchedIds = new Set((leadUpdateResult.ids || []));
-        if(matchedIds.size){
-          state.leads = state.leads.map(l => matchedIds.has(l.id) ? {
-            ...l,
-            status:data.clientStatus,
-            statusLabel:data.clientStatus,
-            leadStatus:data.clientStatus,
-            currentStatus:data.clientStatus,
-            currentStatusLabel:data.clientStatus,
-            customerStatus:data.clientStatus,
-            customerStatusLabel:data.clientStatus,
-            pipelineStatus:data.clientStatus,
-            pipelineStatusLabel:data.clientStatus,
-            stage:data.clientStatus,
-            stageLabel:data.clientStatus,
-            clientStatus:data.clientStatus
-          } : l);
-        }
-
-        state.selected = { ...state.selected, ...data, customer:data, clientStatus:data.clientStatus, statusLabel:data.clientStatus };
-        renderConversations();
-
-        if(!leadUpdateResult.updated){
-          toast("تم الحفظ، لكن لم يتم العثور على الليد المرتبط لتحديث الصفحة");
-        } else {
-          toast("تم الحفظ وتحديث حالة العميل");
-        }
-      } catch(err){
-        console.error(err);
-        toast("فشل حفظ حالة العميل: " + (err.code || "") + " " + (err.message || ""));
+      if(data.clientStatus && data.clientStatus !== oldStatus){
+        await addDoc(collection(db, cfg.conversations, c.id, "status_history"), {
+          status:data.clientStatus, note:"", department:data.department,
+          createdByUid:state.user.uid, createdByEmail:state.user.email, createdAt:serverTimestamp()
+        });
       }
+
+      state.selected = { ...state.selected, ...data, customer:data };
+      renderConversations();
+      toast("تم الحفظ");
     }
 
     function fillSelect(select, placeholder, items){
@@ -1588,83 +854,6 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
     }
 
     el("sendBtn").onclick = sendReply;
-
-    function numericValue(value){
-      const n = Number(String(value || "").replace(/[^\d.]/g, ""));
-      return Number.isFinite(n) ? n : 0;
-    }
-
-    function selectedFinanceRate(value){
-      const s = String(value || "").trim();
-      if(s.includes("65") || s.includes("عقاري") || s === "realestate") return 0.65;
-      return 0.45;
-    }
-
-    function selectedFinanceTypeLabel(value){
-      const rate = selectedFinanceRate(value);
-      return rate === 0.65 ? "عقاري 65%" : "عام 45%";
-    }
-
-    function calculateEligibility(){
-      const salaryInput = form?.elements?.salary;
-      const obligationInput = form?.elements?.obligation;
-      const financeInput = form?.elements?.financeType;
-      const box = el("eligResultBox");
-      const limitEl = el("eligLimit");
-      const statusEl = el("eligStatus");
-
-      if(!salaryInput || !obligationInput || !financeInput || !box || !limitEl || !statusEl){
-        return { salary:0, obligation:0, rate:0.45, limit:0, status:"غير مؤهل", financeType:"عام 45%" };
-      }
-
-      const salary = numericValue(salaryInput.value);
-      const obligation = numericValue(obligationInput.value);
-      const rate = selectedFinanceRate(financeInput.value);
-      const financeType = selectedFinanceTypeLabel(financeInput.value);
-      const rawLimit = (salary * rate) - obligation;
-      const limitValue = Math.max(0, rawLimit);
-      const status = rawLimit > 0 ? "مؤهل" : "غير مؤهل";
-
-      if(!salary && !obligation && !financeInput.value){
-        box.classList.remove("show");
-        limitEl.textContent = "—";
-        statusEl.textContent = "—";
-        statusEl.className = "";
-        return { salary, obligation, rate, limit:0, status:"غير مؤهل", financeType };
-      }
-
-      box.classList.add("show");
-      limitEl.textContent = Math.round(limitValue).toLocaleString("ar-EG");
-      statusEl.textContent = status;
-      statusEl.className = rawLimit > 0 ? "elig-ok" : "elig-no";
-
-      return {
-        salary,
-        obligation,
-        rate,
-        ratePercent: Math.round(rate * 100),
-        financeType,
-        limit: Math.round(limitValue),
-        rawLimit: Math.round(rawLimit),
-        status,
-        formula: "(الراتب × النسبة) − الالتزامات = الحد الائتماني"
-      };
-    }
-
-    function bindEligibilityCalculator(){
-      ["salary","obligation","financeType"].forEach(name => {
-        const node = form?.elements?.[name];
-        if(node){
-          node.addEventListener("input", calculateEligibility);
-          node.addEventListener("change", calculateEligibility);
-        }
-      });
-      calculateEligibility();
-    }
-
-
-
-    bindEligibilityCalculator();
     form.onsubmit = saveCustomer;
     el("refreshBtn").onclick = listenConversations;
     el("searchInput").oninput = renderConversations;
@@ -1675,18 +864,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       localStorage.setItem("mzj_department", state.department);
       fillStatusDropdown();
       fillTemplateDropdowns();
-      if(state.selected){
-        const openDept = departmentLabel(state.selected.department || state.selected.autoService || state.selected.paymentType || state.selected.branchId || state.department);
-        const openStatus = getClientStatus(state.selected);
-        const isOpen = String(state.selected.status || "").toLowerCase() === "open" || !state.selected.status;
-        el("chatSub").innerHTML = `
-          ${isOpen ? `<span class="open-status-pill">open</span>` : ""}
-          <span class="dept-pill">${escapeHtml(openDept || "قسم غير محدد")}</span>
-          <span>${escapeHtml(platformLabel(state.selected.platform))}</span>
-          <span>${escapeHtml(getPhone(state.selected))}</span>
-          ${openStatus ? `<span>${escapeHtml(openStatus)}</span>` : ""}
-        `;
-      }
+      if(state.selected) el("chatSub").textContent = `${platformLabel(state.selected.platform)} - ${departmentLabel(state.selected.department || state.department)}${getClientStatus(state.selected) ? " - " + getClientStatus(state.selected) : ""}`;
       renderConversations();
     };
 
@@ -1720,7 +898,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
         sendReply();
       }
     });
-    form.oninput = () => { updateCompletion(getFormData()); calculateEligibility(); };
+    form.oninput = () => updateCompletion(getFormData());
 
     addTemplateOptions();
   </script>
