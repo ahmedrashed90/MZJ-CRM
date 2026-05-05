@@ -284,7 +284,11 @@
         el("app").classList.remove("hidden");
         listenStatuses();
         listenTemplates();
-        listenConversations();
+        if(state.limitedInboxMode){
+          el("connectionStatus").textContent = "وضع محدود";
+        } else {
+          listenConversations();
+        }
       } catch(err){
         console.error(err);
         showLoginError("تعذر تحميل صلاحيات المستخدم.");
@@ -631,6 +635,40 @@
       return { platform: platform || "whatsapp", conversationId, phone, name, department, leadId, fromDashboard };
     }
 
+    async function openLimitedTargetDocument(target){
+      const platform = target.platform || "whatsapp";
+      const cfg = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.whatsapp;
+      const candidateIds = [
+        target.conversationId,
+        target.phone,
+        target.phone ? `wa_${target.phone}` : "",
+        target.leadId
+      ].filter(Boolean).map(String);
+
+      for(const id of candidateIds){
+        try{
+          const snap = await getDoc(doc(db, cfg.conversations, id));
+          if(!snap.exists()) continue;
+          const conv = normalizeConversation(platform, snap.id, snap.data());
+          conv.__collection = cfg.conversations;
+          if(state.limitedInboxMode && !isAssignedToCurrentUser(conv)){
+            messagesEl.innerHTML = '<div class="empty">لا توجد صلاحية لهذا العميل</div>';
+            toast("لا توجد صلاحية لهذا العميل");
+            return true;
+          }
+          state.conversations = [conv];
+          selectConversation(conv);
+          el("connectionStatus").textContent = "وضع محدود";
+          history.replaceState(null, "", location.pathname);
+          return true;
+        } catch(e){
+          console.warn("limited target get failed", id, e);
+        }
+      }
+
+      return false;
+    }
+
     async function applyInboxOpenTarget(){
       const target = readInboxOpenTarget();
       if(!target) return;
@@ -653,6 +691,36 @@
 
       // فتح واتساب من رقم الجوال مباشرة، حتى لو المحادثة غير موجودة.
       // نفس الـ id هيحمّل الرسائل لو موجودة، ولو مش موجودة يفتح محادثة جديدة جاهزة للإرسال.
+      if(state.limitedInboxMode){
+        const allowed = await verifyLinkedLeadAccess(target);
+        if(!allowed){
+          state.pendingOpenTarget = null;
+          messagesEl.innerHTML = '<div class="empty">لا توجد صلاحية لهذا العميل</div>';
+          toast("لا توجد صلاحية لهذا العميل");
+          return;
+        }
+
+        // ممنوع نعمل listener على كل صندوق الوارد للمندوب المحدود.
+        // نفتح الوثيقة المطلوبة فقط لو موجودة، أو واتساب افتراضي لو الرقم غير موجود.
+        const opened = await openLimitedTargetDocument(target);
+        if(opened){
+          state.pendingOpenTarget = null;
+          return;
+        }
+
+        if((target.platform || "whatsapp") === "whatsapp" && (target.phone || target.conversationId)){
+          state.pendingOpenTarget = null;
+          selectConversation(buildVirtualWhatsappConversation(target));
+          el("connectionStatus").textContent = "وضع محدود";
+          history.replaceState(null, "", location.pathname);
+          return;
+        }
+
+        messagesEl.innerHTML = '<div class="empty">لم يتم العثور على محادثة هذا العميل</div>';
+        el("connectionStatus").textContent = "وضع محدود";
+        return;
+      }
+
       if((target.platform || "whatsapp") === "whatsapp" && (target.phone || target.conversationId)){
         const allowed = await verifyLinkedLeadAccess(target);
         if(!allowed){
@@ -874,6 +942,7 @@
       }, err => {
         console.error(err);
         messagesEl.innerHTML = '<div class="empty">تعذر تحميل الرسائل</div>';
+        if(state.limitedInboxMode) el("connectionStatus").textContent = "وضع محدود";
       });
     }
 
