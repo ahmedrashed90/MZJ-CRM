@@ -451,6 +451,41 @@
       return s === "whatsapp" || s === "wa" || s === "واتساب";
     }
 
+    function isImportedFinanceLead(l){
+      const source = String(leadSourceRaw(l) || "").trim().toLowerCase();
+      const sourceType = String(l.sourceType || "").trim().toLowerCase();
+
+      return (
+        sourceType === "excel_import" ||
+        sourceType === "installment_calculator" ||
+        source === "installment_calculator" ||
+        source === "حاسبة التقسيط" ||
+        source === "excel" ||
+        source === "اكسل" ||
+        source.includes("حاسبة") ||
+        source.includes("تقسيط") ||
+        source.includes("تيك توك ليد") ||
+        source.includes("tiktok lead") ||
+        source.includes("سناب شات ليد") ||
+        source.includes("snapchat lead")
+      );
+    }
+
+    function normalizeWhatsappPhone(phone){
+      let p = String(phone || "").replace(/[^\d+]/g, "");
+      if(!p) return "";
+      if(p.startsWith("00")) p = p.slice(2);
+      if(p.startsWith("+")) p = p.slice(1);
+      if(p.startsWith("0") && p.length === 10) p = "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) p = "966" + p;
+      return p;
+    }
+
+    function buildWhatsappUrlForLead(l){
+      const phone = normalizeWhatsappPhone(l.phone || l.mobile || l.phoneNumber || l.customerPhone || "");
+      return phone ? `https://wa.me/${phone}` : "";
+    }
+
     function sourceFilterOptions(){
       const seen = new Map();
       leads.forEach(l => {
@@ -475,12 +510,19 @@
 
     function linkedLeadName(l){
       const name = l.customerName || l.name || l.fullName || l.displayName || "—";
-      if(isWhatsappLead(l)) return escapeHtml(name);
+      if(isWhatsappLead(l) || isImportedFinanceLead(l)) return escapeHtml(name);
       return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(name)}</a>`;
     }
 
     function linkedLeadPhone(l){
       const phone = l.phone || l.mobile || l.phoneNumber || "—";
+
+      if(isImportedFinanceLead(l)){
+        const waUrl = buildWhatsappUrlForLead(l);
+        if(!waUrl) return escapeHtml(phone);
+        return `<a class="lead-inbox-link" href="${escapeHtml(waUrl)}" target="_blank" rel="noopener">${escapeHtml(phone)}</a>`;
+      }
+
       if(!isWhatsappLead(l)) return escapeHtml(phone);
       return `<a class="lead-inbox-link" href="${escapeHtml(buildInboxUrlForLead(l))}">${escapeHtml(phone)}</a>`;
     }
