@@ -208,6 +208,7 @@
     const db = getFirestore(appFirebase);
 
     const MERSAL_SEND_ENDPOINT = "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
+    const TIKTOK_SEND_ENDPOINT = "https://test.next-erp-mzj.workers.dev/crm/send";
     const INSTAGRAM_SEND_ENDPOINT = "https://instagram.next-erp-mzj.workers.dev/crm/send";
     const FACEBOOK_SEND_ENDPOINT = "https://facebook.next-erp-mzj.workers.dev/crm/send";
 
@@ -249,7 +250,7 @@
       whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox", provider:"mersal" },
       instagram:{ label:"إنستجرام", conversations:"wa_conversations", outbox:"ig_outbox", provider:"meta", channelCode:"ig" },
       facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"fb_outbox", provider:"meta", channelCode:"fb" },
-      tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
+      tiktok:{ label:"تيك توك", conversations:"wa_conversations", outbox:"tt_outbox", provider:"manychat", channelCode:"tiktok" }
     };
 
     const CUSTOMER_FIELDS = [
@@ -274,13 +275,24 @@
     }
     function platformLabel(p){ return PLATFORM_CONFIG[p]?.label || p; }
 
-    function inferConversationPlatform(defaultPlatform, data){
-      const channel = String(data.channel || data.channelCode || data.provider || "").toLowerCase();
-      const convId = String(data.convId || data.conversationId || data.id || "").toLowerCase();
+    function displayPlatformLabel(c){
+      const raw = String(c?.platform || c?.channelCode || c?.channel || "").toLowerCase();
+      const conv = String(c?.convId || c?.conversationId || c?.id || "").toLowerCase();
+      if(raw === "tiktok" || raw === "tt" || raw === "تيك توك" || conv.startsWith("tiktok_") || conv.startsWith("tiktok:")) return "تيك توك";
+      if(raw === "instagram" || raw === "ig" || conv.startsWith("instagram:") || conv.startsWith("ig_")) return "إنستجرام";
+      if(raw === "facebook" || raw === "fb" || conv.startsWith("facebook:")) return "فيسبوك";
+      if(raw === "whatsapp" || raw === "wa" || c?.waId) return "واتساب";
+      return platformLabel(c?.platform || raw);
+    }
 
-      if(channel === "fb" || channel === "facebook" || convId.startsWith("facebook:")) return "facebook";
-      if(channel === "ig" || channel === "instagram" || convId.startsWith("instagram:")) return "instagram";
-      if(channel === "tt" || channel === "tiktok" || convId.startsWith("tiktok:")) return "tiktok";
+    function inferConversationPlatform(defaultPlatform, data){
+      const channelRaw = String(data.channel || data.channelCode || data.provider || "").trim();
+      const channel = channelRaw.toLowerCase();
+      const id = String(data.convId || data.conversationId || data.id || "").toLowerCase();
+
+      if(channel === "fb" || channel === "facebook" || id.startsWith("facebook:")) return "facebook";
+      if(channel === "ig" || channel === "instagram" || id.startsWith("instagram:") || id.startsWith("ig_")) return "instagram";
+      if(channel === "tt" || channel === "tiktok" || channelRaw === "تيك توك" || id.startsWith("tiktok:") || id.startsWith("tiktok_")) return "tiktok";
       if(channel === "wa" || channel === "whatsapp" || data.waId) return "whatsapp";
 
       return defaultPlatform;
@@ -642,7 +654,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
         div.innerHTML = `
           <div class="row">
             <div class="name">${escapeHtml(getCustomerName(c))}</div>
-            <span class="badge ${c.platform}">${platformLabel(c.platform)}</span>
+            <span class="badge ${c.platform}">${displayPlatformLabel(c)}</span>
           </div>
           <div class="preview">${escapeHtml(getLastText(c))}</div>
           <div class="row">
@@ -852,6 +864,39 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       return result || { ok:true };
     }
 
+    async function sendViaTikTok(c, text){
+      const conversationId = c.convId || c.conversationId || c.id;
+      const participantId = c.participantId || c.tiktokId || String(conversationId).replace(/^tiktok[:_]/,"");
+
+      const res = await fetch(TIKTOK_SEND_ENDPOINT, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({
+          convId:conversationId,
+          conversationId,
+          subscriber_id:participantId,
+          subscriberId:participantId,
+          participantId,
+          tiktokId:participantId,
+          text,
+          message:text,
+          displayName:getCustomerName(c),
+          channel:"tiktok",
+          platform:"tiktok"
+        })
+      });
+
+      let result = null;
+      try { result = await res.json(); } catch(e) {}
+
+      if(!res.ok || result?.ok === false){
+        console.error("TikTok send failed", result);
+        throw new Error(result?.error || result?.message || "فشل إرسال تيك توك");
+      }
+
+      return result || { ok:true };
+    }
+
     async function sendViaMersal(c, text, selectedTemplate){
       const payload = buildMersalPayload(c, text, selectedTemplate);
       const res = await fetch(MERSAL_SEND_ENDPOINT, {
@@ -891,6 +936,8 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
           await sendViaFacebook(c, text);
         } else if(c.platform === "instagram"){
           await sendViaInstagram(c, text);
+        } else if(c.platform === "tiktok"){
+          await sendViaTikTok(c, text);
         } else {
           await addDoc(collection(db, cfg.outbox), {
             conversationId:c.id,
@@ -907,7 +954,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
           });
         }
 
-        if(c.platform !== "facebook" && c.platform !== "instagram"){
+        if(c.platform !== "facebook" && c.platform !== "instagram" && c.platform !== "tiktok"){
           const msgPayload = {
             text,
             direction:"outgoing",
