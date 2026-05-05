@@ -898,6 +898,16 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
     }
 
 
+    function getLinkedLeadForConversation(c){
+      return state.leads.find(l => leadMatchesConversation(l, c)) || null;
+    }
+
+    function getResponsibleDisplay(c){
+      const linked = getLinkedLeadForConversation(c) || {};
+      const name = c.responsibleName || c.assignedName || c.salesAssignedName || c.callCenterName || c.callCenterAssignedName || linked.responsibleName || linked.assignedName || linked.salesAssignedName || linked.callCenterName || linked.callCenterAssignedName || "";
+      return String(name || "").trim();
+    }
+
     function renderConversations(){
       const search = el("searchInput").value.trim().toLowerCase();
       const seenConversations = new Set();
@@ -943,6 +953,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
             <div class="name">${escapeHtml(getCustomerName(c))}</div>
             <span class="badge ${c.platform}">${displayPlatformLabel(c)}</span>
           </div>
+          ${getResponsibleDisplay(c) ? `<div class="preview">المسؤول: ${escapeHtml(getResponsibleDisplay(c))}</div>` : ""}
           <div class="preview">${escapeHtml(getLastText(c))}</div>
           <div class="row">
             <span class="time">${escapeHtml(getPhone(c))}</span>
