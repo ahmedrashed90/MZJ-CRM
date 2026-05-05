@@ -85,11 +85,6 @@
         </div>
         <div class="dashboard-status-grid" id="statusCards"></div>
       </div>
-
-      <div class="report-table-section">
-        <h3>الصفحات المسموح بها</h3>
-        <div class="allowed-pages-grid" id="allowedPagesGrid"></div>
-      </div>
     </main>
   </div>
   <div class="toast" id="toast"></div>
@@ -395,8 +390,18 @@
 
     function conversationIdOf(l){
       const platform = platformOf(l);
-      if(platform === "whatsapp") return l.convId || l.conversationId || l.waId || l.participantId || String(l.id || "").replace(/^wa_/, "");
-      return l.conversationId || l.convId || l.contactKey || l.participantId || l.id || "";
+      if(platform === "whatsapp"){
+        return (
+          l.convId ||
+          l.conversationId ||
+          l.waId ||
+          l.participantId ||
+          String(l.contactKey || "").replace(/^wa:/, "") ||
+          String(l.id || "").replace(/^wa_/, "") ||
+          String(l.__id || "").replace(/^wa_/, "")
+        );
+      }
+      return l.conversationId || l.convId || l.contactKey || l.participantId || l.id || l.__id || "";
     }
 
     function openLeadConversation(lead){
@@ -569,12 +574,12 @@
     function init(){
       injectDashboardStyles();
       renderNoPermissionNotice();
-      renderAllowedPagesGrid();
       el("backToSectionsBtn").onclick = () => {
         selectedSectionKey = "";
         el("dashboardBoard").classList.add("hidden");
         renderSectionCards();
       };
+      renderDashboard();
       if(unsub) unsub();
       unsub = onSnapshot(collection(db, "leads"), snap => {
         leads = [];

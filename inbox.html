@@ -288,7 +288,7 @@
       if(!target || !target.conversationId) return;
 
       const wanted = String(target.conversationId);
-      const wantedClean = wanted.replace(/^wa_/, "");
+      const wantedClean = wanted.replace(/^wa_/, "").replace(/^\+/, "");
       const match = state.conversations.find(c => {
         if(target.platform && c.platform !== target.platform) return false;
         const ids = [
@@ -307,6 +307,38 @@
         state.pendingOpenTarget = null;
         selectConversation(match);
       }
+    }
+
+    async function openPendingConversationDirect(){
+      const target = state.pendingOpenTarget;
+      if(!target || !target.conversationId || !target.platform || !PLATFORM_CONFIG[target.platform]) return false;
+
+      const cfg = PLATFORM_CONFIG[target.platform];
+      const raw = String(target.conversationId || "").replace(/^wa_/, "").replace(/^\+/, "");
+      const candidates = [...new Set([
+        raw,
+        "wa_" + raw,
+        String(target.conversationId || "")
+      ].filter(Boolean))];
+
+      for(const id of candidates){
+        try{
+          const snap = await getDoc(doc(db, cfg.conversations, id));
+          if(snap.exists()){
+            const c = normalizeConversation(target.platform, snap.id, snap.data());
+            state.pendingOpenTarget = null;
+            if(!state.conversations.some(x => x.platform === c.platform && x.id === c.id)){
+              state.conversations.unshift(c);
+            }
+            selectConversation(c);
+            return true;
+          }
+        }catch(err){
+          console.warn("تعذر فتح المحادثة مباشرة", err);
+        }
+      }
+
+      return false;
     }
 
     onAuthStateChanged(auth, async (user) => {
@@ -335,6 +367,7 @@
         listenStatuses();
         listenTemplates();
         listenConversations();
+        openPendingConversationDirect();
       } catch(err){
         console.error(err);
         showLoginError("تعذر تحميل صلاحيات المستخدم.");
@@ -566,7 +599,9 @@
       return d.toLocaleString("ar-EG", {hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit"});
     }
 
-    function getCustomerName(c){ return c.customerName || c.customer?.customerName || c.name || c.contactName || c.senderName || c.phone || "عميل بدون اسم"; }
+    function getCustomerName(c){
+      return c.customerName || c.fullName || c.displayName || c.name || c.contactName || c.senderName || getPhone(c) || "عميل بدون اسم";
+    }
     function getPhone(c){ return c.phone || c.customer?.phone || c.customerPhone || c.from || c.sender || ""; }
     function getLastText(c){ return c.lastMessage || c.lastText || c.preview || c.message || ""; }
     function getClientStatus(c){ return c.clientStatus || c.customer?.clientStatus || ""; }
@@ -574,11 +609,30 @@
     function normalizeConversation(platform, id, data){
       return {
         id, platform, ...data,
-        customerName:data.customerName || data.customer?.customerName || data.name || data.contactName || data.senderName || "",
-        phone:data.phone || data.customer?.phone || data.customerPhone || data.from || data.sender || "",
-        clientStatus:data.clientStatus || data.customer?.clientStatus || "",
+        customerName:
+          data.customerName ||
+          data.customer?.customerName ||
+          data.fullName ||
+          data.displayName ||
+          data.name ||
+          data.contactName ||
+          data.senderName ||
+          data.profileName ||
+          "",
+        phone:
+          data.phone ||
+          data.mobile ||
+          data.phoneNumber ||
+          data.customer?.phone ||
+          data.customerPhone ||
+          data.waId ||
+          data.participantId ||
+          data.from ||
+          data.sender ||
+          "",
+        clientStatus:data.clientStatus || data.customer?.clientStatus || data.status || "",
         department:data.department || data.customer?.department || "",
-        updatedAt:data.updatedAt || data.lastMessageAt || data.createdAt || null
+        updatedAt:data.updatedAt || data.lastUpdated || data.lastMessageAt || data.createdAt || null
       };
     }
 
