@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -230,9 +231,17 @@
     const PLATFORM_CONFIG = {
       whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox" },
       instagram:{ label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
-      facebook:{ label:"فيسبوك", conversations:"fb_conversations", outbox:"fb_outbox" },
+      // Facebook is stored in the same CRM inbox collection. No facebook separate collection removed / no facebook separate outbox removed.
+      facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"" },
       tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
     };
+
+    // Put your Facebook worker base URL here if different.
+    // The page will call POST {FACEBOOK_WORKER_BASE_URL}/crm/send for Facebook replies.
+    const FACEBOOK_WORKER_BASE_URL =
+      window.FACEBOOK_WORKER_BASE_URL ||
+      localStorage.getItem("FACEBOOK_WORKER_BASE_URL") ||
+      "https://facebook-worker.next-erp-mzj.workers.dev";
 
     const CUSTOMER_FIELDS = [
       "customerName","phone","salary","obligation","location","age","salaryBank",
@@ -242,7 +251,6 @@
     const state = {
       user:null, userProfile:null, isAdmin:false,
       conversations:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
-      pendingOpenTarget:null,
       department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubStatuses:null, unsubTemplates:null
     };
 
@@ -252,94 +260,6 @@
 
     function departmentLabel(d){ return d === "all" ? "كل الأقسام" : (DEPARTMENTS[d] || d); }
     function platformLabel(p){ return PLATFORM_CONFIG[p]?.label || p; }
-
-    function readInboxOpenTarget(){
-      const params = new URLSearchParams(location.search);
-      const platform = String(params.get("platform") || "").trim();
-      const conversationId = String(params.get("conversationId") || params.get("convId") || params.get("id") || "").trim();
-      const department = String(params.get("department") || "").trim();
-      if(!platform && !conversationId && !department) return null;
-      return { platform, conversationId, department };
-    }
-
-    function applyInboxOpenTarget(){
-      const target = readInboxOpenTarget();
-      if(!target) return;
-      state.pendingOpenTarget = target;
-
-      if(target.department && (state.isAdmin || state.userProfile?.allDepartments === true)){
-        state.department = target.department;
-        const departmentSelect = el("departmentSelect");
-        if(departmentSelect && [...departmentSelect.options].some(o => o.value === target.department)){
-          departmentSelect.value = target.department;
-        }
-      }
-
-      if(target.platform && PLATFORM_CONFIG[target.platform]){
-        state.selectedPlatform = target.platform;
-        document.querySelectorAll("[data-platform]").forEach(btn => {
-          btn.classList.toggle("active", btn.dataset.platform === target.platform);
-        });
-      }
-    }
-
-    function tryOpenPendingConversation(){
-      const target = state.pendingOpenTarget;
-      if(!target || !target.conversationId) return;
-
-      const wanted = String(target.conversationId);
-      const wantedClean = wanted.replace(/^wa_/, "").replace(/^\+/, "");
-      const match = state.conversations.find(c => {
-        if(target.platform && c.platform !== target.platform) return false;
-        const ids = [
-          c.id,
-          c.conversationId,
-          c.convId,
-          c.waId,
-          c.participantId,
-          getPhone(c),
-          String(c.contactKey || "").replace(/^wa:/, "")
-        ].filter(Boolean).map(x => String(x).replace(/^\+/, "").replace(/^wa_/, ""));
-        return ids.includes(wantedClean) || ids.includes(wanted);
-      });
-
-      if(match){
-        state.pendingOpenTarget = null;
-        selectConversation(match);
-      }
-    }
-
-    async function openPendingConversationDirect(){
-      const target = state.pendingOpenTarget;
-      if(!target || !target.conversationId || !target.platform || !PLATFORM_CONFIG[target.platform]) return false;
-
-      const cfg = PLATFORM_CONFIG[target.platform];
-      const raw = String(target.conversationId || "").replace(/^wa_/, "").replace(/^\+/, "");
-      const candidates = [...new Set([
-        raw,
-        "wa_" + raw,
-        String(target.conversationId || "")
-      ].filter(Boolean))];
-
-      for(const id of candidates){
-        try{
-          const snap = await getDoc(doc(db, cfg.conversations, id));
-          if(snap.exists()){
-            const c = normalizeConversation(target.platform, snap.id, snap.data());
-            state.pendingOpenTarget = null;
-            if(!state.conversations.some(x => x.platform === c.platform && x.id === c.id)){
-              state.conversations.unshift(c);
-            }
-            selectConversation(c);
-            return true;
-          }
-        }catch(err){
-          console.warn("تعذر فتح المحادثة مباشرة", err);
-        }
-      }
-
-      return false;
-    }
 
     onAuthStateChanged(auth, async (user) => {
       cleanupListeners();
@@ -361,13 +281,11 @@
 
         state.isAdmin = isAdminProfile(state.userProfile);
         applyPermissions();
-        applyInboxOpenTarget();
         el("loginScreen").classList.add("hidden");
         el("app").classList.remove("hidden");
         listenStatuses();
         listenTemplates();
         listenConversations();
-        openPendingConversationDirect();
       } catch(err){
         console.error(err);
         showLoginError("تعذر تحميل صلاحيات المستخدم.");
@@ -599,46 +517,53 @@
       return d.toLocaleString("ar-EG", {hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit"});
     }
 
-    function getCustomerName(c){
-      return c.customerName || c.fullName || c.displayName || c.name || c.contactName || c.senderName || getPhone(c) || "عميل بدون اسم";
-    }
+    function getCustomerName(c){ return c.customerName || c.customer?.customerName || c.name || c.contactName || c.senderName || c.phone || "عميل بدون اسم"; }
     function getPhone(c){ return c.phone || c.customer?.phone || c.customerPhone || c.from || c.sender || ""; }
     function getLastText(c){ return c.lastMessage || c.lastText || c.preview || c.message || ""; }
     function getClientStatus(c){ return c.clientStatus || c.customer?.clientStatus || ""; }
 
+    function inferPlatform(defaultPlatform, data = {}){
+      const raw = String(data.platform || data.channel || data.channelCode || defaultPlatform || "").toLowerCase();
+      if(raw.includes("facebook") || raw === "fb" || raw.includes("فيس")) return "facebook";
+      if(raw.includes("instagram") || raw === "ig" || raw.includes("انست")) return "instagram";
+      if(raw.includes("tiktok") || raw === "tt" || raw.includes("تيك")) return "tiktok";
+      if(raw.includes("whatsapp") || raw === "wa" || raw.includes("واتساب")) return "whatsapp";
+      return defaultPlatform || "whatsapp";
+    }
+
     function normalizeConversation(platform, id, data){
+      const realPlatform = inferPlatform(platform, data);
       return {
-        id, platform, ...data,
-        customerName:
-          data.customerName ||
-          data.customer?.customerName ||
-          data.fullName ||
-          data.displayName ||
-          data.name ||
-          data.contactName ||
-          data.senderName ||
-          data.profileName ||
-          "",
-        phone:
-          data.phone ||
-          data.mobile ||
-          data.phoneNumber ||
-          data.customer?.phone ||
-          data.customerPhone ||
-          data.waId ||
-          data.participantId ||
-          data.from ||
-          data.sender ||
-          "",
+        id, platform:realPlatform, ...data,
+        customerName:data.customerName || data.customer?.customerName || data.name || data.contactName || data.senderName || data.displayName || "",
+        phone:data.phone || data.customer?.phone || data.customerPhone || data.from || data.sender || data.participantId || data.fbId || "",
         clientStatus:data.clientStatus || data.customer?.clientStatus || data.status || "",
         department:data.department || data.customer?.department || "",
         updatedAt:data.updatedAt || data.lastUpdated || data.lastMessageAt || data.createdAt || null
       };
     }
 
+    function conversationDedupeKey(c){
+      const platform = c.platform || "whatsapp";
+      const contact = c.contactKey || c.fbId || c.manychatContactId || c.participantId || c.waId || c.phone || c.phoneNumber || c.mobile || c.id || "";
+      return `${platform}:${String(contact).replace(/^fb:/,"").replace(/^wa:/,"")}`;
+    }
+
+    function dedupeConversations(items){
+      const map = new Map();
+      for(const c of items){
+        const key = conversationDedupeKey(c);
+        const prev = map.get(key);
+        const cTime = tsToDate(c.updatedAt)?.getTime() || 0;
+        const pTime = tsToDate(prev?.updatedAt)?.getTime() || 0;
+        if(!prev || cTime >= pTime) map.set(key, c);
+      }
+      return [...map.values()];
+    }
+
     function renderConversations(){
       const search = el("searchInput").value.trim().toLowerCase();
-      let items = state.conversations.slice();
+      let items = dedupeConversations(state.conversations.slice());
 
       if(state.selectedPlatform !== "all") items = items.filter(c => c.platform === state.selectedPlatform);
       if(!state.isAdmin || state.department !== "all") items = items.filter(c => !c.department || c.department === state.department);
@@ -670,8 +595,6 @@
         div.onclick = () => selectConversation(c);
         conversationList.appendChild(div);
       });
-
-      tryOpenPendingConversation();
     }
 
     function selectConversation(c){
@@ -691,11 +614,23 @@
       state.unsubConversations = [];
       state.conversations = [];
 
+      const collectionOwners = new Map();
       Object.entries(PLATFORM_CONFIG).forEach(([platform, cfg]) => {
-        const q = query(collection(db, cfg.conversations), orderBy("updatedAt", "desc"), limit(200));
+        if(!cfg.conversations) return;
+        if(!collectionOwners.has(cfg.conversations)) collectionOwners.set(cfg.conversations, platform);
+      });
+
+      collectionOwners.forEach((defaultPlatform, collectionName) => {
+        const q = query(collection(db, collectionName), orderBy("updatedAt", "desc"), limit(250));
         const unsub = onSnapshot(q, snap => {
-          state.conversations = state.conversations.filter(c => c.platform !== platform);
-          snap.forEach(d => state.conversations.push(normalizeConversation(platform, d.id, d.data())));
+          state.conversations = state.conversations.filter(c => c.__collection !== collectionName);
+          snap.forEach(d => {
+            const data = d.data();
+            const c = normalizeConversation(defaultPlatform, d.id, data);
+            c.__collection = collectionName;
+            state.conversations.push(c);
+          });
+          state.conversations = dedupeConversations(state.conversations);
           el("connectionStatus").textContent = "متصل لايف";
           renderConversations();
         }, err => {
@@ -776,8 +711,36 @@
 
       const cfg = PLATFORM_CONFIG[c.platform];
       const dept = c.department || (state.department === "all" ? "cash_sales" : state.department);
-
       const selectedTemplate = getSelectedMessageTemplate();
+
+      if(c.platform === "facebook"){
+        const endpoint = `${FACEBOOK_WORKER_BASE_URL.replace(/\/$/, "")}/crm/send`;
+        const res = await fetch(endpoint, {
+          method:"POST",
+          headers:{ "content-type":"application/json" },
+          body:JSON.stringify({
+            convId:c.id,
+            conversationId:c.id,
+            text,
+            message:text
+          })
+        });
+
+        const result = await res.json().catch(() => ({}));
+        if(!res.ok || result.ok === false){
+          console.error("Facebook send failed", result);
+          return toast("فشل إرسال فيسبوك. راجع رابط الوركر أو التوكن.");
+        }
+
+        // The worker writes the outgoing message to wa_conversations/{convId}/messages.
+        el("replyText").value = "";
+        clearSelectedTemplateControls();
+        autoResizeReply();
+        toast("تم الإرسال");
+        return;
+      }
+
+      if(!cfg.outbox) return toast("لا يوجد مسار إرسال مضبوط لهذه المنصة.");
 
       await addDoc(collection(db, cfg.outbox), {
         conversationId:c.id,
