@@ -155,7 +155,8 @@
       unsubMessages:null,
       unsubTemplates:null,
       templates:[],
-      actualCompletion:null
+      actualCompletion:null,
+      completionByLead:{}
     };
 
     const SECTION_DEFS = {
@@ -957,6 +958,51 @@
       }
     }
 
+    function leadCompletionFromLeadData(lead = {}){
+      const data = {
+        customerName: customerName(lead) === "عميل بدون اسم" ? "" : customerName(lead),
+        phone: phoneOfLead(lead),
+        salary: getLeadField(lead, ["salary","monthlySalary"]),
+        obligation: getLeadField(lead, ["obligation","commitment"]),
+        location: getLeadField(lead, ["location","city","place"]),
+        age: getLeadField(lead, ["age","customerAge"]),
+        salaryBank: getLeadField(lead, ["salaryBank","bank"]),
+        carType: getLeadField(lead, ["carType","car","carName","vehicleName"]),
+        carModel: getLeadField(lead, ["carModel","model"]),
+        color: getLeadField(lead, ["color","carColor"]),
+        financeType: getLeadField(lead, ["financeType","payment","paymentType","payType","leadPayment"])
+      };
+      return inboxCompletionFromData(data);
+    }
+
+    function leadCompletionPercent(lead){
+      const id = lead.__id || lead.id || "";
+      if(id && typeof dashboardChatState.completionByLead[id] === "number"){
+        return dashboardChatState.completionByLead[id];
+      }
+      return leadCompletionFromLeadData(lead);
+    }
+
+    function renderCompletionBadge(lead){
+      return `<span class="lead-completion-badge" data-completion-lead-id="${escapeHtml(lead.__id || lead.id || "")}">${leadCompletionPercent(lead)}% مكتمل</span>`;
+    }
+
+    async function hydrateStatusCompletionBadges(items){
+      const visible = items.filter(l => l && (l.__id || l.id));
+      await Promise.all(visible.map(async (lead) => {
+        const id = lead.__id || lead.id;
+        if(typeof dashboardChatState.completionByLead[id] === "number") return;
+        const pct = await loadActualInboxCompletionForLead(lead).catch(() => null);
+        dashboardChatState.completionByLead[id] = typeof pct === "number" ? pct : leadCompletionFromLeadData(lead);
+      }));
+
+      visible.forEach(lead => {
+        const id = lead.__id || lead.id;
+        const badge = document.querySelector(`[data-completion-lead-id="${CSS.escape(id)}"]`);
+        if(badge) badge.textContent = `${dashboardChatState.completionByLead[id]}% مكتمل`;
+      });
+    }
+
     function renderStatusCards(){
       const def = SECTION_DEFS[selectedSectionKey];
       if(!def) return;
@@ -974,7 +1020,10 @@
             <div class="status-card-body">
               ${items.length ? items.map(l => `
                 <button class="dashboard-customer-link" data-lead-id="${escapeHtml(l.__id)}">
-                  <b>${escapeHtml(customerName(l))}</b>
+                  <span class="lead-card-title">
+                    <b>${escapeHtml(customerName(l))}</b>
+                    ${renderCompletionBadge(l)}
+                  </span>
                   <small>${escapeHtml(customerMeta(l))}</small>
                 </button>
               `).join("") : `<div class="empty">لا يوجد عملاء داخل هذه الحالة.</div>`}
@@ -989,6 +1038,8 @@
           if(lead) openLeadConversation(lead);
         };
       });
+
+      hydrateStatusCompletionBadges(statuses.flatMap(s => grouped.get(s.key) || []));
     }
 
     function renderDashboard(){
@@ -1798,6 +1849,32 @@
           display:inline-flex !important;
           vertical-align:middle !important;
           margin-inline-start:8px !important;
+        }
+        /* V41: show completion percentage beside customer name in dashboard cards */
+        .dashboard-customer-link .lead-card-title{
+          display:flex !important;
+          align-items:center !important;
+          justify-content:flex-start !important;
+          gap:8px !important;
+          flex-wrap:wrap !important;
+          width:100% !important;
+        }
+        .dashboard-customer-link .lead-card-title b{
+          flex:0 1 auto !important;
+        }
+        .lead-completion-badge{
+          display:inline-flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          min-height:24px !important;
+          padding:3px 8px !important;
+          border-radius:999px !important;
+          border:1px solid #ead4c8 !important;
+          background:#fff7f1 !important;
+          color:#7b2d22 !important;
+          font-size:11px !important;
+          font-weight:900 !important;
+          white-space:nowrap !important;
         }
 
       `;
