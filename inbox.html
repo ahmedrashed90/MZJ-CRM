@@ -516,9 +516,18 @@
 
     function getCustomerName(c){ return c.customerName || c.customer?.customerName || c.name || c.contactName || c.senderName || c.phone || "عميل بدون اسم"; }
     function getPhone(c){ return c.phone || c.customer?.phone || c.customerPhone || c.from || c.sender || ""; }
-    function getLastText(c){ return c.lastMessage || c.lastText || c.preview || c.message || ""; }
-    function getClientStatus(c){ return c.clientStatus || c.customer?.clientStatus || ""; }
-
+    function getLastText(c){
+      return c.lastMessageText || c.lastMessage || c.lastText || c.preview || c.message || "";
+    }
+    function getClientStatus(c){
+      return c.clientStatus || c.customer?.clientStatus || c.status || "";
+    }
+    function getResponsibleName(c){
+      return c.responsibleName || c.assignedName || c.salesAssignedName || c.callCenterName || c.callCenterAssignedName || "";
+    }
+    function getUnreadCount(c){
+      return Number(c.unreadCount || c.unread || c.unreadMessages || 0);
+    }
     function inferConversationPlatform(defaultPlatform, data = {}){
       const raw = String(data.platform || data.channel || data.channelCode || defaultPlatform || "").toLowerCase();
       if(raw === "fb" || raw.includes("facebook") || raw.includes("فيس")) return "facebook";
@@ -533,17 +542,22 @@
       return {
         id, platform:realPlatform, ...data,
         customerName:data.customerName || data.customer?.customerName || data.name || data.contactName || data.senderName || data.displayName || "",
-        phone:data.phone || data.customer?.phone || data.customerPhone || data.from || data.sender || data.participantId || data.fbId || "",
+        phone:data.phone || data.customer?.phone || data.customerPhone || data.from || data.sender || data.participantId || data.fbId || data.manychatContactId || "",
         clientStatus:data.clientStatus || data.customer?.clientStatus || data.status || "",
         department:data.department || data.customer?.department || "",
         updatedAt:data.updatedAt || data.lastUpdated || data.lastMessageAt || data.createdAt || null
       };
     }
 
+    function cleanIdValue(v){
+      return String(v || "").replace(/^fb:/,"").replace(/^wa:/,"").replace(/^\+/,"").trim();
+    }
+
     function conversationDedupeKey(c){
       const platform = c.platform || "whatsapp";
-      const raw = c.contactKey || c.fbId || c.manychatContactId || c.participantId || c.waId || c.phone || c.phoneNumber || c.mobile || c.id || "";
-      return `${platform}:${String(raw).replace(/^fb:/,"").replace(/^wa:/,"").replace(/^facebook:[^:]+:/,"").replace(/^wa_/,"")}`;
+      const direct = c.contactKey || c.fbId || c.manychatContactId || c.participantId || c.waId || c.phoneNormalized || c.phone || c.phoneNumber || c.mobile;
+      if(direct) return `${platform}:${cleanIdValue(direct)}`;
+      return `${platform}:doc:${c.id}`;
     }
 
     function dedupeConversations(items){
@@ -579,15 +593,21 @@
         const div = document.createElement("div");
         div.className = "conv" + (state.selected?.id === c.id && state.selected?.platform === c.platform ? " active" : "");
         const status = getClientStatus(c);
+        const responsible = getResponsibleName(c);
+        const unread = getUnreadCount(c);
+        const lastText = getLastText(c);
         div.innerHTML = `
           <div class="row">
             <div class="name">${escapeHtml(getCustomerName(c))}</div>
             <span class="badge ${c.platform}">${platformLabel(c.platform)}</span>
           </div>
-          <div class="preview">${escapeHtml(getLastText(c))}</div>
+          ${responsible ? `<div class="preview responsible-line">المسؤول: ${escapeHtml(responsible)}</div>` : ""}
+          <div class="preview">${escapeHtml(lastText || "لا توجد رسائل بعد")}</div>
           <div class="row">
-            <span class="time">${escapeHtml(getPhone(c))}</span>
-            ${status ? `<span class="client-status">${escapeHtml(status)}</span>` : `<span class="time">${formatTime(c.updatedAt)}</span>`}
+            <span class="time">${escapeHtml(getPhone(c) || "")}</span>
+            <span class="time">${formatTime(c.updatedAt)}</span>
+            ${unread > 0 ? `<span class="unread-badge">${unread}</span>` : ""}
+            ${status ? `<span class="client-status">${escapeHtml(status)}</span>` : ""}
           </div>`;
         div.onclick = () => selectConversation(c);
         conversationList.appendChild(div);
@@ -611,13 +631,13 @@
       state.unsubConversations = [];
       state.conversations = [];
 
-      const owners = new Map();
+      const collectionOwners = new Map();
       Object.entries(PLATFORM_CONFIG).forEach(([platform, cfg]) => {
         if(!cfg.conversations) return;
-        if(!owners.has(cfg.conversations)) owners.set(cfg.conversations, platform);
+        if(!collectionOwners.has(cfg.conversations)) collectionOwners.set(cfg.conversations, platform);
       });
 
-      owners.forEach((defaultPlatform, collectionName) => {
+      collectionOwners.forEach((defaultPlatform, collectionName) => {
         const q = query(collection(db, collectionName), orderBy("updatedAt", "desc"), limit(250));
         const unsub = onSnapshot(q, snap => {
           state.conversations = state.conversations.filter(c => c.__collection !== collectionName);
@@ -709,57 +729,68 @@
       const dept = c.department || (state.department === "all" ? "cash_sales" : state.department);
       const selectedTemplate = getSelectedMessageTemplate();
 
-      try{
-        if(c.platform === "facebook"){
+      if(c.platform === "facebook"){
+        try{
           const res = await fetch(FACEBOOK_SEND_ENDPOINT, {
             method:"POST",
             headers:{ "content-type":"application/json" },
-            body:JSON.stringify({ convId:c.id, conversationId:c.id, text, message:text })
+            body:JSON.stringify({
+              convId:c.id,
+              conversationId:c.id,
+              psid:c.participantId || c.fbId || c.manychatContactId || getPhone(c),
+              text,
+              message:text
+            })
           });
           const result = await res.json().catch(() => ({}));
           if(!res.ok || result.ok === false){
             console.error("Facebook send failed", result);
-            throw new Error(result.error || result.hint || "Facebook worker send failed");
+            return toast("فشل إرسال فيسبوك. راجع رابط الوركر أو التوكن.");
           }
-        } else {
-          if(!cfg.outbox) throw new Error("لا يوجد مسار إرسال مضبوط لهذه المنصة");
-          await addDoc(collection(db, cfg.outbox), {
-            conversationId:c.id,
-            platform:c.platform,
-            department:dept,
-            to:getPhone(c),
-            text,
-            status:"pending",
-            messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
-            template: selectedTemplate,
-            sentByUid:state.user.uid,
-            sentByEmail:state.user.email,
-            createdAt:serverTimestamp()
-          });
-
-          await addDoc(collection(db, cfg.conversations, c.id, "messages"), {
-            text,
-            direction:"outgoing",
-            fromAgent:true,
-            department:dept,
-            template:selectedTemplate,
-            sentByUid:state.user.uid,
-            sentByEmail:state.user.email,
-            createdAt:serverTimestamp(),
-            status:"pending"
-          });
-
-          await updateDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, department:dept, updatedAt:serverTimestamp() }).catch(()=>{});
+          el("replyText").value = "";
+          clearSelectedTemplateControls();
+          autoResizeReply();
+          toast("تم الإرسال");
+          return;
+        } catch(err){
+          console.error(err);
+          return toast("فشل اتصال وركر فيسبوك.");
         }
-
-        el("replyText").value = "";
-        clearSelectedTemplateControls();
-        autoResizeReply();
-        toast("تم الإرسال");
-      } catch(err){
-        console.error(err);
-        toast("فشل الإرسال: " + (err.message || ""));
       }
+
+      if(!cfg.outbox) return toast("لا يوجد مسار إرسال مضبوط لهذه المنصة.");
+
+      await addDoc(collection(db, cfg.outbox), {
+        conversationId:c.id,
+        platform:c.platform,
+        department:dept,
+        to:getPhone(c),
+        text,
+        status:"pending",
+        messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
+        template: selectedTemplate,
+        sentByUid:state.user.uid,
+        sentByEmail:state.user.email,
+        createdAt:serverTimestamp()
+      });
+
+      await addDoc(collection(db, cfg.conversations, c.id, "messages"), {
+        text,
+        direction:"outgoing",
+        fromAgent:true,
+        department:dept,
+        template:selectedTemplate,
+        sentByUid:state.user.uid,
+        sentByEmail:state.user.email,
+        createdAt:serverTimestamp(),
+        status:"pending"
+      });
+
+      await updateDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, lastMessageText:text, department:dept, updatedAt:serverTimestamp() }).catch(()=>{});
+      el("replyText").value = "";
+      clearSelectedTemplateControls();
+      autoResizeReply();
+      toast("تم الإرسال");
     }
 
     function fillCustomerForm(data = {}){
