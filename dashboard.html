@@ -689,10 +689,8 @@
           const snap = await getDoc(doc(db, cfg.conversations, id));
           if(!snap.exists()) continue;
           const data = snap.data() || {};
-          // V42: نفس النسبة الظاهرة في صندوق الوارد فعلياً.
-          // صندوق الوارد يحفظ profileCompletion على وثيقة المحادثة بعد حسابه.
-          if(typeof data.profileCompletion === "number") return data.profileCompletion;
-          if(data.customer && typeof data.customer.profileCompletion === "number") return data.customer.profileCompletion;
+          // لا نستخدم profileCompletion المخزن لأنه ممكن يكون محسوب بقواعد قديمة.
+          // نحسب من بيانات customer نفسها عشان كارت الداش بورد يطابق Popup العميل.
           if(data.customer) return inboxCompletionFromData(data.customer);
           return inboxCompletionFromData(data);
         }catch(e){
@@ -997,11 +995,9 @@
     function renderCompletionBadge(lead){
       const id = lead.__id || lead.id || "";
       const cached = id && typeof dashboardChatState.completionByLead[id] === "number";
-      const pct =
-        cached ? dashboardChatState.completionByLead[id] :
-        typeof lead.profileCompletion === "number" ? lead.profileCompletion :
-        typeof lead.customer?.profileCompletion === "number" ? lead.customer.profileCompletion :
-        leadCompletionFromLeadData(lead);
+      // لا نستخدم profileCompletion الموجود على الليد لأنه قديم وممكن يطلع 45% بينما حساب الـ popup 18%.
+      // القيمة الفورية هنا نفس حساب الـ popup من بيانات العميل الحالية.
+      const pct = cached ? dashboardChatState.completionByLead[id] : leadCompletionFromLeadData(lead);
       return `<span class="lead-completion-badge" title="اكتمال ملف العميل" data-completion-lead-id="${escapeHtml(id)}">${pct}% مكتمل</span>`;
     }
 
@@ -1011,10 +1007,7 @@
         const id = lead.__id || lead.id;
         const pct = await loadActualInboxCompletionForLead(lead).catch(() => null);
         dashboardChatState.completionByLead[id] =
-          typeof pct === "number" ? pct :
-          typeof lead.profileCompletion === "number" ? lead.profileCompletion :
-          typeof lead.customer?.profileCompletion === "number" ? lead.customer.profileCompletion :
-          leadCompletionFromLeadData(lead);
+          typeof pct === "number" ? pct : leadCompletionFromLeadData(lead);
       }));
 
       visible.forEach(lead => {
@@ -1028,6 +1021,7 @@
     }
 
     function renderStatusCards(){
+      dashboardChatState.completionByLead = {};
       const def = SECTION_DEFS[selectedSectionKey];
       if(!def) return;
       const all = visibleLeadsForSection(def);
