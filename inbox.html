@@ -279,14 +279,16 @@
 
         state.isAdmin = isAdminProfile(state.userProfile);
         applyPermissions();
-        await applyInboxOpenTarget();
         el("loginScreen").classList.add("hidden");
         el("app").classList.remove("hidden");
-        listenStatuses();
-        listenTemplates();
+
         if(state.limitedInboxMode){
           el("connectionStatus").textContent = "وضع محدود";
+          await applyInboxOpenTarget();
         } else {
+          await applyInboxOpenTarget();
+          listenStatuses();
+          listenTemplates();
           listenConversations();
         }
       } catch(err){
@@ -341,7 +343,7 @@
     }
 
     function currentPageName(){
-      return location.pathname.split("/").pop() || "inbox.html";
+      return (location.pathname.split("/").pop() || "inbox.html").split("?")[0].split("#")[0];
     }
 
     function allowedPagesForCurrentUser(){
@@ -360,7 +362,7 @@
     function userHasFullInboxAccess(){
       const pages = allowedPagesForCurrentUser();
       const unrestricted = state.isAdmin || state.userProfile?.allDepartments === true || !pages.length;
-      return unrestricted || pages.includes("inbox.html");
+      return unrestricted || pages.includes("inbox.html") || pages.includes("صندوق الوارد");
     }
 
     function isAssignedToCurrentUser(data = {}){
@@ -381,7 +383,7 @@
 
     function hasPageAccess(page){
       const pages = allowedPagesForCurrentUser();
-      return state.isAdmin || state.userProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html" || hasInboxDeepLinkAccess();
+      return state.isAdmin || state.userProfile?.allDepartments === true || !pages.length || pages.includes(page) || (pages.includes("الداش بورد") && page === "dashboard.html") || hasInboxDeepLinkAccess();
     }
 
     function applyPagePermissions(){
@@ -424,6 +426,9 @@
       el("userInfo").textContent = `${state.userProfile?.name || state.user.email} - ${state.isAdmin ? "إدارة عامة" : departmentLabel(state.department)}`;
       state.limitedInboxMode = !userHasFullInboxAccess() && hasInboxDeepLinkAccess();
       document.body.classList.toggle("limited-inbox-mode", state.limitedInboxMode);
+      if(state.limitedInboxMode){
+        el("connectionStatus").textContent = "وضع محدود";
+      }
       renderAllowedNavigation();
       applyPagePermissions();
     }
@@ -628,13 +633,19 @@
 
     function readInboxOpenTarget(){
       const params = new URLSearchParams(location.search);
-      const platform = String(params.get("platform") || "").trim();
-      const conversationId = String(params.get("conversationId") || params.get("convId") || params.get("id") || "").trim();
-      const phone = normalizeKsaPhone(params.get("phone") || "");
-      const name = String(params.get("name") || "").trim();
-      const department = String(params.get("department") || "").trim();
-      const leadId = String(params.get("leadId") || "").trim();
-      const fromDashboard = params.get("fromDashboard") === "1" || params.get("dashboard") === "1";
+      let stored = {};
+      try{
+        stored = JSON.parse(sessionStorage.getItem("mzj_inbox_open_target") || "{}") || {};
+      }catch(e){ stored = {}; }
+
+      const platform = String(params.get("platform") || stored.platform || "").trim();
+      const conversationId = String(params.get("conversationId") || params.get("convId") || params.get("id") || stored.conversationId || stored.convId || stored.id || "").trim();
+      const phone = normalizeKsaPhone(params.get("phone") || stored.phone || "");
+      const name = String(params.get("name") || stored.name || "").trim();
+      const department = String(params.get("department") || stored.department || "").trim();
+      const leadId = String(params.get("leadId") || stored.leadId || "").trim();
+      const fromDashboard = params.get("fromDashboard") === "1" || params.get("dashboard") === "1" || stored.fromDashboard === "1" || stored.fromDashboard === true;
+
       if(!platform && !conversationId && !phone && !leadId) return null;
       return { platform: platform || "whatsapp", conversationId, phone, name, department, leadId, fromDashboard };
     }
@@ -673,6 +684,9 @@
         }
       }
 
+      if(state.limitedInboxMode){
+        el("connectionStatus").textContent = "وضع محدود";
+      }
       return false;
     }
 
@@ -727,7 +741,7 @@
           return;
         }
 
-        messagesEl.innerHTML = '<div class="empty">لم يتم العثور على محادثة هذا العميل</div>';
+        messagesEl.innerHTML = '<div class="empty">لم يتم العثور على محادثة هذا العميل أو لا توجد صلاحية لقراءتها</div>';
         el("connectionStatus").textContent = "وضع محدود";
         return;
       }

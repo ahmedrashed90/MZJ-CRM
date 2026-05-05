@@ -401,15 +401,20 @@
         return;
       }
       const department = leadDepartment(lead);
-      const params = new URLSearchParams({
+      const target = {
         platform,
         conversationId: conversationId || "",
         phone: phone || "",
         leadId: lead.id || lead.__id || "",
         name: customerName(lead) || "",
         department,
-        fromDashboard: "1"
-      });
+        fromDashboard: "1",
+        ts: Date.now()
+      };
+      try{
+        sessionStorage.setItem("mzj_inbox_open_target", JSON.stringify(target));
+      }catch(e){}
+      const params = new URLSearchParams(target);
       window.location.href = `./inbox.html?${params.toString()}`;
     }
 
