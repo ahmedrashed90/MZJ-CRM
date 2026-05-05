@@ -279,7 +279,7 @@
 
         state.isAdmin = isAdminProfile(state.userProfile);
         applyPermissions();
-        applyInboxOpenTarget();
+        await applyInboxOpenTarget();
         el("loginScreen").classList.add("hidden");
         el("app").classList.remove("hidden");
         listenStatuses();
@@ -352,7 +352,15 @@
       const target = readInboxOpenTarget();
       if(!target) return false;
       if(currentPageName() !== "inbox.html") return false;
-      return !!(target.fromDashboard && (target.leadId || target.conversationId || target.phone));
+      // لا نعتمد على fromDashboard فقط، لأن بعض روابط الداش بورد القديمة لم تكن تضيفه.
+      // يكفي وجود leadId أو conversationId أو phone لفتح صندوق الوارد في وضع محدود.
+      return !!(target.leadId || target.conversationId || target.phone);
+    }
+
+    function userHasFullInboxAccess(){
+      const pages = allowedPagesForCurrentUser();
+      const unrestricted = state.isAdmin || state.userProfile?.allDepartments === true || !pages.length;
+      return unrestricted || pages.includes("inbox.html");
     }
 
     function isAssignedToCurrentUser(data = {}){
@@ -414,11 +422,7 @@
       }
       departmentSelect.value = state.department;
       el("userInfo").textContent = `${state.userProfile?.name || state.user.email} - ${state.isAdmin ? "إدارة عامة" : departmentLabel(state.department)}`;
-      {
-        const pages = allowedPagesForCurrentUser();
-        const unrestricted = state.isAdmin || state.userProfile?.allDepartments === true || !pages.length;
-        state.limitedInboxMode = !unrestricted && !pages.includes("inbox.html") && hasInboxDeepLinkAccess();
-      }
+      state.limitedInboxMode = !userHasFullInboxAccess() && hasInboxDeepLinkAccess();
       document.body.classList.toggle("limited-inbox-mode", state.limitedInboxMode);
       renderAllowedNavigation();
       applyPagePermissions();
@@ -638,10 +642,13 @@
     async function openLimitedTargetDocument(target){
       const platform = target.platform || "whatsapp";
       const cfg = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.whatsapp;
+      const normalizedPhone = normalizeKsaPhone(target.phone || target.conversationId || "");
+      const rawConversation = String(target.conversationId || "").trim();
       const candidateIds = [
-        target.conversationId,
-        target.phone,
-        target.phone ? `wa_${target.phone}` : "",
+        rawConversation,
+        rawConversation.replace(/^wa_/, ""),
+        normalizedPhone,
+        normalizedPhone ? `wa_${normalizedPhone}` : "",
         target.leadId
       ].filter(Boolean).map(String);
 
@@ -673,6 +680,10 @@
       const target = readInboxOpenTarget();
       if(!target) return;
       state.pendingOpenTarget = target;
+      if(state.limitedInboxMode){
+        el("connectionStatus").textContent = "وضع محدود";
+        console.info("limited inbox target", target);
+      }
 
       if(target.department && (state.isAdmin || state.userProfile?.allDepartments === true || state.limitedInboxMode)){
         state.department = target.department;
