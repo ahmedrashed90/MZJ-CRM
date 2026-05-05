@@ -651,9 +651,10 @@
     }
 
     function inboxCompletionFromData(data = {}){
+      // V40: نفس منطق صندوق الوارد بعد استبعاد الملاحظات وروابط/ملاحظات الملفات
       const fields = [
         "customerName","phone","salary","obligation","location","age","salaryBank",
-        "carType","carModel","color","notes","attachmentsNotes","financeType"
+        "carType","carModel","color","financeType"
       ];
       const filled = fields.filter(f => {
         const v = data[f];
@@ -678,9 +679,10 @@
           const snap = await getDoc(doc(db, cfg.conversations, id));
           if(!snap.exists()) continue;
           const data = snap.data() || {};
-          if(typeof data.profileCompletion === "number") return data.profileCompletion;
-          if(data.customer && typeof data.customer.profileCompletion === "number") return data.customer.profileCompletion;
+          // لا نستخدم profileCompletion المخزن لأنه ممكن يكون محسوب بالمعادلة القديمة.
+          // نحسب مباشرة من بيانات customer بنفس منطق صندوق الوارد الحالي.
           if(data.customer) return inboxCompletionFromData(data.customer);
+          return inboxCompletionFromData(data);
         }catch(e){
           console.warn("completion read skipped", id, e);
         }
@@ -702,8 +704,6 @@
           carType: el("chatCar")?.value || "",
           carModel: el("chatModel")?.value || "",
           color: el("chatColor")?.value || "",
-          notes: el("chatNotes")?.value || "",
-          attachmentsNotes: getLeadField(dashboardChatState.lead || {}, ["attachmentsNotes","attachmentNotes","fileNotes"]),
           financeType: el("chatPayment")?.value || ""
         };
         pct = inboxCompletionFromData(data);
@@ -946,8 +946,6 @@
           carType: payload.carType,
           carModel: payload.carModel,
           color: payload.color,
-          notes: payload.notes,
-          attachmentsNotes: payload.attachmentsNotes || "",
           financeType: payload.financeType || payload.paymentType || payload.payment
         });
         renderDashboard();
@@ -1776,6 +1774,31 @@
           white-space:nowrap !important;
         }
         .customer-progress-card{display:none !important;}
+        /* V40: show completion beside customer name */
+        .chat-title-box{
+          display:flex !important;
+          flex-direction:column !important;
+          align-items:flex-start !important;
+          gap:3px !important;
+        }
+        .chat-title-line{
+          display:inline-flex !important;
+          align-items:center !important;
+          gap:10px !important;
+          justify-content:flex-start !important;
+          flex-wrap:nowrap !important;
+          direction:rtl !important;
+          width:auto !important;
+        }
+        .chat-title-line h3{
+          margin:0 !important;
+          display:inline-block !important;
+        }
+        .chat-progress-badge{
+          display:inline-flex !important;
+          vertical-align:middle !important;
+          margin-inline-start:8px !important;
+        }
 
       `;
       document.head.appendChild(style);

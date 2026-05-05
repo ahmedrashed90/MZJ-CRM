@@ -245,6 +245,12 @@
       "carType","carModel","color","notes","attachmentsNotes","financeType"
     ];
 
+    // V40: ملاحظات العميل وروابط/ملاحظات الملفات لا تدخل في نسبة اكتمال ملف العميل
+    const COMPLETION_FIELDS = [
+      "customerName","phone","salary","obligation","location","age","salaryBank",
+      "carType","carModel","color","financeType"
+    ];
+
     const state = {
       user:null, userProfile:null, isAdmin:false,
       conversations:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
@@ -1175,11 +1181,11 @@
     }
 
     function updateCompletion(data){
-      const filled = CUSTOMER_FIELDS.filter(f => {
+      const filled = COMPLETION_FIELDS.filter(f => {
         const v = data[f];
         return Array.isArray(v) ? v.length : String(v || "").trim();
       }).length;
-      const percent = Math.round((filled / CUSTOMER_FIELDS.length) * 100);
+      const percent = Math.round((filled / COMPLETION_FIELDS.length) * 100);
       el("completionBar").style.width = percent + "%";
       el("completionText").textContent = `${percent}% مكتمل`;
       return percent;
