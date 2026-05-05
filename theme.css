@@ -2863,3 +2863,277 @@ body:has(.mersal-inbox-main) .mersal-conversations-panel{
   }
 }
 
+
+/* ===== V9 Compact Professional Top Bar =====
+   شكل بديل للتوب بار:
+   - الهيدر صف صغير للبراند والمستخدم
+   - التنقل صف ثاني Chips أفقي
+   - صندوق الوارد 3 أعمدة بدون زحمة
+*/
+:root{
+  --topbar-h: 104px !important;
+}
+
+/* صفحات الإدارة */
+.management-page{
+  display:block !important;
+  height:100vh !important;
+  min-height:100vh !important;
+  padding-top:var(--topbar-h) !important;
+  overflow:hidden !important;
+}
+
+.management-main{
+  height:calc(100vh - var(--topbar-h)) !important;
+  overflow:auto !important;
+  padding:18px 22px !important;
+}
+
+/* الهيدر العام */
+.brand{
+  position:fixed !important;
+  inset:0 0 auto 0 !important;
+  z-index:2000 !important;
+  height:var(--topbar-h) !important;
+  padding:0 18px !important;
+  display:grid !important;
+  grid-template-columns:minmax(260px, auto) 1fr auto auto !important;
+  grid-template-rows:56px 48px !important;
+  grid-template-areas:
+    "brand spacer dept user"
+    "nav nav nav nav" !important;
+  align-items:center !important;
+  gap:0 14px !important;
+  border-bottom:1px solid #ead7cb !important;
+  background:rgba(255,250,246,.98) !important;
+  backdrop-filter:blur(14px) !important;
+  box-shadow:0 10px 28px rgba(75,32,27,.08) !important;
+}
+
+.brand-top{
+  grid-area:brand !important;
+  min-width:0 !important;
+  width:auto !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:12px !important;
+}
+
+.logo-box{
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+  min-width:0 !important;
+}
+
+.logo-mark{
+  flex:0 0 42px !important;
+  width:42px !important;
+  height:42px !important;
+  border-radius:14px !important;
+  font-size:15px !important;
+}
+
+.logo-box h1{
+  margin:0 !important;
+  max-width:260px !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  font-size:14px !important;
+  line-height:1.4 !important;
+}
+
+.status-text{
+  font-size:11px !important;
+}
+
+.brand .nav-card{
+  grid-area:nav !important;
+  width:100% !important;
+  min-width:0 !important;
+  height:48px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:0 !important;
+  box-shadow:none !important;
+  background:transparent !important;
+  overflow:hidden !important;
+}
+
+.brand .menu-label{
+  display:none !important;
+}
+
+.brand .nav-tabs{
+  height:48px !important;
+  display:flex !important;
+  flex-wrap:nowrap !important;
+  align-items:center !important;
+  gap:8px !important;
+  padding:6px 2px !important;
+  margin:0 !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  scrollbar-width:thin !important;
+}
+
+.brand .nav-tabs a{
+  flex:0 0 auto !important;
+  min-width:max-content !important;
+  padding:9px 13px !important;
+  border-radius:999px !important;
+  font-size:13px !important;
+  font-weight:800 !important;
+  white-space:nowrap !important;
+  background:#fff !important;
+  border:1px solid #ead7cb !important;
+  box-shadow:none !important;
+}
+
+.brand .nav-tabs a.active{
+  background:#7c3428 !important;
+  border-color:#7c3428 !important;
+  color:#fff !important;
+}
+
+.brand .nav-tabs a::before{
+  width:7px !important;
+  height:7px !important;
+  margin-left:8px !important;
+  background:currentColor !important;
+  opacity:.35 !important;
+}
+
+.brand .dept-select{
+  grid-area:dept !important;
+  width:190px !important;
+  height:40px !important;
+  margin:0 !important;
+  padding:8px 12px !important;
+  border-radius:14px !important;
+  background:#fff !important;
+}
+
+.brand .user-row{
+  grid-area:user !important;
+  min-width:0 !important;
+  width:auto !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:0 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  gap:10px !important;
+  white-space:nowrap !important;
+}
+
+.brand .user-row .secondary,
+.brand-top > .secondary{
+  padding:9px 14px !important;
+  border-radius:14px !important;
+}
+
+/* صندوق الوارد 3 أجزاء */
+.app{
+  direction:ltr !important;
+  height:100vh !important;
+  padding-top:var(--topbar-h) !important;
+  display:grid !important;
+  grid-template-columns:360px minmax(0,1fr) 390px !important;
+  grid-template-areas:"customer chat convs" !important;
+  grid-template-rows:minmax(0,1fr) !important;
+  overflow:hidden !important;
+  background:#fffaf6 !important;
+}
+
+.app > .sidebar{
+  direction:rtl !important;
+  grid-area:convs !important;
+  height:calc(100vh - var(--topbar-h)) !important;
+  width:auto !important;
+  min-width:0 !important;
+  display:grid !important;
+  grid-template-rows:auto minmax(0,1fr) !important;
+  border-right:1px solid #ead7cb !important;
+  border-left:0 !important;
+  background:#fff !important;
+  overflow:hidden !important;
+}
+
+.app > .chat{
+  direction:rtl !important;
+  grid-area:chat !important;
+  height:calc(100vh - var(--topbar-h)) !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+  border-inline:1px solid #ead7cb !important;
+  background:#fff !important;
+}
+
+.app > .customer{
+  direction:rtl !important;
+  grid-area:customer !important;
+  height:calc(100vh - var(--topbar-h)) !important;
+  width:auto !important;
+  min-width:0 !important;
+  overflow:auto !important;
+  background:#fff !important;
+}
+
+.app > .sidebar > .brand{
+  direction:rtl !important;
+}
+
+.app > .sidebar > .filters{
+  grid-row:1 !important;
+  padding:12px !important;
+  background:#fffaf7 !important;
+  border-top:0 !important;
+  border-bottom:1px solid #ead7cb !important;
+}
+
+.app > .sidebar > .list{
+  grid-row:2 !important;
+  min-height:0 !important;
+  height:auto !important;
+  overflow:auto !important;
+}
+
+/* على الشاشات الصغيرة */
+@media(max-width:1180px){
+  :root{ --topbar-h: 116px !important; }
+  .brand{
+    grid-template-columns:minmax(220px,auto) 1fr auto !important;
+    grid-template-rows:58px 58px !important;
+    grid-template-areas:
+      "brand dept user"
+      "nav nav nav" !important;
+  }
+  .app{
+    grid-template-columns:320px minmax(0,1fr) 330px !important;
+  }
+}
+
+@media(max-width:900px){
+  :root{ --topbar-h: 126px !important; }
+  .brand{
+    padding:0 12px !important;
+    grid-template-columns:1fr auto !important;
+    grid-template-rows:58px 68px !important;
+    grid-template-areas:
+      "brand user"
+      "nav nav" !important;
+  }
+  .brand .dept-select{display:none !important;}
+  .brand .nav-tabs a{padding:9px 12px !important;font-size:12px !important;}
+  .app{
+    grid-template-columns:1fr !important;
+    grid-template-areas:"convs" !important;
+  }
+  .app > .chat,
+  .app > .customer{display:none !important;}
+}
+
