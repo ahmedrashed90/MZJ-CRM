@@ -5009,3 +5009,249 @@ body:has(.app){
   }
 }
 
+
+/* ===== V17 Inbox Sidebar Full + Save Button Fix =====
+   إصلاح صندوق الوارد فقط:
+   - تكبير السايد بار وإظهار روابط التنقل كاملة.
+   - ضغط الهيدر وأزرار التنقل داخل السايد بار حتى لا تختفي آخر العناصر.
+   - تصغير زر حفظ بيانات العميل وتثبيته داخل عمود بيانات العميل فقط بدون تغطية زر إرسال.
+*/
+.app{
+  --side-nav-w: 360px !important;
+  --inbox-list-w: 390px !important;
+  --customer-w: 360px !important;
+  --chat-min-w: 500px !important;
+}
+
+/* السايد بار في صندوق الوارد أكبر وواضح */
+.app > .sidebar{
+  width:calc(var(--inbox-list-w) + var(--side-nav-w)) !important;
+  min-width:calc(var(--inbox-list-w) + var(--side-nav-w)) !important;
+  max-width:calc(var(--inbox-list-w) + var(--side-nav-w)) !important;
+  grid-template-columns:var(--inbox-list-w) var(--side-nav-w) !important;
+}
+
+.app > .sidebar > .brand{
+  width:var(--side-nav-w) !important;
+  min-width:var(--side-nav-w) !important;
+  max-width:var(--side-nav-w) !important;
+  padding:10px !important;
+  gap:8px !important;
+  grid-template-rows:auto minmax(0,1fr) auto !important;
+}
+
+/* تصغير رأس السايد بار */
+.app > .sidebar > .brand .brand-top{
+  gap:8px !important;
+  align-items:center !important;
+}
+
+.app > .sidebar > .brand .logo-mark{
+  width:38px !important;
+  height:38px !important;
+  flex-basis:38px !important;
+  border-radius:13px !important;
+  font-size:13px !important;
+}
+
+.app > .sidebar > .brand .logo-box{
+  gap:8px !important;
+}
+
+.app > .sidebar > .brand .logo-box h1{
+  max-width:255px !important;
+  font-size:12.5px !important;
+  line-height:1.25 !important;
+}
+
+.app > .sidebar > .brand .status-text{
+  font-size:10px !important;
+  line-height:1.25 !important;
+}
+
+.app > .sidebar > .brand .brand-top > .secondary{
+  min-height:32px !important;
+  padding:6px 10px !important;
+  border-radius:12px !important;
+  font-size:12px !important;
+}
+
+/* كارت التنقل يظهر كله */
+.app > .sidebar > .brand .nav-card{
+  height:100% !important;
+  min-height:0 !important;
+  padding:8px !important;
+  border-radius:18px !important;
+  overflow:hidden !important;
+}
+
+.app > .sidebar > .brand .menu-label{
+  margin:0 0 6px !important;
+  font-size:10.5px !important;
+  line-height:1.2 !important;
+}
+
+.app > .sidebar > .brand .nav-tabs{
+  gap:4px !important;
+  height:auto !important;
+  max-height:none !important;
+  overflow:visible !important;
+}
+
+.app > .sidebar > .brand .nav-tabs a{
+  min-height:28px !important;
+  padding:5px 9px !important;
+  border-radius:12px !important;
+  font-size:11px !important;
+  line-height:1.15 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  display:flex !important;
+  align-items:center !important;
+}
+
+.app > .sidebar > .brand .nav-tabs a::before{
+  width:6px !important;
+  height:6px !important;
+  margin-left:6px !important;
+}
+
+/* أسفل السايد بار بدون تداخل */
+.app > .sidebar > .brand .user-row{
+  min-height:36px !important;
+  padding-top:7px !important;
+  gap:7px !important;
+}
+
+.app > .sidebar > .brand .user-row .status-text{
+  max-width:245px !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+.app > .sidebar > .brand .user-row .secondary{
+  min-height:32px !important;
+  padding:6px 10px !important;
+  border-radius:12px !important;
+  font-size:12px !important;
+}
+
+/* تحديث عرض قائمة المحادثات بعد تكبير السايد بار */
+.app > .sidebar > .filters,
+.app > .sidebar > .list{
+  width:var(--inbox-list-w) !important;
+  min-width:var(--inbox-list-w) !important;
+  max-width:var(--inbox-list-w) !important;
+}
+
+/* زر حفظ بيانات العميل داخل عمود العميل فقط */
+.app > .customer{
+  position:relative !important;
+  padding-bottom:76px !important;
+}
+
+/* أغلب نسخ الصفحة فيها زر حفظ داخل فورم بيانات العميل كـ primary */
+.app > .customer .primary,
+.app > .customer button.primary,
+.app > .customer input[type="submit"].primary{
+  max-width:240px !important;
+  width:240px !important;
+  min-height:42px !important;
+  height:42px !important;
+  padding:9px 14px !important;
+  border-radius:14px !important;
+  font-size:13px !important;
+}
+
+/* لو الزر معمول sticky/fixed نخليه داخل عمود العميل فقط */
+.app > .customer .sticky-actions,
+.app > .customer .customer-actions,
+.app > .customer .form-actions{
+  position:sticky !important;
+  bottom:10px !important;
+  left:auto !important;
+  right:auto !important;
+  width:100% !important;
+  max-width:100% !important;
+  padding:8px !important;
+  background:linear-gradient(180deg,rgba(255,255,255,0),#fff 30%) !important;
+  z-index:8 !important;
+  display:flex !important;
+  justify-content:center !important;
+}
+
+/* إصلاح مباشر لو الزر نفسه واخد fixed/absolute وبيطلع فوق زر الإرسال */
+.app > .customer button[type="submit"].primary{
+  position:relative !important;
+  inset:auto !important;
+  display:block !important;
+  margin:10px auto 0 !important;
+}
+
+/* زر الإرسال في الشات يفضل فوق أي حاجة */
+.app > .chat{
+  position:relative !important;
+  z-index:3 !important;
+}
+
+.app > .chat .composer,
+.app > .chat .reply-box,
+.app > .chat form{
+  position:relative !important;
+  z-index:20 !important;
+}
+
+/* عند ارتفاع قليل جداً نضغط أكثر */
+@media(max-height:720px){
+  .app > .sidebar > .brand{
+    padding:7px !important;
+    gap:5px !important;
+  }
+
+  .app > .sidebar > .brand .logo-mark{
+    width:34px !important;
+    height:34px !important;
+    flex-basis:34px !important;
+  }
+
+  .app > .sidebar > .brand .logo-box h1{
+    font-size:11.5px !important;
+    line-height:1.15 !important;
+  }
+
+  .app > .sidebar > .brand .nav-card{
+    padding:6px !important;
+  }
+
+  .app > .sidebar > .brand .nav-tabs{
+    gap:3px !important;
+  }
+
+  .app > .sidebar > .brand .nav-tabs a{
+    min-height:25px !important;
+    padding:4px 8px !important;
+    font-size:10.5px !important;
+    border-radius:10px !important;
+  }
+
+  .app > .sidebar > .brand .user-row{
+    min-height:32px !important;
+    padding-top:5px !important;
+  }
+
+  .app > .customer .primary,
+  .app > .customer button.primary{
+    width:220px !important;
+    max-width:220px !important;
+    height:38px !important;
+    min-height:38px !important;
+  }
+}
+
+/* تحديث min-width للصفحة بعد تكبير السايد بار */
+body:has(.app){
+  min-width:calc(var(--customer-w) + var(--chat-min-w) + var(--inbox-list-w) + var(--side-nav-w)) !important;
+}
+
