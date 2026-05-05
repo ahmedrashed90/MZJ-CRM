@@ -286,10 +286,19 @@
           el("connectionStatus").textContent = "وضع محدود";
           await applyInboxOpenTarget();
         } else {
-          await applyInboxOpenTarget();
+          // مهم:
+          // في الوضع العادي نبدأ listeners فوراً قبل فتح target من الداش بورد.
+          // لأن انتظار applyInboxOpenTarget كان أحياناً يمنع تشغيل listenConversations
+          // في حسابات المناديب، فتظل الصفحة على "جاري الاتصال" حتى الضغط على تحديث.
           listenStatuses();
           listenTemplates();
           listenConversations();
+          setTimeout(() => {
+            if(!state.limitedInboxMode && el("connectionStatus").textContent.includes("جاري")){
+              listenConversations();
+            }
+          }, 2000);
+          applyInboxOpenTarget().catch(console.error);
         }
       } catch(err){
         console.error(err);
@@ -1187,7 +1196,11 @@
 
     el("sendBtn").onclick = sendReply;
     form.onsubmit = saveCustomer;
-    el("refreshBtn").onclick = listenConversations;
+    el("refreshBtn").onclick = () => {
+      listenStatuses();
+      listenTemplates();
+      listenConversations();
+    };
     el("searchInput").oninput = renderConversations;
     el("backBtn").onclick = () => el("app").classList.remove("chat-open");
 
