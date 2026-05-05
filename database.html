@@ -5,7 +5,112 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MZJ CRM - قاعدة البيانات</title>
   <link rel="stylesheet" href="./theme.css" />
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+    function mzjNormalizeSourceAr(value){
+      const s = String(value || "").trim().toLowerCase();
+      if(s === "tiktok" || s === "tik tok" || s === "تيك توك") return "تيك توك";
+      if(s === "instagram" || s === "insta" || s === "ig" || s === "انستجرام" || s === "إنستجرام") return "انستجرام";
+      if(s === "facebook" || s === "fb" || s === "messenger" || s === "فيسبوك") return "فيسبوك";
+      if(s === "whatsapp" || s === "wa" || s === "واتساب") return "واتساب";
+      return value || "";
+    }
+
+    function mzjLeadSource(row){
+      return mzjNormalizeSourceAr(row?.source || row?.sourceName || row?.leadSource || row?.platform || row?.channel || row?.channelCode || "");
+    }
+
+    function mzjIsWhatsapp(row){
+      const s = String(row?.source || row?.sourceName || row?.leadSource || row?.platform || row?.channel || row?.channelCode || "").trim().toLowerCase();
+      return s === "whatsapp" || s === "wa" || s === "واتساب";
+    }
+
+    function mzjInboxUrl(row){
+      const params = new URLSearchParams();
+      const conv = row?.conversationId || row?.convId || row?.contactKey || "";
+      const phone = row?.phone || row?.mobile || row?.phoneNumber || row?.customerPhone || "";
+      const participant = row?.participantId || row?.tiktokId || row?.igId || row?.fbId || row?.manychatContactId || "";
+      if(conv) params.set("conversationId", conv);
+      if(phone) params.set("phone", phone);
+      if(participant) params.set("participantId", participant);
+      return "inbox.html" + (params.toString() ? "?" + params.toString() : "");
+    }
+
+    function mzjGetLeadRows(){
+      const candidates = [
+        window.rows, window.leads, window.filteredRows, window.currentRows,
+        window.state?.rows, window.state?.leads, window.state?.filteredRows
+      ];
+      for(const c of candidates){
+        if(Array.isArray(c)) return c;
+      }
+      try{
+        if(typeof rows !== "undefined" && Array.isArray(rows)) return rows;
+      }catch(e){}
+      try{
+        if(typeof leads !== "undefined" && Array.isArray(leads)) return leads;
+      }catch(e){}
+      return [];
+    }
+
+    function mzjFindRowByTableIndex(tr){
+      const tbody = tr.closest("tbody");
+      if(!tbody) return null;
+      const trs = Array.from(tbody.querySelectorAll("tr"));
+      const idx = trs.indexOf(tr);
+      const rows = mzjGetLeadRows();
+      return rows[idx] || null;
+    }
+
+    function mzjPatchLeadTableUI(){
+      const rows = mzjGetLeadRows();
+      const tables = document.querySelectorAll("table");
+      tables.forEach(table => {
+        const headers = Array.from(table.querySelectorAll("thead th")).map(th => th.textContent.trim());
+        if(!headers.length) return;
+
+        const sourceIdx = headers.findIndex(h => h.includes("المصدر"));
+        const nameIdx = headers.findIndex(h => h.includes("اسم العميل") || h === "الاسم");
+        const phoneIdx = headers.findIndex(h => h.includes("الجوال") || h.includes("رقم"));
+
+        table.querySelectorAll("tbody tr").forEach((tr, index) => {
+          const row = rows[index] || mzjFindRowByTableIndex(tr);
+          const cells = tr.children;
+          if(!row || !cells || !cells.length) return;
+
+          if(sourceIdx >= 0 && cells[sourceIdx]){
+            cells[sourceIdx].textContent = mzjLeadSource(row) || cells[sourceIdx].textContent;
+          }
+
+          const targetIdx = mzjIsWhatsapp(row) ? phoneIdx : nameIdx;
+          if(targetIdx >= 0 && cells[targetIdx] && !cells[targetIdx].querySelector(".mzj-inbox-link")){
+            const text = cells[targetIdx].textContent.trim() || "فتح";
+            const a = document.createElement("a");
+            a.className = "mzj-inbox-link";
+            a.href = mzjInboxUrl(row);
+            a.textContent = text;
+            cells[targetIdx].textContent = "";
+            cells[targetIdx].appendChild(a);
+          }
+        });
+      });
+    }
+
+    function mzjSchedulePatchLeadTableUI(){
+      requestAnimationFrame(() => {
+        mzjPatchLeadTableUI();
+        setTimeout(mzjPatchLeadTableUI, 200);
+        setTimeout(mzjPatchLeadTableUI, 800);
+      });
+    }
+
+
+    const mzjLeadObserver = new MutationObserver(() => mzjSchedulePatchLeadTableUI());
+    window.addEventListener("DOMContentLoaded", () => {
+      mzjSchedulePatchLeadTableUI();
+      mzjLeadObserver.observe(document.body, { childList:true, subtree:true });
+    });
+
+</script>
 </head>
 <body>
   <section class="login-screen hidden" id="loginScreen">
@@ -230,8 +335,6 @@
 
     function fillSelectOptions(select, placeholder, values, selected=""){
       select.innerHTML = "";
-      attachLeadInboxLinks(body, rows || state?.rows || state?.leads || leads || []);
-
       select.append(new Option(placeholder, ""));
       values.forEach(v => select.append(new Option(v.label || v, v.value || v)));
       select.value = selected;
@@ -305,84 +408,7 @@
       { page:"admin.html", label:"الإدارة" }
     ];
 
-    
-    function normalizeSourceAr(value){
-      const s = String(value || "").trim().toLowerCase();
-      if(s === "tiktok" || s === "tik tok" || s === "تيك توك") return "تيك توك";
-      if(s === "instagram" || s === "insta" || s === "ig" || s === "انستجرام" || s === "إنستجرام") return "انستجرام";
-      if(s === "facebook" || s === "fb" || s === "messenger" || s === "فيسبوك") return "فيسبوك";
-      if(s === "whatsapp" || s === "wa" || s === "واتساب") return "واتساب";
-      return value || "";
-    }
-
-    function getLeadSourceValue(row){
-      return normalizeSourceAr(row.source || row.sourceName || row.leadSource || row.platform || row.channel || row.channelCode || "");
-    }
-
-    function isWhatsappLead(row){
-      const s = String(row.source || row.sourceName || row.leadSource || row.platform || row.channel || row.channelCode || "").toLowerCase();
-      return s === "whatsapp" || s === "wa" || s === "واتساب";
-    }
-
-    function buildInboxUrlForLead(row){
-      const conv =
-        row.conversationId ||
-        row.convId ||
-        row.contactKey ||
-        "";
-      const phone =
-        row.phone ||
-        row.mobile ||
-        row.phoneNumber ||
-        row.customerPhone ||
-        row.jawal ||
-        row.mobileNumber ||
-        "";
-      const participant =
-        row.participantId ||
-        row.tiktokId ||
-        row.igId ||
-        row.fbId ||
-        row.manychatContactId ||
-        "";
-
-      const params = new URLSearchParams();
-      if(conv) params.set("conversationId", conv);
-      if(phone) params.set("phone", phone);
-      if(participant) params.set("participantId", participant);
-      return "inbox.html" + (params.toString() ? "?" + params.toString() : "");
-    }
-
-    function openInboxForLead(row){
-      const url = buildInboxUrlForLead(row);
-      window.location.href = url;
-    }
-
-    function clickableLeadName(row){
-      const name = row.customerName || row.name || row.fullName || row.displayName || "—";
-      if(isWhatsappLead(row)) return escapeHtml(name);
-      return `<button type="button" class="lead-link" data-action="open-inbox" data-lead-id="${escapeHtml(row.id || row.leadId || "")}">${escapeHtml(name)}</button>`;
-    }
-
-    function clickableLeadPhone(row){
-      const phone = row.phone || row.mobile || row.phoneNumber || "—";
-      if(!isWhatsappLead(row)) return escapeHtml(phone);
-      return `<button type="button" class="lead-link" data-action="open-inbox" data-lead-id="${escapeHtml(row.id || row.leadId || "")}">${escapeHtml(phone)}</button>`;
-    }
-
-    function attachLeadInboxLinks(container, rows){
-      if(!container || container.__leadInboxLinksAttached) return;
-      container.__leadInboxLinksAttached = true;
-      container.addEventListener("click", e => {
-        const btn = e.target.closest('[data-action="open-inbox"]');
-        if(!btn) return;
-        const id = btn.getAttribute("data-lead-id");
-        const row = rows.find(x => String(x.id || x.leadId || "") === String(id));
-        if(row) openInboxForLead(row);
-      });
-    }
-
-function renderAllowedNavigation(profile, adminFlag){
+    function renderAllowedNavigation(profile, adminFlag){
       const currentPage = location.pathname.split("/").pop() || "inbox.html";
       const pages = Array.isArray(profile?.pages) ? profile.pages : [];
       const unrestricted = adminFlag || profile?.allDepartments === true || !pages.length;
