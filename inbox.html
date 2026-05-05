@@ -1316,6 +1316,59 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       return percent;
     }
 
+
+    function findMatchingLeadForConversation(c){
+      if(!c) return null;
+
+      const conv = String(c.convId || c.conversationId || c.contactKey || c.id || "").trim();
+      const stable = String(getStableConversationKey(c) || "").trim();
+      const phone = normalizePhone(firstValue(c.phone, c.customer?.phone, c.mobile, c.phoneNumber, c.customerPhone, c.waId, getPhone(c)));
+      const participant = String(firstValue(c.participantId, c.tiktokId, c.igId, c.fbId, c.manychatContactId)).trim();
+
+      return state.leads.find(l => {
+        const lConv = leadConversationKey(l);
+        if(lConv && (lConv === conv || lConv === stable)) return true;
+
+        const lPhone = leadPhone(l);
+        if(phone && lPhone && phone === lPhone) return true;
+
+        const lParticipant = leadParticipantId(l);
+        if(participant && lParticipant && participant === lParticipant) return true;
+
+        return false;
+      }) || c.customer || null;
+    }
+
+    async function updateMatchedLeadStatusFromCustomer(c, data){
+      const matchedLead = findMatchingLeadForConversation(c);
+      const leadId = matchedLead?.id || "";
+      if(!leadId) return;
+
+      const newStatus = data.clientStatus || data.status || "";
+      const payload = {
+        status: newStatus,
+        statusLabel: newStatus,
+        leadStatus: newStatus,
+        currentStatus: newStatus,
+        currentStatusLabel: newStatus,
+        customerStatus: newStatus,
+        customerStatusLabel: newStatus,
+        pipelineStatus: newStatus,
+        pipelineStatusLabel: newStatus,
+        stage: newStatus,
+        stageLabel: newStatus,
+        clientStatus: newStatus,
+        updatedAt: serverTimestamp(),
+        lastUpdated: serverTimestamp(),
+        updatedByUid: state.user.uid,
+        updatedByEmail: state.user.email
+      };
+
+      // لا نغير بيانات التوزيع ولا بيانات العميل هنا؛ فقط الحالة والتواريخ.
+      await updateDoc(doc(db, "leads", leadId), payload);
+    }
+
+
     async function saveCustomer(e){
       e.preventDefault();
       const c = state.selected;
@@ -1342,23 +1395,17 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
 
       await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), { ...data, conversationId:c.id, platform:c.platform }, { merge:true });
 
-      if(c.platform === "whatsapp"){
-        const leadId = getPhone(c) || c.id;
-        await setDoc(doc(db, "leads", leadId), {
-          ...data,
-          name:data.customerName,
-          customerName:data.customerName,
-          source:"whatsapp",
-          channel:"whatsapp",
-          convId:c.id,
-          lastUpdated:serverTimestamp()
-        }, { merge:true });
-      }
+      // تحديث حالة الليد نفسه مهم للداش بورد والتقارير وصفحات العملاء.
+      // التحديث هنا حالة فقط حتى تسمح به قواعد Firebase للمندوب المتوزع عليه العميل.
+      await updateMatchedLeadStatusFromCustomer(c, data).catch(err => {
+        console.warn("lead status update skipped", err);
+      });
 
       await setDoc(doc(db, cfg.conversations, c.id), {
         customer:data, customerName:data.customerName, displayName:data.customerName,
         phone:data.phone, waId:data.phone || c.waId || c.id,
         clientStatus:data.clientStatus,
+        statusLabel:data.clientStatus,
         department:data.department, profileCompletion:data.profileCompletion, updatedAt:serverTimestamp()
       }, { merge:true });
 
@@ -1369,7 +1416,26 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
         });
       }
 
-      state.selected = { ...state.selected, ...data, customer:data };
+      const matchedLead = findMatchingLeadForConversation(c);
+      if(matchedLead?.id){
+        state.leads = state.leads.map(l => l.id === matchedLead.id ? {
+          ...l,
+          status:data.clientStatus,
+          statusLabel:data.clientStatus,
+          leadStatus:data.clientStatus,
+          currentStatus:data.clientStatus,
+          currentStatusLabel:data.clientStatus,
+          customerStatus:data.clientStatus,
+          customerStatusLabel:data.clientStatus,
+          pipelineStatus:data.clientStatus,
+          pipelineStatusLabel:data.clientStatus,
+          stage:data.clientStatus,
+          stageLabel:data.clientStatus,
+          clientStatus:data.clientStatus
+        } : l);
+      }
+
+      state.selected = { ...state.selected, ...data, customer:data, clientStatus:data.clientStatus, statusLabel:data.clientStatus };
       renderConversations();
       toast("تم الحفظ");
     }

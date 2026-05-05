@@ -71,7 +71,7 @@
       <div class="page-head">
         <div>
           <h2>التقارير</h2>
-          <p>تقارير الأقسام والمناديب وأسباب عدم الإغلاق بمسميات السيستم الجديد.</p>
+          <p>تقارير الأقسام والمناديب بمسميات السيستم الجديد.</p>
           <div class="report-note">تم اعتماد نفس منطق السيستم القديم مع التسميات الجديدة: الكول سنتر، العملاء المحتملون - كاش، العملاء المحتملون - تمويل، العملاء المحتملون - خدمة عملاء، مع دعم الفروع والتصدير.</div>
         </div>
         <div class="actions">
@@ -150,23 +150,8 @@
             </table>
           </div>
         </div>
-
-        <div class="report-table-section">
-          <h3>أسباب عدم الإغلاق</h3>
-          <div class="table-wrap">
-            <table class="management-table">
-              <thead>
-                <tr>
-                  <th>السبب / الملاحظة</th>
-                  <th>العدد</th>
-                </tr>
-              </thead>
-              <tbody id="reasonsReport"></tbody>
-            </table>
-          </div>
         </div>
-      </div>
-    </main>
+</main>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -486,18 +471,7 @@
           return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${m.total}</td><td>${m.potential}</td><td>${m.delayed}</td><td>${m.waste}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
         });
       el("agentsReport").innerHTML = agentRows.length ? agentRows.join("") : '<tr><td colspan="8">لا توجد بيانات للمندوبين.</td></tr>';
-
-      const reasonsMap = new Map();
-      rows.filter(lead => !isSoldStatus(lead.status || lead.clientStatus || "")).forEach(lead => {
-        const reason = getReasonText(lead);
-        if(!reason) return;
-        reasonsMap.set(reason, (reasonsMap.get(reason) || 0) + 1);
-      });
-      const reasonRows = Array.from(reasonsMap.entries())
-        .sort((a,b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]), 'ar'))
-        .map(([reason, count]) => `<tr><td>${escapeHtml(reason)}</td><td>${count}</td></tr>`);
-      el("reasonsReport").innerHTML = reasonRows.length ? reasonRows.join("") : '<tr><td colspan="2">لا توجد أسباب مسجلة في البيانات الحالية.</td></tr>';
-    }
+}
 
     function buildExportSheets(){
       const rows = filteredRows();
