@@ -4761,3 +4761,251 @@ body:has(.app){
   }
 }
 
+
+/* ===== V16 Inbox Real Right Sidearea Grid Fix =====
+   حل جذري لصندوق الوارد:
+   بدلاً من display:contents، السايد بار وقائمة المحادثات أصبحوا داخل عمود واحد ثابت على اليمين.
+   من اليمين للشمال:
+   السايد بار | المحادثات | الشات | بيانات العميل
+*/
+.app{
+  direction:ltr !important;
+  --side-nav-w:300px !important;
+  --inbox-list-w:390px !important;
+  --customer-w:360px !important;
+  --chat-min-w:520px !important;
+
+  height:100vh !important;
+  min-height:100vh !important;
+  padding-top:0 !important;
+  display:grid !important;
+  grid-template-columns:
+    var(--customer-w)
+    minmax(var(--chat-min-w), 1fr)
+    calc(var(--inbox-list-w) + var(--side-nav-w)) !important;
+  grid-template-rows:minmax(0, 1fr) !important;
+  grid-template-areas:"customer chat sidearea" !important;
+  min-width:calc(var(--customer-w) + var(--chat-min-w) + var(--inbox-list-w) + var(--side-nav-w)) !important;
+  overflow:hidden !important;
+  background:var(--bg) !important;
+}
+
+/* العمود اليمين الكامل: محادثات + سايد بار */
+.app > .sidebar{
+  direction:ltr !important;
+  grid-area:sidearea !important;
+  display:grid !important;
+  grid-template-columns:var(--inbox-list-w) var(--side-nav-w) !important;
+  grid-template-rows:auto minmax(0,1fr) !important;
+  grid-template-areas:
+    "filters nav"
+    "list    nav" !important;
+  width:calc(var(--inbox-list-w) + var(--side-nav-w)) !important;
+  min-width:calc(var(--inbox-list-w) + var(--side-nav-w)) !important;
+  max-width:calc(var(--inbox-list-w) + var(--side-nav-w)) !important;
+  height:100vh !important;
+  min-height:0 !important;
+  border:0 !important;
+  background:#fff !important;
+  box-shadow:none !important;
+  overflow:hidden !important;
+}
+
+/* السايد بار أقصى اليمين، بنفس حجم باقي الصفحات */
+.app > .sidebar > .brand{
+  direction:rtl !important;
+  grid-area:nav !important;
+  position:relative !important;
+  width:var(--side-nav-w) !important;
+  min-width:var(--side-nav-w) !important;
+  max-width:var(--side-nav-w) !important;
+  height:100vh !important;
+  max-height:100vh !important;
+  padding:14px !important;
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  grid-template-rows:auto minmax(0,1fr) auto !important;
+  grid-template-areas:"brand-top" "nav-card" "user-row" !important;
+  gap:12px !important;
+  border-right:1px solid var(--line) !important;
+  border-left:0 !important;
+  background:linear-gradient(180deg,#fffaf6 0%,#fff 100%) !important;
+  box-shadow:-10px 0 30px rgba(75,32,27,.06) !important;
+  overflow:hidden !important;
+  z-index:5 !important;
+}
+
+/* تأكيد أن كارت التنقل يأخذ عرض السايد بار كامل */
+.app > .sidebar > .brand .brand-top{
+  width:100% !important;
+  min-width:0 !important;
+}
+
+.app > .sidebar > .brand .nav-card{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:none !important;
+  height:auto !important;
+  min-height:0 !important;
+  padding:12px !important;
+  border:1px solid var(--line) !important;
+  border-radius:22px !important;
+  background:#fff !important;
+  box-shadow:0 8px 22px rgba(75,32,27,.05) !important;
+  overflow:visible !important;
+}
+
+.app > .sidebar > .brand .nav-tabs{
+  width:100% !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:8px !important;
+  overflow:visible !important;
+  max-height:none !important;
+}
+
+.app > .sidebar > .brand .nav-tabs a{
+  width:100% !important;
+  min-width:0 !important;
+  padding:10px 12px !important;
+  border-radius:16px !important;
+  font-size:13px !important;
+  line-height:1.45 !important;
+  white-space:normal !important;
+  overflow:visible !important;
+  text-overflow:clip !important;
+}
+
+.app > .sidebar > .brand .logo-box h1{
+  max-width:200px !important;
+  font-size:14px !important;
+  line-height:1.5 !important;
+}
+
+/* المحادثات ملاصقة للسايد بار من غير أي فراغ */
+.app > .sidebar > .filters{
+  direction:rtl !important;
+  grid-area:filters !important;
+  width:var(--inbox-list-w) !important;
+  min-width:var(--inbox-list-w) !important;
+  max-width:var(--inbox-list-w) !important;
+  padding:12px !important;
+  background:#fff !important;
+  border-top:0 !important;
+  border-right:0 !important;
+  border-left:1px solid var(--line) !important;
+  border-bottom:1px solid var(--line) !important;
+  overflow:hidden !important;
+}
+
+.app > .sidebar > .list{
+  direction:rtl !important;
+  grid-area:list !important;
+  width:var(--inbox-list-w) !important;
+  min-width:var(--inbox-list-w) !important;
+  max-width:var(--inbox-list-w) !important;
+  min-height:0 !important;
+  height:auto !important;
+  overflow:auto !important;
+  background:#fff !important;
+  border-right:0 !important;
+  border-left:1px solid var(--line) !important;
+}
+
+/* الشات */
+.app > .chat{
+  direction:rtl !important;
+  grid-area:chat !important;
+  height:100vh !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+  border-left:1px solid var(--line) !important;
+  border-right:0 !important;
+  background:#fff !important;
+  display:grid !important;
+}
+
+/* بيانات العميل */
+.app > .customer{
+  direction:rtl !important;
+  grid-area:customer !important;
+  height:100vh !important;
+  width:var(--customer-w) !important;
+  min-width:var(--customer-w) !important;
+  max-width:var(--customer-w) !important;
+  overflow:auto !important;
+  background:#fff !important;
+  border-left:0 !important;
+  border-right:0 !important;
+}
+
+html:has(.app),
+body:has(.app){
+  overflow:auto !important;
+}
+
+body:has(.app){
+  min-width:calc(var(--customer-w) + var(--chat-min-w) + var(--inbox-list-w) + var(--side-nav-w)) !important;
+}
+
+@media(max-height:720px){
+  .app > .sidebar > .brand{
+    padding:10px !important;
+    gap:8px !important;
+  }
+
+  .app > .sidebar > .brand .nav-card{
+    padding:9px !important;
+  }
+
+  .app > .sidebar > .brand .nav-tabs{
+    gap:5px !important;
+  }
+
+  .app > .sidebar > .brand .nav-tabs a{
+    padding:8px 10px !important;
+    font-size:12px !important;
+    line-height:1.25 !important;
+  }
+}
+
+@media(max-width:760px){
+  body:has(.app){
+    min-width:0 !important;
+  }
+
+  .app{
+    min-width:0 !important;
+    grid-template-columns:1fr !important;
+    grid-template-rows:auto minmax(0,1fr) !important;
+    grid-template-areas:
+      "sidearea"
+      "sidearea" !important;
+  }
+
+  .app > .sidebar{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:none !important;
+    grid-template-columns:1fr !important;
+    grid-template-areas:
+      "filters"
+      "list" !important;
+  }
+
+  .app > .sidebar > .brand,
+  .app > .chat,
+  .app > .customer{
+    display:none !important;
+  }
+
+  .app > .sidebar > .filters,
+  .app > .sidebar > .list{
+    width:auto !important;
+    min-width:0 !important;
+    max-width:none !important;
+    border-left:0 !important;
+    border-right:0 !important;
+  }
+}
+
