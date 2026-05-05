@@ -608,7 +608,7 @@
       const found = state.conversations.find(c => matchesInboxOpenParams(c, params));
       if(found){
         state._autoOpenedFromUrl = true;
-        selectConversation(getStableConversationKey(found) || found.id);
+        selectConversation(found);
       }
     }
 
