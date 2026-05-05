@@ -407,7 +407,8 @@
         phone: phone || "",
         leadId: lead.id || lead.__id || "",
         name: customerName(lead) || "",
-        department
+        department,
+        fromDashboard: "1"
       });
       window.location.href = `./inbox.html?${params.toString()}`;
     }

@@ -248,7 +248,7 @@
     const state = {
       user:null, userProfile:null, isAdmin:false,
       conversations:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
-      pendingOpenTarget:null,
+      pendingOpenTarget:null, limitedInboxMode:false,
       department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubStatuses:null, unsubTemplates:null
     };
 
@@ -344,9 +344,32 @@
       return Array.isArray(state.userProfile?.pages) ? state.userProfile.pages : [];
     }
 
+    function hasInboxDeepLinkAccess(){
+      const target = readInboxOpenTarget();
+      if(!target) return false;
+      if(currentPageName() !== "inbox.html") return false;
+      return !!(target.fromDashboard && (target.leadId || target.conversationId || target.phone));
+    }
+
+    function isAssignedToCurrentUser(data = {}){
+      if(state.isAdmin || state.userProfile?.allDepartments === true) return true;
+      const uid = state.user?.uid || "";
+      if(!uid) return false;
+      const ids = [
+        data.assignedTo,
+        data.responsibleUid,
+        data.salesAssignedTo,
+        data.callCenterAssignedTo,
+        data.callCenterUid,
+        data.uid,
+        data.ownerUid
+      ].filter(Boolean).map(String);
+      return ids.includes(uid);
+    }
+
     function hasPageAccess(page){
       const pages = allowedPagesForCurrentUser();
-      return state.isAdmin || state.userProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html";
+      return state.isAdmin || state.userProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html" || hasInboxDeepLinkAccess();
     }
 
     function applyPagePermissions(){
@@ -387,6 +410,12 @@
       }
       departmentSelect.value = state.department;
       el("userInfo").textContent = `${state.userProfile?.name || state.user.email} - ${state.isAdmin ? "إدارة عامة" : departmentLabel(state.department)}`;
+      {
+        const pages = allowedPagesForCurrentUser();
+        const unrestricted = state.isAdmin || state.userProfile?.allDepartments === true || !pages.length;
+        state.limitedInboxMode = !unrestricted && !pages.includes("inbox.html") && hasInboxDeepLinkAccess();
+      }
+      document.body.classList.toggle("limited-inbox-mode", state.limitedInboxMode);
       renderAllowedNavigation();
       applyPagePermissions();
     }
@@ -597,16 +626,17 @@
       const name = String(params.get("name") || "").trim();
       const department = String(params.get("department") || "").trim();
       const leadId = String(params.get("leadId") || "").trim();
+      const fromDashboard = params.get("fromDashboard") === "1" || params.get("dashboard") === "1";
       if(!platform && !conversationId && !phone && !leadId) return null;
-      return { platform: platform || "whatsapp", conversationId, phone, name, department, leadId };
+      return { platform: platform || "whatsapp", conversationId, phone, name, department, leadId, fromDashboard };
     }
 
-    function applyInboxOpenTarget(){
+    async function applyInboxOpenTarget(){
       const target = readInboxOpenTarget();
       if(!target) return;
       state.pendingOpenTarget = target;
 
-      if(target.department && (state.isAdmin || state.userProfile?.allDepartments === true)){
+      if(target.department && (state.isAdmin || state.userProfile?.allDepartments === true || state.limitedInboxMode)){
         state.department = target.department;
         const departmentSelect = el("departmentSelect");
         if(departmentSelect && [...departmentSelect.options].some(o => o.value === target.department)){
@@ -624,6 +654,13 @@
       // فتح واتساب من رقم الجوال مباشرة، حتى لو المحادثة غير موجودة.
       // نفس الـ id هيحمّل الرسائل لو موجودة، ولو مش موجودة يفتح محادثة جديدة جاهزة للإرسال.
       if((target.platform || "whatsapp") === "whatsapp" && (target.phone || target.conversationId)){
+        const allowed = await verifyLinkedLeadAccess(target);
+        if(!allowed){
+          state.pendingOpenTarget = null;
+          messagesEl.innerHTML = '<div class="empty">لا توجد صلاحية لهذا العميل</div>';
+          toast("لا توجد صلاحية لهذا العميل");
+          return;
+        }
         state.pendingOpenTarget = null;
         selectConversation(buildVirtualWhatsappConversation(target));
         history.replaceState(null, "", location.pathname);
@@ -647,6 +684,19 @@
                (wantedClean && cleanIdValue(raw) === wantedClean) ||
                (phone && normalizeKsaPhone(raw) === phone);
       });
+    }
+
+    async function verifyLinkedLeadAccess(target){
+      if(!state.limitedInboxMode) return true;
+      if(!target?.leadId) return true;
+      try{
+        const snap = await getDoc(doc(db, "leads", target.leadId));
+        if(!snap.exists()) return true;
+        return isAssignedToCurrentUser({ id:snap.id, ...snap.data() });
+      } catch(e){
+        console.warn("lead access check failed", e);
+        return true;
+      }
     }
 
     function buildVirtualWhatsappConversation(target){
@@ -678,6 +728,12 @@
 
       const match = state.conversations.find(c => conversationMatchesTarget(c, target));
       if(match){
+        if(state.limitedInboxMode && !isAssignedToCurrentUser(match)){
+          state.pendingOpenTarget = null;
+          messagesEl.innerHTML = '<div class="empty">لا توجد صلاحية لهذا العميل</div>';
+          toast("لا توجد صلاحية لهذا العميل");
+          return;
+        }
         state.pendingOpenTarget = null;
         selectConversation(match);
         history.replaceState(null, "", location.pathname);
@@ -697,6 +753,11 @@
 
       if(state.selectedPlatform !== "all") items = items.filter(c => c.platform === state.selectedPlatform);
       if(!state.isAdmin || state.department !== "all") items = items.filter(c => !c.department || c.department === state.department);
+
+      if(state.limitedInboxMode && state.pendingOpenTarget){
+        items = items.filter(c => conversationMatchesTarget(c, state.pendingOpenTarget) && isAssignedToCurrentUser(c));
+      }
+
       if(search){
         items = items.filter(c =>
           String(getCustomerName(c)).toLowerCase().includes(search) ||
