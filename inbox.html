@@ -590,25 +590,118 @@
       };
     }
 
+    function normalizeOpenValue(v){
+      return decodeURIComponent(String(v || "")).trim();
+    }
+
+    function inferOpenPlatform(params){
+      const conv = String(params?.conversationId || "").toLowerCase();
+      if(conv.startsWith("facebook:")) return "facebook";
+      if(conv.startsWith("instagram:") || conv.startsWith("ig_")) return "instagram";
+      if(conv.startsWith("tiktok:") || conv.startsWith("tiktok_")) return "tiktok";
+      return "whatsapp";
+    }
+
+    function openParamVariants(v){
+      const raw = normalizeOpenValue(v);
+      const noSpaces = raw.replace(/\s+/g, "");
+      const safe = raw.replace(/[\/?#\[\]]/g, "_").replace(/\s+/g, "_");
+      return new Set([raw, noSpaces, safe, encodeURIComponent(raw), decodeURIComponent(raw || "")].filter(Boolean));
+    }
+
     function matchesInboxOpenParams(c, params){
       if(!params) return false;
-      const conv = String(c.convId || c.conversationId || c.contactKey || c.id || "");
-      const phone = String(c.phone || c.mobile || c.phoneNumber || c.customerPhone || getPhone(c) || "");
-      const participant = String(c.participantId || c.tiktokId || c.igId || c.fbId || c.manychatContactId || "");
-      if(params.conversationId && conv === params.conversationId) return true;
-      if(params.phone && phone && normalizePhone(phone) === normalizePhone(params.phone)) return true;
-      if(params.participantId && participant === params.participantId) return true;
+
+      const convValues = [
+        c.convId,
+        c.conversationId,
+        c.contactKey,
+        c.id,
+        getStableConversationKey(c)
+      ].map(v => String(v || ""));
+
+      if(params.conversationId){
+        const wanted = openParamVariants(params.conversationId);
+        if(convValues.some(v => wanted.has(String(v || "")))) return true;
+
+        const wantedRaw = normalizeOpenValue(params.conversationId);
+        if(wantedRaw && convValues.some(v => String(v || "").includes(wantedRaw) || wantedRaw.includes(String(v || "")))) return true;
+      }
+
+      if(params.phone){
+        const wantedPhone = normalizePhone(params.phone);
+        const phone = normalizePhone(firstValue(
+          c.phone, c.mobile, c.phoneNumber, c.customerPhone, c.customer?.phone, c.waId, getPhone(c)
+        ));
+        if(wantedPhone && phone && wantedPhone === phone) return true;
+      }
+
+      if(params.participantId){
+        const wantedParticipant = normalizeOpenValue(params.participantId);
+        const participant = String(firstValue(
+          c.participantId, c.tiktokId, c.igId, c.fbId, c.manychatContactId
+        ) || "");
+        if(wantedParticipant && participant && wantedParticipant === participant) return true;
+
+        if(wantedParticipant && convValues.some(v => String(v || "").endsWith(wantedParticipant))) return true;
+      }
+
       return false;
+    }
+
+    function buildFallbackConversationFromParams(params){
+      const conv = normalizeOpenValue(params.conversationId);
+      const phone = normalizePhone(params.phone);
+      const participantId = normalizeOpenValue(params.participantId);
+      const platform = inferOpenPlatform(params);
+
+      if(!conv && !phone && !participantId) return null;
+
+      const id = conv || phone || (platform === "tiktok" ? `tiktok_${participantId}` : participantId);
+      if(!id) return null;
+
+      return {
+        id,
+        convId: id,
+        conversationId: id,
+        platform,
+        sourcePlatform: platform,
+        participantId,
+        phone,
+        waId: platform === "whatsapp" ? phone : "",
+        customerName: "العميل",
+        displayName: "العميل",
+        status: "open",
+        department: state.department === "all" ? "" : state.department,
+        updatedAt: new Date().toISOString()
+      };
     }
 
     function autoOpenConversationFromUrl(){
       if(state._autoOpenedFromUrl) return;
       const params = getInboxOpenParams();
       if(!params.conversationId && !params.phone && !params.participantId) return;
+
       const found = state.conversations.find(c => matchesInboxOpenParams(c, params));
       if(found){
         state._autoOpenedFromUrl = true;
         selectConversation(found);
+        return;
+      }
+
+      state._autoOpenTries = (state._autoOpenTries || 0) + 1;
+
+      if(state._autoOpenTries >= 6){
+        const fallback = buildFallbackConversationFromParams(params);
+        if(fallback){
+          state._autoOpenedFromUrl = true;
+          selectConversation(fallback);
+          return;
+        }
+      }
+
+      if(state._autoOpenTries < 25){
+        setTimeout(autoOpenConversationFromUrl, 250);
       }
     }
 
@@ -735,7 +828,6 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
       fillCustomerForm(c.customer || c);
       fillTemplateDropdowns();
       renderConversations();
-        autoOpenConversationFromUrl();
       listenMessages(c);
     }
 
@@ -761,6 +853,7 @@ function getClientStatus(c){ return firstValue(c.clientStatus, c.customer?.clien
           }
 
           renderConversations();
+          autoOpenConversationFromUrl();
         }, err => {
           console.error(err);
           el("connectionStatus").textContent = "خطأ في الاتصال";
