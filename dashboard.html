@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MZJ CRM - الداش بورد</title>
   <link rel="stylesheet" href="./theme.css" />
+<!-- MZJ V45 dashboard completion popup-only -->
 </head>
 <body>
   <section class="login-screen hidden" id="loginScreen">
@@ -819,12 +820,9 @@
         }catch(e){ console.warn("conversation upsert skipped", e); }
       }
       listenDashboardChatMessages();
-      loadActualInboxCompletionForLead(lead).then(pct => {
-        if(typeof pct === "number"){
-          dashboardChatState.actualCompletion = pct;
-          updateChatCompletionProgress();
-        }
-      }).catch(console.warn);
+      // V45: لا نقرأ نسبة قديمة من وثيقة المحادثة. النسبة من بيانات الليد الحالية فقط.
+      dashboardChatState.actualCompletion = null;
+      updateChatCompletionProgress();
     }
 
     function closeLeadChatPopup(){
@@ -994,30 +992,17 @@
 
     function renderCompletionBadge(lead){
       const id = lead.__id || lead.id || "";
-      const cached = id && typeof dashboardChatState.completionByLead[id] === "number";
-      // لا نستخدم profileCompletion الموجود على الليد لأنه قديم وممكن يطلع 45% بينما حساب الـ popup 18%.
-      // القيمة الفورية هنا نفس حساب الـ popup من بيانات العميل الحالية.
-      const pct = cached ? dashboardChatState.completionByLead[id] : leadCompletionFromLeadData(lead);
+      // V45: ممنوع أي قراءة أو كاش أو profileCompletion قديم في كروت الداش بورد.
+      // الكارت يحسب من نفس بيانات الليد المعروضة في Popup فقط.
+      const pct = leadCompletionFromLeadData(lead);
       return `<span class="lead-completion-badge" title="اكتمال ملف العميل" data-completion-lead-id="${escapeHtml(id)}">${pct}% مكتمل</span>`;
     }
 
     async function hydrateStatusCompletionBadges(items){
-      const visible = items.filter(l => l && (l.__id || l.id));
-      await Promise.all(visible.map(async (lead) => {
-        const id = lead.__id || lead.id;
-        const pct = await loadActualInboxCompletionForLead(lead).catch(() => null);
-        dashboardChatState.completionByLead[id] =
-          typeof pct === "number" ? pct : leadCompletionFromLeadData(lead);
-      }));
-
-      visible.forEach(lead => {
-        const id = lead.__id || lead.id;
-        document.querySelectorAll("[data-completion-lead-id]").forEach(badge => {
-          if(String(badge.dataset.completionLeadId) === String(id)){
-            badge.textContent = `${dashboardChatState.completionByLead[id]}% مكتمل`;
-          }
-        });
-      });
+      // V45: متعمد تعطيل التحديث من وثيقة المحادثة هنا.
+      // السبب: وثائق قديمة فيها profile/customer قديم كانت بتغير نسبة الكارت إلى 45%
+      // بينما Popup العميل يحسب 18% من بيانات الليد الحالية.
+      return;
     }
 
     function renderStatusCards(){
@@ -1056,8 +1041,6 @@
           if(lead) openLeadConversation(lead);
         };
       });
-
-      hydrateStatusCompletionBadges(statuses.flatMap(s => grouped.get(s.key) || []));
     }
 
     function renderDashboard(){
