@@ -383,7 +383,11 @@
         phoneNormalized:requestedPhone,
         source:requestedSource,
         payment:cfg.payment,
-        department:"manual_pending",
+        department:cfg.department, serviceKey:cfg.serviceKey, autoService:cfg.serviceKey,
+        branch:cfg.branch, branchId:cfg.branch, branchName:cfg.branch, sectionLabel:cfg.branch,
+        assignedTo:currentUser.uid, assignedName:currentProfile?.name || currentUser.email,
+        salesAssignedTo:currentUser.uid, salesAssignedName:currentProfile?.name || currentUser.email,
+        responsibleUid:currentUser.uid, responsibleName:currentProfile?.name || currentUser.email,
         requestedCustomerName:requestedName,
         requestedPhone:requestedPhoneRaw,
         requestedPhoneNormalized:requestedPhone,
@@ -496,7 +500,8 @@
         if(!editingId){
           const duplicate = await findExistingLeadByPhone(phone);
           if(duplicate && !duplicate.manualOnly){
-            await addDoc(collection(db, "leads"), buildDuplicateRequestPayload(duplicate));
+            const requestRef = doc(collection(db, "leads"));
+            await setDoc(requestRef, { ...buildDuplicateRequestPayload(duplicate), leadId:requestRef.id });
             toast("رقم العميل مسجل قبل كده، تم إرساله للإدارة العامة للموافقة وتحديث المندوب");
             resetForm();
             if(isAdmin) showTab("list");
@@ -511,15 +516,16 @@
           await setDoc(ref, buildLeadPayload({ leadId:editingId, existing }), { merge:true });
           toast("تم تحديث العميل");
         }else{
-          const payload = buildLeadPayload({ leadId:"", existing:{} });
-          const created = await addDoc(collection(db, "leads"), payload);
-          await updateDoc(created, { leadId:created.id }).catch(()=>{});
+          const newRef = doc(collection(db, "leads"));
+          const payload = buildLeadPayload({ leadId:newRef.id, existing:{} });
+          await setDoc(newRef, payload);
           toast("تم حفظ العميل");
         }
         resetForm();
       }catch(err){
         console.error("manual lead save failed", err);
-        toast("تعذر حفظ العميل - راجع صلاحية صفحة إضافة العملاء أو قواعد Firestore");
+        const code = err?.code ? ` (${err.code})` : "";
+        toast("تعذر حفظ العميل" + code + " - راجع صلاحية صفحة إضافة العملاء أو قواعد Firestore");
       }
     }
 
