@@ -233,10 +233,18 @@
       window.location.href = `./inbox.html?${params.toString()}`;
     }
 
+    function leadNameHtml(row){
+      const name = escapeHtml(row.customerName || "عميل بدون اسم");
+      const p = normalizePhone(row.phone || row.mobile || row.phoneNumber || "");
+      if(!p) return `<span class="lead-static-pill lead-name-pill"><span class="lead-pill-text">${name}</span></span>`;
+      return `<button type="button" class="lead-name-chat lead-action-pill lead-name-pill" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(row.customerName || "")}"><span class="lead-pill-text">${name}</span></button>`;
+    }
+
     function phoneLinkHtml(phone, name=""){
       const p = normalizePhone(phone);
-      if(!p) return escapeHtml(phone || "");
-      return `<button type="button" class="phone-open-chat" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}">${escapeHtml(phone || p)}</button>`;
+      const display = escapeHtml(phone || p || "—");
+      if(!p) return `<span class="lead-static-pill lead-phone-pill"><span class="lead-pill-icon">☎</span><span class="lead-pill-text">${display}</span></span>`;
+      return `<button type="button" class="phone-open-chat lead-action-pill lead-phone-pill" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}"><span class="lead-pill-icon">☎</span><span class="lead-pill-text">${display}</span></button>`;
     }
 
     function fullName(row){
@@ -468,11 +476,16 @@
     }
 
     function applyFilterOptions(){
-      fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads, "branch"));
-      fillSelectOptions(el("sourceFilter"), "كل المصادر", uniqueValues(leads, "source"));
-      fillSelectOptions(el("carFilter"), "كل السيارات", uniqueValues(leads, "carName"));
-      fillSelectOptions(el("statusFilter"), "كل الحالات", statusValues());
-      fillSelectOptions(el("responsibleFilter"), "كل مناديب مبيعات التمويل", usersForDepartment(PAGE_DEPARTMENT).map(u => ({label:u.name || u.email || u.uid || u.id, value:u.uid || u.id})));
+      const selectedBranch = el("branchFilter").value;
+      const selectedSource = el("sourceFilter").value;
+      const selectedCar = el("carFilter").value;
+      const selectedStatus = el("statusFilter").value;
+      const selectedResponsible = el("responsibleFilter").value;
+      fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads, "branch"), selectedBranch);
+      fillSelectOptions(el("sourceFilter"), "كل المصادر", uniqueValues(leads, "source"), selectedSource);
+      fillSelectOptions(el("carFilter"), "كل السيارات", uniqueValues(leads, "carName"), selectedCar);
+      fillSelectOptions(el("statusFilter"), "كل الحالات", statusValues(), selectedStatus);
+      fillSelectOptions(el("responsibleFilter"), "كل مناديب مبيعات التمويل", usersForDepartment(PAGE_DEPARTMENT).map(u => ({label:u.name || u.email || u.uid || u.id, value:u.uid || u.id})), selectedResponsible);
     }
 
     function filteredRows(){
@@ -514,7 +527,7 @@
         const callCenterLocked = !!l.callCenterUid;
 
         tr.innerHTML = `
-          <td>${escapeHtml(l.customerName)}</td>
+          <td>${leadNameHtml(l)}</td>
           <td>${phoneLinkHtml(l.phone, l.customerName)}</td>
           <td>${escapeHtml(l.location)}</td>
           <td>${escapeHtml(l.branch)}</td>
@@ -552,7 +565,7 @@
       });
 
       el("leadsBody").addEventListener("click", (e) => {
-        const btn = e.target.closest(".phone-open-chat");
+        const btn = e.target.closest(".phone-open-chat, .lead-name-chat");
         if(!btn) return;
         openWhatsappInboxByPhone(btn.dataset.phone, btn.dataset.name);
       });
