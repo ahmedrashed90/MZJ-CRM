@@ -295,7 +295,6 @@
       { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
       { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
       { page:"database.html", label:"قاعدة البيانات" },
-      { page:"manual-leads.html", label:"إضافة العملاء" },
       { page:"dashboard.html", label:"الداش بورد" },
       { page:"reports.html", label:"التقارير" },
       { page:"branches.html", label:"الفروع" },
@@ -430,16 +429,11 @@
 
 
     function applyFilterOptions(){
-      const selectedSource = el("sourceFilter").value;
-      const selectedCar = el("carFilter").value;
-      const selectedPayment = el("paymentFilter").value;
-      const selectedCampaign = el("campaignFilter").value;
-      const selectedBranch = el("branchFilter").value;
-      fillSelectOptions(el("sourceFilter"), "كل المصادر", uniqueValues(leads, "source"), selectedSource);
-      fillSelectOptions(el("carFilter"), "كل السيارات", uniqueValues(leads, "carName"), selectedCar);
-      fillSelectOptions(el("paymentFilter"), "كل طرق الدفع", uniqueValues(leads, "payment"), selectedPayment);
-      fillSelectOptions(el("campaignFilter"), "كل الحملات", uniqueValues(leads, "campaignName"), selectedCampaign);
-      fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads, "branch"), selectedBranch);
+      fillSelectOptions(el("sourceFilter"), "كل المصادر", uniqueValues(leads, "source"));
+      fillSelectOptions(el("carFilter"), "كل السيارات", uniqueValues(leads, "carName"));
+      fillSelectOptions(el("paymentFilter"), "كل طرق الدفع", uniqueValues(leads, "payment"));
+      fillSelectOptions(el("campaignFilter"), "كل الحملات", uniqueValues(leads, "campaignName"));
+      fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads, "branch"));
     }
 
     function dateOnly(v){
@@ -459,7 +453,6 @@
       const q = el("searchInput").value.trim().toLowerCase();
 
       return leads.filter(l => {
-        if(l.manualOnly === true || l.manualDuplicateRequest === true || l.manualRequestType === "duplicate_phone") return false;
         if(!canSeeLead(l)) return false;
         const last = dateOnly(l.lastUpdated || l.createdAt);
         if(dateFrom && last && last < dateFrom) return false;
@@ -520,12 +513,12 @@
 
     function dbPhoneButton(phone, name=""){
       const p = normalizeDbPhone(phone);
-      const display = escapeHtml(phone || p || "—");
-      return `<span class="lead-static-pill lead-phone-pill"><span class="lead-pill-icon">☎</span><span class="lead-pill-text">${display}</span></span>`;
+      if(!p) return escapeHtml(phone || "");
+      return `<button type="button" class="phone-open-chat" data-db-whatsapp="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}">${escapeHtml(phone || p)}</button>`;
     }
 
     function dbNameButton(row){
-      return `<span class="lead-static-pill lead-name-pill"><span class="lead-pill-text">${escapeHtml(row.customerName || "عميل بدون اسم")}</span></span>`;
+      return `<button type="button" class="db-chat-name" data-db-chat="${escapeHtml(row.id)}">${escapeHtml(row.customerName || "عميل بدون اسم")}</button>`;
     }
 
     function dbConvId(row, platform){
@@ -678,8 +671,8 @@
       rows.forEach(l => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${dbNameButton(l)}</td>
-          <td>${dbPhoneButton(l.phone, l.customerName)}</td>
+          <td>${escapeHtml(l.customerName)}</td>
+          <td>${escapeHtml(l.phone)}</td>
           <td>${escapeHtml(l.location)}</td>
           <td>${escapeHtml(l.branch)}</td>
           <td>${escapeHtml(normalizeSourceLabel(l.source))}</td>
