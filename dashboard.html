@@ -1,5 +1,7 @@
 
 
+
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -49,7 +51,6 @@
           <a href="./leads-cash.html">العملاء المحتملون - كاش</a>
           <a href="./leads-customer-service.html">العملاء المحتملون - خدمة عملاء</a>
           <a href="./database.html">قاعدة البيانات</a>
-          <a href="./manual-leads.html">إضافة العملاء</a>
           <a href="./dashboard.html" class="active">الداش بورد</a>
           <a href="./reports.html">التقارير</a>
           <a href="./branches.html">الفروع</a>
@@ -132,7 +133,6 @@
       { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
       { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
       { page:"database.html", label:"قاعدة البيانات" },
-      { page:"manual-leads.html", label:"إضافة العملاء" },
       { page:"dashboard.html", label:"الداش بورد" },
       { page:"reports.html", label:"التقارير" },
       { page:"branches.html", label:"الفروع" },
@@ -472,6 +472,7 @@
               <div class="customer-form-card">
                 <h4>بيانات العميل</h4>
                 <label>حالة العميل<select id="chatStatus"></select></label>
+                <label id="chatFollowupDateBox" class="followup-date-box hidden">موعد المتابعة<input id="chatFollowupDate" type="datetime-local"></label>
                 <label>اسم العميل<input id="chatName"></label>
                 <div class="two">
                   <label>رقم الجوال<input id="chatPhone"></label>
@@ -545,7 +546,7 @@
       el("chatClearTextBtn").onclick = () => { el("chatReplyText").value = ""; el("chatReplyText").focus(); };
       el("chatTemplateSelect").onchange = () => {
         const t = selectedDashboardTemplate();
-        if(t?.content && !el("chatReplyText").value.trim()) insertSelectedDashboardTemplate();
+        if(t) applyDashboardTemplateToMessage(t, true);
       };
       const quickSelect = el("chatQuickMessageSelect");
       if(quickSelect){
@@ -560,7 +561,12 @@
           sendDashboardChatReply();
         }
       });
-      ["chatStatus","chatName","chatPhone","chatAge","chatSalary","chatObligation","chatLocation","chatCar","chatModel","chatColor","chatPayment","chatNotes"].forEach(id => {
+      const chatStatusField = el("chatStatus");
+      if(chatStatusField){
+        chatStatusField.addEventListener("input", onDashboardStatusChanged);
+        chatStatusField.addEventListener("change", onDashboardStatusChanged);
+      }
+      ["chatName","chatPhone","chatAge","chatSalary","chatObligation","chatLocation","chatCar","chatModel","chatColor","chatPayment","chatNotes","chatFollowupDate"].forEach(id => {
         const field = el(id);
         if(field) field.addEventListener("input", updateChatCompletionProgress);
         if(field) field.addEventListener("change", updateChatCompletionProgress);
@@ -591,7 +597,7 @@
 
       if(templateSelect){
         templateSelect.innerHTML = `<option value="">اكتب رسالة عادية</option>` + templates.map(t => {
-          const label = t.label || t.title || t.name || "قالب بدون اسم";
+          const label = dashboardTemplateLabel(t) || "قالب بدون اسم";
           const type = t.type === "mersal" ? "مرسال" : "قالب";
           return `<option value="${escapeHtml(t.id)}">${escapeHtml(label)} - ${escapeHtml(type)}</option>`;
         }).join("");
@@ -599,10 +605,13 @@
 
       if(quickSelect){
         quickSelect.innerHTML = `<option value="">اختر رسالة جاهزة</option>` + quickMessages.map(t => {
-          const label = t.label || t.title || t.name || "رسالة جاهزة";
+          const label = dashboardTemplateLabel(t) || "رسالة جاهزة";
           return `<option value="${escapeHtml(t.id)}">${escapeHtml(label)}</option>`;
         }).join("");
       }
+
+      const currentStatus = el("chatStatus")?.value || "";
+      if(currentStatus) selectDashboardTemplateByStatus(currentStatus);
     }
 
     function selectedDashboardTemplate(){
@@ -633,14 +642,98 @@
         .replace(/\{\{\s*الحالة\s*\}\}/g, status);
     }
 
+
+    function dashboardTemplateLabel(t){
+      return String(t?.label || t?.title || t?.name || t?.templateName || t?.subject || "").trim();
+    }
+
+    function dashboardTemplateText(t){
+      const candidates = [
+        t?.content, t?.body, t?.message, t?.text, t?.templateText, t?.templateContent,
+        t?.reply, t?.value, t?.description
+      ];
+      for(const v of candidates){
+        if(v !== undefined && v !== null && String(v).trim()) return String(v);
+      }
+      return "";
+    }
+
+    function normalizeDashboardTemplateMatch(value){
+      return String(value || "")
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/[–—−]/g, "-")
+        .replace(/\s*-\s*/g, " - ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+
+    function cleanDashboardTemplateStatus(value){
+      return normalizeDashboardTemplateMatch(value)
+        .replace(/\s-\sمرسال$/,"")
+        .replace(/\s-\sقالب$/,"")
+        .trim();
+    }
+
+    function findDashboardTemplateByStatus(status){
+      const statusNorm = cleanDashboardTemplateStatus(status);
+      if(!statusNorm) return null;
+
+      const lead = dashboardChatState.lead || {};
+      const allowed = dashboardChatState.templates
+        .filter(t => templateAppliesToLead(t, lead))
+        .filter(t => String(t.type || "quick") !== "quick");
+
+      const expectedMersal = normalizeDashboardTemplateMatch(status + " - مرسال");
+
+      return allowed.find(t => normalizeDashboardTemplateMatch(dashboardTemplateLabel(t)) === expectedMersal)
+        || allowed.find(t => cleanDashboardTemplateStatus(dashboardTemplateLabel(t)) === statusNorm)
+        || allowed.find(t => {
+          const labelNorm = normalizeDashboardTemplateMatch(dashboardTemplateLabel(t));
+          return labelNorm.includes(statusNorm) && labelNorm.includes("مرسال");
+        })
+        || allowed.find(t => normalizeDashboardTemplateMatch(dashboardTemplateLabel(t)).includes(statusNorm))
+        || null;
+    }
+
+    function applyDashboardTemplateToMessage(t, force=true){
+      if(!t) return false;
+      const text = applyTemplateVariables(dashboardTemplateText(t), dashboardChatState.lead || {});
+      if(!String(text || "").trim()) return false;
+      const textarea = el("chatReplyText");
+      if(!textarea) return false;
+
+      if(force || !textarea.value.trim()){
+        textarea.value = text;
+      }
+      textarea.focus();
+      return true;
+    }
+
+    function selectDashboardTemplateByStatus(status){
+      const template = findDashboardTemplateByStatus(status);
+      const select = el("chatTemplateSelect");
+      if(!template || !select) return false;
+
+      select.value = template.id;
+      applyDashboardTemplateToMessage(template, true);
+      return true;
+    }
+
+    function onDashboardStatusChanged(){
+      updateDashboardStatusVisual();
+      updateChatCompletionProgress();
+      selectDashboardTemplateByStatus(el("chatStatus")?.value || "");
+    }
+
+
     function insertSelectedDashboardTemplate(){
       const t = selectedDashboardTemplate();
       if(!t) return toast("اختر قالب أولاً");
-      const text = applyTemplateVariables(t.content || t.body || t.message || "", dashboardChatState.lead || {});
-      if(!text.trim()) return toast("القالب لا يحتوي على رسالة");
-      const textarea = el("chatReplyText");
-      textarea.value = text;
-      textarea.focus();
+      if(!applyDashboardTemplateToMessage(t, true)) return toast("القالب لا يحتوي على رسالة");
     }
 
     function listenDashboardTemplates(){
@@ -656,6 +749,60 @@
       });
     }
 
+
+    function normalizeDashboardStatusKey(value){
+      return String(value || "")
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/[–—−]/g, "-")
+        .replace(/\s*-\s*/g, " - ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+
+    function uniqueDashboardStatuses(values){
+      const seen = new Set();
+      const out = [];
+      values.filter(Boolean).forEach(v => {
+        const label = String(v || "").trim();
+        const key = normalizeDashboardStatusKey(label);
+        if(!key || seen.has(key)) return;
+        seen.add(key);
+        out.push(label);
+      });
+      return out;
+    }
+
+    function dashboardStatusTone(status){
+      const s = normalizeDashboardStatusKey(status);
+      if(!s) return "neutral";
+      if(s.includes("تم البيع") || s.includes("تم الانتهاء") || s.includes("تم الموافقه") || s.includes("تم توقيع العقد") || s.includes("مؤهل")) return "success";
+      if(s.includes("مؤجل") || s.includes("تاخر")) return "warning";
+      if(s.includes("غير مؤهل") || s.includes("لم تتم الموافقه") || s.includes("لم يتم توقيع")) return "danger";
+      if(s.includes("تم الاتصال") || s.includes("تم الرد") || s.includes("جاري") || s.includes("طلب")) return "info";
+      return "neutral";
+    }
+
+    function updateDashboardStatusVisual(){
+      const select = el("chatStatus");
+      const box = el("chatFollowupDateBox");
+      if(!select) return;
+
+      const tone = dashboardStatusTone(select.value);
+      select.classList.remove("status-tone-success","status-tone-warning","status-tone-danger","status-tone-info","status-tone-neutral");
+      select.classList.add("status-tone-" + tone);
+
+      if(box){
+        const isDeferred = normalizeDashboardStatusKey(select.value).includes("مؤجل");
+        box.classList.toggle("hidden", !isDeferred);
+        if(!isDeferred && el("chatFollowupDate")) el("chatFollowupDate").value = "";
+      }
+    }
+
+
     function statusOptionsForLead(lead){
       const dept = leadDepartment(lead);
       const def = Object.values(SECTION_DEFS).find(x => x.department === dept) || SECTION_DEFS.cash;
@@ -664,17 +811,35 @@
         statuses.push(st.title);
         (st.match || []).forEach(v => statuses.push(v));
       });
-      return [...new Set(statuses.filter(Boolean))];
+      return uniqueDashboardStatuses(statuses);
     }
 
     function fillDashboardChatStatusOptions(lead){
       const select = el("chatStatus");
       const current = getLeadField(lead, ["status","leadStatus","currentStatus","clientStatus","customerStatus","pipelineStatus"], "عميل جديد");
       const options = statusOptionsForLead(lead);
-      if(current && !options.includes(current)) options.unshift(current);
-      select.innerHTML = options.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-      select.value = options.includes(current) ? current : (options[0] || "عميل جديد");
+      const currentKey = normalizeDashboardStatusKey(current);
+      if(current && !options.some(v => normalizeDashboardStatusKey(v) === currentKey)) options.unshift(current);
+      select.innerHTML = uniqueDashboardStatuses(options).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+      const matchedCurrent = options.find(v => normalizeDashboardStatusKey(v) === currentKey);
+      select.value = matchedCurrent || (options[0] || "عميل جديد");
+      updateDashboardStatusVisual();
+      selectDashboardTemplateByStatus(select.value);
     }
+
+
+    function normalizeDateTimeLocalValue(value){
+      if(!value) return "";
+      try{
+        const d = value?.toDate ? value.toDate() : new Date(value);
+        if(!d || Number.isNaN(d.getTime())) return "";
+        const pad = n => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }catch(e){
+        return "";
+      }
+    }
+
 
     function fillDashboardChatCustomerForm(lead){
       el("chatCustomerName").textContent = customerName(lead);
@@ -691,6 +856,10 @@
       el("chatColor").value = getLeadField(lead, ["color","carColor"]);
       el("chatPayment").value = getLeadField(lead, ["payment","paymentType","payType","leadPayment"]);
       el("chatNotes").value = getLeadField(lead, ["notes","remarks","comment"]);
+      if(el("chatFollowupDate")){
+        el("chatFollowupDate").value = normalizeDateTimeLocalValue(getLeadField(lead, ["followupDate","followUpDate","nextFollowupDate","appointmentDate","scheduledAt"]));
+      }
+      updateDashboardStatusVisual();
       updateChatCompletionProgress();
     }
 
@@ -928,8 +1097,8 @@
             status:"pending",
             messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
             template: selectedTemplate || null,
-            sentByUid:state.user.uid,
-            sentByEmail:state.user.email,
+            sentByUid:currentUser?.uid || '',
+            sentByEmail:currentUser?.email || '',
             createdAt:serverTimestamp()
           });
           await addDoc(collection(db, cfg.conversations, convId, "messages"), {
@@ -938,8 +1107,8 @@
             fromAgent:true,
             department:leadDepartment(lead),
             template: selectedTemplate || null,
-            sentByUid:state.user.uid,
-            sentByEmail:state.user.email,
+            sentByUid:currentUser?.uid || '',
+            sentByEmail:currentUser?.email || '',
             createdAt:serverTimestamp(),
             status:"pending"
           });
@@ -985,6 +1154,10 @@
         paymentType: el("chatPayment").value.trim(),
         payType: el("chatPayment").value.trim(),
         notes: el("chatNotes").value.trim(),
+        followupDate: el("chatFollowupDate")?.value || "",
+        followUpDate: el("chatFollowupDate")?.value || "",
+        nextFollowupDate: el("chatFollowupDate")?.value || "",
+        appointmentDate: el("chatFollowupDate")?.value || "",
         status,
         statusLabel: status,
         leadStatus: status,
@@ -1966,6 +2139,64 @@
           white-space:nowrap !important;
         }
 
+        /* V55 popup status + follow-up + composer */
+        .customer-form-card #chatStatus{
+          font-weight:900 !important;
+          border-width:2px !important;
+          color:#15321f !important;
+          box-shadow:0 8px 18px rgba(22,101,52,.10) !important;
+        }
+        .customer-form-card #chatStatus.status-tone-success{
+          background:#dcfce7 !important;
+          border-color:#16a34a !important;
+          color:#14532d !important;
+        }
+        .customer-form-card #chatStatus.status-tone-warning{
+          background:#fef3c7 !important;
+          border-color:#d97706 !important;
+          color:#78350f !important;
+        }
+        .customer-form-card #chatStatus.status-tone-danger{
+          background:#fee2e2 !important;
+          border-color:#dc2626 !important;
+          color:#7f1d1d !important;
+        }
+        .customer-form-card #chatStatus.status-tone-info{
+          background:#dbeafe !important;
+          border-color:#2563eb !important;
+          color:#1e3a8a !important;
+        }
+        .customer-form-card #chatStatus.status-tone-neutral{
+          background:#f1f5f9 !important;
+          border-color:#64748b !important;
+          color:#1f2937 !important;
+        }
+        .followup-date-box.hidden{
+          display:none !important;
+        }
+        .followup-date-box{
+          padding:10px !important;
+          border:1px solid #f0c36b !important;
+          border-radius:14px !important;
+          background:#fffbeb !important;
+          color:#78350f !important;
+        }
+        .followup-date-box input{
+          background:#fff !important;
+          border-color:#f0c36b !important;
+          font-weight:800 !important;
+        }
+        .dashboard-chat-send textarea,
+        #chatReplyText{
+          min-height:150px !important;
+          max-height:320px !important;
+          font-size:15px !important;
+          line-height:1.9 !important;
+        }
+        .dashboard-chat-send button{
+          min-height:150px !important;
+        }
+
       `;
       document.head.appendChild(style);
     }
@@ -2036,6 +2267,18 @@
 
       el("logoutBtn").onclick = () => signOut(auth);
     }
+
+
+    // dashboard-template-hard-bind-listener
+    document.addEventListener("change", (e) => {
+      if(e.target?.id === "chatTemplateSelect"){
+        const t = selectedDashboardTemplate();
+        if(t) applyDashboardTemplateToMessage(t, true);
+      }
+      if(e.target?.id === "chatStatus"){
+        onDashboardStatusChanged();
+      }
+    }, true);
 
     setupAuth(init);
   </script>
