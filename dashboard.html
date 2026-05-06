@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MZJ CRM - الداش بورد</title>
   <link rel="stylesheet" href="./theme.css" />
-<!-- MZJ V46 dashboard completion matches inbox data -->
+<!-- MZJ V47 dashboard no stuck completion -->
 </head>
 <body>
   <section class="login-screen hidden" id="loginScreen">
@@ -751,30 +751,39 @@
     function renderCompletionBadge(lead){
       const id = lead.__id || lead.id || "";
       const cached = id && typeof dashboardChatState.completionByLead[id] === "number";
-      const text = cached ? `${dashboardChatState.completionByLead[id]}% مكتمل` : "جاري الحساب...";
-      return `<span class="lead-completion-badge" title="اكتمال ملف العميل" data-completion-lead-id="${escapeHtml(id)}">${text}</span>`;
+
+      // V47: لا نعرض "جاري الحساب..." نهائياً.
+      // نعرض نسبة fallback فوراً من بيانات الليد، ثم نحدثها من صندوق الوارد لو نجح التحميل.
+      const pct = cached ? dashboardChatState.completionByLead[id] : leadCompletionFromLeadData(lead);
+      return `<span class="lead-completion-badge" title="اكتمال ملف العميل" data-completion-lead-id="${escapeHtml(id)}">${pct}% مكتمل</span>`;
     }
 
     async function hydrateStatusCompletionBadges(items){
       const visible = items.filter(l => l && (l.__id || l.id));
 
-      await Promise.all(visible.map(async (lead) => {
-        const id = lead.__id || lead.id;
-        const fromInbox = await loadActualInboxCompletionForLead(lead).catch(() => null);
-
-        // الأولوية دائماً لصندوق الوارد/وثيقة المحادثة.
-        // fallback من الليد فقط لو المحادثة غير موجودة أو لا تحتوي بيانات customer.
-        dashboardChatState.completionByLead[id] =
-          typeof fromInbox === "number" ? fromInbox : leadCompletionFromLeadData(lead);
-      }));
-
+      // اكتب fallback فوراً عشان مفيش badge يفضل واقف.
       visible.forEach(lead => {
         const id = lead.__id || lead.id;
+        dashboardChatState.completionByLead[id] = leadCompletionFromLeadData(lead);
         document.querySelectorAll("[data-completion-lead-id]").forEach(badge => {
           if(String(badge.dataset.completionLeadId) === String(id)){
             badge.textContent = `${dashboardChatState.completionByLead[id]}% مكتمل`;
           }
         });
+      });
+
+      // بعدها حاول تحدث من بيانات صندوق الوارد. لو فشل تفضل fallback ظاهرة.
+      visible.forEach(async (lead) => {
+        const id = lead.__id || lead.id;
+        const fromInbox = await loadActualInboxCompletionForLead(lead).catch(() => null);
+        if(typeof fromInbox === "number"){
+          dashboardChatState.completionByLead[id] = fromInbox;
+          document.querySelectorAll("[data-completion-lead-id]").forEach(badge => {
+            if(String(badge.dataset.completionLeadId) === String(id)){
+              badge.textContent = `${fromInbox}% مكتمل`;
+            }
+          });
+        }
       });
     }
 
