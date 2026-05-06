@@ -149,30 +149,6 @@
             </table>
           </div>
         </div>
-
-
-        <div class="report-table-section">
-          <h3>تفصيل مناديب الفروع</h3>
-          <div class="table-wrap">
-            <table class="management-table">
-              <thead>
-                <tr>
-                  <th>الفرع</th>
-                  <th>القسم</th>
-                  <th>المندوب</th>
-                  <th>إجمالي العملاء</th>
-                  <th>جودة التسويق</th>
-                  <th>غير مؤهل</th>
-                  <th>مؤجل</th>
-                  <th>محتمل</th>
-                  <th>تم البيع</th>
-                  <th>جودة المندوب</th>
-                </tr>
-              </thead>
-              <tbody id="branchAgentsReport"></tbody>
-            </table>
-          </div>
-        </div>
         </div>
 </main>
   </div>
@@ -235,10 +211,8 @@
     let isAdmin = false;
     let leads = [];
     let users = [];
-    let branches = [];
     let unsubLeads = null;
     let unsubUsers = null;
-    let unsubBranches = null;
 
     function toast(msg){
       const t = el("toast");
@@ -310,40 +284,6 @@
       if(dept === "call_center") return lead.callCenterUid === uid;
       if(["cash_sales","finance_sales","customer_service"].includes(dept)) return lead.responsibleUid === uid;
       return lead.responsibleUid === uid || lead.callCenterUid === uid;
-    }
-
-    function userDisplayName(uid, fallback=""){
-      const u = users.find(x => String(x.uid || x.id || "") === String(uid || ""));
-      return String(u?.name || u?.email || fallback || uid || "").trim();
-    }
-
-    function normalizeUidList(list){
-      if(!Array.isArray(list)) return [];
-      return list.map(x => String(x || "").trim()).filter(Boolean);
-    }
-
-    function branchAgentsForSection(branch, sectionKey){
-      const b = branch || {};
-      let uids = [];
-      let names = [];
-      if(sectionKey === "cash_sales"){
-        uids = normalizeUidList(b.cashSalesUids || (b.cashSalesUid ? [b.cashSalesUid] : []));
-        names = Array.isArray(b.cashSalesNames) ? b.cashSalesNames : [];
-      } else if(sectionKey === "finance_sales"){
-        uids = normalizeUidList(b.financeSalesUids || (b.financeSalesUid ? [b.financeSalesUid] : []));
-        names = Array.isArray(b.financeSalesNames) ? b.financeSalesNames : [];
-      } else if(sectionKey === "customer_service"){
-        uids = normalizeUidList(b.customerServiceUids || (b.customerServiceUid ? [b.customerServiceUid] : []));
-        names = Array.isArray(b.customerServiceNames) ? b.customerServiceNames : [];
-      } else if(sectionKey === "call_center"){
-        uids = normalizeUidList(b.callCenterUids || (b.callCenterUid ? [b.callCenterUid] : []));
-        names = Array.isArray(b.callCenterNames) ? b.callCenterNames : [];
-      }
-      return uids.map((uid, index) => ({ uid, name:userDisplayName(uid, names[index] || uid) }));
-    }
-
-    function branchNameOf(branch){
-      return String(branch?.name || branch?.branchName || branch?.id || "").trim();
     }
 
     function tsToDate(v){
@@ -470,12 +410,7 @@
     }
 
     function refreshBranchOptions(){
-      const names = new Set(uniqueValues(leads.filter(userCanSeeLead), "branch"));
-      branches.forEach(b => {
-        const name = branchNameOf(b);
-        if(name && (b.active !== false || names.has(name))) names.add(name);
-      });
-      fillSelectOptions(el("branchFilter"), "كل الفروع", Array.from(names).sort((a,b)=>a.localeCompare(b, 'ar')));
+      fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads.filter(userCanSeeLead), "branch"));
     }
 
     function refreshAgentOptions(){
@@ -534,43 +469,8 @@
           const m = computeMetrics(item.rows);
           return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
         });
-      el("agentsReport").innerHTML = agentRows.length ? agentRows.join("") : '<tr><td colspan="9">لا توجد بيانات للمندوبين.</td></tr>';
-      renderBranchReports(rows);
-    }
-
-    function renderBranchReports(rows){
-      const selectedBranch = el("branchFilter").value;
-      const selectedSection = el("departmentFilter").value;
-      const selectedAgent = el("agentFilter").value;
-      const sections = selectedSection ? SECTION_DEFS.filter(sec => sec.key === selectedSection) : SECTION_DEFS;
-      const visibleBranchNames = new Set(rows.map(lead => String(lead.branch || "").trim()).filter(Boolean));
-      let branchList = branches.filter(b => b.active !== false || visibleBranchNames.has(branchNameOf(b)));
-      if(selectedBranch) branchList = branchList.filter(b => branchNameOf(b) === selectedBranch);
-
-      const branchAgentRows = [];
-
-      branchList.forEach(branch => {
-        const branchName = branchNameOf(branch);
-        if(!branchName) return;
-        sections.forEach(sec => {
-          const branchRows = rows.filter(lead => String(lead.branch || "").trim() === branchName && getLeadSectionKey(lead) === sec.key);
-          const agents = branchAgentsForSection(branch, sec.key);
-          const displayAgents = selectedAgent ? agents.filter(a => a.uid === selectedAgent) : agents;
-
-          const detailAgents = displayAgents.length ? displayAgents : (branchRows.length ? [{ uid:"", name:"غير محدد" }] : []);
-          detailAgents.forEach(agent => {
-            const agentRows = agent.uid
-              ? branchRows.filter(lead => getAgentUidForSection(lead, sec.key) === agent.uid)
-              : branchRows.filter(lead => !getAgentUidForSection(lead, sec.key));
-            if(!agentRows.length && selectedAgent) return;
-            const am = computeMetrics(agentRows);
-            branchAgentRows.push(`<tr><td>${escapeHtml(branchName)}</td><td>${escapeHtml(sec.label)}</td><td>${escapeHtml(agent.name)}</td><td>${am.total}</td><td>${am.marketingQualityRate}%</td><td>${am.waste}</td><td>${am.delayed}</td><td>${am.potential}</td><td>${am.sold}</td><td>${am.agentQualityRate}%</td></tr>`);
-          });
-        });
-      });
-
-      el("branchAgentsReport").innerHTML = branchAgentRows.length ? branchAgentRows.join("") : '<tr><td colspan="10">لا توجد بيانات لمناديب الفروع حسب الفلاتر الحالية.</td></tr>';
-    }
+      el("agentsReport").innerHTML = agentRows.length ? agentRows.join("") : '<tr><td colspan="8">لا توجد بيانات للمندوبين.</td></tr>';
+}
 
     function buildExportSheets(){
       const rows = filteredRows();
@@ -615,34 +515,15 @@
         };
       }).filter(Boolean);
 
-
-      const branchAgentRows = Array.from(document.querySelectorAll('#branchAgentsReport tr')).map(tr => {
-        const cells = [...tr.children].map(td => td.textContent.trim());
-        if(cells.length < 10) return null;
-        return {
-          "الفرع": cells[0],
-          "القسم": cells[1],
-          "المندوب": cells[2],
-          "إجمالي العملاء": cells[3],
-          "جودة التسويق": cells[4],
-          "غير مؤهل": cells[5],
-          "مؤجل": cells[6],
-          "محتمل": cells[7],
-          "تم البيع": cells[8],
-          "جودة المندوب": cells[9]
-        };
-      }).filter(Boolean);
-
-      return { summarySheet, sectionRows, agentRows, branchAgentRows };
+      return { summarySheet, sectionRows, agentRows };
     }
 
     function exportExcel(){
       const wb = XLSX.utils.book_new();
-      const { summarySheet, sectionRows, agentRows, branchAgentRows } = buildExportSheets();
+      const { summarySheet, sectionRows, agentRows } = buildExportSheets();
       XLSX.utils.book_append_sheet(wb, summarySheet, 'الملخص');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sectionRows), 'الأقسام');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(agentRows), 'المناديب');
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(branchAgentRows), 'مناديب الفروع');
       XLSX.writeFile(wb, `mzj-reports-${new Date().toISOString().slice(0,10)}.xlsx`);
     }
 
@@ -659,7 +540,6 @@
     function init(){
       if(unsubLeads) unsubLeads();
       if(unsubUsers) unsubUsers();
-      if(unsubBranches) unsubBranches();
 
       unsubLeads = onSnapshot(collection(db, 'leads'), snap => {
         leads = [];
@@ -674,16 +554,6 @@
         users = [];
         snap.forEach(d => users.push({ id:d.id, uid:d.id, ...d.data() }));
         render();
-      });
-
-      unsubBranches = onSnapshot(collection(db, 'branches'), snap => {
-        branches = [];
-        snap.forEach(d => branches.push({ id:d.id, ...d.data() }));
-        branches.sort((a,b) => branchNameOf(a).localeCompare(branchNameOf(b), 'ar'));
-        render();
-      }, err => {
-        console.error(err);
-        toast('تعذر تحميل بيانات الفروع للتقارير');
       });
 
       ['dateFrom','dateTo','departmentFilter','branchFilter','agentFilter','searchInput'].forEach(id => {
