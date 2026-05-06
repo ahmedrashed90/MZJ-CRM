@@ -185,6 +185,16 @@
       return profile?.role === "admin" || profile?.allDepartments === true;
     }
 
+    function normalizeSourceLabel(value){
+      const raw = String(value || "").trim();
+      const low = raw.toLowerCase();
+      if(low === "tikok" || low === "tiktok" || low === "tt" || raw.includes("تيك")) return "تيك توك";
+      if(low === "fb" || low.includes("facebook") || raw.includes("فيس")) return "فيسبوك";
+      if(low === "ig" || low.includes("instagram") || raw.includes("انست")) return "انستجرام";
+      if(low === "wa" || low.includes("whatsapp") || raw.includes("واتساب")) return "واتساب";
+      return raw;
+    }
+
     function escapeHtml(str){
       return String(str ?? "").replace(/[&<>"']/g, s => ({
         "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
@@ -208,7 +218,36 @@
     function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
 
     function normalizePhone(phone){
-      return String(phone || "").replace(/[^\d+]/g,"").trim();
+      let p = String(phone || "").trim();
+      if(/[eE]\+?/.test(p)){
+        const n = Number(p);
+        if(Number.isFinite(n)) p = String(Math.trunc(n));
+      }
+      p = p.replace(/[^\d+]/g,"");
+      p = p.replace(/^00/,"+").replace(/^\+/,"");
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0,12);
+      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) return "966" + p;
+      return p;
+    }
+
+    function openWhatsappInboxByPhone(phone, name=""){
+      const p = normalizePhone(phone);
+      if(!p) return toast("لا يوجد رقم جوال صالح");
+      const params = new URLSearchParams({
+        platform:"whatsapp",
+        phone:p,
+        conversationId:p,
+        name:name || "",
+        department:PAGE_DEPARTMENT || ""
+      });
+      window.location.href = `./inbox.html?${params.toString()}`;
+    }
+
+    function phoneLinkHtml(phone, name=""){
+      const p = normalizePhone(phone);
+      if(!p) return escapeHtml(phone || "");
+      return `<button type="button" class="phone-open-chat" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}">${escapeHtml(phone || p)}</button>`;
     }
 
     function fullName(row){
@@ -483,10 +522,10 @@
 
         tr.innerHTML = `
           <td>${escapeHtml(l.customerName)}</td>
-          <td>${escapeHtml(l.phone)}</td>
+          <td>${phoneLinkHtml(l.phone, l.customerName)}</td>
           <td>${escapeHtml(l.location)}</td>
           <td>${escapeHtml(l.branch)}</td>
-          <td>${escapeHtml(l.source)}</td>
+          <td>${escapeHtml(normalizeSourceLabel(l.source))}</td>
           <td>${escapeHtml(l.carName)}</td>
           <td>${escapeHtml(l.payment)}</td>
           <td>${escapeHtml(l.status)}</td>
@@ -566,6 +605,12 @@
         const select = e.target.closest("select[data-assign]");
         if(!select) return;
         assignField(select.dataset.id, select.dataset.assign, select.value);
+      });
+
+      el("leadsBody").addEventListener("click", (e) => {
+        const btn = e.target.closest(".phone-open-chat");
+        if(!btn) return;
+        openWhatsappInboxByPhone(btn.dataset.phone, btn.dataset.name);
       });
     }
 

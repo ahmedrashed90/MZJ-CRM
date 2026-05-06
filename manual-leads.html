@@ -250,6 +250,33 @@
       if(p.startsWith("966") && p.length >= 12) return p.slice(0, 12);
       return p;
     }
+
+    function openWhatsappInboxByPhone(phone, name=""){
+      const p = normalizePhone(phone);
+      if(!p) return toast("لا يوجد رقم جوال صالح");
+      const params = new URLSearchParams({
+        platform:"whatsapp",
+        phone:p,
+        conversationId:p,
+        name:name || "",
+        department:(currentProfile?.department || "")
+      });
+      window.location.href = `./inbox.html?${params.toString()}`;
+    }
+
+    function phoneLinkHtml(phone, name=""){
+      const p = normalizePhone(phone);
+      if(!p) return escapeHtml(phone || "");
+      return `<button type="button" class="phone-open-chat" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}">${escapeHtml(phone || p)}</button>`;
+    }
+
+    function manualNameHtml(row){
+      const name = row.customerName || row.name || "";
+      const phone = row.phone || row.mobile || row.phoneNumber || "";
+      if(!name) return "";
+      return `<button type="button" class="manual-name-open-chat" data-phone="${escapeHtml(normalizePhone(phone))}" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`;
+    }
+
     function safeDocId(value){ return String(value || "").replace(/[\/#[\].]/g, "_").replace(/\s+/g, "_").slice(0,120); }
 
     function paymentFromDepartment(dept){
@@ -390,8 +417,8 @@
         const reps = usersForDepartment(dept);
         const opts = reps.map(u => `<option value="${escapeHtml(u.uid)}" ${u.uid === (l.assignedTo||l.responsibleUid) ? "selected" : ""}>${escapeHtml(userLabel(u))}</option>`).join("");
         return `<tr>
-          <td>${escapeHtml(l.customerName || l.name || "")}</td>
-          <td>${escapeHtml(l.phone || l.mobile || l.phoneNumber || "")}</td>
+          <td>${manualNameHtml(l)}</td>
+          <td>${phoneLinkHtml(l.phone || l.mobile || l.phoneNumber || "", l.customerName || l.name || "")}</td>
           <td>${escapeHtml(l.source || "")}</td>
           <td>${escapeHtml(l.payment || l.paymentType || l.payType || "")}</td>
           <td><select data-lead-id="${escapeHtml(l.id)}" class="rep-select"><option value="">اختر مندوب</option>${opts}</select></td>
@@ -466,6 +493,7 @@
     ["searchInput","sourceFilter","paymentFilter"].forEach(id => el(id).addEventListener("input", renderManualLeads));
     document.addEventListener("change", e => { if(e.target.classList.contains("rep-select")) changeRep(e.target.dataset.leadId, e.target.value); });
     document.addEventListener("click", e => { if(e.target.classList.contains("edit-btn")) editLead(e.target.dataset.leadId); });
+    document.addEventListener("click", e => { const btn = e.target.closest(".phone-open-chat, .manual-name-open-chat"); if(!btn) return; openWhatsappInboxByPhone(btn.dataset.phone, btn.dataset.name); });
 
     onAuthStateChanged(auth, async user => {
       if(!user){
