@@ -92,7 +92,9 @@
     </main>
   </div>
   <div class="toast" id="toast"></div>
-  <script type="module">
+
+  
+<script type="module">
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
@@ -151,6 +153,11 @@
       window.FB_SEND_ENDPOINT ||
       localStorage.getItem("FB_SEND_ENDPOINT") ||
       "https://facebook.next-erp-mzj.workers.dev/crm/send";
+
+    const MERSAL_SEND_ENDPOINT =
+      window.MERSAL_SEND_ENDPOINT ||
+      localStorage.getItem("MERSAL_SEND_ENDPOINT") ||
+      "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
 
     let dashboardChatState = {
       lead:null,
@@ -970,18 +977,35 @@
         || senderName.includes("السيستم");
     }
 
+
+    function forceDashboardChatSides(){}
+
     function renderDashboardMessages(messages){
       const box = el("chatMessages");
       if(!messages.length){
         box.innerHTML = `<div class="empty">لا توجد رسائل لهذه المحادثة.</div>`;
         return;
       }
-      box.innerHTML = messages.map(m => {
+      box.innerHTML = messages.map((m, index) => {
         const outgoing = isDashboardOutgoingMessage(m);
+        const prev = index > 0 ? messages[index - 1] : null;
+        const next = index < messages.length - 1 ? messages[index + 1] : null;
+        const prevOutgoing = prev ? isDashboardOutgoingMessage(prev) : null;
+        const nextOutgoing = next ? isDashboardOutgoingMessage(next) : null;
+        const groupClass = prevOutgoing !== outgoing && nextOutgoing !== outgoing
+          ? "group-single"
+          : prevOutgoing !== outgoing
+            ? "group-start"
+            : nextOutgoing !== outgoing
+              ? "group-end"
+              : "group-middle";
         return `
-          <div class="dash-msg ${outgoing ? "out" : "in"}">
-            <div>${escapeHtml(messageText(m) || "رسالة")}</div>
-            <small>${escapeHtml(formatMessageTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
+          <div class="dash-msg-row ${outgoing ? "sent-row out" : "received-row in"} ${groupClass}">
+            <div class="dash-msg ${outgoing ? "out" : "in"}">
+              ${prevOutgoing !== outgoing ? `<div class="dash-sender">${outgoing ? "الرد المرسل" : "العميل"}</div>` : ""}
+              <div class="dash-msg-text">${escapeHtml(messageText(m) || "رسالة")}</div>
+              <small>${escapeHtml(formatMessageTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
+            </div>
           </div>
         `;
       }).join("");
@@ -1057,6 +1081,34 @@
       if(modal) modal.classList.add("hidden");
     }
 
+    function buildDashboardMersalPayload(phone, text, selectedTemplate){
+      const payload = { phone: normalizeKsaPhone(phone) || String(phone || "").replace(/[^\d]/g, "") };
+      if(selectedTemplate?.type === "mersal" && (selectedTemplate.name || selectedTemplate.templateName)){
+        payload.template_name = selectedTemplate.name || selectedTemplate.templateName;
+        payload.template_language = selectedTemplate.lang || selectedTemplate.language || "ar";
+        const params = Array.isArray(selectedTemplate.params) ? selectedTemplate.params : [];
+        if(params.length) payload.params = params;
+      } else {
+        payload.message = text;
+      }
+      return payload;
+    }
+
+    async function sendDashboardMersalDirect(phone, text, selectedTemplate){
+      const payload = buildDashboardMersalPayload(phone, text, selectedTemplate);
+      const res = await fetch(MERSAL_SEND_ENDPOINT, {
+        method:"POST",
+        headers:{ "content-type":"application/json" },
+        body:JSON.stringify(payload)
+      });
+      const result = await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }));
+      if(!res.ok || result.ok === false){
+        console.error("Dashboard Mersal send failed", { payload, result, status:res.status });
+        throw new Error(result.error || result.raw || "mersal send failed");
+      }
+      return result;
+    }
+
     async function sendDashboardChatReply(){
       const lead = dashboardChatState.lead;
       const text = el("chatReplyText").value.trim();
@@ -1065,11 +1117,12 @@
 
       const platform = dashboardChatState.platform;
       const cfg = chatPlatformConfig(platform);
-      const selectedTemplate = selectedDashboardTemplate();
+      const selectedTemplate = selectedDashboardTemplate() || selectedDashboardQuickMessage();
       const convId = dashboardChatState.convId || resolveChatConversationId(lead);
       if(!convId) return toast("لا توجد محادثة أو رقم لهذا العميل");
 
       try{
+        let providerResult = null;
         if(platform === "facebook"){
           const res = await fetch(FACEBOOK_SEND_ENDPOINT, {
             method:"POST",
@@ -1085,6 +1138,26 @@
           });
           const result = await res.json().catch(() => ({}));
           if(!res.ok || result.ok === false) throw new Error(result.error || "facebook send failed");
+        } else if(platform === "whatsapp"){
+          providerResult = await sendDashboardMersalDirect(phoneOfLead(lead) || convId, text, selectedTemplate);
+          if(cfg.outbox){
+            addDoc(collection(db, cfg.outbox), {
+              conversationId:convId,
+              platform,
+              department:leadDepartment(lead),
+              to: phoneOfLead(lead),
+              text,
+              status:"sent",
+              provider:"mersal",
+              providerResult,
+              messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
+              template: selectedTemplate || null,
+              sentByUid:currentUser?.uid || '',
+              sentByEmail:currentUser?.email || '',
+              createdAt:serverTimestamp(),
+              sentAt:serverTimestamp()
+            }).catch(console.warn);
+          }
         } else {
           if(!cfg.outbox) throw new Error("لا يوجد مسار إرسال مضبوط لهذه المنصة");
           await addDoc(collection(db, cfg.outbox), {
@@ -1100,28 +1173,33 @@
             sentByEmail:currentUser?.email || '',
             createdAt:serverTimestamp()
           });
-          await addDoc(collection(db, cfg.conversations, convId, "messages"), {
-            text,
-            direction:"outgoing",
-            fromAgent:true,
-            department:leadDepartment(lead),
-            template: selectedTemplate || null,
-            sentByUid:currentUser?.uid || '',
-            sentByEmail:currentUser?.email || '',
-            createdAt:serverTimestamp(),
-            status:"pending"
-          });
-          await setDoc(doc(db, cfg.conversations, convId), {
-            lastMessage:text,
-            lastMessageText:text,
-            updatedAt:serverTimestamp()
-          }, { merge:true });
         }
+
+        await addDoc(collection(db, cfg.conversations, convId, "messages"), {
+          text,
+          direction:"outgoing",
+          fromAgent:true,
+          department:leadDepartment(lead),
+          template: selectedTemplate || null,
+          providerResult: providerResult || null,
+          sentByUid:currentUser?.uid || '',
+          sentByEmail:currentUser?.email || '',
+          createdAt:serverTimestamp(),
+          sentAt:serverTimestamp(),
+          status: platform === "whatsapp" ? "sent" : "pending"
+        });
+        await setDoc(doc(db, cfg.conversations, convId), {
+          lastMessage:text,
+          lastMessageText:text,
+          updatedAt:serverTimestamp(),
+          lastUpdated:serverTimestamp()
+        }, { merge:true });
+
         el("chatReplyText").value = "";
         toast("تم الإرسال");
       }catch(err){
         console.error(err);
-        toast("فشل الإرسال. راجع إعدادات الإرسال أو الصلاحيات.");
+        toast(platform === "whatsapp" ? "فشل إرسال مرسال. راجع رابط الوركر أو التوكن." : "فشل الإرسال. راجع إعدادات الإرسال أو الصلاحيات.");
       }
     }
 
@@ -2281,5 +2359,9 @@
 
     setupAuth(init);
   </script>
+
+
+
+
 </body>
 </html>

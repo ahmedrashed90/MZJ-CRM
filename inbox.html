@@ -166,7 +166,9 @@
 
   <div class="toast" id="toast"></div>
 
-  <script type="module">
+
+  
+<script type="module">
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
@@ -239,6 +241,11 @@
       window.FB_SEND_ENDPOINT ||
       localStorage.getItem("FB_SEND_ENDPOINT") ||
       "https://facebook.next-erp-mzj.workers.dev/crm/send";
+
+    const MERSAL_SEND_ENDPOINT =
+      window.MERSAL_SEND_ENDPOINT ||
+      localStorage.getItem("MERSAL_SEND_ENDPOINT") ||
+      "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
 
     const CUSTOMER_FIELDS = [
       "customerName","phone","salary","obligation","location","age","salaryBank",
@@ -978,6 +985,9 @@
       return [...new Set(extra.filter(Boolean))];
     }
 
+
+    function forceInboxChatSides(){}
+
     function listenMessages(c){
       if(state.unsubMessages) state.unsubMessages();
       messagesEl.innerHTML = '<div class="empty">جاري التحميل...</div>';
@@ -1008,16 +1018,26 @@
             return;
           }
 
-          messages.forEach(m => {
+          messages.forEach((m, index) => {
             const outgoing = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
+            const prev = index > 0 ? messages[index - 1] : null;
+            const next = index < messages.length - 1 ? messages[index + 1] : null;
+            const prevOutgoing = prev ? (["out","outgoing","agent","sent"].includes(String(prev.direction || prev.type || "").toLowerCase()) || prev.fromAgent === true) : null;
+            const nextOutgoing = next ? (["out","outgoing","agent","sent"].includes(String(next.direction || next.type || "").toLowerCase()) || next.fromAgent === true) : null;
+            const groupClass = prevOutgoing !== outgoing && nextOutgoing !== outgoing
+              ? "group-single"
+              : prevOutgoing !== outgoing
+                ? "group-start"
+                : nextOutgoing !== outgoing
+                  ? "group-end"
+                  : "group-middle";
             const row = document.createElement("div");
-            row.className = "msg-row " + (outgoing ? "out" : "in");
+            row.className = `msg-row ${outgoing ? "sent-row out" : "received-row in"} ${groupClass}`;
             row.innerHTML = `
               <div class="msg ${outgoing ? "out" : "in"}">
-                <div class="msg-text">${escapeHtml(messageTextOf(m))}</div>
+                ${prevOutgoing !== outgoing ? `<div class="msg-sender">${outgoing ? "الرد المرسل" : "العميل"}</div>` : ""}
+                <div class="msg-text">${escapeHtml(messageTextOf(m) || "رسالة")}</div>
                 <div class="msg-meta">
-                  <span>${outgoing ? "أنت" : "العميل"}</span>
-                  <span>•</span>
                   <span>${formatTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt)}</span>
                 </div>
               </div>
@@ -1064,6 +1084,35 @@
       };
     }
 
+    function buildMersalPayload(phone, text, selectedTemplate){
+      const payload = { phone: normalizeKsaPhone(phone) || String(phone || "").replace(/[^\d]/g, "") };
+      if(selectedTemplate?.type === "mersal" && selectedTemplate.name){
+        payload.template_name = selectedTemplate.name;
+        payload.template_language = selectedTemplate.lang || "ar";
+        if(Array.isArray(selectedTemplate.params) && selectedTemplate.params.length){
+          payload.params = selectedTemplate.params;
+        }
+      } else {
+        payload.message = text;
+      }
+      return payload;
+    }
+
+    async function sendMersalDirect(phone, text, selectedTemplate){
+      const payload = buildMersalPayload(phone, text, selectedTemplate);
+      const res = await fetch(MERSAL_SEND_ENDPOINT, {
+        method:"POST",
+        headers:{ "content-type":"application/json" },
+        body:JSON.stringify(payload)
+      });
+      const result = await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }));
+      if(!res.ok || result.ok === false){
+        console.error("Mersal send failed", { payload, result, status:res.status });
+        throw new Error(result.error || result.raw || "mersal send failed");
+      }
+      return result;
+    }
+
     async function sendReply(){
       const c = state.selected;
       const text = el("replyText").value.trim();
@@ -1103,60 +1152,91 @@
         }
       }
 
-      if(!cfg.outbox) return toast("لا يوجد مسار إرسال مضبوط لهذه المنصة.");
+      if(!cfg || !cfg.conversations) return toast("لا يوجد مسار محادثة مضبوط لهذه المنصة.");
 
-      if(c.__virtual || c.platform === "whatsapp"){
-        await setDoc(doc(db, cfg.conversations, c.id), {
-          conversationId:c.id,
-          convId:c.id,
-          waId:c.id,
-          participantId:c.id,
-          platform:"whatsapp",
-          channel:"whatsapp",
-          channelCode:"wa",
-          phone:getPhone(c),
-          phoneNormalized:normalizeKsaPhone(getPhone(c)),
-          customerName:getCustomerName(c),
+      try{
+        let providerResult = null;
+        if(c.platform === "whatsapp" || c.__virtual){
+          const phone = getPhone(c) || c.id;
+          providerResult = await sendMersalDirect(phone, text, selectedTemplate);
+
+          await setDoc(doc(db, cfg.conversations, c.id), {
+            conversationId:c.id,
+            convId:c.id,
+            waId:c.id,
+            participantId:c.id,
+            platform:"whatsapp",
+            channel:"whatsapp",
+            channelCode:"wa",
+            phone,
+            phoneNormalized:normalizeKsaPhone(phone),
+            customerName:getCustomerName(c),
+            department:dept,
+            status:c.status || "open",
+            lastMessageText:text,
+            lastMessage:text,
+            updatedAt:serverTimestamp(),
+            lastUpdated:serverTimestamp()
+          }, { merge:true });
+
+          if(cfg.outbox){
+            addDoc(collection(db, cfg.outbox), {
+              conversationId:c.id,
+              platform:c.platform,
+              department:dept,
+              to:phone,
+              text,
+              status:"sent",
+              provider:"mersal",
+              providerResult,
+              messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
+              template: selectedTemplate,
+              sentByUid:state.user.uid,
+              sentByEmail:state.user.email,
+              createdAt:serverTimestamp(),
+              sentAt:serverTimestamp()
+            }).catch(console.warn);
+          }
+        } else {
+          if(!cfg.outbox) return toast("لا يوجد مسار إرسال مضبوط لهذه المنصة.");
+          await addDoc(collection(db, cfg.outbox), {
+            conversationId:c.id,
+            platform:c.platform,
+            department:dept,
+            to:getPhone(c),
+            text,
+            status:"pending",
+            messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
+            template: selectedTemplate,
+            sentByUid:state.user.uid,
+            sentByEmail:state.user.email,
+            createdAt:serverTimestamp()
+          });
+        }
+
+        await addDoc(collection(db, cfg.conversations, c.id, "messages"), {
+          text,
+          direction:"outgoing",
+          fromAgent:true,
           department:dept,
-          status:c.status || "open",
-          lastMessageText:text,
-          lastMessage:text,
-          updatedAt:serverTimestamp(),
-          lastUpdated:serverTimestamp()
-        }, { merge:true }).catch(console.error);
+          template:selectedTemplate,
+          providerResult:providerResult || null,
+          sentByUid:state.user.uid,
+          sentByEmail:state.user.email,
+          createdAt:serverTimestamp(),
+          sentAt:serverTimestamp(),
+          status:"sent"
+        });
+
+        await setDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, lastMessageText:text, department:dept, updatedAt:serverTimestamp(), lastUpdated:serverTimestamp() }, { merge:true }).catch(()=>{});
+        el("replyText").value = "";
+        clearSelectedTemplateControls();
+        autoResizeReply();
+        toast("تم الإرسال");
+      } catch(err){
+        console.error(err);
+        toast("فشل إرسال مرسال. راجع رابط الوركر أو التوكن.");
       }
-
-      await addDoc(collection(db, cfg.outbox), {
-        conversationId:c.id,
-        platform:c.platform,
-        department:dept,
-        to:getPhone(c),
-        text,
-        status:"pending",
-        messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
-        template: selectedTemplate,
-        sentByUid:state.user.uid,
-        sentByEmail:state.user.email,
-        createdAt:serverTimestamp()
-      });
-
-      await addDoc(collection(db, cfg.conversations, c.id, "messages"), {
-        text,
-        direction:"outgoing",
-        fromAgent:true,
-        department:dept,
-        template:selectedTemplate,
-        sentByUid:state.user.uid,
-        sentByEmail:state.user.email,
-        createdAt:serverTimestamp(),
-        status:"pending"
-      });
-
-      await setDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, lastMessageText:text, department:dept, updatedAt:serverTimestamp(), lastUpdated:serverTimestamp() }, { merge:true }).catch(()=>{});
-      el("replyText").value = "";
-      clearSelectedTemplateControls();
-      autoResizeReply();
-      toast("تم الإرسال");
     }
 
     function fillCustomerForm(data = {}){
@@ -1307,5 +1387,9 @@
 
     addTemplateOptions();
   </script>
+
+
+
+
 </body>
 </html>
