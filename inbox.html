@@ -166,6 +166,108 @@
 
   <div class="toast" id="toast"></div>
 
+
+  <style id="wa-chat-layout-fix">
+    #messages.messages{
+      display:flex !important;
+      flex-direction:column !important;
+      gap:6px !important;
+      padding:18px 20px !important;
+      overflow:auto !important;
+      background:
+        radial-gradient(circle at 50% 10%, rgba(123,45,34,.05), transparent 24%),
+        linear-gradient(180deg,#fffaf6 0%,#fff2ea 100%) !important;
+    }
+    #messages .msg-row{
+      width:100% !important;
+      display:flex !important;
+      margin:0 !important;
+    }
+    #messages .msg-row.received-row,
+    #messages .msg-row.in{
+      justify-content:flex-end !important;
+    }
+    #messages .msg-row.sent-row,
+    #messages .msg-row.out{
+      justify-content:flex-start !important;
+    }
+    #messages .msg-row .msg{
+      width:auto !important;
+      max-width:min(76%, 720px) !important;
+      min-width:0 !important;
+      margin:0 !important;
+      padding:10px 14px !important;
+      border-radius:18px !important;
+      border:1px solid #e8d1c5 !important;
+      box-shadow:0 8px 20px rgba(80,32,24,.07) !important;
+      white-space:pre-wrap !important;
+      word-break:break-word !important;
+      direction:rtl !important;
+    }
+    #messages .msg-row.received-row .msg,
+    #messages .msg-row.in .msg{
+      background:#fff !important;
+      color:#40231d !important;
+      border-bottom-right-radius:6px !important;
+    }
+    #messages .msg-row.sent-row .msg,
+    #messages .msg-row.out .msg{
+      background:#eaf6ff !important;
+      color:#17344a !important;
+      border-color:#bfdff7 !important;
+      border-bottom-left-radius:6px !important;
+    }
+    #messages .msg-row.group-middle.received-row .msg,
+    #messages .msg-row.group-end.received-row .msg{
+      border-top-right-radius:10px !important;
+    }
+    #messages .msg-row.group-middle.sent-row .msg,
+    #messages .msg-row.group-end.sent-row .msg{
+      border-top-left-radius:10px !important;
+    }
+    #messages .msg-sender{
+      font-size:11px !important;
+      font-weight:800 !important;
+      margin-bottom:4px !important;
+      opacity:.74 !important;
+    }
+    #messages .msg-row.sent-row .msg-sender{
+      color:#436177 !important;
+    }
+    #messages .msg-row.received-row .msg-sender{
+      color:#8d6a5c !important;
+    }
+    #messages .msg-text{
+      font-size:14px !important;
+      line-height:1.85 !important;
+      white-space:pre-wrap !important;
+      word-break:break-word !important;
+      text-align:right !important;
+    }
+    #messages .msg-meta{
+      display:flex !important;
+      align-items:center !important;
+      gap:6px !important;
+      margin-top:6px !important;
+      font-size:11px !important;
+      opacity:.85 !important;
+    }
+    #messages .msg-row.received-row .msg-meta{
+      justify-content:flex-end !important;
+      color:#8d6a5c !important;
+    }
+    #messages .msg-row.sent-row .msg-meta{
+      justify-content:flex-start !important;
+      color:#537287 !important;
+    }
+    #messages .empty{
+      margin:auto !important;
+    }
+    @media (max-width: 900px){
+      #messages .msg-row .msg{ max-width:88% !important; }
+    }
+  </style>
+
   <script type="module">
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -983,6 +1085,59 @@
       return [...new Set(extra.filter(Boolean))];
     }
 
+
+    function forceInboxChatSides(){
+      if(!messagesEl) return;
+      messagesEl.style.setProperty("direction", "ltr", "important");
+      messagesEl.style.setProperty("display", "flex", "important");
+      messagesEl.style.setProperty("flex-direction", "column", "important");
+      messagesEl.querySelectorAll(".msg-row").forEach(row => {
+        const isOut = row.classList.contains("sent-row") || row.classList.contains("out");
+        const isIn = row.classList.contains("received-row") || row.classList.contains("in");
+        row.style.setProperty("direction", "ltr", "important");
+        row.style.setProperty("display", "flex", "important");
+        row.style.setProperty("width", "100%", "important");
+        row.style.setProperty("max-width", "100%", "important");
+        row.style.setProperty("background", "transparent", "important");
+        row.style.setProperty("border", "0", "important");
+        row.style.setProperty("box-shadow", "none", "important");
+        row.style.setProperty("padding", "0", "important");
+        row.style.setProperty("margin", "4px 0", "important");
+        row.style.setProperty("align-items", "flex-start", "important");
+        if(isIn) row.style.setProperty("justify-content", "flex-end", "important");
+        if(isOut) row.style.setProperty("justify-content", "flex-start", "important");
+        const bubble = row.querySelector(".msg");
+        if(bubble){
+          bubble.style.setProperty("display", "block", "important");
+          bubble.style.setProperty("width", "fit-content", "important");
+          bubble.style.setProperty("min-width", "0", "important");
+          bubble.style.setProperty("max-width", "72%", "important");
+          bubble.style.setProperty("height", "auto", "important");
+          bubble.style.setProperty("padding", "9px 12px", "important");
+          bubble.style.setProperty("margin", "0", "important");
+          bubble.style.setProperty("direction", "rtl", "important");
+          bubble.style.setProperty("text-align", "right", "important");
+          bubble.style.setProperty("white-space", "pre-wrap", "important");
+          bubble.style.setProperty("overflow-wrap", "anywhere", "important");
+          bubble.style.setProperty("word-break", "normal", "important");
+          bubble.style.setProperty("box-shadow", "0 6px 16px rgba(80,32,24,.06)", "important");
+          bubble.style.setProperty("border-radius", "15px", "important");
+          bubble.style.setProperty("border", "1px solid #ead4c8", "important");
+          if(isIn){
+            bubble.style.setProperty("background", "#fff", "important");
+            bubble.style.setProperty("color", "#40231d", "important");
+            bubble.style.setProperty("border-bottom-right-radius", "6px", "important");
+          }
+          if(isOut){
+            bubble.style.setProperty("background", "#eaf6ff", "important");
+            bubble.style.setProperty("color", "#17344a", "important");
+            bubble.style.setProperty("border-color", "#bfe0f7", "important");
+            bubble.style.setProperty("border-bottom-left-radius", "6px", "important");
+          }
+        }
+      });
+    }
+
     function listenMessages(c){
       if(state.unsubMessages) state.unsubMessages();
       messagesEl.innerHTML = '<div class="empty">جاري التحميل...</div>';
@@ -1013,22 +1168,33 @@
             return;
           }
 
-          messages.forEach(m => {
+          messages.forEach((m, index) => {
             const outgoing = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
+            const prev = index > 0 ? messages[index - 1] : null;
+            const next = index < messages.length - 1 ? messages[index + 1] : null;
+            const prevOutgoing = prev ? (["out","outgoing","agent","sent"].includes(String(prev.direction || prev.type || "").toLowerCase()) || prev.fromAgent === true) : null;
+            const nextOutgoing = next ? (["out","outgoing","agent","sent"].includes(String(next.direction || next.type || "").toLowerCase()) || next.fromAgent === true) : null;
+            const groupClass = prevOutgoing !== outgoing && nextOutgoing !== outgoing
+              ? "group-single"
+              : prevOutgoing !== outgoing
+                ? "group-start"
+                : nextOutgoing !== outgoing
+                  ? "group-end"
+                  : "group-middle";
             const row = document.createElement("div");
-            row.className = "msg-row " + (outgoing ? "out" : "in");
+            row.className = `msg-row ${outgoing ? "sent-row out" : "received-row in"} ${groupClass}`;
             row.innerHTML = `
               <div class="msg ${outgoing ? "out" : "in"}">
-                <div class="msg-text">${escapeHtml(messageTextOf(m))}</div>
+                ${prevOutgoing !== outgoing ? `<div class="msg-sender">${outgoing ? "الرد المرسل" : "العميل"}</div>` : ""}
+                <div class="msg-text">${escapeHtml(messageTextOf(m) || "رسالة")}</div>
                 <div class="msg-meta">
-                  <span>${outgoing ? "أنت" : "العميل"}</span>
-                  <span>•</span>
                   <span>${formatTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt)}</span>
                 </div>
               </div>
             `;
             messagesEl.appendChild(row);
           });
+          forceInboxChatSides();
           messagesEl.scrollTop = messagesEl.scrollHeight;
         }, err => {
           console.error(err);
@@ -1372,5 +1538,24 @@
 
     addTemplateOptions();
   </script>
+
+
+
+
+<style id="final-chat-side-fix">
+  #messages.messages{direction:ltr !important;display:flex !important;flex-direction:column !important;align-items:stretch !important;gap:6px !important;}
+  #messages.messages > .msg-row{direction:ltr !important;width:100% !important;max-width:100% !important;display:flex !important;background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 !important;margin:4px 0 !important;}
+  #messages.messages > .msg-row.received-row,
+  #messages.messages > .msg-row.in{justify-content:flex-end !important;align-items:flex-start !important;}
+  #messages.messages > .msg-row.sent-row,
+  #messages.messages > .msg-row.out{justify-content:flex-start !important;align-items:flex-start !important;}
+  #messages.messages > .msg-row > .msg{display:block !important;width:fit-content !important;min-width:0 !important;max-width:72% !important;height:auto !important;margin:0 !important;padding:9px 12px !important;border-radius:15px !important;direction:rtl !important;text-align:right !important;white-space:pre-wrap !important;overflow-wrap:anywhere !important;word-break:normal !important;box-shadow:0 6px 16px rgba(80,32,24,.06) !important;}
+  #messages.messages > .msg-row.received-row > .msg,
+  #messages.messages > .msg-row.in > .msg{background:#fff !important;color:#40231d !important;border:1px solid #ead4c8 !important;border-bottom-right-radius:6px !important;}
+  #messages.messages > .msg-row.sent-row > .msg,
+  #messages.messages > .msg-row.out > .msg{background:#eaf6ff !important;color:#17344a !important;border:1px solid #bfe0f7 !important;border-bottom-left-radius:6px !important;}
+  @media(max-width:900px){#messages.messages > .msg-row > .msg{max-width:88% !important;}}
+</style>
+
 </body>
 </html>
