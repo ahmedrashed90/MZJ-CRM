@@ -99,11 +99,11 @@
 
         <div class="report-kpis">
           <div class="stat-card"><h3>إجمالي العملاء</h3><div class="stat-number" id="totalCount">0</div><span class="formula-note">عدد العملاء المطابقين للفلاتر الحالية</span></div>
-          <div class="stat-card"><h3>تم البيع</h3><div class="stat-number" id="soldCount">0</div><span class="formula-note">حالات البيع والإغلاق الربحي</span></div>
-          <div class="stat-card"><h3>عملاء محتمل</h3><div class="stat-number" id="potentialCount">0</div><span class="formula-note">إجمالي العملاء - تم البيع - غير مؤهل - مؤجل</span></div>
-          <div class="stat-card"><h3>عملاء مؤجل</h3><div class="stat-number" id="delayedCount">0</div><span class="formula-note">تأخر / مؤجل / استكمال / انتظار توقيع</span></div>
-          <div class="stat-card"><h3>غير مؤهل</h3><div class="stat-number" id="wasteCount">0</div><span class="formula-note">رفض / خسارة / غير مؤهل / لم تتم الموافقة</span></div>
           <div class="stat-card"><h3>جودة التسويق</h3><div class="stat-number" id="marketingQualityCount">0%</div><span class="formula-note">(مؤجل + محتمل) ÷ إجمالي العملاء</span></div>
+          <div class="stat-card"><h3>غير مؤهل</h3><div class="stat-number" id="wasteCount">0</div><span class="formula-note">رفض / خسارة / غير مؤهل / لم تتم الموافقة</span></div>
+          <div class="stat-card"><h3>مؤجل</h3><div class="stat-number" id="delayedCount">0</div><span class="formula-note">تأخر / مؤجل / استكمال / انتظار توقيع</span></div>
+          <div class="stat-card"><h3>محتمل</h3><div class="stat-number" id="potentialCount">0</div><span class="formula-note">إجمالي العملاء - تم البيع - غير مؤهل - مؤجل</span></div>
+          <div class="stat-card"><h3>تم البيع</h3><div class="stat-number" id="soldCount">0</div><span class="formula-note">حالات البيع والإغلاق الربحي</span></div>
           <div class="stat-card"><h3>جودة المندوب</h3><div class="stat-number" id="agentQualityCount">0%</div><span class="formula-note">تم البيع ÷ (مؤجل + محتمل)</span></div>
         </div>
 
@@ -116,9 +116,9 @@
                   <th>القسم</th>
                   <th>إجمالي العملاء</th>
                   <th>جودة التسويق</th>
+                  <th>غير مؤهل</th>
                   <th>مؤجل</th>
                   <th>محتمل</th>
-                  <th>غير مؤهل</th>
                   <th>تم البيع</th>
                   <th>جودة المندوب</th>
                 </tr>
@@ -137,9 +137,10 @@
                   <th>المندوب</th>
                   <th>القسم</th>
                   <th>إجمالي العملاء</th>
-                  <th>محتمل</th>
-                  <th>مؤجل</th>
+                  <th>جودة التسويق</th>
                   <th>غير مؤهل</th>
+                  <th>مؤجل</th>
+                  <th>محتمل</th>
                   <th>تم البيع</th>
                   <th>جودة المندوب</th>
                 </tr>
@@ -448,7 +449,7 @@
       const depRows = activeSections.map(sec => {
         const secRows = rows.filter(lead => getLeadSectionKey(lead) === sec.key);
         const m = computeMetrics(secRows);
-        return `<tr><td>${escapeHtml(sec.label)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.waste}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
+        return `<tr><td>${escapeHtml(sec.label)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
       });
       el("departmentsReport").innerHTML = depRows.length ? depRows.join("") : '<tr><td colspan="8">لا توجد بيانات مطابقة للفلاتر الحالية.</td></tr>';
 
@@ -466,7 +467,7 @@
         .sort((a,b) => b.rows.length - a.rows.length || String(a.name).localeCompare(String(b.name), 'ar'))
         .map(item => {
           const m = computeMetrics(item.rows);
-          return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${m.total}</td><td>${m.potential}</td><td>${m.delayed}</td><td>${m.waste}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
+          return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
         });
       el("agentsReport").innerHTML = agentRows.length ? agentRows.join("") : '<tr><td colspan="8">لا توجد بيانات للمندوبين.</td></tr>';
 }
@@ -476,11 +477,11 @@
       const totals = computeMetrics(rows);
       const summarySheet = XLSX.utils.json_to_sheet([
         { "المؤشر": "إجمالي العملاء", "القيمة": totals.total },
-        { "المؤشر": "تم البيع", "القيمة": totals.sold },
-        { "المؤشر": "عملاء محتمل", "القيمة": totals.potential },
-        { "المؤشر": "عملاء مؤجل", "القيمة": totals.delayed },
-        { "المؤشر": "غير مؤهل", "القيمة": totals.waste },
         { "المؤشر": "جودة التسويق", "القيمة": `${totals.marketingQualityRate}%` },
+        { "المؤشر": "غير مؤهل", "القيمة": totals.waste },
+        { "المؤشر": "مؤجل", "القيمة": totals.delayed },
+        { "المؤشر": "محتمل", "القيمة": totals.potential },
+        { "المؤشر": "تم البيع", "القيمة": totals.sold },
         { "المؤشر": "جودة المندوب", "القيمة": `${totals.agentQualityRate}%` }
       ]);
 
@@ -490,9 +491,9 @@
           "القسم": sec.label,
           "إجمالي العملاء": m.total,
           "جودة التسويق": `${m.marketingQualityRate}%`,
+          "غير مؤهل": m.waste,
           "مؤجل": m.delayed,
           "محتمل": m.potential,
-          "غير مؤهل": m.waste,
           "تم البيع": m.sold,
           "جودة المندوب": `${m.agentQualityRate}%`
         };
@@ -500,16 +501,17 @@
 
       const agentRows = Array.from(document.querySelectorAll('#agentsReport tr')).map(tr => {
         const cells = [...tr.children].map(td => td.textContent.trim());
-        if(cells.length < 8) return null;
+        if(cells.length < 9) return null;
         return {
           "المندوب": cells[0],
           "القسم": cells[1],
           "إجمالي العملاء": cells[2],
-          "محتمل": cells[3],
-          "مؤجل": cells[4],
-          "غير مؤهل": cells[5],
-          "تم البيع": cells[6],
-          "جودة المندوب": cells[7]
+          "جودة التسويق": cells[3],
+          "غير مؤهل": cells[4],
+          "مؤجل": cells[5],
+          "محتمل": cells[6],
+          "تم البيع": cells[7],
+          "جودة المندوب": cells[8]
         };
       }).filter(Boolean);
 
