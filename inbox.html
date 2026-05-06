@@ -166,6 +166,108 @@
 
   <div class="toast" id="toast"></div>
 
+
+  <style id="wa-chat-layout-fix">
+    #messages.messages{
+      display:flex !important;
+      flex-direction:column !important;
+      gap:6px !important;
+      padding:18px 20px !important;
+      overflow:auto !important;
+      background:
+        radial-gradient(circle at 50% 10%, rgba(123,45,34,.05), transparent 24%),
+        linear-gradient(180deg,#fffaf6 0%,#fff2ea 100%) !important;
+    }
+    #messages .msg-row{
+      width:100% !important;
+      display:flex !important;
+      margin:0 !important;
+    }
+    #messages .msg-row.received-row,
+    #messages .msg-row.in{
+      justify-content:flex-end !important;
+    }
+    #messages .msg-row.sent-row,
+    #messages .msg-row.out{
+      justify-content:flex-start !important;
+    }
+    #messages .msg-row .msg{
+      width:auto !important;
+      max-width:min(76%, 720px) !important;
+      min-width:0 !important;
+      margin:0 !important;
+      padding:10px 14px !important;
+      border-radius:18px !important;
+      border:1px solid #e8d1c5 !important;
+      box-shadow:0 8px 20px rgba(80,32,24,.07) !important;
+      white-space:pre-wrap !important;
+      word-break:break-word !important;
+      direction:rtl !important;
+    }
+    #messages .msg-row.received-row .msg,
+    #messages .msg-row.in .msg{
+      background:#fff !important;
+      color:#40231d !important;
+      border-bottom-right-radius:6px !important;
+    }
+    #messages .msg-row.sent-row .msg,
+    #messages .msg-row.out .msg{
+      background:#eaf6ff !important;
+      color:#17344a !important;
+      border-color:#bfdff7 !important;
+      border-bottom-left-radius:6px !important;
+    }
+    #messages .msg-row.group-middle.received-row .msg,
+    #messages .msg-row.group-end.received-row .msg{
+      border-top-right-radius:10px !important;
+    }
+    #messages .msg-row.group-middle.sent-row .msg,
+    #messages .msg-row.group-end.sent-row .msg{
+      border-top-left-radius:10px !important;
+    }
+    #messages .msg-sender{
+      font-size:11px !important;
+      font-weight:800 !important;
+      margin-bottom:4px !important;
+      opacity:.74 !important;
+    }
+    #messages .msg-row.sent-row .msg-sender{
+      color:#436177 !important;
+    }
+    #messages .msg-row.received-row .msg-sender{
+      color:#8d6a5c !important;
+    }
+    #messages .msg-text{
+      font-size:14px !important;
+      line-height:1.85 !important;
+      white-space:pre-wrap !important;
+      word-break:break-word !important;
+      text-align:right !important;
+    }
+    #messages .msg-meta{
+      display:flex !important;
+      align-items:center !important;
+      gap:6px !important;
+      margin-top:6px !important;
+      font-size:11px !important;
+      opacity:.85 !important;
+    }
+    #messages .msg-row.received-row .msg-meta{
+      justify-content:flex-end !important;
+      color:#8d6a5c !important;
+    }
+    #messages .msg-row.sent-row .msg-meta{
+      justify-content:flex-start !important;
+      color:#537287 !important;
+    }
+    #messages .empty{
+      margin:auto !important;
+    }
+    @media (max-width: 900px){
+      #messages .msg-row .msg{ max-width:88% !important; }
+    }
+  </style>
+
   <script type="module">
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -1013,16 +1115,26 @@
             return;
           }
 
-          messages.forEach(m => {
+          messages.forEach((m, index) => {
             const outgoing = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
+            const prev = index > 0 ? messages[index - 1] : null;
+            const next = index < messages.length - 1 ? messages[index + 1] : null;
+            const prevOutgoing = prev ? (["out","outgoing","agent","sent"].includes(String(prev.direction || prev.type || "").toLowerCase()) || prev.fromAgent === true) : null;
+            const nextOutgoing = next ? (["out","outgoing","agent","sent"].includes(String(next.direction || next.type || "").toLowerCase()) || next.fromAgent === true) : null;
+            const groupClass = prevOutgoing !== outgoing && nextOutgoing !== outgoing
+              ? "group-single"
+              : prevOutgoing !== outgoing
+                ? "group-start"
+                : nextOutgoing !== outgoing
+                  ? "group-end"
+                  : "group-middle";
             const row = document.createElement("div");
-            row.className = "msg-row " + (outgoing ? "out" : "in");
+            row.className = `msg-row ${outgoing ? "sent-row out" : "received-row in"} ${groupClass}`;
             row.innerHTML = `
               <div class="msg ${outgoing ? "out" : "in"}">
-                <div class="msg-text">${escapeHtml(messageTextOf(m))}</div>
+                ${prevOutgoing !== outgoing ? `<div class="msg-sender">${outgoing ? "الرد المرسل" : "العميل"}</div>` : ""}
+                <div class="msg-text">${escapeHtml(messageTextOf(m) || "رسالة")}</div>
                 <div class="msg-meta">
-                  <span>${outgoing ? "أنت" : "العميل"}</span>
-                  <span>•</span>
                   <span>${formatTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt)}</span>
                 </div>
               </div>
