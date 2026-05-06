@@ -47,7 +47,6 @@
           <a href="./leads-cash.html">العملاء المحتملون - كاش</a>
           <a href="./leads-customer-service.html">العملاء المحتملون - خدمة عملاء</a>
           <a href="./database.html">قاعدة البيانات</a>
-          <a href="./manual-leads.html">إضافة العملاء</a>
           <a href="./dashboard.html">الداش بورد</a>
           <a href="./reports.html">التقارير</a>
           <a href="./branches.html">الفروع</a>
@@ -231,18 +230,31 @@
     const PLATFORM_CONFIG = {
       whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox" },
       instagram:{ label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
-      facebook:{ label:"فيسبوك", conversations:"fb_conversations", outbox:"fb_outbox" },
+      // فيسبوك محفوظ في نفس مسار صندوق الوارد الموحد.
+      facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"" },
       tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
     };
+
+    const FACEBOOK_SEND_ENDPOINT =
+      window.FB_SEND_ENDPOINT ||
+      localStorage.getItem("FB_SEND_ENDPOINT") ||
+      "https://facebook.next-erp-mzj.workers.dev/crm/send";
 
     const CUSTOMER_FIELDS = [
       "customerName","phone","salary","obligation","location","age","salaryBank",
       "carType","carModel","color","notes","attachmentsNotes","financeType"
     ];
 
+    // V40: ملاحظات العميل وروابط/ملاحظات الملفات لا تدخل في نسبة اكتمال ملف العميل
+    const COMPLETION_FIELDS = [
+      "customerName","phone","salary","obligation","location","age","salaryBank",
+      "carType","carModel","color","financeType"
+    ];
+
     const state = {
       user:null, userProfile:null, isAdmin:false,
       conversations:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
+      pendingOpenTarget:null, limitedInboxMode:false,
       department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubStatuses:null, unsubTemplates:null
     };
 
@@ -251,7 +263,11 @@
     const form = el("customerForm");
 
     function departmentLabel(d){ return d === "all" ? "كل الأقسام" : (DEPARTMENTS[d] || d); }
-    function platformLabel(p){ return PLATFORM_CONFIG[p]?.label || p; }
+    function platformLabel(p){
+      const v = String(p || "").toLowerCase();
+      if(v === "tikok" || v === "tiktok" || v === "tt") return "تيك توك";
+      return PLATFORM_CONFIG[p]?.label || p;
+    }
 
     onAuthStateChanged(auth, async (user) => {
       cleanupListeners();
@@ -275,9 +291,25 @@
         applyPermissions();
         el("loginScreen").classList.add("hidden");
         el("app").classList.remove("hidden");
-        listenStatuses();
-        listenTemplates();
-        listenConversations();
+
+        if(state.limitedInboxMode){
+          el("connectionStatus").textContent = "وضع محدود";
+          await applyInboxOpenTarget();
+        } else {
+          // مهم:
+          // في الوضع العادي نبدأ listeners فوراً قبل فتح target من الداش بورد.
+          // لأن انتظار applyInboxOpenTarget كان أحياناً يمنع تشغيل listenConversations
+          // في حسابات المناديب، فتظل الصفحة على "جاري الاتصال" حتى الضغط على تحديث.
+          listenStatuses();
+          listenTemplates();
+          listenConversations();
+          setTimeout(() => {
+            if(!state.limitedInboxMode && el("connectionStatus").textContent.includes("جاري")){
+              listenConversations();
+            }
+          }, 2000);
+          applyInboxOpenTarget().catch(console.error);
+        }
       } catch(err){
         console.error(err);
         showLoginError("تعذر تحميل صلاحيات المستخدم.");
@@ -306,7 +338,6 @@
       { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
       { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
       { page:"database.html", label:"قاعدة البيانات" },
-      { page:"manual-leads.html", label:"إضافة العملاء" },
       { page:"dashboard.html", label:"الداش بورد" },
       { page:"reports.html", label:"التقارير" },
       { page:"branches.html", label:"الفروع" },
@@ -331,16 +362,47 @@
     }
 
     function currentPageName(){
-      return location.pathname.split("/").pop() || "inbox.html";
+      return (location.pathname.split("/").pop() || "inbox.html").split("?")[0].split("#")[0];
     }
 
     function allowedPagesForCurrentUser(){
       return Array.isArray(state.userProfile?.pages) ? state.userProfile.pages : [];
     }
 
+    function hasInboxDeepLinkAccess(){
+      const target = readInboxOpenTarget();
+      if(!target) return false;
+      if(currentPageName() !== "inbox.html") return false;
+      // لا نعتمد على fromDashboard فقط، لأن بعض روابط الداش بورد القديمة لم تكن تضيفه.
+      // يكفي وجود leadId أو conversationId أو phone لفتح صندوق الوارد في وضع محدود.
+      return !!(target.leadId || target.conversationId || target.phone);
+    }
+
+    function userHasFullInboxAccess(){
+      const pages = allowedPagesForCurrentUser();
+      const unrestricted = state.isAdmin || state.userProfile?.allDepartments === true || !pages.length;
+      return unrestricted || pages.includes("inbox.html") || pages.includes("صندوق الوارد");
+    }
+
+    function isAssignedToCurrentUser(data = {}){
+      if(state.isAdmin || state.userProfile?.allDepartments === true) return true;
+      const uid = state.user?.uid || "";
+      if(!uid) return false;
+      const ids = [
+        data.assignedTo,
+        data.responsibleUid,
+        data.salesAssignedTo,
+        data.callCenterAssignedTo,
+        data.callCenterUid,
+        data.uid,
+        data.ownerUid
+      ].filter(Boolean).map(String);
+      return ids.includes(uid);
+    }
+
     function hasPageAccess(page){
       const pages = allowedPagesForCurrentUser();
-      return state.isAdmin || state.userProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html";
+      return state.isAdmin || state.userProfile?.allDepartments === true || !pages.length || pages.includes(page) || (pages.includes("الداش بورد") && page === "dashboard.html") || hasInboxDeepLinkAccess();
     }
 
     function applyPagePermissions(){
@@ -381,6 +443,11 @@
       }
       departmentSelect.value = state.department;
       el("userInfo").textContent = `${state.userProfile?.name || state.user.email} - ${state.isAdmin ? "إدارة عامة" : departmentLabel(state.department)}`;
+      state.limitedInboxMode = !userHasFullInboxAccess() && hasInboxDeepLinkAccess();
+      document.body.classList.toggle("limited-inbox-mode", state.limitedInboxMode);
+      if(state.limitedInboxMode){
+        el("connectionStatus").textContent = "وضع محدود";
+      }
       renderAllowedNavigation();
       applyPagePermissions();
     }
@@ -512,26 +579,297 @@
 
     function getCustomerName(c){ return c.customerName || c.customer?.customerName || c.name || c.contactName || c.senderName || c.phone || "عميل بدون اسم"; }
     function getPhone(c){ return c.phone || c.customer?.phone || c.customerPhone || c.from || c.sender || ""; }
-    function getLastText(c){ return c.lastMessage || c.lastText || c.preview || c.message || ""; }
-    function getClientStatus(c){ return c.clientStatus || c.customer?.clientStatus || ""; }
+    function getLastText(c){
+      return c.lastMessageText || c.lastMessage || c.lastText || c.preview || c.message || "";
+    }
+    function getClientStatus(c){
+      return c.clientStatus || c.customer?.clientStatus || c.status || "";
+    }
+    function getResponsibleName(c){
+      return c.responsibleName || c.assignedName || c.salesAssignedName || c.callCenterName || c.callCenterAssignedName || "";
+    }
+    function getUnreadCount(c){
+      return Number(c.unreadCount || c.unread || c.unreadMessages || 0);
+    }
+    function inferConversationPlatform(defaultPlatform, data = {}){
+      const raw = String(data.platform || data.channel || data.channelCode || defaultPlatform || "").toLowerCase();
+      if(raw === "fb" || raw.includes("facebook") || raw.includes("فيس")) return "facebook";
+      if(raw === "ig" || raw.includes("instagram") || raw.includes("انست")) return "instagram";
+      if(raw === "tt" || raw.includes("tiktok") || raw.includes("tikok") || raw.includes("تيك")) return "tiktok";
+      if(raw === "wa" || raw.includes("whatsapp") || raw.includes("واتساب")) return "whatsapp";
+      return defaultPlatform || "whatsapp";
+    }
 
     function normalizeConversation(platform, id, data){
+      const realPlatform = inferConversationPlatform(platform, data);
       return {
-        id, platform, ...data,
-        customerName:data.customerName || data.customer?.customerName || data.name || data.contactName || data.senderName || "",
-        phone:data.phone || data.customer?.phone || data.customerPhone || data.from || data.sender || "",
-        clientStatus:data.clientStatus || data.customer?.clientStatus || "",
+        id, platform:realPlatform, ...data,
+        customerName:data.customerName || data.customer?.customerName || data.name || data.contactName || data.senderName || data.displayName || "",
+        phone:data.phone || data.customer?.phone || data.customerPhone || data.from || data.sender || data.participantId || data.fbId || data.manychatContactId || "",
+        clientStatus:data.clientStatus || data.customer?.clientStatus || data.status || "",
         department:data.department || data.customer?.department || "",
-        updatedAt:data.updatedAt || data.lastMessageAt || data.createdAt || null
+        updatedAt:data.updatedAt || data.lastUpdated || data.lastMessageAt || data.createdAt || null
       };
+    }
+
+    function cleanIdValue(v){
+      return String(v || "").replace(/^fb:/,"").replace(/^wa:/,"").replace(/^wa_/,"").replace(/^\+/,"").replace(/\D/g,"").trim() || String(v || "").trim();
+    }
+
+    function normalizeKsaPhone(phone){
+      let p = String(phone || "").trim();
+      if(!p) return "";
+      if(/[eE]\+?/.test(p)){
+        const n = Number(p);
+        if(Number.isFinite(n)) p = String(Math.trunc(n));
+      }
+      p = p.replace(/[^\d+]/g,"");
+      p = p.replace(/^00/,"+").replace(/^\+/,"");
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0,12);
+      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) return "966" + p;
+      return p;
+    }
+
+    function conversationDedupeKey(c){
+      const platform = c.platform || "whatsapp";
+      const direct = c.contactKey || c.fbId || c.manychatContactId || c.participantId || c.waId || c.phoneNormalized || c.phone || c.phoneNumber || c.mobile;
+      if(direct) return `${platform}:${cleanIdValue(direct)}`;
+      return `${platform}:doc:${c.id}`;
+    }
+
+    function dedupeConversations(items){
+      const map = new Map();
+      for(const c of items){
+        const key = conversationDedupeKey(c);
+        const prev = map.get(key);
+        const cTime = tsToDate(c.updatedAt)?.getTime() || 0;
+        const pTime = tsToDate(prev?.updatedAt)?.getTime() || 0;
+        if(!prev || cTime >= pTime) map.set(key, c);
+      }
+      return [...map.values()];
+    }
+
+    function readInboxOpenTarget(){
+      const params = new URLSearchParams(location.search);
+      let stored = {};
+      try{
+        stored = JSON.parse(sessionStorage.getItem("mzj_inbox_open_target") || "{}") || {};
+      }catch(e){ stored = {}; }
+
+      const platform = String(params.get("platform") || stored.platform || "").trim();
+      const conversationId = String(params.get("conversationId") || params.get("convId") || params.get("id") || stored.conversationId || stored.convId || stored.id || "").trim();
+      const phone = normalizeKsaPhone(params.get("phone") || stored.phone || "");
+      const name = String(params.get("name") || stored.name || "").trim();
+      const department = String(params.get("department") || stored.department || "").trim();
+      const leadId = String(params.get("leadId") || stored.leadId || "").trim();
+      const fromDashboard = params.get("fromDashboard") === "1" || params.get("dashboard") === "1" || stored.fromDashboard === "1" || stored.fromDashboard === true;
+
+      if(!platform && !conversationId && !phone && !leadId) return null;
+      return { platform: platform || "whatsapp", conversationId, phone, name, department, leadId, fromDashboard };
+    }
+
+    async function openLimitedTargetDocument(target){
+      const platform = target.platform || "whatsapp";
+      const cfg = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.whatsapp;
+      const normalizedPhone = normalizeKsaPhone(target.phone || target.conversationId || "");
+      const rawConversation = String(target.conversationId || "").trim();
+      const candidateIds = [
+        rawConversation,
+        rawConversation.replace(/^wa_/, ""),
+        normalizedPhone,
+        normalizedPhone ? `wa_${normalizedPhone}` : "",
+        target.leadId
+      ].filter(Boolean).map(String);
+
+      for(const id of candidateIds){
+        try{
+          const snap = await getDoc(doc(db, cfg.conversations, id));
+          if(!snap.exists()) continue;
+          const conv = normalizeConversation(platform, snap.id, snap.data());
+          conv.__collection = cfg.conversations;
+          if(state.limitedInboxMode && !isAssignedToCurrentUser(conv)){
+            messagesEl.innerHTML = '<div class="empty">لا توجد صلاحية لهذا العميل</div>';
+            toast("لا توجد صلاحية لهذا العميل");
+            return true;
+          }
+          state.conversations = [conv];
+          selectConversation(conv);
+          el("connectionStatus").textContent = "وضع محدود";
+          history.replaceState(null, "", location.pathname);
+          return true;
+        } catch(e){
+          console.warn("limited target get failed", id, e);
+        }
+      }
+
+      if(state.limitedInboxMode){
+        el("connectionStatus").textContent = "وضع محدود";
+      }
+      return false;
+    }
+
+    async function applyInboxOpenTarget(){
+      const target = readInboxOpenTarget();
+      if(!target) return;
+      state.pendingOpenTarget = target;
+      if(state.limitedInboxMode){
+        el("connectionStatus").textContent = "وضع محدود";
+        console.info("limited inbox target", target);
+      }
+
+      if(target.department && (state.isAdmin || state.userProfile?.allDepartments === true || state.limitedInboxMode)){
+        state.department = target.department;
+        const departmentSelect = el("departmentSelect");
+        if(departmentSelect && [...departmentSelect.options].some(o => o.value === target.department)){
+          departmentSelect.value = target.department;
+        }
+      }
+
+      if(target.platform){
+        state.selectedPlatform = target.platform;
+        document.querySelectorAll("[data-platform]").forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.platform === target.platform);
+        });
+      }
+
+      // فتح واتساب من رقم الجوال مباشرة، حتى لو المحادثة غير موجودة.
+      // نفس الـ id هيحمّل الرسائل لو موجودة، ولو مش موجودة يفتح محادثة جديدة جاهزة للإرسال.
+      if(state.limitedInboxMode){
+        const allowed = await verifyLinkedLeadAccess(target);
+        if(!allowed){
+          state.pendingOpenTarget = null;
+          messagesEl.innerHTML = '<div class="empty">لا توجد صلاحية لهذا العميل</div>';
+          toast("لا توجد صلاحية لهذا العميل");
+          return;
+        }
+
+        // ممنوع نعمل listener على كل صندوق الوارد للمندوب المحدود.
+        // نفتح الوثيقة المطلوبة فقط لو موجودة، أو واتساب افتراضي لو الرقم غير موجود.
+        const opened = await openLimitedTargetDocument(target);
+        if(opened){
+          state.pendingOpenTarget = null;
+          return;
+        }
+
+        if((target.platform || "whatsapp") === "whatsapp" && (target.phone || target.conversationId)){
+          state.pendingOpenTarget = null;
+          selectConversation(buildVirtualWhatsappConversation(target));
+          el("connectionStatus").textContent = "وضع محدود";
+          history.replaceState(null, "", location.pathname);
+          return;
+        }
+
+        messagesEl.innerHTML = '<div class="empty">لم يتم العثور على محادثة هذا العميل أو لا توجد صلاحية لقراءتها</div>';
+        el("connectionStatus").textContent = "وضع محدود";
+        return;
+      }
+
+      if((target.platform || "whatsapp") === "whatsapp" && (target.phone || target.conversationId)){
+        const allowed = await verifyLinkedLeadAccess(target);
+        if(!allowed){
+          state.pendingOpenTarget = null;
+          messagesEl.innerHTML = '<div class="empty">لا توجد صلاحية لهذا العميل</div>';
+          toast("لا توجد صلاحية لهذا العميل");
+          return;
+        }
+        state.pendingOpenTarget = null;
+        selectConversation(buildVirtualWhatsappConversation(target));
+        history.replaceState(null, "", location.pathname);
+      }
+    }
+
+    function conversationMatchesTarget(c, target){
+      if(!target) return false;
+      if(target.platform && c.platform !== target.platform) return false;
+      const wanted = String(target.conversationId || "").replace(/^\+/,"");
+      const wantedClean = cleanIdValue(wanted);
+      const phone = normalizeKsaPhone(target.phone || "");
+      const ids = [
+        c.id, c.conversationId, c.convId, c.contactKey, c.waId, c.participantId,
+        c.fbId, c.igId, c.tiktokId, c.manychatContactId, c.phone, c.phoneNumber,
+        c.mobile, c.phoneNormalized
+      ].filter(Boolean).map(x => String(x));
+      return ids.some(x => {
+        const raw = x.replace(/^\+/,"");
+        return (wanted && (raw === wanted || raw === wanted.replace(/^wa_/,""))) ||
+               (wantedClean && cleanIdValue(raw) === wantedClean) ||
+               (phone && normalizeKsaPhone(raw) === phone);
+      });
+    }
+
+    async function verifyLinkedLeadAccess(target){
+      if(!state.limitedInboxMode) return true;
+      if(!target?.leadId) return true;
+      try{
+        const snap = await getDoc(doc(db, "leads", target.leadId));
+        if(!snap.exists()) return true;
+        return isAssignedToCurrentUser({ id:snap.id, ...snap.data() });
+      } catch(e){
+        console.warn("lead access check failed", e);
+        return true;
+      }
+    }
+
+    function buildVirtualWhatsappConversation(target){
+      const phone = normalizeKsaPhone(target.phone || target.conversationId || "");
+      const id = phone || String(target.conversationId || "").replace(/^wa_/,"");
+      return {
+        id,
+        platform:"whatsapp",
+        channel:"whatsapp",
+        channelCode:"wa",
+        conversationId:id,
+        convId:id,
+        waId:id,
+        participantId:id,
+        phone:id ? "+" + id : "",
+        phoneNormalized:id,
+        customerName: target.name || id || "محادثة واتساب جديدة",
+        department: target.department || state.department || "cash_sales",
+        status:"open",
+        clientStatus:"open",
+        updatedAt:new Date().toISOString(),
+        __virtual:true
+      };
+    }
+
+    function tryOpenPendingConversation(){
+      const target = state.pendingOpenTarget;
+      if(!target) return;
+
+      const match = state.conversations.find(c => conversationMatchesTarget(c, target));
+      if(match){
+        if(state.limitedInboxMode && !isAssignedToCurrentUser(match)){
+          state.pendingOpenTarget = null;
+          messagesEl.innerHTML = '<div class="empty">لا توجد صلاحية لهذا العميل</div>';
+          toast("لا توجد صلاحية لهذا العميل");
+          return;
+        }
+        state.pendingOpenTarget = null;
+        selectConversation(match);
+        history.replaceState(null, "", location.pathname);
+        return;
+      }
+
+      if((target.platform || "whatsapp") === "whatsapp" && (target.phone || target.conversationId)){
+        state.pendingOpenTarget = null;
+        selectConversation(buildVirtualWhatsappConversation(target));
+        history.replaceState(null, "", location.pathname);
+      }
     }
 
     function renderConversations(){
       const search = el("searchInput").value.trim().toLowerCase();
-      let items = state.conversations.slice();
+      let items = dedupeConversations(state.conversations.slice());
 
       if(state.selectedPlatform !== "all") items = items.filter(c => c.platform === state.selectedPlatform);
       if(!state.isAdmin || state.department !== "all") items = items.filter(c => !c.department || c.department === state.department);
+
+      if(state.limitedInboxMode && state.pendingOpenTarget){
+        items = items.filter(c => conversationMatchesTarget(c, state.pendingOpenTarget) && isAssignedToCurrentUser(c));
+      }
+
       if(search){
         items = items.filter(c =>
           String(getCustomerName(c)).toLowerCase().includes(search) ||
@@ -547,19 +885,27 @@
         const div = document.createElement("div");
         div.className = "conv" + (state.selected?.id === c.id && state.selected?.platform === c.platform ? " active" : "");
         const status = getClientStatus(c);
+        const responsible = getResponsibleName(c);
+        const unread = getUnreadCount(c);
+        const lastText = getLastText(c);
         div.innerHTML = `
           <div class="row">
             <div class="name">${escapeHtml(getCustomerName(c))}</div>
             <span class="badge ${c.platform}">${platformLabel(c.platform)}</span>
           </div>
-          <div class="preview">${escapeHtml(getLastText(c))}</div>
+          ${responsible ? `<div class="preview responsible-line">المسؤول: ${escapeHtml(responsible)}</div>` : ""}
+          <div class="preview">${escapeHtml(lastText || "لا توجد رسائل بعد")}</div>
           <div class="row">
-            <span class="time">${escapeHtml(getPhone(c))}</span>
-            ${status ? `<span class="client-status">${escapeHtml(status)}</span>` : `<span class="time">${formatTime(c.updatedAt)}</span>`}
+            <span class="time">${escapeHtml(getPhone(c) || "")}</span>
+            <span class="time">${formatTime(c.updatedAt)}</span>
+            ${unread > 0 ? `<span class="unread-badge">${unread}</span>` : ""}
+            ${status ? `<span class="client-status">${escapeHtml(status)}</span>` : ""}
           </div>`;
         div.onclick = () => selectConversation(c);
         conversationList.appendChild(div);
       });
+
+      tryOpenPendingConversation();
     }
 
     function selectConversation(c){
@@ -579,11 +925,22 @@
       state.unsubConversations = [];
       state.conversations = [];
 
+      const collectionOwners = new Map();
       Object.entries(PLATFORM_CONFIG).forEach(([platform, cfg]) => {
-        const q = query(collection(db, cfg.conversations), orderBy("updatedAt", "desc"), limit(200));
+        if(!cfg.conversations) return;
+        if(!collectionOwners.has(cfg.conversations)) collectionOwners.set(cfg.conversations, platform);
+      });
+
+      collectionOwners.forEach((defaultPlatform, collectionName) => {
+        const q = query(collection(db, collectionName), orderBy("updatedAt", "desc"), limit(250));
         const unsub = onSnapshot(q, snap => {
-          state.conversations = state.conversations.filter(c => c.platform !== platform);
-          snap.forEach(d => state.conversations.push(normalizeConversation(platform, d.id, d.data())));
+          state.conversations = state.conversations.filter(c => c.__collection !== collectionName);
+          snap.forEach(d => {
+            const c = normalizeConversation(defaultPlatform, d.id, d.data());
+            c.__collection = collectionName;
+            state.conversations.push(c);
+          });
+          state.conversations = dedupeConversations(state.conversations);
           el("connectionStatus").textContent = "متصل لايف";
           renderConversations();
         }, err => {
@@ -595,41 +952,92 @@
       });
     }
 
+    function messageSortTime(m){
+      const value = m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt || "";
+      if(value?.toDate) return value.toDate().getTime();
+      if(typeof value === "number") return value < 9999999999 ? value * 1000 : value;
+      const parsed = Date.parse(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function messageTextOf(m){
+      return m.text || m.body || m.message || m.caption || m.content || m.lastMessageText || "";
+    }
+
+    function messageCandidateIds(c){
+      const ids = [
+        c.id, c.conversationId, c.convId, c.waId, c.participantId,
+        c.phoneNormalized, c.phone, c.phoneNumber, c.mobile
+      ].filter(Boolean).map(x => String(x).replace(/^\+/, ""));
+      const extra = [];
+      ids.forEach(id => {
+        extra.push(id);
+        if(id.startsWith("wa_")) extra.push(id.replace(/^wa_/, ""));
+        if(!id.startsWith("wa_") && c.platform === "whatsapp") extra.push("wa_" + id);
+      });
+      return [...new Set(extra.filter(Boolean))];
+    }
+
     function listenMessages(c){
       if(state.unsubMessages) state.unsubMessages();
       messagesEl.innerHTML = '<div class="empty">جاري التحميل...</div>';
 
-      const cfg = PLATFORM_CONFIG[c.platform];
-      const q = query(collection(db, cfg.conversations, c.id, "messages"), orderBy("createdAt", "asc"), limit(300));
+      const cfg = PLATFORM_CONFIG[c.platform] || PLATFORM_CONFIG.whatsapp;
+      const ids = messageCandidateIds(c);
+      let idx = 0;
 
-      state.unsubMessages = onSnapshot(q, snap => {
-        messagesEl.innerHTML = "";
-        if(snap.empty){
-          messagesEl.innerHTML = '<div class="empty">لا توجد رسائل</div>';
-          return;
-        }
-        snap.forEach(d => {
-          const m = d.data();
-          const outgoing = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
-          const row = document.createElement("div");
-          row.className = "msg-row " + (outgoing ? "out" : "in");
-          row.innerHTML = `
-            <div class="msg ${outgoing ? "out" : "in"}">
-              <div class="msg-text">${escapeHtml(m.text || m.body || m.message || "")}</div>
-              <div class="msg-meta">
-                <span>${outgoing ? "أنت" : "العميل"}</span>
-                <span>•</span>
-                <span>${formatTime(m.createdAt || m.timestamp)}</span>
+      const attach = () => {
+        const convId = ids[idx] || c.id;
+        const colRef = collection(db, cfg.conversations, convId, "messages");
+
+        state.unsubMessages = onSnapshot(colRef, snap => {
+          const messages = [];
+          snap.forEach(d => messages.push({ id:d.id, ...d.data() }));
+
+          if(!messages.length && idx < ids.length - 1){
+            if(state.unsubMessages) state.unsubMessages();
+            idx += 1;
+            attach();
+            return;
+          }
+
+          messages.sort((a,b) => messageSortTime(a) - messageSortTime(b));
+          messagesEl.innerHTML = "";
+          if(!messages.length){
+            messagesEl.innerHTML = '<div class="empty">لا توجد رسائل</div>';
+            return;
+          }
+
+          messages.forEach(m => {
+            const outgoing = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
+            const row = document.createElement("div");
+            row.className = "msg-row " + (outgoing ? "out" : "in");
+            row.innerHTML = `
+              <div class="msg ${outgoing ? "out" : "in"}">
+                <div class="msg-text">${escapeHtml(messageTextOf(m))}</div>
+                <div class="msg-meta">
+                  <span>${outgoing ? "أنت" : "العميل"}</span>
+                  <span>•</span>
+                  <span>${formatTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt)}</span>
+                </div>
               </div>
-            </div>
-          `;
-          messagesEl.appendChild(row);
+            `;
+            messagesEl.appendChild(row);
+          });
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }, err => {
+          console.error(err);
+          if(idx < ids.length - 1){
+            idx += 1;
+            attach();
+            return;
+          }
+          messagesEl.innerHTML = '<div class="empty">تعذر تحميل الرسائل</div>';
+          if(state.limitedInboxMode) el("connectionStatus").textContent = "وضع محدود";
         });
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      }, err => {
-        console.error(err);
-        messagesEl.innerHTML = '<div class="empty">تعذر تحميل الرسائل</div>';
-      });
+      };
+
+      attach();
     }
 
 
@@ -664,8 +1072,59 @@
 
       const cfg = PLATFORM_CONFIG[c.platform];
       const dept = c.department || (state.department === "all" ? "cash_sales" : state.department);
-
       const selectedTemplate = getSelectedMessageTemplate();
+
+      if(c.platform === "facebook"){
+        try{
+          const res = await fetch(FACEBOOK_SEND_ENDPOINT, {
+            method:"POST",
+            headers:{ "content-type":"application/json" },
+            body:JSON.stringify({
+              convId:c.id,
+              conversationId:c.id,
+              psid:c.participantId || c.fbId || c.manychatContactId || getPhone(c),
+              text,
+              message:text
+            })
+          });
+          const result = await res.json().catch(() => ({}));
+          if(!res.ok || result.ok === false){
+            console.error("Facebook send failed", result);
+            return toast("فشل إرسال فيسبوك. راجع رابط الوركر أو التوكن.");
+          }
+          el("replyText").value = "";
+          clearSelectedTemplateControls();
+          autoResizeReply();
+          toast("تم الإرسال");
+          return;
+        } catch(err){
+          console.error(err);
+          return toast("فشل اتصال وركر فيسبوك.");
+        }
+      }
+
+      if(!cfg.outbox) return toast("لا يوجد مسار إرسال مضبوط لهذه المنصة.");
+
+      if(c.__virtual || c.platform === "whatsapp"){
+        await setDoc(doc(db, cfg.conversations, c.id), {
+          conversationId:c.id,
+          convId:c.id,
+          waId:c.id,
+          participantId:c.id,
+          platform:"whatsapp",
+          channel:"whatsapp",
+          channelCode:"wa",
+          phone:getPhone(c),
+          phoneNormalized:normalizeKsaPhone(getPhone(c)),
+          customerName:getCustomerName(c),
+          department:dept,
+          status:c.status || "open",
+          lastMessageText:text,
+          lastMessage:text,
+          updatedAt:serverTimestamp(),
+          lastUpdated:serverTimestamp()
+        }, { merge:true }).catch(console.error);
+      }
 
       await addDoc(collection(db, cfg.outbox), {
         conversationId:c.id,
@@ -693,7 +1152,7 @@
         status:"pending"
       });
 
-      await updateDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, department:dept, updatedAt:serverTimestamp() }).catch(()=>{});
+      await setDoc(doc(db, cfg.conversations, c.id), { lastMessage:text, lastMessageText:text, department:dept, updatedAt:serverTimestamp(), lastUpdated:serverTimestamp() }, { merge:true }).catch(()=>{});
       el("replyText").value = "";
       clearSelectedTemplateControls();
       autoResizeReply();
@@ -722,11 +1181,11 @@
     }
 
     function updateCompletion(data){
-      const filled = CUSTOMER_FIELDS.filter(f => {
+      const filled = COMPLETION_FIELDS.filter(f => {
         const v = data[f];
         return Array.isArray(v) ? v.length : String(v || "").trim();
       }).length;
-      const percent = Math.round((filled / CUSTOMER_FIELDS.length) * 100);
+      const percent = Math.round((filled / COMPLETION_FIELDS.length) * 100);
       el("completionBar").style.width = percent + "%";
       el("completionText").textContent = `${percent}% مكتمل`;
       return percent;
@@ -797,7 +1256,11 @@
 
     el("sendBtn").onclick = sendReply;
     form.onsubmit = saveCustomer;
-    el("refreshBtn").onclick = listenConversations;
+    el("refreshBtn").onclick = () => {
+      listenStatuses();
+      listenTemplates();
+      listenConversations();
+    };
     el("searchInput").oninput = renderConversations;
     el("backBtn").onclick = () => el("app").classList.remove("chat-open");
 
