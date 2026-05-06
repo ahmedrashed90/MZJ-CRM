@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MZJ CRM - إضافة عميل</title>
+  <link rel="stylesheet" href="./theme.css" />
+</head>
+<body>
+  <section class="login-screen hidden" id="loginScreen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="logo-mark">MZJ</div>
+        <div>
+          <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+          <p>تسجيل الدخول إلى نظام CRM</p>
+        </div>
+      </div>
+      <form class="login-form" id="loginForm">
+        <input id="loginEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required />
+        <input id="loginPassword" type="password" placeholder="كلمة المرور" autocomplete="current-password" required />
+        <div class="login-error" id="loginError"></div>
+        <button class="primary" type="submit">تسجيل الدخول</button>
+      </form>
+    </div>
+  </section>
+
+  <div class="management-page hidden" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="logo-box">
+            <div class="logo-mark">MZJ</div>
+            <div>
+              <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+              <div class="status-text" id="userInfo"></div>
+            </div>
+          </div>
+          <button class="secondary" id="logoutBtn">خروج</button>
+        </div>
+        <div class="nav-card">
+          <div class="menu-label">التنقل بين صفحات النظام</div>
+          <div class="nav-tabs"></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="management-main">
+      <div class="page-head">
+        <div>
+          <h2>إضافة العملاء</h2>
+          <p>إدخال عميل جديد يدويًا كليد داخل السيستم، ويتسجل باسم المندوب الذي أضافه.</p>
+        </div>
+        <span class="count-badge" id="paymentBadge">الدفع</span>
+      </div>
+
+      <div class="manual-tabs">
+        <button class="chip active" id="addTabBtn" type="button">إضافة عميل</button>
+        <button class="chip hidden" id="adminListTabBtn" type="button">عرض العملاء المسجلة</button>
+      </div>
+
+      <section class="manual-section" id="addTab">
+        <div class="card manual-card">
+          <h3>بيانات العميل</h3>
+          <form id="manualLeadForm">
+            <input type="hidden" id="editingLeadId" />
+            <div class="form-grid three">
+              <div class="field">
+                <label>اسم العميل</label>
+                <input id="customerName" required placeholder="اسم العميل" />
+              </div>
+              <div class="field">
+                <label>رقم الجوال</label>
+                <input id="customerPhone" required placeholder="05xxxxxxxx" inputmode="tel" />
+              </div>
+              <div class="field">
+                <label>المصدر</label>
+                <select id="leadSource" required>
+                  <option value="موقع حراج">موقع حراج</option>
+                  <option value="موقع اخر">موقع اخر</option>
+                  <option value="خلال الفرع">خلال الفرع</option>
+                  <option value="صديق">صديق</option>
+                  <option value="اتصال الرقم الموحد">اتصال الرقم الموحد</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid three">
+              <div class="field admin-payment-field hidden" id="adminPaymentBox">
+                <label>الدفع / القسم</label>
+                <select id="adminPaymentType">
+                  <option value="finance">تمويل</option>
+                  <option value="cash">كاش</option>
+                  <option value="cs">خدمة عملاء</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>الدفع حسب المندوب</label>
+                <input id="paymentReadonly" disabled />
+              </div>
+              <div class="field">
+                <label>ملاحظات</label>
+                <input id="leadNotes" placeholder="اختياري" />
+              </div>
+            </div>
+            <div class="actions">
+              <button class="primary" type="submit" id="saveLeadBtn">حفظ العميل</button>
+              <button class="secondary" type="button" id="resetLeadBtn">جديد</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="manual-section hidden" id="adminListTab">
+        <div class="filters-card">
+          <div class="filters-grid database">
+            <input id="searchInput" placeholder="بحث بالاسم أو الرقم" />
+            <select id="sourceFilter"><option value="all">كل المصادر</option></select>
+            <select id="paymentFilter"><option value="all">كل الأقسام</option><option value="كاش">كاش</option><option value="تمويل">تمويل</option><option value="خدمة عملاء">خدمة عملاء</option></select>
+            <button class="secondary" id="refreshBtn" type="button">تحديث</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="leads-table">
+            <thead>
+              <tr>
+                <th>العميل</th>
+                <th>الجوال</th>
+                <th>المصدر</th>
+                <th>الدفع</th>
+                <th>المندوب المسؤول</th>
+                <th>الكول سنتر</th>
+                <th>تعديل</th>
+              </tr>
+            </thead>
+            <tbody id="manualLeadsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    const appFirebase = initializeApp(firebaseConfig);
+    try { getAnalytics(appFirebase); } catch(e) {}
+    const auth = getAuth(appFirebase);
+    const db = getFirestore(appFirebase);
+
+    const DEPARTMENTS = {
+      cash_sales:"مبيعات الكاش",
+      finance_sales:"مبيعات التمويل",
+      customer_service:"خدمة العملاء",
+      call_center:"الكول سنتر"
+    };
+
+    const NAV_ITEMS = [
+      { page:"inbox.html", label:"صندوق الوارد" },
+      { page:"callcenter.html", label:"الكول سنتر" },
+      { page:"leads-finance.html", label:"العملاء المحتملون - تمويل" },
+      { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
+      { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
+      { page:"database.html", label:"قاعدة البيانات" },
+      { page:"manual-leads.html", label:"إضافة العملاء" },
+      { page:"dashboard.html", label:"الداش بورد" },
+      { page:"reports.html", label:"التقارير" },
+      { page:"branches.html", label:"الفروع" },
+      { page:"statuses.html", label:"حالات العملاء" },
+      { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
+      { page:"admin.html", label:"الإدارة" }
+    ];
+
+    let currentUser = null;
+    let currentProfile = null;
+    let isAdmin = false;
+    let users = [];
+    let leads = [];
+    let unsubLeads = null;
+
+    const el = id => document.getElementById(id);
+
+    function toast(msg){
+      const t = el("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(()=> t.style.display = "none", 2500);
+    }
+
+    function escapeHtml(str){
+      return String(str ?? "").replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    }
+
+    function showLoginError(msg){
+      el("loginError").textContent = msg;
+      el("loginError").style.display = "block";
+    }
+
+    function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
+
+    async function loadUserProfile(user){
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if(snap.exists()) return snap.data();
+      return { email:user.email, name:user.email, role:"user", department:"cash_sales", active:true };
+    }
+
+    function isAdminProfile(profile){ return profile?.role === "admin" || profile?.allDepartments === true; }
+    function currentPageName(){ return location.pathname.split("/").pop() || "manual-leads.html"; }
+    function allowedPagesForCurrentUser(){ return Array.isArray(currentProfile?.pages) ? currentProfile.pages : []; }
+    function hasPageAccess(page){
+      const pages = allowedPagesForCurrentUser();
+      return isAdmin || currentProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html";
+    }
+    function renderAllowedNavigation(profile=currentProfile, adminFlag=isAdmin){
+      const currentPage = currentPageName();
+      const pages = Array.isArray(profile?.pages) ? profile.pages : [];
+      const unrestricted = adminFlag || profile?.allDepartments === true || !pages.length;
+      const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
+      const nav = document.querySelector(".nav-tabs");
+      if(!nav) return;
+      nav.innerHTML = allowed.map(item => `<a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">${item.label}</a>`).join("");
+    }
+    function applyPagePermissions(){
+      if(!hasPageAccess(currentPageName())){
+        sessionStorage.setItem("mzj_no_permission_page", currentPageName());
+        window.location.replace("./dashboard.html");
+        return false;
+      }
+      return true;
+    }
+
+    function normalizePhone(phone){
+      let p = String(phone || "").trim().replace(/[^\d+]/g, "").replace(/^00/, "").replace(/^\+/, "");
+      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) return "966" + p;
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0, 12);
+      return p;
+    }
+    function safeDocId(value){ return String(value || "").replace(/[\/#[\].]/g, "_").replace(/\s+/g, "_").slice(0,120); }
+
+    function paymentFromDepartment(dept){
+      if(dept === "finance_sales") return { key:"finance", payment:"تمويل", department:"finance_sales", branch:"مبيعات التمويل", serviceKey:"finance" };
+      if(dept === "customer_service") return { key:"cs", payment:"خدمة عملاء", department:"customer_service", branch:"خدمة العملاء", serviceKey:"cs" };
+      return { key:"cash", payment:"كاش", department:"cash_sales", branch:"مبيعات الكاش", serviceKey:"cash" };
+    }
+    function selectedPaymentConfig(){
+      if(isAdmin){
+        const v = el("adminPaymentType").value;
+        if(v === "finance") return paymentFromDepartment("finance_sales");
+        if(v === "cs") return paymentFromDepartment("customer_service");
+        return paymentFromDepartment("cash_sales");
+      }
+      return paymentFromDepartment(currentProfile?.department || "cash_sales");
+    }
+    function refreshPaymentView(){
+      const cfg = selectedPaymentConfig();
+      el("paymentReadonly").value = cfg.payment;
+      el("paymentBadge").textContent = `الدفع: ${cfg.payment}`;
+    }
+
+    async function loadUsers(){
+      const snap = await getDocs(collection(db, "users"));
+      users = [];
+      snap.forEach(d => users.push({ uid:d.id, ...d.data() }));
+    }
+    function userLabel(u){ return u ? (u.name || u.email || u.uid || "") : ""; }
+    function usersForDepartment(dept){ return users.filter(u => u.active !== false && u.department === dept); }
+    function pickCallCenter(){
+      const list = usersForDepartment("call_center");
+      return list[Math.floor(Math.random() * list.length)] || null;
+    }
+
+    function buildLeadPayload({ leadId, existing={}, assignee=null }){
+      const cfg = selectedPaymentConfig();
+      const name = el("customerName").value.trim();
+      const phoneRaw = el("customerPhone").value.trim();
+      const phone = normalizePhone(phoneRaw);
+      const source = el("leadSource").value;
+      const notes = el("leadNotes").value.trim();
+      const status = existing.status || existing.leadStatus || "عميل جديد";
+      const salesUser = assignee || { uid: currentUser.uid, name: currentProfile?.name || currentUser.email, email: currentUser.email };
+      const cc = existing.callCenterAssignedTo ? null : pickCallCenter();
+
+      const payload = {
+        leadId,
+        customerName:name, fullName:name, name, displayName:name,
+        phone:phoneRaw, mobile:phoneRaw, phoneNumber:phoneRaw, phoneNormalized:phone,
+        source, sourceName:source, sourceCode:"manual", platform:"manual", channel:"manual", channelCode:"manual", provider:"manual_entry",
+        department:cfg.department, serviceKey:cfg.serviceKey, autoService:cfg.serviceKey,
+        branch:cfg.branch, branchId:cfg.branch, branchName:cfg.branch, sectionLabel:cfg.branch,
+        leadPayment:cfg.payment, payment:cfg.payment, paymentType:cfg.payment, payType:cfg.payment,
+        status, statusLabel:status, leadStatus:status, currentStatus:status, currentStatusLabel:status,
+        clientStatus:status, customerStatus:status, customerStatusLabel:status, pipelineStatus:status, pipelineStatusLabel:status,
+        stage:status, stageLabel:status,
+        notes, inCustomersBase:true,
+        manualEntry:true, manualSource:"manual_page",
+        createdBy: existing.createdBy || currentUser.uid,
+        createdByName: existing.createdByName || (currentProfile?.name || currentUser.email),
+        createdByEmail: existing.createdByEmail || currentUser.email,
+        updatedBy: currentUser.uid,
+        updatedByName: currentProfile?.name || currentUser.email,
+        updatedAt: serverTimestamp(), lastUpdated: serverTimestamp()
+      };
+
+      if(!existing.createdAt) payload.createdAt = serverTimestamp();
+
+      payload.assignedTo = salesUser.uid || salesUser.id || "";
+      payload.assignedName = userLabel(salesUser);
+      payload.salesAssignedTo = payload.assignedTo;
+      payload.salesAssignedName = payload.assignedName;
+      payload.responsibleUid = payload.assignedTo;
+      payload.responsibleName = payload.assignedName;
+      payload.assignedBy = existing.assignedBy || "manual_entry";
+      payload.assignedAt = existing.assignedAt || serverTimestamp();
+
+      if(existing.callCenterAssignedTo){
+        ["callCenterAssignedTo","callCenterAssignedName","callCenterUid","callCenterName","callCenterAssignedAt"].forEach(k => payload[k] = existing[k]);
+      }else if(cc){
+        payload.callCenterAssignedTo = cc.uid || cc.id || "";
+        payload.callCenterAssignedName = userLabel(cc);
+        payload.callCenterUid = payload.callCenterAssignedTo;
+        payload.callCenterName = payload.callCenterAssignedName;
+        payload.callCenterAssignedAt = serverTimestamp();
+      }
+      return payload;
+    }
+
+    async function saveManualLead(e){
+      e.preventDefault();
+      const phone = normalizePhone(el("customerPhone").value);
+      if(!el("customerName").value.trim()) return toast("اكتب اسم العميل");
+      if(!phone) return toast("اكتب رقم الجوال");
+      const editingId = el("editingLeadId").value.trim();
+      const leadId = editingId || `manual_${safeDocId(phone)}`;
+      const ref = doc(db, "leads", leadId);
+      const oldSnap = await getDoc(ref).catch(()=>null);
+      const existing = oldSnap?.exists() ? oldSnap.data() : {};
+      await setDoc(ref, buildLeadPayload({ leadId, existing }), { merge:true });
+      toast(editingId ? "تم تحديث العميل" : "تم حفظ العميل");
+      resetForm();
+    }
+
+    function resetForm(){
+      el("editingLeadId").value = "";
+      el("customerName").value = "";
+      el("customerPhone").value = "";
+      el("leadSource").value = "موقع حراج";
+      el("leadNotes").value = "";
+      el("saveLeadBtn").textContent = "حفظ العميل";
+      refreshPaymentView();
+    }
+
+    function showTab(tab){
+      el("addTab").classList.toggle("hidden", tab !== "add");
+      el("adminListTab").classList.toggle("hidden", tab !== "list");
+      el("addTabBtn").classList.toggle("active", tab === "add");
+      el("adminListTabBtn").classList.toggle("active", tab === "list");
+    }
+
+    function renderFilters(){
+      const sources = ["all", ...new Set(leads.map(l => l.source).filter(Boolean))];
+      el("sourceFilter").innerHTML = sources.map(s => `<option value="${escapeHtml(s)}">${s === "all" ? "كل المصادر" : escapeHtml(s)}</option>`).join("");
+    }
+
+    function renderManualLeads(){
+      if(!isAdmin) return;
+      const q = el("searchInput").value.trim().toLowerCase();
+      const sf = el("sourceFilter").value || "all";
+      const pf = el("paymentFilter").value || "all";
+      const rows = leads.filter(l => l.manualEntry === true || l.provider === "manual_entry").filter(l => {
+        const hay = `${l.customerName||l.name||""} ${l.phone||l.mobile||l.phoneNumber||""}`.toLowerCase();
+        return (!q || hay.includes(q)) && (sf === "all" || l.source === sf) && (pf === "all" || (l.payment || l.paymentType || l.payType) === pf);
+      });
+      el("manualLeadsBody").innerHTML = rows.map(l => {
+        const dept = l.department || paymentFromDepartment("cash_sales").department;
+        const reps = usersForDepartment(dept);
+        const opts = reps.map(u => `<option value="${escapeHtml(u.uid)}" ${u.uid === (l.assignedTo||l.responsibleUid) ? "selected" : ""}>${escapeHtml(userLabel(u))}</option>`).join("");
+        return `<tr>
+          <td>${escapeHtml(l.customerName || l.name || "")}</td>
+          <td>${escapeHtml(l.phone || l.mobile || l.phoneNumber || "")}</td>
+          <td>${escapeHtml(l.source || "")}</td>
+          <td>${escapeHtml(l.payment || l.paymentType || l.payType || "")}</td>
+          <td><select data-lead-id="${escapeHtml(l.id)}" class="rep-select"><option value="">اختر مندوب</option>${opts}</select></td>
+          <td>${escapeHtml(l.callCenterAssignedName || l.callCenterName || "")}</td>
+          <td><button class="secondary edit-btn" data-lead-id="${escapeHtml(l.id)}" type="button">تعديل</button></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="7" class="empty">لا توجد عملاء مسجلة يدويًا</td></tr>`;
+    }
+
+    async function changeRep(leadId, uid){
+      const u = users.find(x => x.uid === uid);
+      if(!u) return;
+      await updateDoc(doc(db, "leads", leadId), {
+        assignedTo:u.uid, assignedName:userLabel(u), salesAssignedTo:u.uid, salesAssignedName:userLabel(u),
+        responsibleUid:u.uid, responsibleName:userLabel(u), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(), updatedBy:currentUser.uid
+      });
+      toast("تم تغيير المندوب");
+    }
+
+    function editLead(leadId){
+      const l = leads.find(x => x.id === leadId);
+      if(!l) return;
+      el("editingLeadId").value = l.id;
+      el("customerName").value = l.customerName || l.name || "";
+      el("customerPhone").value = l.phone || l.mobile || l.phoneNumber || "";
+      el("leadSource").value = l.source || "موقع حراج";
+      el("leadNotes").value = l.notes || "";
+      if(isAdmin){
+        const p = l.payment || l.paymentType || l.payType || "";
+        el("adminPaymentType").value = p === "تمويل" ? "finance" : (p === "خدمة عملاء" ? "cs" : "cash");
+      }
+      refreshPaymentView();
+      el("saveLeadBtn").textContent = "تحديث العميل";
+      showTab("add");
+      window.scrollTo({ top:0, behavior:"smooth" });
+    }
+
+    function subscribeManualLeads(){
+      if(!isAdmin) return;
+      if(unsubLeads) unsubLeads();
+      unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy("updatedAt", "desc")), snap => {
+        leads = [];
+        snap.forEach(d => leads.push({ id:d.id, ...d.data() }));
+        renderFilters();
+        renderManualLeads();
+      });
+    }
+
+    async function init(){
+      renderAllowedNavigation();
+      if(!applyPagePermissions()) return;
+      el("userInfo").textContent = `${currentProfile.name || currentUser.email} - ${isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department)}`;
+      el("adminListTabBtn").classList.toggle("hidden", !isAdmin);
+      el("adminPaymentBox").classList.toggle("hidden", !isAdmin);
+      await loadUsers();
+      refreshPaymentView();
+      subscribeManualLeads();
+    }
+
+    el("loginForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      try{ await signInWithEmailAndPassword(auth, el("loginEmail").value, el("loginPassword").value); }
+      catch(err){ showLoginError("بيانات الدخول غير صحيحة"); }
+    });
+    el("logoutBtn").onclick = () => signOut(auth);
+    el("manualLeadForm").onsubmit = saveManualLead;
+    el("resetLeadBtn").onclick = resetForm;
+    el("addTabBtn").onclick = () => showTab("add");
+    el("adminListTabBtn").onclick = () => showTab("list");
+    el("adminPaymentType").onchange = refreshPaymentView;
+    el("refreshBtn").onclick = renderManualLeads;
+    ["searchInput","sourceFilter","paymentFilter"].forEach(id => el(id).addEventListener("input", renderManualLeads));
+    document.addEventListener("change", e => { if(e.target.classList.contains("rep-select")) changeRep(e.target.dataset.leadId, e.target.value); });
+    document.addEventListener("click", e => { if(e.target.classList.contains("edit-btn")) editLead(e.target.dataset.leadId); });
+
+    onAuthStateChanged(auth, async user => {
+      if(!user){
+        currentUser = null; currentProfile = null;
+        el("loginScreen").classList.remove("hidden"); el("app").classList.add("hidden");
+        return;
+      }
+      currentUser = user;
+      currentProfile = await loadUserProfile(user);
+      if(currentProfile.active === false){ await signOut(auth); return; }
+      isAdmin = isAdminProfile(currentProfile);
+      el("loginScreen").classList.add("hidden"); el("app").classList.remove("hidden");
+      await init();
+    });
+  </script>
+</body>
+</html>

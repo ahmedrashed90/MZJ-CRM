@@ -46,6 +46,7 @@
           <a href="./leads-cash.html" class="active">العملاء المحتملون - كاش</a>
           <a href="./leads-customer-service.html">العملاء المحتملون - خدمة عملاء</a>
           <a href="./database.html">قاعدة البيانات</a>
+          <a href="./manual-leads.html">إضافة العملاء</a>
           <a href="./dashboard.html">الداش بورد</a>
           <a href="./reports.html">التقارير</a>
           <a href="./branches.html">الفروع</a>
@@ -108,7 +109,7 @@
       getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
-      getFirestore, collection, doc, getDoc, getDocs, onSnapshot, query, orderBy, limit,
+      getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy,
       addDoc, setDoc, updateDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
@@ -174,16 +175,6 @@
       return profile?.role === "admin" || profile?.allDepartments === true;
     }
 
-    function normalizeSourceLabel(value){
-      const raw = String(value || "").trim();
-      const low = raw.toLowerCase();
-      if(low === "tikok" || low === "tiktok" || low === "tt" || raw.includes("تيك")) return "تيك توك";
-      if(low === "fb" || low.includes("facebook") || raw.includes("فيس")) return "فيسبوك";
-      if(low === "ig" || low.includes("instagram") || raw.includes("انست")) return "انستجرام";
-      if(low === "wa" || low.includes("whatsapp") || raw.includes("واتساب")) return "واتساب";
-      return raw;
-    }
-
     function escapeHtml(str){
       return String(str ?? "").replace(/[&<>"']/g, s => ({
         "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
@@ -207,105 +198,7 @@
     function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
 
     function normalizePhone(phone){
-      let p = String(phone || "").trim();
-      if(/[eE]\+?/.test(p)){
-        const n = Number(p);
-        if(Number.isFinite(n)) p = String(Math.trunc(n));
-      }
-      p = p.replace(/[^\d+]/g,"");
-      p = p.replace(/^00/,"+").replace(/^\+/,"");
-      if(p.startsWith("966") && p.length >= 12) return p.slice(0,12);
-      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
-      if(p.startsWith("5") && p.length === 9) return "966" + p;
-      return p;
-    }
-
-    function openWhatsappInboxByPhone(phone, name=""){
-      const p = normalizePhone(phone);
-      if(!p) return toast("لا يوجد رقم جوال صالح");
-      const params = new URLSearchParams({
-        platform:"whatsapp",
-        phone:p,
-        conversationId:p,
-        name:name || "",
-        department:PAGE_DEPARTMENT || ""
-      });
-      window.location.href = `./inbox.html?${params.toString()}`;
-    }
-
-    function socialPlatformFromSource(source){
-      const raw = String(source || "").toLowerCase();
-      if(raw.includes("facebook") || raw.includes("fb") || raw.includes("فيس")) return "facebook";
-      if(raw.includes("instagram") || raw.includes("ig") || raw.includes("انست")) return "instagram";
-      if(raw.includes("tiktok") || raw.includes("tikok") || raw.includes("tt") || raw.includes("تيك")) return "tiktok";
-      return "";
-    }
-
-    function socialConversationCollection(platform){
-      if(platform === "facebook") return "wa_conversations";
-      if(platform === "instagram") return "ig_conversations";
-      if(platform === "tiktok") return "tt_conversations";
-      return "wa_conversations";
-    }
-
-    function normName(v){
-      return String(v || "").trim().toLowerCase().replace(/\s+/g, " ");
-    }
-
-    function leadNameHtml(row){
-      const platform = socialPlatformFromSource(row.source || row.sourceName || row.platform || row.channel);
-      const noPhone = !normalizePhone(row.phone || row.mobile || row.phoneNumber || "");
-      if(platform && noPhone){
-        return `<button type="button" class="name-open-chat" data-social-name="${escapeHtml(row.customerName || "")}" data-source="${escapeHtml(row.source || row.sourceName || "")}" data-id="${escapeHtml(row.id)}">${escapeHtml(row.customerName)}</button>`;
-      }
-      return escapeHtml(row.customerName);
-    }
-
-    async function openSocialInboxByName(row){
-      const platform = socialPlatformFromSource(row.source || row.sourceName || row.platform || row.channel);
-      if(!platform) return toast("المصدر ليس منصة اجتماعية");
-      const wantedName = normName(row.customerName || row.name || row.displayName);
-      if(!wantedName) return toast("لا يوجد اسم عميل للبحث عن المحادثة");
-
-      const col = socialConversationCollection(platform);
-      toast("جاري البحث عن المحادثة...");
-      try{
-        const snap = await getDocs(query(collection(db, col), limit(500)));
-        let found = null;
-        snap.forEach(d => {
-          if(found) return;
-          const x = d.data() || {};
-          const p = String(x.platform || x.channel || x.channelCode || "").toLowerCase();
-          const samePlatform =
-            platform === "facebook" ? (p.includes("facebook") || p === "fb" || p.includes("meta")) :
-            platform === "instagram" ? (p.includes("instagram") || p === "ig") :
-            platform === "tiktok" ? (p.includes("tiktok") || p.includes("tikok") || p === "tt") : false;
-          const names = [x.customerName, x.displayName, x.name, x.fullName, x.senderName].map(normName);
-          if(samePlatform && names.includes(wantedName)){
-            found = { id:d.id, ...x };
-          }
-        });
-
-        if(!found) return toast("لم يتم العثور على محادثة بنفس الاسم والمصدر");
-
-        const params = new URLSearchParams({
-          platform,
-          conversationId: found.conversationId || found.convId || found.id || "",
-          name: row.customerName || "",
-          leadId: row.id || "",
-          department: PAGE_DEPARTMENT || ""
-        });
-        window.location.href = `./inbox.html?${params.toString()}`;
-      }catch(err){
-        console.error(err);
-        toast("تعذر فتح المحادثة");
-      }
-    }
-
-    function phoneLinkHtml(phone, name=""){
-      const p = normalizePhone(phone);
-      if(!p) return escapeHtml(phone || "");
-      return `<button type="button" class="phone-open-chat" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}">${escapeHtml(phone || p)}</button>`;
+      return String(phone || "").replace(/[^\d+]/g,"").trim();
     }
 
     function fullName(row){
@@ -395,6 +288,7 @@
       { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
       { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
       { page:"database.html", label:"قاعدة البيانات" },
+      { page:"manual-leads.html", label:"إضافة العملاء" },
       { page:"dashboard.html", label:"الداش بورد" },
       { page:"reports.html", label:"التقارير" },
       { page:"branches.html", label:"الفروع" },
@@ -583,11 +477,11 @@
         const callCenterLocked = !!l.callCenterUid;
 
         tr.innerHTML = `
-          <td>${leadNameHtml(l)}</td>
-          <td>${phoneLinkHtml(l.phone, l.customerName)}</td>
+          <td>${escapeHtml(l.customerName)}</td>
+          <td>${escapeHtml(l.phone)}</td>
           <td>${escapeHtml(l.location)}</td>
           <td>${escapeHtml(l.branch)}</td>
-          <td>${escapeHtml(normalizeSourceLabel(l.source))}</td>
+          <td>${escapeHtml(l.source)}</td>
           <td>${escapeHtml(l.carName)}</td>
           <td>${escapeHtml(l.payment)}</td>
           <td>${escapeHtml(l.status)}</td>
@@ -605,13 +499,6 @@
         `;
         body.appendChild(tr);
       });
-
-      body.querySelectorAll("[data-social-name]").forEach(btn => {
-        btn.onclick = () => {
-          const row = leads.find(x => String(x.id) === String(btn.dataset.id));
-          if(row) openSocialInboxByName(row);
-        };
-      });
     }
 
     function init(){
@@ -625,12 +512,6 @@
         const select = e.target.closest("select[data-assign]");
         if(!select) return;
         assignField(select.dataset.id, select.dataset.assign, select.value);
-      });
-
-      el("leadsBody").addEventListener("click", (e) => {
-        const btn = e.target.closest(".phone-open-chat");
-        if(!btn) return;
-        openWhatsappInboxByPhone(btn.dataset.phone, btn.dataset.name);
       });
     }
 
