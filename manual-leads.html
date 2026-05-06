@@ -129,9 +129,8 @@
                 <th>الدفع</th>
                 <th>المندوب المسؤول</th>
                 <th>الكول سنتر</th>
+                <th>الموافقة</th>
                 <th>آخر تحديث</th>
-                <th>حالة الموافقة</th>
-                <th>موافقة</th>
                 <th>تعديل</th>
               </tr>
             </thead>
@@ -148,7 +147,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, onSnapshot, query, orderBy, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, onSnapshot, query, orderBy, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
@@ -269,45 +268,67 @@
 
     function phoneLinkHtml(phone, name=""){
       const p = normalizePhone(phone);
-      const display = escapeHtml(phone || p || "—");
-      if(!p) return `<span class="lead-static-pill lead-phone-pill"><span class="lead-pill-icon">☎</span><span class="lead-pill-text">${display}</span></span>`;
-      return `<button type="button" class="phone-open-chat lead-action-pill lead-phone-pill" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}"><span class="lead-pill-icon">☎</span><span class="lead-pill-text">${display}</span></button>`;
+      if(!p) return escapeHtml(phone || "");
+      return `<button type="button" class="phone-open-chat" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}">${escapeHtml(phone || p)}</button>`;
     }
 
     function manualNameHtml(row){
-      const name = row.customerName || row.name || "عميل بدون اسم";
+      const name = row.customerName || row.name || "";
       const phone = row.phone || row.mobile || row.phoneNumber || "";
-      return `<button type="button" class="manual-name-open-chat lead-action-pill lead-name-pill" data-phone="${escapeHtml(normalizePhone(phone))}" data-name="${escapeHtml(name)}"><span class="lead-pill-text">${escapeHtml(name)}</span></button>`;
-    }
-
-    function tsToDate(v){
-      if(!v) return null;
-      if(v.toDate) return v.toDate();
-      if(typeof v === "number") return new Date(v < 9999999999 ? v * 1000 : v);
-      const d = new Date(v);
-      return Number.isNaN(d.getTime()) ? null : d;
-    }
-
-    function formatDate(v){
-      const d = tsToDate(v);
-      if(!d) return "";
-      return d.toLocaleString("ar-EG", { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
-    }
-
-    function approvalLabel(row){
-      const s = row.manualApprovalStatus || (row.manualDuplicateRequest ? "pending" : "approved");
-      if(s === "pending") return "بانتظار موافقة الإدارة";
-      if(s === "approved") return "تمت الموافقة";
-      if(s === "rejected") return "مرفوض";
-      return s || "";
-    }
-
-    function approvalClass(row){
-      const s = row.manualApprovalStatus || (row.manualDuplicateRequest ? "pending" : "approved");
-      return s === "pending" ? "warning" : (s === "rejected" ? "danger" : "success");
+      if(!name) return "";
+      return `<button type="button" class="manual-name-open-chat" data-phone="${escapeHtml(normalizePhone(phone))}" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`;
     }
 
     function safeDocId(value){ return String(value || "").replace(/[\/#[\].]/g, "_").replace(/\s+/g, "_").slice(0,120); }
+
+    function formatDate(v){
+      let d = v?.toDate ? v.toDate() : null;
+      if(!d && typeof v === "number") d = new Date(v < 9999999999 ? v * 1000 : v);
+      if(!d && v) d = new Date(v);
+      if(!d || Number.isNaN(d.getTime())) return "";
+      return d.toLocaleString("ar-EG", { dateStyle:"short", timeStyle:"short" });
+    }
+
+    async function findExistingLeadByPhone(phone){
+      const normalized = normalizePhone(phone);
+      const raw = String(phone || "").trim();
+      const checks = [
+        ["phoneNormalized", normalized],
+        ["phoneNumber", raw],
+        ["mobile", raw],
+        ["phone", raw]
+      ].filter(x => x[1]);
+      for(const [field, value] of checks){
+        try{
+          const snap = await getDocs(query(collection(db, "leads"), where(field, "==", value), limit(1)));
+          if(!snap.empty){
+            const d = snap.docs[0];
+            return { id:d.id, ...d.data() };
+          }
+        }catch(e){ console.warn("duplicate check failed", field, e); }
+      }
+      return null;
+    }
+
+    function approvalPayload(isDuplicate=false, existingLead=null){
+      if(isAdmin){
+        return {
+          approvalStatus:"approved",
+          manualPendingApproval:false,
+          approvedBy:currentUser.uid,
+          approvedByName:currentProfile?.name || currentUser.email,
+          approvedAt:serverTimestamp()
+        };
+      }
+      return {
+        approvalStatus:isDuplicate ? "pending_duplicate" : "approved",
+        manualPendingApproval:isDuplicate,
+        duplicateOf:existingLead?.id || "",
+        duplicateOfName:existingLead?.customerName || existingLead?.name || "",
+        pendingRepresentativeUid:currentUser.uid,
+        pendingRepresentativeName:currentProfile?.name || currentUser.email
+      };
+    }
 
     function paymentFromDepartment(dept){
       if(dept === "finance_sales") return { key:"finance", payment:"تمويل", department:"finance_sales", branch:"مبيعات التمويل", serviceKey:"finance" };
@@ -327,59 +348,6 @@
       const cfg = selectedPaymentConfig();
       el("paymentReadonly").value = cfg.payment;
       el("paymentBadge").textContent = `الدفع: ${cfg.payment}`;
-    }
-
-    async function findExistingLeadByPhone(phone){
-      const normalized = normalizePhone(phone);
-      if(!normalized) return null;
-      const manualId = `manual_${safeDocId(normalized)}`;
-      try{
-        const byId = await getDoc(doc(db, "leads", manualId));
-        if(byId.exists()) return { id:byId.id, ...byId.data() };
-      }catch(e){ console.warn("manual id duplicate check skipped", e); }
-      try{
-        const snap = await getDocs(query(collection(db, "leads"), where("phoneNormalized", "==", normalized), limit(1)));
-        let found = null;
-        snap.forEach(d => { if(!found) found = { id:d.id, ...d.data() }; });
-        return found;
-      }catch(e){
-        console.warn("phoneNormalized duplicate check skipped", e);
-        return null;
-      }
-    }
-
-    function buildDuplicateRequestPayload(existing={}){
-      const cfg = selectedPaymentConfig();
-      const requestedName = el("customerName").value.trim();
-      const requestedPhoneRaw = el("customerPhone").value.trim();
-      const requestedPhone = normalizePhone(requestedPhoneRaw);
-      const requestedSource = el("leadSource").value;
-      const requestedNotes = el("leadNotes").value.trim();
-      return {
-        manualDuplicateRequest:true,
-        manualApprovalStatus:"pending",
-        manualRequestType:"duplicate_phone",
-        requestedCustomerName:requestedName,
-        requestedPhone:requestedPhoneRaw,
-        requestedPhoneNormalized:requestedPhone,
-        requestedSource,
-        requestedNotes,
-        requestedPayment:cfg.payment,
-        requestedDepartment:cfg.department,
-        requestedServiceKey:cfg.serviceKey,
-        requestedBy:currentUser.uid,
-        requestedByUid:currentUser.uid,
-        requestedByName:currentProfile?.name || currentUser.email,
-        requestedByEmail:currentUser.email,
-        duplicateRequestedAt:serverTimestamp(),
-        requestLastUpdated:serverTimestamp(),
-        updatedBy:currentUser.uid,
-        updatedByName:currentProfile?.name || currentUser.email,
-        updatedByEmail:currentUser.email,
-        lastUpdateSource:"manual_duplicate_request",
-        updatedAt:serverTimestamp(),
-        lastUpdated:serverTimestamp()
-      };
     }
 
     async function loadUsers(){
@@ -418,9 +386,6 @@
         stage:status, stageLabel:status,
         notes, inCustomersBase:true,
         manualEntry:true, manualSource:"manual_page",
-        manualApprovalStatus: existing.manualApprovalStatus || "approved",
-        manualDuplicateRequest: existing.manualDuplicateRequest || false,
-        lastUpdateSource:"manual_page",
         createdBy: existing.createdBy || currentUser.uid,
         createdByName: existing.createdByName || (currentProfile?.name || currentUser.email),
         createdByEmail: existing.createdByEmail || currentUser.email,
@@ -457,24 +422,38 @@
       const phone = normalizePhone(el("customerPhone").value);
       if(!el("customerName").value.trim()) return toast("اكتب اسم العميل");
       if(!phone) return toast("اكتب رقم الجوال");
-      const editingId = el("editingLeadId").value.trim();
-      if(!editingId){
-        const duplicate = await findExistingLeadByPhone(phone);
-        if(duplicate){
-          await setDoc(doc(db, "leads", duplicate.id), buildDuplicateRequestPayload(duplicate), { merge:true });
-          toast("رقم العميل مسجل قبل كده، تم إرساله للإدارة العامة للموافقة وتحديث المندوب");
+
+      el("saveLeadBtn").disabled = true;
+      try{
+        const editingId = el("editingLeadId").value.trim();
+        if(editingId){
+          const ref = doc(db, "leads", editingId);
+          const oldSnap = await getDoc(ref).catch(()=>null);
+          const existing = oldSnap?.exists() ? oldSnap.data() : {};
+          await setDoc(ref, { ...buildLeadPayload({ leadId:editingId, existing }), ...approvalPayload(false) }, { merge:true });
+          toast("تم تحديث العميل");
           resetForm();
-          if(isAdmin) showTab("list");
           return;
         }
+
+        const existingLead = await findExistingLeadByPhone(el("customerPhone").value);
+        const isDuplicate = !!existingLead;
+        const payload = {
+          ...buildLeadPayload({ leadId:"", existing:{} }),
+          ...approvalPayload(isDuplicate, existingLead),
+          duplicatePhone: isDuplicate,
+          duplicateCheckedAt: serverTimestamp()
+        };
+        const ref = await addDoc(collection(db, "leads"), payload);
+        await updateDoc(ref, { leadId:ref.id });
+        toast(isDuplicate ? "الرقم مسجل قبل كده، تم إرساله للإدارة للموافقة" : "تم حفظ العميل");
+        resetForm();
+      }catch(err){
+        console.error(err);
+        toast("تعذر حفظ العميل - راجع الصلاحيات أو الاتصال");
+      }finally{
+        el("saveLeadBtn").disabled = false;
       }
-      const leadId = editingId || `manual_${safeDocId(phone)}`;
-      const ref = doc(db, "leads", leadId);
-      const oldSnap = await getDoc(ref).catch(()=>null);
-      const existing = oldSnap?.exists() ? oldSnap.data() : {};
-      await setDoc(ref, buildLeadPayload({ leadId, existing }), { merge:true });
-      toast(editingId ? "تم تحديث العميل" : "تم حفظ العميل");
-      resetForm();
     }
 
     function resetForm(){
@@ -495,10 +474,14 @@
     }
 
     function renderFilters(){
-      const selected = el("sourceFilter").value || "all";
-      const sources = ["all", ...new Set(leads.map(l => l.source || l.requestedSource).filter(Boolean))];
+      const sources = ["all", ...new Set(leads.map(l => l.source).filter(Boolean))];
       el("sourceFilter").innerHTML = sources.map(s => `<option value="${escapeHtml(s)}">${s === "all" ? "كل المصادر" : escapeHtml(s)}</option>`).join("");
-      el("sourceFilter").value = sources.includes(selected) ? selected : "all";
+    }
+
+    function approvalHtml(l){
+      const pending = l.manualPendingApproval === true || String(l.approvalStatus || "").startsWith("pending");
+      if(!pending) return `<span class="count-badge">معتمد</span>`;
+      return `<div class="manual-approval-actions"><span class="count-badge">بانتظار الموافقة</span><button class="secondary approve-btn" data-lead-id="${escapeHtml(l.id)}" type="button">موافقة</button></div>`;
     }
 
     function renderManualLeads(){
@@ -506,58 +489,45 @@
       const q = el("searchInput").value.trim().toLowerCase();
       const sf = el("sourceFilter").value || "all";
       const pf = el("paymentFilter").value || "all";
-      const rows = leads
-        .filter(l => l.manualEntry === true || l.provider === "manual_entry" || l.manualDuplicateRequest === true || l.manualApprovalStatus === "pending")
-        .filter(l => {
-          const hay = `${l.customerName||l.name||""} ${l.requestedCustomerName||""} ${l.phone||l.mobile||l.phoneNumber||""} ${l.requestedPhone||""}`.toLowerCase();
-          const src = l.source || l.requestedSource || "";
-          const pay = l.payment || l.paymentType || l.payType || l.requestedPayment || "";
-          return (!q || hay.includes(q)) && (sf === "all" || src === sf) && (pf === "all" || pay === pf);
-        });
+      const rows = leads.filter(l => l.manualEntry === true || l.provider === "manual_entry" || l.manualPendingApproval === true).filter(l => {
+        const hay = `${l.customerName||l.name||""} ${l.phone||l.mobile||l.phoneNumber||""}`.toLowerCase();
+        return (!q || hay.includes(q)) && (sf === "all" || l.source === sf) && (pf === "all" || (l.payment || l.paymentType || l.payType) === pf);
+      });
       el("manualLeadsBody").innerHTML = rows.map(l => {
-        const dept = l.department || l.requestedDepartment || paymentFromDepartment("cash_sales").department;
+        const dept = l.department || paymentFromDepartment("cash_sales").department;
         const reps = usersForDepartment(dept);
         const opts = reps.map(u => `<option value="${escapeHtml(u.uid)}" ${u.uid === (l.assignedTo||l.responsibleUid) ? "selected" : ""}>${escapeHtml(userLabel(u))}</option>`).join("");
-        const pending = (l.manualApprovalStatus || (l.manualDuplicateRequest ? "pending" : "approved")) === "pending";
-        const updatedBy = l.updatedByName || l.requestedByName || l.createdByName || "";
-        return `<tr class="${pending ? "manual-pending-row" : ""}">
+        return `<tr>
           <td>${manualNameHtml(l)}</td>
-          <td>${phoneLinkHtml(l.phone || l.mobile || l.phoneNumber || l.requestedPhone || "", l.customerName || l.name || l.requestedCustomerName || "")}</td>
-          <td>${escapeHtml(l.source || l.requestedSource || "")}</td>
-          <td>${escapeHtml(l.payment || l.paymentType || l.payType || l.requestedPayment || "")}</td>
+          <td>${phoneLinkHtml(l.phone || l.mobile || l.phoneNumber || "", l.customerName || l.name || "")}</td>
+          <td>${escapeHtml(l.source || "")}</td>
+          <td>${escapeHtml(l.payment || l.paymentType || l.payType || "")}</td>
           <td><select data-lead-id="${escapeHtml(l.id)}" class="rep-select"><option value="">اختر مندوب</option>${opts}</select></td>
           <td>${escapeHtml(l.callCenterAssignedName || l.callCenterName || "")}</td>
-          <td><span>${escapeHtml(formatDate(l.lastUpdated || l.updatedAt || l.requestLastUpdated || l.createdAt))}</span><br><small>${escapeHtml(updatedBy)}</small></td>
-          <td><span class="approval-badge ${approvalClass(l)}">${escapeHtml(approvalLabel(l))}</span></td>
-          <td>${pending ? `<button class="primary approve-btn" data-lead-id="${escapeHtml(l.id)}" type="button">موافقة</button>` : "-"}</td>
+          <td>${approvalHtml(l)}</td>
+          <td>${escapeHtml(formatDate(l.lastUpdated || l.updatedAt || l.createdAt))}</td>
           <td><button class="secondary edit-btn" data-lead-id="${escapeHtml(l.id)}" type="button">تعديل</button></td>
         </tr>`;
-      }).join("") || `<tr><td colspan="10" class="empty">لا توجد عملاء مسجلة أو طلبات موافقة</td></tr>`;
+      }).join("") || `<tr><td colspan="9" class="empty">لا توجد عملاء مسجلة يدويًا</td></tr>`;
     }
 
     async function changeRep(leadId, uid){
-      if(!uid) return;
       const u = users.find(x => x.uid === uid);
       if(!u) return;
       await updateDoc(doc(db, "leads", leadId), {
         assignedTo:u.uid, assignedName:userLabel(u), salesAssignedTo:u.uid, salesAssignedName:userLabel(u),
-        responsibleUid:u.uid, responsibleName:userLabel(u),
-        manualApprovalStatus:"approved", manualDuplicateRequest:false,
-        manualApprovedBy:currentUser.uid, manualApprovedByName:currentProfile?.name || currentUser.email,
-        approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
-        updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
-        lastUpdateSource:"manual_admin_rep_update"
+        responsibleUid:u.uid, responsibleName:userLabel(u), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(), updatedBy:currentUser.uid,
+        approvalStatus:"approved", manualPendingApproval:false,
+        approvedBy:currentUser.uid, approvedByName:currentProfile?.name || currentUser.email, approvedAt:serverTimestamp()
       });
-      toast("تمت الموافقة وتغيير المندوب");
+      toast("تم تغيير المندوب والموافقة على العميل");
     }
 
     async function approveLead(leadId){
       await updateDoc(doc(db, "leads", leadId), {
-        manualApprovalStatus:"approved", manualDuplicateRequest:false,
-        manualApprovedBy:currentUser.uid, manualApprovedByName:currentProfile?.name || currentUser.email,
-        approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
-        updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
-        lastUpdateSource:"manual_admin_approval"
+        approvalStatus:"approved", manualPendingApproval:false,
+        approvedBy:currentUser.uid, approvedByName:currentProfile?.name || currentUser.email,
+        approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(), updatedBy:currentUser.uid
       });
       toast("تمت الموافقة");
     }
@@ -616,8 +586,8 @@
     el("refreshBtn").onclick = renderManualLeads;
     ["searchInput","sourceFilter","paymentFilter"].forEach(id => el(id).addEventListener("input", renderManualLeads));
     document.addEventListener("change", e => { if(e.target.classList.contains("rep-select")) changeRep(e.target.dataset.leadId, e.target.value); });
-    document.addEventListener("click", e => { if(e.target.classList.contains("approve-btn")) approveLead(e.target.dataset.leadId); });
     document.addEventListener("click", e => { if(e.target.classList.contains("edit-btn")) editLead(e.target.dataset.leadId); });
+    document.addEventListener("click", e => { if(e.target.classList.contains("approve-btn")) approveLead(e.target.dataset.leadId); });
     document.addEventListener("click", e => { const btn = e.target.closest(".phone-open-chat, .manual-name-open-chat"); if(!btn) return; openWhatsappInboxByPhone(btn.dataset.phone, btn.dataset.name); });
 
     onAuthStateChanged(auth, async user => {

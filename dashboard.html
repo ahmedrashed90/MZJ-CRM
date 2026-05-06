@@ -50,7 +50,6 @@
           <a href="./leads-cash.html">العملاء المحتملون - كاش</a>
           <a href="./leads-customer-service.html">العملاء المحتملون - خدمة عملاء</a>
           <a href="./database.html">قاعدة البيانات</a>
-          <a href="./manual-leads.html">إضافة العملاء</a>
           <a href="./dashboard.html" class="active">الداش بورد</a>
           <a href="./reports.html">التقارير</a>
           <a href="./branches.html">الفروع</a>
@@ -133,7 +132,6 @@
       { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
       { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
       { page:"database.html", label:"قاعدة البيانات" },
-      { page:"manual-leads.html", label:"إضافة العملاء" },
       { page:"dashboard.html", label:"الداش بورد" },
       { page:"reports.html", label:"التقارير" },
       { page:"branches.html", label:"الفروع" },
@@ -200,7 +198,7 @@
         page: "leads-finance.html",
         note: "ترتيب حالات مبيعات التمويل",
         statuses: [
-          { title:"الكول سنتر", match:["عميل جديد"] },
+          { title:"عميل جديد", match:["عميل جديد"] },
           { title:"تم الاتصال", match:["تم الاتصال","تم الإتصال"] },
           { title:"غير مؤهل", match:["غير مؤهل"] },
           { title:"مؤجل", match:["مؤجل"] },
@@ -553,7 +551,7 @@
       if(quickSelect){
         quickSelect.onchange = () => {
           const t = selectedDashboardQuickMessage();
-          if(t) insertDashboardTemplate(t);
+          if(t) applyDashboardTemplateToMessage(t, true);
         };
       }
       el("chatReplyText").addEventListener("keydown", (e) => {
@@ -631,7 +629,7 @@
       const name = customerName(lead);
       const phone = phoneOfLead(lead) || "";
       const car = getLeadField(lead, ["car","carName","carType","vehicleName","model","carModel"]);
-      const status = getLeadField(lead, ["status","leadStatus","currentStatus","clientStatus","customerStatus"], "عميل جديد");
+      const status = el("chatStatus")?.value || getLeadField(lead, ["status","leadStatus","currentStatus","clientStatus","customerStatus"], "عميل جديد");
       return String(content || "")
         .replace(/\{\{\s*name\s*\}\}/gi, name)
         .replace(/\{\{\s*الاسم\s*\}\}/g, name)
@@ -686,17 +684,20 @@
       const lead = dashboardChatState.lead || {};
       const allowed = dashboardChatState.templates
         .filter(t => templateAppliesToLead(t, lead))
-        .filter(t => String(t.type || "quick") !== "quick");
+        .filter(t => t.active !== false)
+        .filter(t => String(t.type || "quick") !== "quick" || dashboardTemplateText(t));
 
-      const expectedMersal = normalizeDashboardTemplateMatch(status + " - مرسال");
+      const norm = v => normalizeDashboardTemplateMatch(v);
+      const statusFields = t => [
+        t.status, t.statusName, t.clientStatus, t.customerStatus, t.leadStatus,
+        t.statusLabel, t.stage, t.stageLabel, t.triggerStatus, t.relatedStatus
+      ].filter(Boolean).map(cleanDashboardTemplateStatus);
 
-      return allowed.find(t => normalizeDashboardTemplateMatch(dashboardTemplateLabel(t)) === expectedMersal)
+      return allowed.find(t => statusFields(t).includes(statusNorm))
         || allowed.find(t => cleanDashboardTemplateStatus(dashboardTemplateLabel(t)) === statusNorm)
-        || allowed.find(t => {
-          const labelNorm = normalizeDashboardTemplateMatch(dashboardTemplateLabel(t));
-          return labelNorm.includes(statusNorm) && labelNorm.includes("مرسال");
-        })
-        || allowed.find(t => normalizeDashboardTemplateMatch(dashboardTemplateLabel(t)).includes(statusNorm))
+        || allowed.find(t => norm(dashboardTemplateLabel(t)).includes(statusNorm) && norm(dashboardTemplateLabel(t)).includes("مرسال"))
+        || allowed.find(t => norm(dashboardTemplateLabel(t)).includes(statusNorm))
+        || allowed.find(t => norm(dashboardTemplateText(t)).includes(statusNorm))
         || null;
     }
 
@@ -1166,10 +1167,6 @@
         currentStatusLabel: status,
         clientStatus: status,
         customerStatus: status,
-        updatedBy: currentUser?.uid || "",
-        updatedByName: currentProfile?.name || currentUser?.email || "",
-        updatedByEmail: currentUser?.email || "",
-        lastUpdateSource: "dashboard_popup",
         updatedAt: serverTimestamp(),
         lastUpdated: serverTimestamp()
       };
