@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MZJ CRM - الداش بورد</title>
   <link rel="stylesheet" href="./theme.css" />
-<!-- MZJ V47 dashboard no stuck completion -->
+<!-- MZJ V48 restore dashboard popup click -->
 </head>
 <body>
   <section class="login-screen hidden" id="loginScreen">
@@ -444,7 +444,12 @@
     }
 
     function openLeadConversation(lead){
-      openLeadChatPopup(lead);
+      try{
+        openLeadChatPopup(lead);
+      }catch(err){
+        console.error(err);
+        toast("تعذر فتح محادثة العميل");
+      }
     }
 
     function resolveChatConversationId(lead){
@@ -723,6 +728,231 @@
       return null;
     }
 
+    function renderDashboardMessages(messages){
+      const box = el("chatMessages");
+      if(!messages.length){
+        box.innerHTML = `<div class="empty">لا توجد رسائل لهذه المحادثة.</div>`;
+        return;
+      }
+      box.innerHTML = messages.map(m => {
+        const outgoing = m.direction === "outgoing" || m.fromAgent || m.senderType === "agent";
+        return `
+          <div class="dash-msg ${outgoing ? "out" : "in"}">
+            <div>${escapeHtml(messageText(m) || "رسالة")}</div>
+            <small>${escapeHtml(formatMessageTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
+          </div>
+        `;
+      }).join("");
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function listenDashboardChatMessages(){
+      if(dashboardChatState.unsubMessages) dashboardChatState.unsubMessages();
+      dashboardChatState.unsubMessages = null;
+
+      const cfg = chatPlatformConfig(dashboardChatState.platform);
+      const convId = dashboardChatState.convId;
+      if(!convId){
+        renderDashboardMessages([]);
+        return;
+      }
+
+      // لا نستخدم orderBy("createdAt") هنا لأن بعض رسائل العميل القادمة من الوركر
+      // لا تحتوي createdAt، وقد تحتوي timestamp / time / receivedAt بدلاً منها.
+      // Firestore يستبعد أي document لا يحتوي حقل orderBy، لذلك كانت تظهر رسائل الأوتوميشن فقط.
+      dashboardChatState.unsubMessages = onSnapshot(collection(db, cfg.conversations, convId, "messages"), snap => {
+        const messages = [];
+        snap.forEach(d => messages.push({ id:d.id, ...d.data() }));
+        messages.sort((a,b) => messageSortTime(a) - messageSortTime(b));
+        renderDashboardMessages(messages);
+      }, err => {
+        console.error(err);
+        el("chatMessages").innerHTML = `<div class="empty">تعذر تحميل رسائل المحادثة.</div>`;
+      });
+    }
+
+    async function openLeadChatPopup(lead){
+      ensureDashboardChatModal();
+      dashboardChatState.lead = lead;
+      dashboardChatState.platform = platformOf(lead);
+      dashboardChatState.convId = resolveChatConversationId(lead);
+      dashboardChatState.actualCompletion = null;
+
+      fillDashboardChatCustomerForm(lead);
+      renderDashboardTemplateOptions();
+      el("chatReplyText").value = "";
+      document.getElementById("dashboardChatModal").classList.remove("hidden");
+      el("chatMessages").innerHTML = `<div class="empty">جاري تحميل الرسائل...</div>`;
+
+      const cfg = chatPlatformConfig(dashboardChatState.platform);
+      if(dashboardChatState.convId){
+        try{
+          await setDoc(doc(db, cfg.conversations, dashboardChatState.convId), {
+            conversationId: dashboardChatState.convId,
+            convId: dashboardChatState.convId,
+            platform: dashboardChatState.platform,
+            channel: dashboardChatState.platform,
+            channelCode: dashboardChatState.platform === "facebook" ? "fb" : dashboardChatState.platform === "whatsapp" ? "wa" : dashboardChatState.platform,
+            customerName: customerName(lead),
+            phone: phoneOfLead(lead) || "",
+            phoneNormalized: normalizeKsaPhone(phoneOfLead(lead)),
+            department: leadDepartment(lead),
+            updatedAt: serverTimestamp()
+          }, { merge:true });
+        }catch(e){ console.warn("conversation upsert skipped", e); }
+      }
+      listenDashboardChatMessages();
+      dashboardChatState.actualCompletion = null;
+      updateChatCompletionProgress();
+      loadActualInboxCompletionForLead(lead).then(pct => {
+        if(typeof pct === "number"){
+          dashboardChatState.actualCompletion = pct;
+          updateChatCompletionProgress();
+        }
+      }).catch(console.warn);
+    }
+
+    function closeLeadChatPopup(){
+      if(dashboardChatState.unsubMessages) dashboardChatState.unsubMessages();
+      dashboardChatState.unsubMessages = null;
+      dashboardChatState.lead = null;
+      const modal = document.getElementById("dashboardChatModal");
+      if(modal) modal.classList.add("hidden");
+    }
+
+    async function sendDashboardChatReply(){
+      const lead = dashboardChatState.lead;
+      const text = el("chatReplyText").value.trim();
+      if(!lead) return toast("لا يوجد عميل محدد");
+      if(!text) return toast("اكتب الرسالة أولاً");
+
+      const platform = dashboardChatState.platform;
+      const cfg = chatPlatformConfig(platform);
+      const selectedTemplate = selectedDashboardTemplate();
+      const convId = dashboardChatState.convId || resolveChatConversationId(lead);
+      if(!convId) return toast("لا توجد محادثة أو رقم لهذا العميل");
+
+      try{
+        if(platform === "facebook"){
+          const res = await fetch(FACEBOOK_SEND_ENDPOINT, {
+            method:"POST",
+            headers:{ "content-type":"application/json" },
+            body:JSON.stringify({
+              convId,
+              conversationId:convId,
+              psid: lead.participantId || lead.fbId || lead.manychatContactId || convId,
+              text,
+              message:text,
+              template:selectedTemplate || null
+            })
+          });
+          const result = await res.json().catch(() => ({}));
+          if(!res.ok || result.ok === false) throw new Error(result.error || "facebook send failed");
+        } else {
+          if(!cfg.outbox) throw new Error("لا يوجد مسار إرسال مضبوط لهذه المنصة");
+          await addDoc(collection(db, cfg.outbox), {
+            conversationId:convId,
+            platform,
+            department:leadDepartment(lead),
+            to: phoneOfLead(lead),
+            text,
+            status:"pending",
+            messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
+            template: selectedTemplate || null,
+            sentByUid:state.user.uid,
+            sentByEmail:state.user.email,
+            createdAt:serverTimestamp()
+          });
+          await addDoc(collection(db, cfg.conversations, convId, "messages"), {
+            text,
+            direction:"outgoing",
+            fromAgent:true,
+            department:leadDepartment(lead),
+            template: selectedTemplate || null,
+            sentByUid:state.user.uid,
+            sentByEmail:state.user.email,
+            createdAt:serverTimestamp(),
+            status:"pending"
+          });
+          await setDoc(doc(db, cfg.conversations, convId), {
+            lastMessage:text,
+            lastMessageText:text,
+            updatedAt:serverTimestamp()
+          }, { merge:true });
+        }
+        el("chatReplyText").value = "";
+        toast("تم الإرسال");
+      }catch(err){
+        console.error(err);
+        toast("فشل الإرسال. راجع إعدادات الإرسال أو الصلاحيات.");
+      }
+    }
+
+    async function saveDashboardChatCustomer(){
+      const lead = dashboardChatState.lead;
+      if(!lead?.__id) return toast("لا يوجد ليد محدد للحفظ");
+
+      const status = el("chatStatus").value;
+      const payload = {
+        customerName: el("chatName").value.trim(),
+        fullName: el("chatName").value.trim(),
+        name: el("chatName").value.trim(),
+        phone: el("chatPhone").value.trim(),
+        mobile: el("chatPhone").value.trim(),
+        phoneNumber: el("chatPhone").value.trim(),
+        phoneNormalized: normalizeKsaPhone(el("chatPhone").value),
+        age: el("chatAge").value.trim(),
+        salary: el("chatSalary").value.trim(),
+        obligation: el("chatObligation").value.trim(),
+        commitment: el("chatObligation").value.trim(),
+        location: el("chatLocation").value.trim(),
+        car: el("chatCar").value.trim(),
+        carName: el("chatCar").value.trim(),
+        carType: el("chatCar").value.trim(),
+        model: el("chatModel").value.trim(),
+        carModel: el("chatModel").value.trim(),
+        color: el("chatColor").value.trim(),
+        payment: el("chatPayment").value.trim(),
+        paymentType: el("chatPayment").value.trim(),
+        payType: el("chatPayment").value.trim(),
+        notes: el("chatNotes").value.trim(),
+        status,
+        statusLabel: status,
+        leadStatus: status,
+        currentStatus: status,
+        currentStatusLabel: status,
+        clientStatus: status,
+        customerStatus: status,
+        updatedAt: serverTimestamp(),
+        lastUpdated: serverTimestamp()
+      };
+
+      try{
+        await updateDoc(doc(db, "leads", lead.__id), payload);
+        Object.assign(lead, payload);
+        dashboardChatState.actualCompletion = inboxCompletionFromData({
+          customerName: payload.customerName,
+          phone: payload.phone,
+          salary: payload.salary,
+          obligation: payload.obligation,
+          location: payload.location,
+          age: payload.age,
+          salaryBank: payload.salaryBank || "",
+          carType: payload.carType,
+          carModel: payload.carModel,
+          color: payload.color,
+          financeType: payload.financeType || payload.paymentType || payload.payment
+        });
+        renderDashboard();
+        fillDashboardChatCustomerForm(lead);
+        toast("تم حفظ بيانات العميل");
+      }catch(err){
+        console.error(err);
+        toast("فشل حفظ بيانات العميل");
+      }
+    }
+
+
     function leadCompletionFromLeadData(lead = {}){
       const data = {
         customerName: customerName(lead) === "عميل بدون اسم" ? "" : customerName(lead),
@@ -818,10 +1048,11 @@
       }).join("");
 
       grid.querySelectorAll("[data-lead-id]").forEach(btn => {
-        btn.onclick = () => {
-          const lead = leads.find(l => l.__id === btn.dataset.leadId);
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          const lead = leads.find(l => String(l.__id) === String(btn.dataset.leadId));
           if(lead) openLeadConversation(lead);
-        };
+        });
       });
 
       hydrateStatusCompletionBadges(statuses.flatMap(s => grouped.get(s.key) || []));
