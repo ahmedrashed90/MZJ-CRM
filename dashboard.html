@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MZJ CRM - الداش بورد</title>
   <link rel="stylesheet" href="./theme.css" />
-<!-- MZJ V45 dashboard completion popup-only -->
+<!-- MZJ V46 dashboard completion matches inbox data -->
 </head>
 <body>
   <section class="login-screen hidden" id="loginScreen">
@@ -654,13 +654,27 @@
     }
 
     function inboxCompletionFromData(data = {}){
-      // V40: نفس منطق صندوق الوارد بعد استبعاد الملاحظات وروابط/ملاحظات الملفات
+      // V46: نفس معادلة صندوق الوارد الحالية بالضبط
+      // لا تدخل الملاحظات ولا روابط/ملاحظات الملفات في النسبة.
+      const resolved = {
+        customerName: data.customerName || data.name || data.fullName || data.displayName || "",
+        phone: data.phone || data.phoneNumber || data.mobile || "",
+        salary: data.salary || "",
+        obligation: data.obligation || data.commitment || "",
+        location: data.location || data.city || data.place || "",
+        age: data.age || "",
+        salaryBank: data.salaryBank || data.bank || "",
+        carType: data.carType || data.car || data.carName || data.vehicleName || "",
+        carModel: data.carModel || data.model || "",
+        color: data.color || data.carColor || "",
+        financeType: data.financeType || data.payment || data.paymentType || data.payType || data.leadPayment || ""
+      };
       const fields = [
         "customerName","phone","salary","obligation","location","age","salaryBank",
         "carType","carModel","color","financeType"
       ];
       const filled = fields.filter(f => {
-        const v = data[f];
+        const v = resolved[f];
         return Array.isArray(v) ? v.length : String(v || "").trim();
       }).length;
       return Math.round((filled / fields.length) * 100);
@@ -670,19 +684,22 @@
       const platform = platformOf(lead);
       const cfg = chatPlatformConfig(platform);
       const convId = resolveChatConversationId(lead);
+
+      const phone = normalizeKsaPhone(phoneOfLead(lead));
       const candidates = [...new Set([
         convId,
         lead.conversationId,
         lead.convId,
         lead.contactKey,
+        lead.waId,
         lead.participantId,
         lead.fbId,
         lead.igId,
         lead.tiktokId,
         lead.__id,
         String(convId || "").replace(/^wa_/, ""),
-        normalizeKsaPhone(phoneOfLead(lead)),
-        normalizeKsaPhone(phoneOfLead(lead)) ? "wa_" + normalizeKsaPhone(phoneOfLead(lead)) : ""
+        phone,
+        phone ? "wa_" + phone : ""
       ].filter(Boolean).map(String))];
 
       for(const id of candidates){
@@ -690,279 +707,20 @@
           const snap = await getDoc(doc(db, cfg.conversations, id));
           if(!snap.exists()) continue;
           const data = snap.data() || {};
-          // لا نستخدم profileCompletion المخزن لأنه ممكن يكون محسوب بقواعد قديمة.
-          // نحسب من بيانات customer نفسها عشان كارت الداش بورد يطابق Popup العميل.
+
+          // المهم: لا نقرأ profileCompletion نهائياً.
+          // نحسب من بيانات customer/الفورم نفسها عشان نطابق صندوق الوارد.
           if(data.customer) return inboxCompletionFromData(data.customer);
-          return inboxCompletionFromData(data);
+
+          // بعض المحادثات تحفظ بيانات العميل على root مباشرة.
+          const rootPct = inboxCompletionFromData(data);
+          if(rootPct > 0) return rootPct;
         }catch(e){
           console.warn("completion read skipped", id, e);
         }
       }
+
       return null;
-    }
-
-    function updateChatCompletionProgress(){
-      let pct = dashboardChatState.actualCompletion;
-      if(typeof pct !== "number"){
-        const data = {
-          customerName: el("chatName")?.value || "",
-          phone: el("chatPhone")?.value || "",
-          salary: el("chatSalary")?.value || "",
-          obligation: el("chatObligation")?.value || "",
-          location: el("chatLocation")?.value || "",
-          age: el("chatAge")?.value || "",
-          salaryBank: getLeadField(dashboardChatState.lead || {}, ["salaryBank","bank"]),
-          carType: el("chatCar")?.value || "",
-          carModel: el("chatModel")?.value || "",
-          color: el("chatColor")?.value || "",
-          financeType: el("chatPayment")?.value || ""
-        };
-        pct = inboxCompletionFromData(data);
-      }
-      const badge = document.getElementById("chatProgressBadge");
-      if(badge) badge.textContent = pct + "% مكتمل";
-    }
-
-    function formatMessageTime(value){
-      const d = value?.toDate ? value.toDate() : value ? new Date(value) : null;
-      if(!d || Number.isNaN(d.getTime())) return "";
-      return d.toLocaleString("ar-EG", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit" });
-    }
-
-    function messageSortTime(m){
-      const value =
-        m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt ||
-        m.messageTimestamp || m.lastMessageAt || m.updatedAt || "";
-      if(value?.toDate) return value.toDate().getTime();
-      if(typeof value === "number") {
-        // supports seconds or milliseconds
-        return value < 9999999999 ? value * 1000 : value;
-      }
-      const parsed = Date.parse(value);
-      return Number.isFinite(parsed) ? parsed : 0;
-    }
-
-    function messageText(m){
-      return m.text || m.body || m.message || m.caption || m.content || m.lastMessageText || "";
-    }
-
-    function renderDashboardMessages(messages){
-      const box = el("chatMessages");
-      if(!messages.length){
-        box.innerHTML = `<div class="empty">لا توجد رسائل لهذه المحادثة.</div>`;
-        return;
-      }
-      box.innerHTML = messages.map(m => {
-        const outgoing = m.direction === "outgoing" || m.fromAgent || m.senderType === "agent";
-        return `
-          <div class="dash-msg ${outgoing ? "out" : "in"}">
-            <div>${escapeHtml(messageText(m) || "رسالة")}</div>
-            <small>${escapeHtml(formatMessageTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
-          </div>
-        `;
-      }).join("");
-      box.scrollTop = box.scrollHeight;
-    }
-
-    function listenDashboardChatMessages(){
-      if(dashboardChatState.unsubMessages) dashboardChatState.unsubMessages();
-      dashboardChatState.unsubMessages = null;
-
-      const cfg = chatPlatformConfig(dashboardChatState.platform);
-      const convId = dashboardChatState.convId;
-      if(!convId){
-        renderDashboardMessages([]);
-        return;
-      }
-
-      // لا نستخدم orderBy("createdAt") هنا لأن بعض رسائل العميل القادمة من الوركر
-      // لا تحتوي createdAt، وقد تحتوي timestamp / time / receivedAt بدلاً منها.
-      // Firestore يستبعد أي document لا يحتوي حقل orderBy، لذلك كانت تظهر رسائل الأوتوميشن فقط.
-      dashboardChatState.unsubMessages = onSnapshot(collection(db, cfg.conversations, convId, "messages"), snap => {
-        const messages = [];
-        snap.forEach(d => messages.push({ id:d.id, ...d.data() }));
-        messages.sort((a,b) => messageSortTime(a) - messageSortTime(b));
-        renderDashboardMessages(messages);
-      }, err => {
-        console.error(err);
-        el("chatMessages").innerHTML = `<div class="empty">تعذر تحميل رسائل المحادثة.</div>`;
-      });
-    }
-
-    async function openLeadChatPopup(lead){
-      ensureDashboardChatModal();
-      dashboardChatState.lead = lead;
-      dashboardChatState.platform = platformOf(lead);
-      dashboardChatState.convId = resolveChatConversationId(lead);
-      dashboardChatState.actualCompletion = null;
-
-      fillDashboardChatCustomerForm(lead);
-      renderDashboardTemplateOptions();
-      el("chatReplyText").value = "";
-      document.getElementById("dashboardChatModal").classList.remove("hidden");
-      el("chatMessages").innerHTML = `<div class="empty">جاري تحميل الرسائل...</div>`;
-
-      const cfg = chatPlatformConfig(dashboardChatState.platform);
-      if(dashboardChatState.convId){
-        try{
-          await setDoc(doc(db, cfg.conversations, dashboardChatState.convId), {
-            conversationId: dashboardChatState.convId,
-            convId: dashboardChatState.convId,
-            platform: dashboardChatState.platform,
-            channel: dashboardChatState.platform,
-            channelCode: dashboardChatState.platform === "facebook" ? "fb" : dashboardChatState.platform === "whatsapp" ? "wa" : dashboardChatState.platform,
-            customerName: customerName(lead),
-            phone: phoneOfLead(lead) || "",
-            phoneNormalized: normalizeKsaPhone(phoneOfLead(lead)),
-            department: leadDepartment(lead),
-            updatedAt: serverTimestamp()
-          }, { merge:true });
-        }catch(e){ console.warn("conversation upsert skipped", e); }
-      }
-      listenDashboardChatMessages();
-      // V45: لا نقرأ نسبة قديمة من وثيقة المحادثة. النسبة من بيانات الليد الحالية فقط.
-      dashboardChatState.actualCompletion = null;
-      updateChatCompletionProgress();
-    }
-
-    function closeLeadChatPopup(){
-      if(dashboardChatState.unsubMessages) dashboardChatState.unsubMessages();
-      dashboardChatState.unsubMessages = null;
-      dashboardChatState.lead = null;
-      const modal = document.getElementById("dashboardChatModal");
-      if(modal) modal.classList.add("hidden");
-    }
-
-    async function sendDashboardChatReply(){
-      const lead = dashboardChatState.lead;
-      const text = el("chatReplyText").value.trim();
-      if(!lead) return toast("لا يوجد عميل محدد");
-      if(!text) return toast("اكتب الرسالة أولاً");
-
-      const platform = dashboardChatState.platform;
-      const cfg = chatPlatformConfig(platform);
-      const selectedTemplate = selectedDashboardTemplate();
-      const convId = dashboardChatState.convId || resolveChatConversationId(lead);
-      if(!convId) return toast("لا توجد محادثة أو رقم لهذا العميل");
-
-      try{
-        if(platform === "facebook"){
-          const res = await fetch(FACEBOOK_SEND_ENDPOINT, {
-            method:"POST",
-            headers:{ "content-type":"application/json" },
-            body:JSON.stringify({
-              convId,
-              conversationId:convId,
-              psid: lead.participantId || lead.fbId || lead.manychatContactId || convId,
-              text,
-              message:text,
-              template:selectedTemplate || null
-            })
-          });
-          const result = await res.json().catch(() => ({}));
-          if(!res.ok || result.ok === false) throw new Error(result.error || "facebook send failed");
-        } else {
-          if(!cfg.outbox) throw new Error("لا يوجد مسار إرسال مضبوط لهذه المنصة");
-          await addDoc(collection(db, cfg.outbox), {
-            conversationId:convId,
-            platform,
-            department:leadDepartment(lead),
-            to: phoneOfLead(lead),
-            text,
-            status:"pending",
-            messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
-            template: selectedTemplate || null,
-            sentByUid:state.user.uid,
-            sentByEmail:state.user.email,
-            createdAt:serverTimestamp()
-          });
-          await addDoc(collection(db, cfg.conversations, convId, "messages"), {
-            text,
-            direction:"outgoing",
-            fromAgent:true,
-            department:leadDepartment(lead),
-            template: selectedTemplate || null,
-            sentByUid:state.user.uid,
-            sentByEmail:state.user.email,
-            createdAt:serverTimestamp(),
-            status:"pending"
-          });
-          await setDoc(doc(db, cfg.conversations, convId), {
-            lastMessage:text,
-            lastMessageText:text,
-            updatedAt:serverTimestamp()
-          }, { merge:true });
-        }
-        el("chatReplyText").value = "";
-        toast("تم الإرسال");
-      }catch(err){
-        console.error(err);
-        toast("فشل الإرسال. راجع إعدادات الإرسال أو الصلاحيات.");
-      }
-    }
-
-    async function saveDashboardChatCustomer(){
-      const lead = dashboardChatState.lead;
-      if(!lead?.__id) return toast("لا يوجد ليد محدد للحفظ");
-
-      const status = el("chatStatus").value;
-      const payload = {
-        customerName: el("chatName").value.trim(),
-        fullName: el("chatName").value.trim(),
-        name: el("chatName").value.trim(),
-        phone: el("chatPhone").value.trim(),
-        mobile: el("chatPhone").value.trim(),
-        phoneNumber: el("chatPhone").value.trim(),
-        phoneNormalized: normalizeKsaPhone(el("chatPhone").value),
-        age: el("chatAge").value.trim(),
-        salary: el("chatSalary").value.trim(),
-        obligation: el("chatObligation").value.trim(),
-        commitment: el("chatObligation").value.trim(),
-        location: el("chatLocation").value.trim(),
-        car: el("chatCar").value.trim(),
-        carName: el("chatCar").value.trim(),
-        carType: el("chatCar").value.trim(),
-        model: el("chatModel").value.trim(),
-        carModel: el("chatModel").value.trim(),
-        color: el("chatColor").value.trim(),
-        payment: el("chatPayment").value.trim(),
-        paymentType: el("chatPayment").value.trim(),
-        payType: el("chatPayment").value.trim(),
-        notes: el("chatNotes").value.trim(),
-        status,
-        statusLabel: status,
-        leadStatus: status,
-        currentStatus: status,
-        currentStatusLabel: status,
-        clientStatus: status,
-        customerStatus: status,
-        updatedAt: serverTimestamp(),
-        lastUpdated: serverTimestamp()
-      };
-
-      try{
-        await updateDoc(doc(db, "leads", lead.__id), payload);
-        Object.assign(lead, payload);
-        dashboardChatState.actualCompletion = inboxCompletionFromData({
-          customerName: payload.customerName,
-          phone: payload.phone,
-          salary: payload.salary,
-          obligation: payload.obligation,
-          location: payload.location,
-          age: payload.age,
-          salaryBank: payload.salaryBank || "",
-          carType: payload.carType,
-          carModel: payload.carModel,
-          color: payload.color,
-          financeType: payload.financeType || payload.paymentType || payload.payment
-        });
-        renderDashboard();
-        fillDashboardChatCustomerForm(lead);
-        toast("تم حفظ بيانات العميل");
-      }catch(err){
-        console.error(err);
-        toast("فشل حفظ بيانات العميل");
-      }
     }
 
     function leadCompletionFromLeadData(lead = {}){
@@ -992,17 +750,32 @@
 
     function renderCompletionBadge(lead){
       const id = lead.__id || lead.id || "";
-      // V45: ممنوع أي قراءة أو كاش أو profileCompletion قديم في كروت الداش بورد.
-      // الكارت يحسب من نفس بيانات الليد المعروضة في Popup فقط.
-      const pct = leadCompletionFromLeadData(lead);
-      return `<span class="lead-completion-badge" title="اكتمال ملف العميل" data-completion-lead-id="${escapeHtml(id)}">${pct}% مكتمل</span>`;
+      const cached = id && typeof dashboardChatState.completionByLead[id] === "number";
+      const text = cached ? `${dashboardChatState.completionByLead[id]}% مكتمل` : "جاري الحساب...";
+      return `<span class="lead-completion-badge" title="اكتمال ملف العميل" data-completion-lead-id="${escapeHtml(id)}">${text}</span>`;
     }
 
     async function hydrateStatusCompletionBadges(items){
-      // V45: متعمد تعطيل التحديث من وثيقة المحادثة هنا.
-      // السبب: وثائق قديمة فيها profile/customer قديم كانت بتغير نسبة الكارت إلى 45%
-      // بينما Popup العميل يحسب 18% من بيانات الليد الحالية.
-      return;
+      const visible = items.filter(l => l && (l.__id || l.id));
+
+      await Promise.all(visible.map(async (lead) => {
+        const id = lead.__id || lead.id;
+        const fromInbox = await loadActualInboxCompletionForLead(lead).catch(() => null);
+
+        // الأولوية دائماً لصندوق الوارد/وثيقة المحادثة.
+        // fallback من الليد فقط لو المحادثة غير موجودة أو لا تحتوي بيانات customer.
+        dashboardChatState.completionByLead[id] =
+          typeof fromInbox === "number" ? fromInbox : leadCompletionFromLeadData(lead);
+      }));
+
+      visible.forEach(lead => {
+        const id = lead.__id || lead.id;
+        document.querySelectorAll("[data-completion-lead-id]").forEach(badge => {
+          if(String(badge.dataset.completionLeadId) === String(id)){
+            badge.textContent = `${dashboardChatState.completionByLead[id]}% مكتمل`;
+          }
+        });
+      });
     }
 
     function renderStatusCards(){
@@ -1041,6 +814,8 @@
           if(lead) openLeadConversation(lead);
         };
       });
+
+      hydrateStatusCompletionBadges(statuses.flatMap(s => grouped.get(s.key) || []));
     }
 
     function renderDashboard(){
