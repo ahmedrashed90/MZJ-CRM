@@ -334,7 +334,7 @@
     }
 
     function visibleLeadsForSection(def){
-      let items = leads.filter(l => leadDepartment(l) === def.department);
+      let items = leads.filter(l => !(l.manualOnly === true || l.manualDuplicateRequest === true || l.manualRequestType === "duplicate_phone") && leadDepartment(l) === def.department);
 
       if(!isAdmin && currentProfile?.allDepartments !== true){
         const uid = currentUser?.uid || "";

@@ -351,7 +351,12 @@
         try{
           const snap = await getDocs(query(collection(db, "leads"), where(field, "==", value), limit(1)));
           let found = null;
-          snap.forEach(d => { if(!found) found = { id:d.id, ...d.data() }; });
+          snap.forEach(d => {
+            const data = { id:d.id, ...d.data() };
+            // لا نعتبر طلبات الموافقة السابقة عميلًا أصليًا، حتى لا يتكرر العميل عند الموافقة.
+            if(data.manualOnly === true || data.manualDuplicateRequest === true || data.manualRequestType === "duplicate_phone") return;
+            if(!found) found = data;
+          });
           if(found) return found;
         }catch(e){
           console.warn(`${field} duplicate check skipped`, e);
@@ -378,6 +383,8 @@
         existingPhone: existing.phone || existing.mobile || existing.phoneNumber || "",
         existingAssignedTo: existing.assignedTo || existing.responsibleUid || existing.salesAssignedTo || "",
         existingAssignedName: existing.assignedName || existing.responsibleName || existing.salesAssignedName || "",
+        proposedAssignedTo: currentUser.uid,
+        proposedAssignedName: currentProfile?.name || currentUser.email,
         customerName:requestedName,
         phone:requestedPhoneRaw,
         phoneNormalized:requestedPhone,
@@ -559,7 +566,11 @@
       const sf = el("sourceFilter").value || "all";
       const pf = el("paymentFilter").value || "all";
       const rows = leads
-        .filter(l => l.manualEntry === true || l.provider === "manual_entry" || l.manualDuplicateRequest === true || l.manualApprovalStatus === "pending")
+        .filter(l => {
+          const approval = l.manualApprovalStatus || (l.manualDuplicateRequest ? "pending" : "approved");
+          if(l.manualDuplicateRequest === true || l.manualOnly === true || l.manualRequestType === "duplicate_phone") return approval === "pending";
+          return l.manualEntry === true || l.provider === "manual_entry" || approval === "pending";
+        })
         .filter(l => {
           const hay = `${l.customerName||l.name||""} ${l.requestedCustomerName||""} ${l.phone||l.mobile||l.phoneNumber||""} ${l.requestedPhone||""}`.toLowerCase();
           const src = l.source || l.requestedSource || "";
@@ -569,8 +580,9 @@
       el("manualLeadsBody").innerHTML = rows.map(l => {
         const dept = l.requestedDepartment || l.department || paymentFromDepartment("cash_sales").department;
         const reps = usersForDepartment(dept);
-        const selectedUid = l.requestedByUid || l.requestedBy || l.assignedTo || l.responsibleUid || "";
+        const selectedUid = l.proposedAssignedTo || l.requestedByUid || l.requestedBy || l.assignedTo || l.responsibleUid || "";
         const opts = reps.map(u => `<option value="${escapeHtml(u.uid)}" ${u.uid === selectedUid ? "selected" : ""}>${escapeHtml(userLabel(u))}</option>`).join("");
+        const oldRep = l.duplicateLeadId ? (l.existingAssignedName || l.assignedName || l.responsibleName || "غير محدد") : "";
         const pending = (l.manualApprovalStatus || (l.manualDuplicateRequest ? "pending" : "approved")) === "pending";
         const updatedBy = l.updatedByName || l.requestedByName || l.createdByName || "";
         const displayName = l.requestedCustomerName || l.customerName || l.name || "";
@@ -582,7 +594,7 @@
           <td>${phoneLinkHtml(displayPhone, displayName)}</td>
           <td>${escapeHtml(displaySource)}</td>
           <td>${escapeHtml(displayPayment)}</td>
-          <td><select data-lead-id="${escapeHtml(l.id)}" class="rep-select"><option value="">اختر مندوب</option>${opts}</select></td>
+          <td>${oldRep ? `<div class="small-note">المندوب القديم: ${escapeHtml(oldRep)}</div>` : ""}<select data-lead-id="${escapeHtml(l.id)}" class="rep-select"><option value="">اختر المندوب الجديد</option>${opts}</select></td>
           <td>${escapeHtml(l.callCenterAssignedName || l.callCenterName || "")}</td>
           <td><span>${escapeHtml(formatDate(l.lastUpdated || l.updatedAt || l.requestLastUpdated || l.createdAt))}</span><br><small>${escapeHtml(updatedBy)}</small></td>
           <td><span class="approval-badge ${approvalClass(l)}">${escapeHtml(approvalLabel(l))}</span>${l.duplicateLeadId ? `<br><small>رقم موجود سابقًا</small>` : ""}</td>
@@ -598,7 +610,21 @@
       const u = users.find(x => x.uid === uid);
       if(!u) return;
       const row = leads.find(x => x.id === leadId) || {};
-      const targetId = row.duplicateLeadId || leadId;
+
+      // لو ده طلب رقم مكرر: اختيار المندوب الجديد لا يعمل موافقة ولا يكرر العميل.
+      // الموافقة فقط هي التي تحدث العميل الأصلي ثم تحذف طلب الموافقة.
+      if(row.duplicateLeadId || row.manualDuplicateRequest === true || row.manualOnly === true){
+        await updateDoc(doc(db, "leads", leadId), {
+          proposedAssignedTo:u.uid,
+          proposedAssignedName:userLabel(u),
+          updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(), requestLastUpdated:serverTimestamp(),
+          updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
+          lastUpdateSource:"manual_admin_proposed_rep"
+        });
+        toast("تم اختيار المندوب الجديد، اضغط موافقة لتحديث العميل الأصلي");
+        return;
+      }
+
       const payload = {
         assignedTo:u.uid, assignedName:userLabel(u), salesAssignedTo:u.uid, salesAssignedName:userLabel(u),
         responsibleUid:u.uid, responsibleName:userLabel(u),
@@ -608,24 +634,62 @@
         updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
         lastUpdateSource:"manual_admin_rep_update"
       };
-      await updateDoc(doc(db, "leads", targetId), payload);
-      if(row.duplicateLeadId){
-        await updateDoc(doc(db, "leads", leadId), {
-          manualApprovalStatus:"approved", manualDuplicateRequest:false,
-          approvedTargetLeadId:targetId,
-          approvedAssignedTo:u.uid,
-          approvedAssignedName:userLabel(u),
-          approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
-          updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
-          lastUpdateSource:"manual_admin_request_approved"
-        });
-      }
-      toast("تمت الموافقة وتغيير المندوب");
+      await updateDoc(doc(db, "leads", leadId), payload);
+      toast("تم تغيير المندوب");
     }
 
     async function approveLead(leadId){
       const row = leads.find(x => x.id === leadId) || {};
       const targetId = row.duplicateLeadId || leadId;
+
+      // رقم موجود قبل كده: لا ننشئ عميل جديد. نحدث العميل الأصلي فقط ثم نحذف طلب الموافقة.
+      if(row.duplicateLeadId){
+        const uid = row.proposedAssignedTo || row.requestedByUid || row.requestedBy || row.assignedTo || row.responsibleUid || "";
+        if(!uid) return toast("اختر المندوب الجديد قبل الموافقة");
+        const u = users.find(x => x.uid === uid) || { uid, name:row.proposedAssignedName || row.requestedByName || uid, email:row.requestedByEmail || "" };
+        const payload = {
+          assignedTo:uid,
+          assignedName:userLabel(u),
+          salesAssignedTo:uid,
+          salesAssignedName:userLabel(u),
+          responsibleUid:uid,
+          responsibleName:userLabel(u),
+          manualApprovalStatus:"approved",
+          manualDuplicateRequest:false,
+          manualApprovedBy:currentUser.uid,
+          manualApprovedByName:currentProfile?.name || currentUser.email,
+          approvedAt:serverTimestamp(),
+          updatedAt:serverTimestamp(),
+          lastUpdated:serverTimestamp(),
+          updatedBy:currentUser.uid,
+          updatedByName:currentProfile?.name || currentUser.email,
+          updatedByEmail:currentUser.email,
+          lastUpdateSource:"manual_admin_duplicate_approved",
+          lastManualRequestId:leadId,
+          lastManualRequestedName:row.requestedCustomerName || row.customerName || "",
+          lastManualRequestedPhone:row.requestedPhone || row.phone || ""
+        };
+        await updateDoc(doc(db, "leads", targetId), payload);
+        try{
+          await deleteDoc(doc(db, "leads", leadId));
+        }catch(deleteErr){
+          console.warn("duplicate request delete failed, archiving instead", deleteErr);
+          await updateDoc(doc(db, "leads", leadId), {
+            manualApprovalStatus:"approved",
+            manualDuplicateRequest:false,
+            manualRequestArchived:true,
+            approvedTargetLeadId:targetId,
+            approvedAssignedTo:uid,
+            approvedAssignedName:userLabel(u),
+            approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
+            updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
+            lastUpdateSource:"manual_admin_request_archived"
+          });
+        }
+        toast("تمت الموافقة وتحديث العميل الأصلي بدون تكرار");
+        return;
+      }
+
       const payload = {
         manualApprovalStatus:"approved", manualDuplicateRequest:false,
         manualApprovedBy:currentUser.uid, manualApprovedByName:currentProfile?.name || currentUser.email,
@@ -633,26 +697,7 @@
         updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
         lastUpdateSource:"manual_admin_approval"
       };
-      if(row.duplicateLeadId && (row.requestedByUid || row.requestedBy)){
-        const uid = row.requestedByUid || row.requestedBy;
-        const u = users.find(x => x.uid === uid) || { uid, name:row.requestedByName || uid, email:row.requestedByEmail || "" };
-        payload.assignedTo = uid;
-        payload.assignedName = userLabel(u);
-        payload.salesAssignedTo = uid;
-        payload.salesAssignedName = userLabel(u);
-        payload.responsibleUid = uid;
-        payload.responsibleName = userLabel(u);
-      }
       await updateDoc(doc(db, "leads", targetId), payload);
-      if(row.duplicateLeadId){
-        await updateDoc(doc(db, "leads", leadId), {
-          manualApprovalStatus:"approved", manualDuplicateRequest:false,
-          approvedTargetLeadId:targetId,
-          approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
-          updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
-          lastUpdateSource:"manual_admin_request_approved"
-        });
-      }
       toast("تمت الموافقة");
     }
 

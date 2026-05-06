@@ -386,6 +386,7 @@
       const to = el("dateTo").value;
 
       return leads.filter(lead => {
+        if(lead.manualOnly === true || lead.manualDuplicateRequest === true || lead.manualRequestType === "duplicate_phone") return false;
         if(!userCanSeeLead(lead)) return false;
         const leadSection = getLeadSectionKey(lead);
         if(!SECTION_DEFS.some(sec => sec.key === leadSection)) return false;

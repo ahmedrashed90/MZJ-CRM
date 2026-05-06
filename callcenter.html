@@ -505,6 +505,7 @@
       const callCenter = el("callCenterFilter").value;
 
       return leads.filter(l => {
+        if(l.manualOnly === true || l.manualDuplicateRequest === true || l.manualRequestType === "duplicate_phone") return false;
         if(l.department !== "finance_sales" || l.payment !== "تمويل") return false;
         if(!canSeeLead(l)) return false;
         if(branch && l.branch !== branch) return false;

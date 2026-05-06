@@ -459,6 +459,7 @@
       const q = el("searchInput").value.trim().toLowerCase();
 
       return leads.filter(l => {
+        if(l.manualOnly === true || l.manualDuplicateRequest === true || l.manualRequestType === "duplicate_phone") return false;
         if(!canSeeLead(l)) return false;
         const last = dateOnly(l.lastUpdated || l.createdAt);
         if(dateFrom && last && last < dateFrom) return false;

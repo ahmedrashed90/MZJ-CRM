@@ -499,6 +499,7 @@
       const responsible = el("responsibleFilter").value;
 
       return leads.filter(l => {
+        if(l.manualOnly === true || l.manualDuplicateRequest === true || l.manualRequestType === "duplicate_phone") return false;
         if(l.department !== PAGE_DEPARTMENT) return false;
         if(PAGE_PAYMENT && l.payment !== PAGE_PAYMENT) return false;
         if(!canSeeLead(l)) return false;
