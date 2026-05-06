@@ -133,6 +133,7 @@
                 <th>حالة الموافقة</th>
                 <th>موافقة</th>
                 <th>تعديل</th>
+                <th>مسح</th>
               </tr>
             </thead>
             <tbody id="manualLeadsBody"></tbody>
@@ -148,7 +149,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, onSnapshot, query, orderBy, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
@@ -337,15 +338,26 @@
         const byId = await getDoc(doc(db, "leads", manualId));
         if(byId.exists()) return { id:byId.id, ...byId.data() };
       }catch(e){ console.warn("manual id duplicate check skipped", e); }
-      try{
-        const snap = await getDocs(query(collection(db, "leads"), where("phoneNormalized", "==", normalized), limit(1)));
-        let found = null;
-        snap.forEach(d => { if(!found) found = { id:d.id, ...d.data() }; });
-        return found;
-      }catch(e){
-        console.warn("phoneNormalized duplicate check skipped", e);
-        return null;
+
+      const checks = [
+        ["phoneNormalized", normalized],
+        ["requestedPhoneNormalized", normalized],
+        ["phone", phone],
+        ["mobile", phone],
+        ["phoneNumber", phone]
+      ];
+      for(const [field, value] of checks){
+        if(!value) continue;
+        try{
+          const snap = await getDocs(query(collection(db, "leads"), where(field, "==", value), limit(1)));
+          let found = null;
+          snap.forEach(d => { if(!found) found = { id:d.id, ...d.data() }; });
+          if(found) return found;
+        }catch(e){
+          console.warn(`${field} duplicate check skipped`, e);
+        }
       }
+      return null;
     }
 
     function buildDuplicateRequestPayload(existing={}){
@@ -356,9 +368,22 @@
       const requestedSource = el("leadSource").value;
       const requestedNotes = el("leadNotes").value.trim();
       return {
+        manualEntry:true,
+        manualOnly:true,
         manualDuplicateRequest:true,
         manualApprovalStatus:"pending",
         manualRequestType:"duplicate_phone",
+        duplicateLeadId: existing.id || existing.leadId || "",
+        existingCustomerName: existing.customerName || existing.name || "",
+        existingPhone: existing.phone || existing.mobile || existing.phoneNumber || "",
+        existingAssignedTo: existing.assignedTo || existing.responsibleUid || existing.salesAssignedTo || "",
+        existingAssignedName: existing.assignedName || existing.responsibleName || existing.salesAssignedName || "",
+        customerName:requestedName,
+        phone:requestedPhoneRaw,
+        phoneNormalized:requestedPhone,
+        source:requestedSource,
+        payment:cfg.payment,
+        department:"manual_pending",
         requestedCustomerName:requestedName,
         requestedPhone:requestedPhoneRaw,
         requestedPhoneNormalized:requestedPhone,
@@ -371,6 +396,10 @@
         requestedByUid:currentUser.uid,
         requestedByName:currentProfile?.name || currentUser.email,
         requestedByEmail:currentUser.email,
+        createdBy:currentUser.uid,
+        createdByName:currentProfile?.name || currentUser.email,
+        createdByEmail:currentUser.email,
+        createdAt:serverTimestamp(),
         duplicateRequestedAt:serverTimestamp(),
         requestLastUpdated:serverTimestamp(),
         updatedBy:currentUser.uid,
@@ -383,9 +412,14 @@
     }
 
     async function loadUsers(){
-      const snap = await getDocs(collection(db, "users"));
-      users = [];
-      snap.forEach(d => users.push({ uid:d.id, ...d.data() }));
+      try{
+        const snap = await getDocs(collection(db, "users"));
+        users = [];
+        snap.forEach(d => users.push({ uid:d.id, ...d.data() }));
+      }catch(err){
+        console.warn("users list unavailable for current account", err);
+        users = [];
+      }
     }
     function userLabel(u){ return u ? (u.name || u.email || u.uid || "") : ""; }
     function usersForDepartment(dept){ return users.filter(u => u.active !== false && u.department === dept); }
@@ -458,23 +492,35 @@
       if(!el("customerName").value.trim()) return toast("اكتب اسم العميل");
       if(!phone) return toast("اكتب رقم الجوال");
       const editingId = el("editingLeadId").value.trim();
-      if(!editingId){
-        const duplicate = await findExistingLeadByPhone(phone);
-        if(duplicate){
-          await setDoc(doc(db, "leads", duplicate.id), buildDuplicateRequestPayload(duplicate), { merge:true });
-          toast("رقم العميل مسجل قبل كده، تم إرساله للإدارة العامة للموافقة وتحديث المندوب");
-          resetForm();
-          if(isAdmin) showTab("list");
-          return;
+      try{
+        if(!editingId){
+          const duplicate = await findExistingLeadByPhone(phone);
+          if(duplicate && !duplicate.manualOnly){
+            await addDoc(collection(db, "leads"), buildDuplicateRequestPayload(duplicate));
+            toast("رقم العميل مسجل قبل كده، تم إرساله للإدارة العامة للموافقة وتحديث المندوب");
+            resetForm();
+            if(isAdmin) showTab("list");
+            return;
+          }
         }
+
+        if(editingId){
+          const ref = doc(db, "leads", editingId);
+          const oldSnap = await getDoc(ref).catch(()=>null);
+          const existing = oldSnap?.exists() ? { id:editingId, ...oldSnap.data() } : { id:editingId };
+          await setDoc(ref, buildLeadPayload({ leadId:editingId, existing }), { merge:true });
+          toast("تم تحديث العميل");
+        }else{
+          const payload = buildLeadPayload({ leadId:"", existing:{} });
+          const created = await addDoc(collection(db, "leads"), payload);
+          await updateDoc(created, { leadId:created.id }).catch(()=>{});
+          toast("تم حفظ العميل");
+        }
+        resetForm();
+      }catch(err){
+        console.error("manual lead save failed", err);
+        toast("تعذر حفظ العميل - راجع صلاحية صفحة إضافة العملاء أو قواعد Firestore");
       }
-      const leadId = editingId || `manual_${safeDocId(phone)}`;
-      const ref = doc(db, "leads", leadId);
-      const oldSnap = await getDoc(ref).catch(()=>null);
-      const existing = oldSnap?.exists() ? oldSnap.data() : {};
-      await setDoc(ref, buildLeadPayload({ leadId, existing }), { merge:true });
-      toast(editingId ? "تم تحديث العميل" : "تم حفظ العميل");
-      resetForm();
     }
 
     function resetForm(){
@@ -515,31 +561,39 @@
           return (!q || hay.includes(q)) && (sf === "all" || src === sf) && (pf === "all" || pay === pf);
         });
       el("manualLeadsBody").innerHTML = rows.map(l => {
-        const dept = l.department || l.requestedDepartment || paymentFromDepartment("cash_sales").department;
+        const dept = l.requestedDepartment || l.department || paymentFromDepartment("cash_sales").department;
         const reps = usersForDepartment(dept);
-        const opts = reps.map(u => `<option value="${escapeHtml(u.uid)}" ${u.uid === (l.assignedTo||l.responsibleUid) ? "selected" : ""}>${escapeHtml(userLabel(u))}</option>`).join("");
+        const selectedUid = l.requestedByUid || l.requestedBy || l.assignedTo || l.responsibleUid || "";
+        const opts = reps.map(u => `<option value="${escapeHtml(u.uid)}" ${u.uid === selectedUid ? "selected" : ""}>${escapeHtml(userLabel(u))}</option>`).join("");
         const pending = (l.manualApprovalStatus || (l.manualDuplicateRequest ? "pending" : "approved")) === "pending";
         const updatedBy = l.updatedByName || l.requestedByName || l.createdByName || "";
+        const displayName = l.requestedCustomerName || l.customerName || l.name || "";
+        const displayPhone = l.requestedPhone || l.phone || l.mobile || l.phoneNumber || "";
+        const displaySource = l.requestedSource || l.source || "";
+        const displayPayment = l.requestedPayment || l.payment || l.paymentType || l.payType || "";
         return `<tr class="${pending ? "manual-pending-row" : ""}">
-          <td>${manualNameHtml(l)}</td>
-          <td>${phoneLinkHtml(l.phone || l.mobile || l.phoneNumber || l.requestedPhone || "", l.customerName || l.name || l.requestedCustomerName || "")}</td>
-          <td>${escapeHtml(l.source || l.requestedSource || "")}</td>
-          <td>${escapeHtml(l.payment || l.paymentType || l.payType || l.requestedPayment || "")}</td>
+          <td>${manualNameHtml({ ...l, customerName:displayName, phone:displayPhone })}</td>
+          <td>${phoneLinkHtml(displayPhone, displayName)}</td>
+          <td>${escapeHtml(displaySource)}</td>
+          <td>${escapeHtml(displayPayment)}</td>
           <td><select data-lead-id="${escapeHtml(l.id)}" class="rep-select"><option value="">اختر مندوب</option>${opts}</select></td>
           <td>${escapeHtml(l.callCenterAssignedName || l.callCenterName || "")}</td>
           <td><span>${escapeHtml(formatDate(l.lastUpdated || l.updatedAt || l.requestLastUpdated || l.createdAt))}</span><br><small>${escapeHtml(updatedBy)}</small></td>
-          <td><span class="approval-badge ${approvalClass(l)}">${escapeHtml(approvalLabel(l))}</span></td>
+          <td><span class="approval-badge ${approvalClass(l)}">${escapeHtml(approvalLabel(l))}</span>${l.duplicateLeadId ? `<br><small>رقم موجود سابقًا</small>` : ""}</td>
           <td>${pending ? `<button class="primary approve-btn" data-lead-id="${escapeHtml(l.id)}" type="button">موافقة</button>` : "-"}</td>
           <td><button class="secondary edit-btn" data-lead-id="${escapeHtml(l.id)}" type="button">تعديل</button></td>
+          <td><button class="danger delete-btn" data-lead-id="${escapeHtml(l.id)}" type="button">مسح</button></td>
         </tr>`;
-      }).join("") || `<tr><td colspan="10" class="empty">لا توجد عملاء مسجلة أو طلبات موافقة</td></tr>`;
+      }).join("") || `<tr><td colspan="11" class="empty">لا توجد عملاء مسجلة أو طلبات موافقة</td></tr>`;
     }
 
     async function changeRep(leadId, uid){
       if(!uid) return;
       const u = users.find(x => x.uid === uid);
       if(!u) return;
-      await updateDoc(doc(db, "leads", leadId), {
+      const row = leads.find(x => x.id === leadId) || {};
+      const targetId = row.duplicateLeadId || leadId;
+      const payload = {
         assignedTo:u.uid, assignedName:userLabel(u), salesAssignedTo:u.uid, salesAssignedName:userLabel(u),
         responsibleUid:u.uid, responsibleName:userLabel(u),
         manualApprovalStatus:"approved", manualDuplicateRequest:false,
@@ -547,29 +601,74 @@
         approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
         updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
         lastUpdateSource:"manual_admin_rep_update"
-      });
+      };
+      await updateDoc(doc(db, "leads", targetId), payload);
+      if(row.duplicateLeadId){
+        await updateDoc(doc(db, "leads", leadId), {
+          manualApprovalStatus:"approved", manualDuplicateRequest:false,
+          approvedTargetLeadId:targetId,
+          approvedAssignedTo:u.uid,
+          approvedAssignedName:userLabel(u),
+          approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
+          updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
+          lastUpdateSource:"manual_admin_request_approved"
+        });
+      }
       toast("تمت الموافقة وتغيير المندوب");
     }
 
     async function approveLead(leadId){
-      await updateDoc(doc(db, "leads", leadId), {
+      const row = leads.find(x => x.id === leadId) || {};
+      const targetId = row.duplicateLeadId || leadId;
+      const payload = {
         manualApprovalStatus:"approved", manualDuplicateRequest:false,
         manualApprovedBy:currentUser.uid, manualApprovedByName:currentProfile?.name || currentUser.email,
         approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
         updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
         lastUpdateSource:"manual_admin_approval"
-      });
+      };
+      if(row.duplicateLeadId && (row.requestedByUid || row.requestedBy)){
+        const uid = row.requestedByUid || row.requestedBy;
+        const u = users.find(x => x.uid === uid) || { uid, name:row.requestedByName || uid, email:row.requestedByEmail || "" };
+        payload.assignedTo = uid;
+        payload.assignedName = userLabel(u);
+        payload.salesAssignedTo = uid;
+        payload.salesAssignedName = userLabel(u);
+        payload.responsibleUid = uid;
+        payload.responsibleName = userLabel(u);
+      }
+      await updateDoc(doc(db, "leads", targetId), payload);
+      if(row.duplicateLeadId){
+        await updateDoc(doc(db, "leads", leadId), {
+          manualApprovalStatus:"approved", manualDuplicateRequest:false,
+          approvedTargetLeadId:targetId,
+          approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
+          updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
+          lastUpdateSource:"manual_admin_request_approved"
+        });
+      }
       toast("تمت الموافقة");
+    }
+
+    async function deleteManualLead(leadId){
+      if(!confirm("متأكد من مسح هذا السجل؟")) return;
+      try{
+        await deleteDoc(doc(db, "leads", leadId));
+        toast("تم مسح السجل");
+      }catch(err){
+        console.error(err);
+        toast("تعذر مسح السجل");
+      }
     }
 
     function editLead(leadId){
       const l = leads.find(x => x.id === leadId);
       if(!l) return;
       el("editingLeadId").value = l.id;
-      el("customerName").value = l.customerName || l.name || "";
-      el("customerPhone").value = l.phone || l.mobile || l.phoneNumber || "";
-      el("leadSource").value = l.source || "موقع حراج";
-      el("leadNotes").value = l.notes || "";
+      el("customerName").value = l.requestedCustomerName || l.customerName || l.name || "";
+      el("customerPhone").value = l.requestedPhone || l.phone || l.mobile || l.phoneNumber || "";
+      el("leadSource").value = l.requestedSource || l.source || "موقع حراج";
+      el("leadNotes").value = l.requestedNotes || l.notes || "";
       if(isAdmin){
         const p = l.payment || l.paymentType || l.payType || "";
         el("adminPaymentType").value = p === "تمويل" ? "finance" : (p === "خدمة عملاء" ? "cs" : "cash");
@@ -618,6 +717,7 @@
     document.addEventListener("change", e => { if(e.target.classList.contains("rep-select")) changeRep(e.target.dataset.leadId, e.target.value); });
     document.addEventListener("click", e => { if(e.target.classList.contains("approve-btn")) approveLead(e.target.dataset.leadId); });
     document.addEventListener("click", e => { if(e.target.classList.contains("edit-btn")) editLead(e.target.dataset.leadId); });
+    document.addEventListener("click", e => { if(e.target.classList.contains("delete-btn")) deleteManualLead(e.target.dataset.leadId); });
     document.addEventListener("click", e => { const btn = e.target.closest(".phone-open-chat, .manual-name-open-chat"); if(!btn) return; openWhatsappInboxByPhone(btn.dataset.phone, btn.dataset.name); });
 
     onAuthStateChanged(auth, async user => {
