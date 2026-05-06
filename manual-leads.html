@@ -647,13 +647,65 @@
         const uid = row.proposedAssignedTo || row.requestedByUid || row.requestedBy || row.assignedTo || row.responsibleUid || "";
         if(!uid) return toast("اختر المندوب الجديد قبل الموافقة");
         const u = users.find(x => x.uid === uid) || { uid, name:row.proposedAssignedName || row.requestedByName || uid, email:row.requestedByEmail || "" };
+        const newName = row.requestedCustomerName || row.customerName || row.name || "";
+        const newPhoneRaw = row.requestedPhone || row.phone || row.mobile || row.phoneNumber || "";
+        const newPhoneNormalized = row.requestedPhoneNormalized || row.phoneNormalized || normalizePhone(newPhoneRaw);
+        const newSource = row.requestedSource || row.source || "";
+        const newPayment = row.requestedPayment || row.payment || row.paymentType || row.payType || "";
+        const newDepartment = row.requestedDepartment || row.department || "";
+        const newServiceKey = row.requestedServiceKey || row.serviceKey || row.autoService || "";
+        const requestedCfg = newDepartment ? paymentFromDepartment(newDepartment) : {};
+        const newBranch = row.requestedBranch || row.branch || row.branchName || requestedCfg.branch || "";
+        const newStatus = row.requestedStatus || "عميل جديد";
+
         const payload = {
+          // موافقة طلب رقم موجود = تحديث بيانات العميل الأصلي بنفس البيانات الجديدة
+          customerName:newName,
+          fullName:newName,
+          name:newName,
+          displayName:newName,
+          phone:newPhoneRaw,
+          mobile:newPhoneRaw,
+          phoneNumber:newPhoneRaw,
+          phoneNormalized:newPhoneNormalized,
+          source:newSource,
+          sourceName:newSource,
+          sourceCode:"manual",
+          platform:"manual",
+          channel:"manual",
+          channelCode:"manual",
+          provider:"manual_entry",
+          leadPayment:newPayment,
+          payment:newPayment,
+          paymentType:newPayment,
+          payType:newPayment,
+          department:newDepartment,
+          serviceKey:newServiceKey,
+          autoService:newServiceKey,
+          branch:newBranch,
+          branchId:newBranch,
+          branchName:newBranch,
+          sectionLabel:newBranch,
+          status:newStatus,
+          statusLabel:newStatus,
+          leadStatus:newStatus,
+          currentStatus:newStatus,
+          currentStatusLabel:newStatus,
+          clientStatus:newStatus,
+          customerStatus:newStatus,
+          customerStatusLabel:newStatus,
+          pipelineStatus:newStatus,
+          pipelineStatusLabel:newStatus,
+          stage:newStatus,
+          stageLabel:newStatus,
+          notes:row.requestedNotes || row.notes || "",
           assignedTo:uid,
           assignedName:userLabel(u),
           salesAssignedTo:uid,
           salesAssignedName:userLabel(u),
           responsibleUid:uid,
           responsibleName:userLabel(u),
+          manualEntry:true,
           manualApprovalStatus:"approved",
           manualDuplicateRequest:false,
           manualApprovedBy:currentUser.uid,
@@ -666,8 +718,11 @@
           updatedByEmail:currentUser.email,
           lastUpdateSource:"manual_admin_duplicate_approved",
           lastManualRequestId:leadId,
-          lastManualRequestedName:row.requestedCustomerName || row.customerName || "",
-          lastManualRequestedPhone:row.requestedPhone || row.phone || ""
+          lastManualRequestedName:newName,
+          lastManualRequestedPhone:newPhoneRaw,
+          lastManualRequestedSource:newSource,
+          lastManualRequestedPayment:newPayment,
+          lastManualRequestedDepartment:newDepartment
         };
         await updateDoc(doc(db, "leads", targetId), payload);
         try{
