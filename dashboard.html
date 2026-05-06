@@ -2454,5 +2454,22 @@
 
     setupAuth(init);
   </script>
+
+<style id="final-dashboard-chat-side-fix">
+  /* FINAL FIX: العميل يمين - الرد/السيستم شمال */
+  #chatMessages.dashboard-chat-messages,
+  #chatMessages.inbox-messages{direction:ltr !important;}
+  #chatMessages .dash-msg-row{direction:ltr !important;width:100% !important;display:flex !important;}
+  #chatMessages .dash-msg-row.received-row,
+  #chatMessages .dash-msg-row.in{justify-content:flex-end !important;}
+  #chatMessages .dash-msg-row.sent-row,
+  #chatMessages .dash-msg-row.out{justify-content:flex-start !important;}
+  #chatMessages .dash-msg-row .dash-msg{direction:rtl !important;text-align:right !important;}
+  #chatMessages .dash-msg-row.received-row .dash-msg,
+  #chatMessages .dash-msg-row.in .dash-msg{margin-left:auto !important;margin-right:0 !important;background:#fff !important;color:#40231d !important;border-bottom-right-radius:6px !important;border-bottom-left-radius:18px !important;}
+  #chatMessages .dash-msg-row.sent-row .dash-msg,
+  #chatMessages .dash-msg-row.out .dash-msg{margin-right:auto !important;margin-left:0 !important;background:#eaf6ff !important;color:#17344a !important;border-bottom-left-radius:6px !important;border-bottom-right-radius:18px !important;}
+</style>
+
 </body>
 </html>

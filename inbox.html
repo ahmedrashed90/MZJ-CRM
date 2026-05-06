@@ -1484,5 +1484,21 @@
 
     addTemplateOptions();
   </script>
+
+<style id="final-chat-side-fix">
+  /* FINAL FIX: العميل يمين - الرد/السيستم شمال */
+  #messages.messages{direction:ltr !important;}
+  #messages .msg-row{direction:ltr !important;width:100% !important;display:flex !important;}
+  #messages .msg-row.received-row,
+  #messages .msg-row.in{justify-content:flex-end !important;}
+  #messages .msg-row.sent-row,
+  #messages .msg-row.out{justify-content:flex-start !important;}
+  #messages .msg-row .msg{direction:rtl !important;text-align:right !important;}
+  #messages .msg-row.received-row .msg,
+  #messages .msg-row.in .msg{margin-left:auto !important;margin-right:0 !important;background:#fff !important;color:#40231d !important;border-bottom-right-radius:6px !important;border-bottom-left-radius:18px !important;}
+  #messages .msg-row.sent-row .msg,
+  #messages .msg-row.out .msg{margin-right:auto !important;margin-left:0 !important;background:#eaf6ff !important;color:#17344a !important;border-bottom-left-radius:6px !important;border-bottom-right-radius:18px !important;}
+</style>
+
 </body>
 </html>
