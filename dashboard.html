@@ -92,106 +92,6 @@
     </main>
   </div>
   <div class="toast" id="toast"></div>
-
-  <style id="dashboard-wa-chat-layout-fix">
-    #chatMessages.dashboard-chat-messages,
-    #chatMessages.inbox-messages{
-      display:flex !important;
-      flex-direction:column !important;
-      gap:6px !important;
-      padding:18px 22px !important;
-      overflow:auto !important;
-      background:
-        radial-gradient(circle at 50% 10%, rgba(123,45,34,.05), transparent 24%),
-        linear-gradient(180deg,#fffaf6 0%,#fff2ea 100%) !important;
-    }
-    #chatMessages .dash-msg-row{
-      width:100% !important;
-      display:flex !important;
-      margin:0 !important;
-    }
-    #chatMessages .dash-msg-row.received-row,
-    #chatMessages .dash-msg-row.in{
-      justify-content:flex-end !important;
-    }
-    #chatMessages .dash-msg-row.sent-row,
-    #chatMessages .dash-msg-row.out{
-      justify-content:flex-start !important;
-    }
-    #chatMessages .dash-msg-row .dash-msg{
-      width:auto !important;
-      max-width:min(76%, 720px) !important;
-      min-width:0 !important;
-      margin:0 !important;
-      border-radius:18px !important;
-      padding:10px 14px !important;
-      border:1px solid #e8d1c5 !important;
-      box-shadow:0 8px 20px rgba(80,32,24,.07) !important;
-      white-space:pre-wrap !important;
-      word-break:break-word !important;
-      line-height:1.85 !important;
-    }
-    #chatMessages .dash-msg-row.received-row .dash-msg,
-    #chatMessages .dash-msg-row.in .dash-msg{
-      align-self:flex-end !important;
-      background:#fff !important;
-      color:#40231d !important;
-      border-bottom-right-radius:6px !important;
-    }
-    #chatMessages .dash-msg-row.sent-row .dash-msg,
-    #chatMessages .dash-msg-row.out .dash-msg{
-      align-self:flex-start !important;
-      background:#eaf6ff !important;
-      color:#17344a !important;
-      border-color:#bfdff7 !important;
-      border-bottom-left-radius:6px !important;
-    }
-    #chatMessages .dash-msg-row.group-middle.received-row .dash-msg,
-    #chatMessages .dash-msg-row.group-end.received-row .dash-msg{
-      border-top-right-radius:10px !important;
-    }
-    #chatMessages .dash-msg-row.group-middle.sent-row .dash-msg,
-    #chatMessages .dash-msg-row.group-end.sent-row .dash-msg{
-      border-top-left-radius:10px !important;
-    }
-    #chatMessages .dash-sender{
-      font-size:11px !important;
-      font-weight:800 !important;
-      margin-bottom:4px !important;
-      opacity:.74 !important;
-    }
-    #chatMessages .dash-msg-row.sent-row .dash-sender{
-      color:#436177 !important;
-    }
-    #chatMessages .dash-msg-row.received-row .dash-sender{
-      color:#8d6a5c !important;
-    }
-    #chatMessages .dash-msg-text{
-      font-size:14px !important;
-      line-height:1.85 !important;
-      text-align:right !important;
-      white-space:pre-wrap !important;
-      word-break:break-word !important;
-    }
-    #chatMessages .dash-msg-row small{
-      display:flex !important;
-      margin-top:6px !important;
-      font-size:11px !important;
-      opacity:.82 !important;
-    }
-    #chatMessages .dash-msg-row.received-row small{
-      justify-content:flex-end !important;
-      color:#8d6a5c !important;
-    }
-    #chatMessages .dash-msg-row.sent-row small{
-      justify-content:flex-start !important;
-      color:#537287 !important;
-    }
-    @media (max-width: 980px){
-      #chatMessages .dash-msg-row .dash-msg{ max-width:88% !important; }
-    }
-  </style>
-
   <script type="module">
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -251,11 +151,6 @@
       window.FB_SEND_ENDPOINT ||
       localStorage.getItem("FB_SEND_ENDPOINT") ||
       "https://facebook.next-erp-mzj.workers.dev/crm/send";
-
-    const MERSAL_SEND_ENDPOINT =
-      window.MERSAL_SEND_ENDPOINT ||
-      localStorage.getItem("MERSAL_SEND_ENDPOINT") ||
-      "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
 
     let dashboardChatState = {
       lead:null,
@@ -1075,91 +970,21 @@
         || senderName.includes("السيستم");
     }
 
-
-    function forceDashboardChatSides(){
-      const box = el("chatMessages");
-      if(!box) return;
-      box.style.setProperty("direction", "ltr", "important");
-      box.style.setProperty("display", "flex", "important");
-      box.style.setProperty("flex-direction", "column", "important");
-      box.style.setProperty("align-items", "stretch", "important");
-      box.querySelectorAll(".dash-msg-row").forEach(row => {
-        const isOut = row.classList.contains("sent-row") || row.classList.contains("out");
-        const isIn = row.classList.contains("received-row") || row.classList.contains("in");
-        row.style.setProperty("direction", "ltr", "important");
-        row.style.setProperty("display", "flex", "important");
-        row.style.setProperty("width", "100%", "important");
-        row.style.setProperty("max-width", "100%", "important");
-        row.style.setProperty("background", "transparent", "important");
-        row.style.setProperty("border", "0", "important");
-        row.style.setProperty("box-shadow", "none", "important");
-        row.style.setProperty("padding", "0", "important");
-        row.style.setProperty("margin", "4px 0", "important");
-        row.style.setProperty("align-items", "flex-start", "important");
-        if(isIn) row.style.setProperty("justify-content", "flex-end", "important");
-        if(isOut) row.style.setProperty("justify-content", "flex-start", "important");
-        const bubble = row.querySelector(".dash-msg");
-        if(bubble){
-          bubble.style.setProperty("display", "block", "important");
-          bubble.style.setProperty("width", "fit-content", "important");
-          bubble.style.setProperty("min-width", "0", "important");
-          bubble.style.setProperty("max-width", "72%", "important");
-          bubble.style.setProperty("height", "auto", "important");
-          bubble.style.setProperty("padding", "9px 12px", "important");
-          bubble.style.setProperty("margin", "0", "important");
-          bubble.style.setProperty("direction", "rtl", "important");
-          bubble.style.setProperty("text-align", "right", "important");
-          bubble.style.setProperty("white-space", "pre-wrap", "important");
-          bubble.style.setProperty("overflow-wrap", "anywhere", "important");
-          bubble.style.setProperty("word-break", "normal", "important");
-          bubble.style.setProperty("box-shadow", "0 6px 16px rgba(80,32,24,.06)", "important");
-          bubble.style.setProperty("border-radius", "15px", "important");
-          bubble.style.setProperty("border", "1px solid #ead4c8", "important");
-          if(isIn){
-            bubble.style.setProperty("background", "#fff", "important");
-            bubble.style.setProperty("color", "#40231d", "important");
-            bubble.style.setProperty("border-bottom-right-radius", "6px", "important");
-          }
-          if(isOut){
-            bubble.style.setProperty("background", "#eaf6ff", "important");
-            bubble.style.setProperty("color", "#17344a", "important");
-            bubble.style.setProperty("border-color", "#bfe0f7", "important");
-            bubble.style.setProperty("border-bottom-left-radius", "6px", "important");
-          }
-        }
-      });
-    }
-
     function renderDashboardMessages(messages){
       const box = el("chatMessages");
       if(!messages.length){
         box.innerHTML = `<div class="empty">لا توجد رسائل لهذه المحادثة.</div>`;
         return;
       }
-      box.innerHTML = messages.map((m, index) => {
+      box.innerHTML = messages.map(m => {
         const outgoing = isDashboardOutgoingMessage(m);
-        const prev = index > 0 ? messages[index - 1] : null;
-        const next = index < messages.length - 1 ? messages[index + 1] : null;
-        const prevOutgoing = prev ? isDashboardOutgoingMessage(prev) : null;
-        const nextOutgoing = next ? isDashboardOutgoingMessage(next) : null;
-        const groupClass = prevOutgoing !== outgoing && nextOutgoing !== outgoing
-          ? "group-single"
-          : prevOutgoing !== outgoing
-            ? "group-start"
-            : nextOutgoing !== outgoing
-              ? "group-end"
-              : "group-middle";
         return `
-          <div class="dash-msg-row ${outgoing ? "sent-row out" : "received-row in"} ${groupClass}">
-            <div class="dash-msg ${outgoing ? "out" : "in"}">
-              ${prevOutgoing !== outgoing ? `<div class="dash-sender">${outgoing ? "الرد المرسل" : "العميل"}</div>` : ""}
-              <div class="dash-msg-text">${escapeHtml(messageText(m) || "رسالة")}</div>
-              <small>${escapeHtml(formatMessageTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
-            </div>
+          <div class="dash-msg ${outgoing ? "out" : "in"}">
+            <div>${escapeHtml(messageText(m) || "رسالة")}</div>
+            <small>${escapeHtml(formatMessageTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
           </div>
         `;
       }).join("");
-      forceDashboardChatSides();
       box.scrollTop = box.scrollHeight;
     }
 
@@ -1232,34 +1057,6 @@
       if(modal) modal.classList.add("hidden");
     }
 
-    function buildDashboardMersalPayload(phone, text, selectedTemplate){
-      const payload = { phone: normalizeKsaPhone(phone) || String(phone || "").replace(/[^\d]/g, "") };
-      if(selectedTemplate?.type === "mersal" && (selectedTemplate.name || selectedTemplate.templateName)){
-        payload.template_name = selectedTemplate.name || selectedTemplate.templateName;
-        payload.template_language = selectedTemplate.lang || selectedTemplate.language || "ar";
-        const params = Array.isArray(selectedTemplate.params) ? selectedTemplate.params : [];
-        if(params.length) payload.params = params;
-      } else {
-        payload.message = text;
-      }
-      return payload;
-    }
-
-    async function sendDashboardMersalDirect(phone, text, selectedTemplate){
-      const payload = buildDashboardMersalPayload(phone, text, selectedTemplate);
-      const res = await fetch(MERSAL_SEND_ENDPOINT, {
-        method:"POST",
-        headers:{ "content-type":"application/json" },
-        body:JSON.stringify(payload)
-      });
-      const result = await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }));
-      if(!res.ok || result.ok === false){
-        console.error("Dashboard Mersal send failed", { payload, result, status:res.status });
-        throw new Error(result.error || result.raw || "mersal send failed");
-      }
-      return result;
-    }
-
     async function sendDashboardChatReply(){
       const lead = dashboardChatState.lead;
       const text = el("chatReplyText").value.trim();
@@ -1268,12 +1065,11 @@
 
       const platform = dashboardChatState.platform;
       const cfg = chatPlatformConfig(platform);
-      const selectedTemplate = selectedDashboardTemplate() || selectedDashboardQuickMessage();
+      const selectedTemplate = selectedDashboardTemplate();
       const convId = dashboardChatState.convId || resolveChatConversationId(lead);
       if(!convId) return toast("لا توجد محادثة أو رقم لهذا العميل");
 
       try{
-        let providerResult = null;
         if(platform === "facebook"){
           const res = await fetch(FACEBOOK_SEND_ENDPOINT, {
             method:"POST",
@@ -1289,26 +1085,6 @@
           });
           const result = await res.json().catch(() => ({}));
           if(!res.ok || result.ok === false) throw new Error(result.error || "facebook send failed");
-        } else if(platform === "whatsapp"){
-          providerResult = await sendDashboardMersalDirect(phoneOfLead(lead) || convId, text, selectedTemplate);
-          if(cfg.outbox){
-            addDoc(collection(db, cfg.outbox), {
-              conversationId:convId,
-              platform,
-              department:leadDepartment(lead),
-              to: phoneOfLead(lead),
-              text,
-              status:"sent",
-              provider:"mersal",
-              providerResult,
-              messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
-              template: selectedTemplate || null,
-              sentByUid:currentUser?.uid || '',
-              sentByEmail:currentUser?.email || '',
-              createdAt:serverTimestamp(),
-              sentAt:serverTimestamp()
-            }).catch(console.warn);
-          }
         } else {
           if(!cfg.outbox) throw new Error("لا يوجد مسار إرسال مضبوط لهذه المنصة");
           await addDoc(collection(db, cfg.outbox), {
@@ -1324,33 +1100,28 @@
             sentByEmail:currentUser?.email || '',
             createdAt:serverTimestamp()
           });
+          await addDoc(collection(db, cfg.conversations, convId, "messages"), {
+            text,
+            direction:"outgoing",
+            fromAgent:true,
+            department:leadDepartment(lead),
+            template: selectedTemplate || null,
+            sentByUid:currentUser?.uid || '',
+            sentByEmail:currentUser?.email || '',
+            createdAt:serverTimestamp(),
+            status:"pending"
+          });
+          await setDoc(doc(db, cfg.conversations, convId), {
+            lastMessage:text,
+            lastMessageText:text,
+            updatedAt:serverTimestamp()
+          }, { merge:true });
         }
-
-        await addDoc(collection(db, cfg.conversations, convId, "messages"), {
-          text,
-          direction:"outgoing",
-          fromAgent:true,
-          department:leadDepartment(lead),
-          template: selectedTemplate || null,
-          providerResult: providerResult || null,
-          sentByUid:currentUser?.uid || '',
-          sentByEmail:currentUser?.email || '',
-          createdAt:serverTimestamp(),
-          sentAt:serverTimestamp(),
-          status: platform === "whatsapp" ? "sent" : "pending"
-        });
-        await setDoc(doc(db, cfg.conversations, convId), {
-          lastMessage:text,
-          lastMessageText:text,
-          updatedAt:serverTimestamp(),
-          lastUpdated:serverTimestamp()
-        }, { merge:true });
-
         el("chatReplyText").value = "";
         toast("تم الإرسال");
       }catch(err){
         console.error(err);
-        toast(platform === "whatsapp" ? "فشل إرسال مرسال. راجع رابط الوركر أو التوكن." : "فشل الإرسال. راجع إعدادات الإرسال أو الصلاحيات.");
+        toast("فشل الإرسال. راجع إعدادات الإرسال أو الصلاحيات.");
       }
     }
 
@@ -2510,26 +2281,5 @@
 
     setupAuth(init);
   </script>
-
-
-
-
-<style id="final-dashboard-chat-side-fix">
-  #chatMessages.dashboard-chat-messages,
-  #chatMessages.inbox-messages{direction:ltr !important;display:flex !important;flex-direction:column !important;align-items:stretch !important;gap:6px !important;}
-  #chatMessages.dashboard-chat-messages > .dash-msg-row,
-  #chatMessages.inbox-messages > .dash-msg-row{direction:ltr !important;width:100% !important;max-width:100% !important;display:flex !important;background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 !important;margin:4px 0 !important;}
-  #chatMessages > .dash-msg-row.received-row,
-  #chatMessages > .dash-msg-row.in{justify-content:flex-end !important;align-items:flex-start !important;}
-  #chatMessages > .dash-msg-row.sent-row,
-  #chatMessages > .dash-msg-row.out{justify-content:flex-start !important;align-items:flex-start !important;}
-  #chatMessages > .dash-msg-row > .dash-msg{display:block !important;width:fit-content !important;min-width:0 !important;max-width:72% !important;height:auto !important;margin:0 !important;padding:9px 12px !important;border-radius:15px !important;direction:rtl !important;text-align:right !important;white-space:pre-wrap !important;overflow-wrap:anywhere !important;word-break:normal !important;box-shadow:0 6px 16px rgba(80,32,24,.06) !important;}
-  #chatMessages > .dash-msg-row.received-row > .dash-msg,
-  #chatMessages > .dash-msg-row.in > .dash-msg{background:#fff !important;color:#40231d !important;border:1px solid #ead4c8 !important;border-bottom-right-radius:6px !important;}
-  #chatMessages > .dash-msg-row.sent-row > .dash-msg,
-  #chatMessages > .dash-msg-row.out > .dash-msg{background:#eaf6ff !important;color:#17344a !important;border:1px solid #bfe0f7 !important;border-bottom-left-radius:6px !important;}
-  @media(max-width:900px){#chatMessages > .dash-msg-row > .dash-msg{max-width:88% !important;}}
-</style>
-
 </body>
 </html>
