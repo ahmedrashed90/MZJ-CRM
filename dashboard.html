@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -209,12 +210,12 @@
           { title:"تم إختيار السيارة", match:["تم إختيار السيارة","تم اختيار السيارة"] },
           { title:"تم رفع أوراق السيارة المطلوبة الى جهة التمويل", match:["تم رفع أوراق السيارة المطلوبة الى جهة التمويل","تم رفع أوراق السيارة المطلوبة إلى جهة التمويل"] },
           { title:"إستيفاء الطلب - متقدم", match:["إستيفاء الطلب - متقدم","استيفاء الطلب - متقدم"] },
-          { title:"طلبات لم تتم الموافقة", match:["طلبات لم تتم الموافقة"] },
           { title:"طلبات تمت الموافقة", match:["طلبات تمت الموافقة"] },
+          { title:"طلبات لم تتم الموافقة", match:["طلبات لم تتم الموافقة"] },
           { title:"تم إصدار العقد", match:["تم إصدار العقد"] },
           { title:"تم الإتصال لتوقيع العقد", match:["تم الإتصال لتوقيع العقد","تم الاتصال لتوقيع العقد"] },
-          { title:"لم يتم توقيع العقد", match:["لم يتم توقيع العقد"] },
           { title:"تم توقيع العقد", match:["تم توقيع العقد"] },
+          { title:"لم يتم توقيع العقد", match:["لم يتم توقيع العقد"] },
           { title:"تم الإنتهاء - إنشاء طلب البيع", match:["تم الإنتهاء - إنشاء طلب البيع","تم الانتهاء - إنشاء طلب البيع"] }
         ]
       }
@@ -517,6 +518,12 @@
                     <option value="">اكتب رسالة عادية</option>
                   </select>
                 </label>
+                <label class="template-picker">
+                  <span>رسالة جاهزة</span>
+                  <select id="chatQuickMessageSelect">
+                    <option value="">اختر رسالة جاهزة</option>
+                  </select>
+                </label>
                 <button type="button" class="secondary-btn" id="chatUseTemplateBtn">استخدام القالب</button>
                 <button type="button" class="secondary-btn" id="chatClearTextBtn">مسح</button>
               </div>
@@ -538,6 +545,13 @@
         const t = selectedDashboardTemplate();
         if(t?.content && !el("chatReplyText").value.trim()) insertSelectedDashboardTemplate();
       };
+      const quickSelect = el("chatQuickMessageSelect");
+      if(quickSelect){
+        quickSelect.onchange = () => {
+          const t = selectedDashboardQuickMessage();
+          if(t) insertDashboardTemplate(t);
+        };
+      }
       el("chatReplyText").addEventListener("keydown", (e) => {
         if(e.key === "Enter" && !e.shiftKey){
           e.preventDefault();
@@ -563,22 +577,40 @@
     }
 
     function renderDashboardTemplateOptions(){
-      const select = document.getElementById("chatTemplateSelect");
-      if(!select) return;
+      const templateSelect = document.getElementById("chatTemplateSelect");
+      const quickSelect = document.getElementById("chatQuickMessageSelect");
       const lead = dashboardChatState.lead;
       const items = dashboardChatState.templates
         .filter(t => !lead || templateAppliesToLead(t, lead))
         .sort((a,b) => Number(a.sort || 0) - Number(b.sort || 0));
 
-      select.innerHTML = `<option value="">اكتب رسالة عادية</option>` + items.map(t => {
-        const label = t.label || t.title || t.name || "قالب بدون اسم";
-        const type = t.type === "mersal" ? "مرسال" : "جاهزة";
-        return `<option value="${escapeHtml(t.id)}">${escapeHtml(label)} - ${escapeHtml(type)}</option>`;
-      }).join("");
+      const templates = items.filter(t => String(t.type || "quick") !== "quick");
+      const quickMessages = items.filter(t => String(t.type || "quick") === "quick");
+
+      if(templateSelect){
+        templateSelect.innerHTML = `<option value="">اكتب رسالة عادية</option>` + templates.map(t => {
+          const label = t.label || t.title || t.name || "قالب بدون اسم";
+          const type = t.type === "mersal" ? "مرسال" : "قالب";
+          return `<option value="${escapeHtml(t.id)}">${escapeHtml(label)} - ${escapeHtml(type)}</option>`;
+        }).join("");
+      }
+
+      if(quickSelect){
+        quickSelect.innerHTML = `<option value="">اختر رسالة جاهزة</option>` + quickMessages.map(t => {
+          const label = t.label || t.title || t.name || "رسالة جاهزة";
+          return `<option value="${escapeHtml(t.id)}">${escapeHtml(label)}</option>`;
+        }).join("");
+      }
     }
 
     function selectedDashboardTemplate(){
       const id = document.getElementById("chatTemplateSelect")?.value || "";
+      if(!id) return null;
+      return dashboardChatState.templates.find(t => t.id === id) || null;
+    }
+
+    function selectedDashboardQuickMessage(){
+      const id = document.getElementById("chatQuickMessageSelect")?.value || "";
       if(!id) return null;
       return dashboardChatState.templates.find(t => t.id === id) || null;
     }
@@ -622,17 +654,24 @@
       });
     }
 
+    function statusOptionsForLead(lead){
+      const dept = leadDepartment(lead);
+      const def = Object.values(SECTION_DEFS).find(x => x.department === dept) || SECTION_DEFS.cash;
+      const statuses = [];
+      def.statuses.forEach(st => {
+        statuses.push(st.title);
+        (st.match || []).forEach(v => statuses.push(v));
+      });
+      return [...new Set(statuses.filter(Boolean))];
+    }
+
     function fillDashboardChatStatusOptions(lead){
       const select = el("chatStatus");
       const current = getLeadField(lead, ["status","leadStatus","currentStatus","clientStatus","customerStatus","pipelineStatus"], "عميل جديد");
-      const base = [
-        current, "عميل جديد", "تم الرد", "غير مؤهل", "مؤجل", "محتمل", "تم البيع",
-        "جاري العمل", "تم الانتهاء", "تم الاتصال", "مؤهل - لم يتم إرسال الأوراق",
-        "مؤهل - تأخر في إرسال الأوراق", "مؤهل - تم إرسال الأوراق", "تم الإنتهاء - إنشاء طلب البيع"
-      ].filter(Boolean);
-      const unique = [...new Set(base)];
-      select.innerHTML = unique.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-      select.value = current;
+      const options = statusOptionsForLead(lead);
+      if(current && !options.includes(current)) options.unshift(current);
+      select.innerHTML = options.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+      select.value = options.includes(current) ? current : (options[0] || "عميل جديد");
     }
 
     function fillDashboardChatCustomerForm(lead){
@@ -746,6 +785,21 @@
       return m.text || m.body || m.message || m.caption || m.content || m.lastMessageText || "";
     }
 
+    function isDashboardOutgoingMessage(m){
+      const direction = String(m?.direction || m?.type || "").toLowerCase();
+      const senderType = String(m?.senderType || "").toLowerCase();
+      const senderId = String(m?.senderId || "").toLowerCase();
+      const senderName = String(m?.senderName || "").toLowerCase();
+      return ["out","outgoing","agent","sent","system"].includes(direction)
+        || ["agent","system","admin","automation"].includes(senderType)
+        || m?.fromAgent === true
+        || ["automation","system","agent","admin"].includes(senderId)
+        || senderName.includes("automation")
+        || senderName.includes("facebook automation")
+        || senderName.includes("system")
+        || senderName.includes("السيستم");
+    }
+
     function renderDashboardMessages(messages){
       const box = el("chatMessages");
       if(!messages.length){
@@ -753,7 +807,7 @@
         return;
       }
       box.innerHTML = messages.map(m => {
-        const outgoing = m.direction === "outgoing" || m.fromAgent || m.senderType === "agent";
+        const outgoing = isDashboardOutgoingMessage(m);
         return `
           <div class="dash-msg ${outgoing ? "out" : "in"}">
             <div>${escapeHtml(messageText(m) || "رسالة")}</div>
@@ -941,7 +995,16 @@
       };
 
       try{
-        await updateDoc(doc(db, "leads", lead.__id), payload);
+        // setDoc merge أوضح مع صلاحيات Firestore من updateDoc، ويحافظ على نفس doc لو موجود.
+        await setDoc(doc(db, "leads", lead.__id), payload, { merge:true });
+
+        // لو المحادثة مفتوحة، حدّث نفس بيانات العميل في conversation أيضاً حتى تظهر فوراً في الشات.
+        const cfg = chatPlatformConfig(dashboardChatState.platform);
+        const convId = dashboardChatState.convId || lead.conversationId || lead.convId;
+        if(convId){
+          await setDoc(doc(db, cfg.conversations, convId), payload, { merge:true });
+        }
+
         Object.assign(lead, payload);
         dashboardChatState.actualCompletion = inboxCompletionFromData({
           customerName: payload.customerName,
@@ -961,7 +1024,18 @@
         toast("تم حفظ بيانات العميل");
       }catch(err){
         console.error(err);
-        toast("فشل حفظ بيانات العميل");
+        try{
+          const cfg = chatPlatformConfig(dashboardChatState.platform);
+          const convId = dashboardChatState.convId || lead.conversationId || lead.convId;
+          if(convId){
+            await setDoc(doc(db, cfg.conversations, convId), payload, { merge:true });
+            Object.assign(lead, payload);
+            fillDashboardChatCustomerForm(lead);
+            toast("تم حفظ بيانات العميل في المحادثة");
+            return;
+          }
+        }catch(e2){ console.error(e2); }
+        toast("فشل حفظ بيانات العميل - راجع صلاحية تعديل العملاء لهذا الحساب");
       }
     }
 
@@ -1803,6 +1877,18 @@
             max-width:86% !important;
           }
         }
+        /* V52 popup composer improvements */
+        .composer-tools{
+          grid-template-columns:1fr 1fr auto auto !important;
+          align-items:end !important;
+        }
+        .template-picker select{
+          min-height:42px !important;
+        }
+        @media(max-width:900px){
+          .composer-tools{ grid-template-columns:1fr !important; }
+        }
+
         /* V39 completion badge beside customer name */
         .chat-title-line{
           display:flex !important;
