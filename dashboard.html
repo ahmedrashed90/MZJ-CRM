@@ -159,18 +159,6 @@
       localStorage.getItem("MERSAL_SEND_ENDPOINT") ||
       "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
 
-    const INSTAGRAM_SEND_ENDPOINT =
-      window.INSTAGRAM_SEND_ENDPOINT ||
-      localStorage.getItem("INSTAGRAM_SEND_ENDPOINT") ||
-      "https://instagram.next-erp-mzj.workers.dev/";
-
-    function instagramSendEndpoint(){
-      const raw = String(INSTAGRAM_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/").trim();
-      const clean = raw.replace(/\/+$/, "");
-      if(/\/(crm\/send|send)$/i.test(clean)) return clean;
-      return clean + "/crm/send";
-    }
-
     let dashboardChatState = {
       lead:null,
       platform:"whatsapp",
@@ -557,6 +545,7 @@
       el("chatTemplateSelect").onchange = () => {
         const t = selectedDashboardTemplate();
         if(t) applyDashboardTemplateToMessage(t, true);
+        else clearDashboardTemplateSelectionForFreeText();
       };
       const quickSelect = el("chatQuickMessageSelect");
       if(quickSelect){
@@ -723,10 +712,26 @@
       return true;
     }
 
+    function clearDashboardTemplateSelectionForFreeText(){
+      const templateSelect = el("chatTemplateSelect");
+      const quickSelect = el("chatQuickMessageSelect");
+      const textarea = el("chatReplyText");
+
+      if(templateSelect) templateSelect.value = "";
+      if(quickSelect) quickSelect.value = "";
+      if(textarea){
+        textarea.value = "";
+        textarea.placeholder = "اكتب رسالة نص حر هنا... Enter للإرسال و Shift + Enter لسطر جديد";
+      }
+    }
+
     function selectDashboardTemplateByStatus(status){
       const template = findDashboardTemplateByStatus(status);
       const select = el("chatTemplateSelect");
-      if(!template || !select) return false;
+      if(!template || !select){
+        clearDashboardTemplateSelectionForFreeText();
+        return false;
+      }
 
       select.value = template.id;
       applyDashboardTemplateToMessage(template, true);
@@ -1194,46 +1199,6 @@
       if(modal) modal.classList.add("hidden");
     }
 
-    function instagramSubscriberIdFromLead(lead, convId){
-      const direct = lead?.subscriber_id || lead?.subscriberId || lead?.participantId || lead?.igId || lead?.instagramId || lead?.manychatContactId || lead?.phone || lead?.mobile || lead?.phoneNumber || "";
-      if(direct) return String(direct).trim();
-      const conv = String(lead?.conversationId || lead?.convId || lead?.contactKey || convId || "").trim();
-      if(!conv) return "";
-      const parts = conv.split(":");
-      return String(parts[parts.length - 1] || "").trim();
-    }
-
-    async function sendDashboardInstagramDirect(lead, convId, text){
-      const subscriberId = instagramSubscriberIdFromLead(lead, convId);
-      if(!subscriberId) throw new Error("missing instagram subscriber id");
-
-      const payload = {
-        convId,
-        conversationId:convId,
-        subscriber_id:subscriberId,
-        subscriberId,
-        participantId:subscriberId,
-        pageId:lead?.pageId || lead?.page_id || "",
-        displayName:customerName(lead),
-        name:customerName(lead),
-        text,
-        message:text
-      };
-
-      const res = await fetch(instagramSendEndpoint(), {
-        method:"POST",
-        headers:{ "content-type":"application/json" },
-        body:JSON.stringify(payload)
-      });
-      const rawText = await res.text();
-      let result = {};
-      try { result = rawText ? JSON.parse(rawText) : {}; } catch(e) { result = { raw: rawText }; }
-      if(!res.ok || result.ok === false){
-        throw new Error(result.error || result.message || result.raw || "instagram send failed");
-      }
-      return result;
-    }
-
     async function sendDashboardChatReply(){
       const lead = dashboardChatState.lead;
       const text = el("chatReplyText").value.trim();
@@ -1293,43 +1258,6 @@
               status:"sent",
               messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
               template: selectedTemplate || null,
-              sentByUid:currentUser?.uid || '',
-              sentByEmail:currentUser?.email || '',
-              createdAt:serverTimestamp()
-            }).catch(console.warn);
-          }
-        } else if(platform === "instagram"){
-          await sendDashboardInstagramDirect(lead, convId, text);
-          await addDoc(collection(db, cfg.conversations, convId, "messages"), {
-            text,
-            direction:"outgoing",
-            fromAgent:true,
-            channel:"instagram",
-            channelCode:"ig",
-            department:leadDepartment(lead),
-            template: selectedTemplate || null,
-            sentByUid:currentUser?.uid || '',
-            sentByEmail:currentUser?.email || '',
-            createdAt:serverTimestamp(),
-            sentAt:serverTimestamp(),
-            status:"sent"
-          });
-          await setDoc(doc(db, cfg.conversations, convId), {
-            lastMessage:text,
-            lastMessageText:text,
-            updatedAt:serverTimestamp(),
-            lastUpdated:serverTimestamp()
-          }, { merge:true });
-          if(cfg.outbox){
-            await addDoc(collection(db, cfg.outbox), {
-              conversationId:convId,
-              platform,
-              department:leadDepartment(lead),
-              to:instagramSubscriberIdFromLead(lead, convId),
-              text,
-              status:"sent",
-              messageKind:"text",
-              template:selectedTemplate || null,
               sentByUid:currentUser?.uid || '',
               sentByEmail:currentUser?.email || '',
               createdAt:serverTimestamp()
@@ -2794,6 +2722,7 @@
       if(e.target?.id === "chatTemplateSelect"){
         const t = selectedDashboardTemplate();
         if(t) applyDashboardTemplateToMessage(t, true);
+        else clearDashboardTemplateSelectionForFreeText();
       }
       if(e.target?.id === "chatStatus"){
         onDashboardStatusChanged();
