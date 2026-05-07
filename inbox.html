@@ -241,10 +241,10 @@
       localStorage.getItem("FB_SEND_ENDPOINT") ||
       "https://facebook.next-erp-mzj.workers.dev/crm/send";
 
-    const MERSAL_SEND_ENDPOINT =
-      window.MERSAL_SEND_ENDPOINT ||
-      localStorage.getItem("MERSAL_SEND_ENDPOINT") ||
-      "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
+    const INSTAGRAM_SEND_ENDPOINT =
+      window.INSTAGRAM_SEND_ENDPOINT ||
+      localStorage.getItem("INSTAGRAM_SEND_ENDPOINT") ||
+      "https://instagram-crm.next-erp-mzj.workers.dev/crm/send";
 
     const CUSTOMER_FIELDS = [
       "customerName","phone","salary","obligation","location","age","salaryBank",
@@ -990,6 +990,62 @@
 
       const cfg = PLATFORM_CONFIG[c.platform] || PLATFORM_CONFIG.whatsapp;
       const ids = messageCandidateIds(c);
+
+      if(c.platform === "instagram"){
+        const collectionsToRead = [...new Set([cfg.conversations, "wa_conversations"].filter(Boolean))];
+        const messagesByKey = new Map();
+        let loaded = 0;
+        const unsubs = [];
+
+        const renderMerged = () => {
+          const messages = [...messagesByKey.values()].sort((a,b) => messageSortTime(a) - messageSortTime(b));
+          messagesEl.innerHTML = "";
+          if(!messages.length){
+            messagesEl.innerHTML = loaded >= collectionsToRead.length ? '<div class="empty">لا توجد رسائل</div>' : '<div class="empty">جاري التحميل...</div>';
+            return;
+          }
+          messages.forEach(m => {
+            const outgoing = ["out","outgoing","agent","sent"].includes(String(m.direction || m.type || "").toLowerCase()) || m.fromAgent === true;
+            const row = document.createElement("div");
+            row.className = "msg-row " + (outgoing ? "out" : "in");
+            row.innerHTML = `
+              <div class="msg ${outgoing ? "out" : "in"}">
+                <div class="msg-text">${escapeHtml(messageTextOf(m))}</div>
+                <div class="msg-meta">
+                  <span>${outgoing ? "أنت" : "العميل"}</span>
+                  <span>•</span>
+                  <span>${formatTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt)}</span>
+                </div>
+              </div>
+            `;
+            messagesEl.appendChild(row);
+          });
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        };
+
+        collectionsToRead.forEach(collectionName => {
+          const convId = c.conversationId || c.convId || c.id;
+          const colRef = collection(db, collectionName, convId, "messages");
+          const unsub = onSnapshot(colRef, snap => {
+            loaded += 1;
+            [...messagesByKey.keys()].filter(k => k.startsWith(collectionName + ":")).forEach(k => messagesByKey.delete(k));
+            snap.forEach(d => {
+              const data = { id:d.id, __collection:collectionName, ...d.data() };
+              const stable = data.messageId || data.id || `${messageTextOf(data)}_${messageSortTime(data)}_${data.direction || ""}`;
+              messagesByKey.set(`${collectionName}:${stable}`, data);
+            });
+            renderMerged();
+          }, err => {
+            console.error(err);
+            loaded += 1;
+            renderMerged();
+          });
+          unsubs.push(unsub);
+        });
+        state.unsubMessages = () => unsubs.forEach(fn => fn && fn());
+        return;
+      }
+
       let idx = 0;
 
       const attach = () => {
@@ -1033,11 +1089,6 @@
           messagesEl.scrollTop = messagesEl.scrollHeight;
         }, err => {
           console.error(err);
-          if(idx < ids.length - 1){
-            idx += 1;
-            attach();
-            return;
-          }
           messagesEl.innerHTML = '<div class="empty">تعذر تحميل الرسائل</div>';
           if(state.limitedInboxMode) el("connectionStatus").textContent = "وضع محدود";
         });
@@ -1070,34 +1121,35 @@
       };
     }
 
-    function mersalTemplatePayload(selectedTemplate, phone, text){
-      if(selectedTemplate?.type === "mersal"){
-        const templateName = String(selectedTemplate.name || selectedTemplate.label || "").trim();
-        if(templateName){
-          return {
-            phone,
-            template_name:templateName,
-            template_language:selectedTemplate.lang || "ar",
-            params:Array.isArray(selectedTemplate.params) ? selectedTemplate.params : [],
-            message:text
-          };
-        }
-      }
-      return { phone, message:text, text };
+    function instagramSubscriberIdFromConversation(c){
+      const direct = c.subscriber_id || c.subscriberId || c.participantId || c.igId || c.instagramId || c.manychatContactId || "";
+      if(direct) return String(direct).trim();
+      const parts = String(c.conversationId || c.convId || c.id || "").split(":");
+      return String(parts[parts.length - 1] || "").trim();
     }
 
-    async function sendMersalDirect({ phone, text, selectedTemplate }){
-      const payload = mersalTemplatePayload(selectedTemplate, phone, text);
-      const res = await fetch(MERSAL_SEND_ENDPOINT, {
+    async function sendInstagramDirect(c, text){
+      const subscriberId = instagramSubscriberIdFromConversation(c);
+      if(!subscriberId) throw new Error("missing instagram subscriber id");
+      const res = await fetch(INSTAGRAM_SEND_ENDPOINT, {
         method:"POST",
         headers:{ "content-type":"application/json" },
-        body:JSON.stringify(payload)
+        body:JSON.stringify({
+          convId:c.id,
+          conversationId:c.conversationId || c.convId || c.id,
+          subscriber_id:subscriberId,
+          subscriberId,
+          participantId:subscriberId,
+          message:text,
+          text,
+          displayName:getCustomerName(c),
+          name:getCustomerName(c)
+        })
       });
-      const rawText = await res.text();
-      let result = {};
-      try { result = rawText ? JSON.parse(rawText) : {}; } catch(e) { result = { raw: rawText }; }
+      const result = await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }));
       if(!res.ok || result.ok === false){
-        throw new Error(result.error || result.message || result.raw || "mersal send failed");
+        console.error("Instagram send failed", result);
+        throw new Error(result.error || result.raw || "instagram send failed");
       }
       return result;
     }
@@ -1141,13 +1193,28 @@
         }
       }
 
+      if(c.platform === "instagram"){
+        try{
+          await sendInstagramDirect(c, text);
+          el("replyText").value = "";
+          clearSelectedTemplateControls();
+          autoResizeReply();
+          toast("تم الإرسال");
+          return;
+        } catch(err){
+          console.error(err);
+          return toast("فشل إرسال إنستجرام. راجع رابط الوركر أو ManyChat.");
+        }
+      }
+
+      if(!cfg.outbox) return toast("لا يوجد مسار إرسال مضبوط لهذه المنصة.");
+
       if(c.__virtual || c.platform === "whatsapp"){
-        const convId = c.id;
-        await setDoc(doc(db, cfg.conversations, convId), {
-          conversationId:convId,
-          convId,
-          waId:convId,
-          participantId:convId,
+        await setDoc(doc(db, cfg.conversations, c.id), {
+          conversationId:c.id,
+          convId:c.id,
+          waId:c.id,
+          participantId:c.id,
           platform:"whatsapp",
           channel:"whatsapp",
           channelCode:"wa",
@@ -1155,62 +1222,13 @@
           phoneNormalized:normalizeKsaPhone(getPhone(c)),
           customerName:getCustomerName(c),
           department:dept,
-          status:c.status || c.clientStatus || "عميل جديد",
+          status:c.status || "open",
+          lastMessageText:text,
+          lastMessage:text,
           updatedAt:serverTimestamp(),
           lastUpdated:serverTimestamp()
         }, { merge:true }).catch(console.error);
-
-        try{
-          await sendMersalDirect({ phone:getPhone(c) || convId, text, selectedTemplate });
-        }catch(err){
-          console.error("Mersal send failed", err);
-          return toast("فشل إرسال مرسال. راجع الوركر أو التوكن.");
-        }
-
-        await addDoc(collection(db, cfg.conversations, convId, "messages"), {
-          text,
-          direction:"outgoing",
-          fromAgent:true,
-          department:dept,
-          template:selectedTemplate,
-          sentByUid:state.user.uid,
-          sentByEmail:state.user.email,
-          createdAt:serverTimestamp(),
-          status:"sent"
-        });
-
-        await setDoc(doc(db, cfg.conversations, convId), {
-          lastMessage:text,
-          lastMessageText:text,
-          department:dept,
-          updatedAt:serverTimestamp(),
-          lastUpdated:serverTimestamp()
-        }, { merge:true }).catch(()=>{});
-
-        if(cfg.outbox){
-          await addDoc(collection(db, cfg.outbox), {
-            conversationId:convId,
-            platform:c.platform,
-            department:dept,
-            to:getPhone(c),
-            text,
-            status:"sent",
-            messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
-            template: selectedTemplate,
-            sentByUid:state.user.uid,
-            sentByEmail:state.user.email,
-            createdAt:serverTimestamp()
-          }).catch(console.warn);
-        }
-
-        el("replyText").value = "";
-        clearSelectedTemplateControls();
-        autoResizeReply();
-        toast("تم الإرسال");
-        return;
       }
-
-      if(!cfg.outbox) return toast("لا يوجد مسار إرسال مضبوط لهذه المنصة.");
 
       await addDoc(collection(db, cfg.outbox), {
         conversationId:c.id,
