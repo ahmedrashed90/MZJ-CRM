@@ -2,6 +2,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -544,6 +545,7 @@
       el("chatTemplateSelect").onchange = () => {
         const t = selectedDashboardTemplate();
         if(t) applyDashboardTemplateToMessage(t, true);
+        else clearDashboardTemplateSelectionForFreeText();
       };
       const quickSelect = el("chatQuickMessageSelect");
       if(quickSelect){
@@ -710,10 +712,26 @@
       return true;
     }
 
+    function clearDashboardTemplateSelectionForFreeText(){
+      const templateSelect = el("chatTemplateSelect");
+      const quickSelect = el("chatQuickMessageSelect");
+      const textarea = el("chatReplyText");
+
+      if(templateSelect) templateSelect.value = "";
+      if(quickSelect) quickSelect.value = "";
+      if(textarea){
+        textarea.value = "";
+        textarea.placeholder = "اكتب رسالة نص حر هنا... Enter للإرسال و Shift + Enter لسطر جديد";
+      }
+    }
+
     function selectDashboardTemplateByStatus(status){
       const template = findDashboardTemplateByStatus(status);
       const select = el("chatTemplateSelect");
-      if(!template || !select) return false;
+      if(!template || !select){
+        clearDashboardTemplateSelectionForFreeText();
+        return false;
+      }
 
       select.value = template.id;
       applyDashboardTemplateToMessage(template, true);
@@ -2704,6 +2722,7 @@
       if(e.target?.id === "chatTemplateSelect"){
         const t = selectedDashboardTemplate();
         if(t) applyDashboardTemplateToMessage(t, true);
+        else clearDashboardTemplateSelectionForFreeText();
       }
       if(e.target?.id === "chatStatus"){
         onDashboardStatusChanged();
