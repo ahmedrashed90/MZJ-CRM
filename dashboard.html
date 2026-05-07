@@ -1019,16 +1019,30 @@
     }
 
     function messageSortTime(m){
-      const value =
-        m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt ||
-        m.messageTimestamp || m.lastMessageAt || m.updatedAt || "";
-      if(value?.toDate) return value.toDate().getTime();
-      if(typeof value === "number") {
-        // supports seconds or milliseconds
-        return value < 9999999999 ? value * 1000 : value;
+      const values = [
+        m.createdAt, m.sentAt, m.receivedAt, m.timestamp, m.time,
+        m.messageTimestamp, m.lastMessageAt, m.updatedAt, m.created_time,
+        m.date, m.createdAtMs, m.createdAtSeconds
+      ].filter(v => v !== undefined && v !== null && String(v).trim() !== "");
+
+      for(const value of values){
+        if(value?.toDate) return value.toDate().getTime();
+        if(typeof value === "number") return value < 9999999999 ? value * 1000 : value;
+        const raw = String(value).trim();
+        if(/^\d+(?:\.\d+)?$/.test(raw)){
+          const n = Number(raw);
+          if(Number.isFinite(n)) return n < 9999999999 ? n * 1000 : n;
+        }
+        const parsed = Date.parse(raw);
+        if(Number.isFinite(parsed)) return parsed;
       }
-      const parsed = Date.parse(value);
-      return Number.isFinite(parsed) ? parsed : 0;
+
+      const docTime = String(m.id || "").match(/^(\d{10,13})/);
+      if(docTime){
+        const n = Number(docTime[1]);
+        if(Number.isFinite(n)) return n < 9999999999 ? n * 1000 : n;
+      }
+      return 0;
     }
 
     function messageText(m){
@@ -1082,13 +1096,15 @@
         box.innerHTML = `<div class="empty">لا توجد رسائل لهذه المحادثة.</div>`;
         return;
       }
-      box.innerHTML = messages.map(m => {
+      const ordered = messages.slice().sort((a,b) => messageSortTime(a) - messageSortTime(b));
+      box.innerHTML = ordered.map(m => {
         const outgoing = isDashboardOutgoingMessage(m);
+        const text = messageText(m) || "رسالة";
         return `
           <div class="dash-msg-row ${outgoing ? "out" : "in"}">
             <div class="dash-msg ${outgoing ? "out" : "in"}">
-              <div>${escapeHtml(messageText(m) || "رسالة")}</div>
-              <small>${escapeHtml(formatMessageTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
+              <div class="dash-msg-text">${escapeHtml(text)}</div>
+              <small>${escapeHtml(formatMessageTime(m.createdAt || m.sentAt || m.receivedAt || m.timestamp || m.time || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
             </div>
           </div>
         `;
@@ -2512,6 +2528,103 @@
         #chatMessages .dash-msg-row.out .dash-msg small{ text-align:right !important; }
         @media(max-width:900px){
           #chatMessages .dash-msg-row .dash-msg{ max-width:86% !important; }
+        }
+
+        /* V62 final popup chat order/alignment fix */
+        #dashboardChatModal #chatMessages.dashboard-chat-messages,
+        #dashboardChatModal #chatMessages.inbox-messages{
+          direction:ltr !important;
+          display:flex !important;
+          flex-direction:column !important;
+          justify-content:flex-start !important;
+          align-content:stretch !important;
+          align-items:stretch !important;
+          gap:8px !important;
+          padding:18px 22px !important;
+          overflow-y:auto !important;
+          overflow-x:hidden !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row{
+          direction:ltr !important;
+          width:100% !important;
+          max-width:100% !important;
+          display:flex !important;
+          flex:0 0 auto !important;
+          margin:0 !important;
+          padding:0 !important;
+          background:transparent !important;
+          border:0 !important;
+          box-shadow:none !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.in{
+          justify-content:flex-end !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.out{
+          justify-content:flex-start !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row .dash-msg{
+          direction:rtl !important;
+          flex:0 1 auto !important;
+          width:auto !important;
+          min-width:0 !important;
+          max-width:min(70%, 620px) !important;
+          height:auto !important;
+          min-height:0 !important;
+          display:block !important;
+          margin:0 !important;
+          padding:9px 12px 6px !important;
+          border-radius:14px !important;
+          line-height:1.75 !important;
+          white-space:normal !important;
+          word-break:break-word !important;
+          overflow-wrap:anywhere !important;
+          box-shadow:0 5px 14px rgba(80,32,24,.05) !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.in .dash-msg{
+          background:#fff !important;
+          color:#3d160f !important;
+          border:1px solid #ead4c8 !important;
+          border-bottom-right-radius:5px !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.out .dash-msg{
+          background:#eaf6ff !important;
+          color:#18324a !important;
+          border:1px solid #bfe0f7 !important;
+          border-bottom-left-radius:5px !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-text,
+        #dashboardChatModal #chatMessages .dash-msg > div{
+          display:block !important;
+          width:auto !important;
+          max-width:100% !important;
+          margin:0 !important;
+          padding:0 !important;
+          text-align:right !important;
+          direction:rtl !important;
+          line-height:1.75 !important;
+          white-space:pre-wrap !important;
+          word-break:break-word !important;
+          overflow-wrap:anywhere !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg small{
+          display:block !important;
+          margin-top:4px !important;
+          padding:0 !important;
+          line-height:1 !important;
+          font-size:10px !important;
+          opacity:.6 !important;
+          color:inherit !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.in .dash-msg small{
+          text-align:left !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.out .dash-msg small{
+          text-align:right !important;
+        }
+        @media(max-width:900px){
+          #dashboardChatModal #chatMessages .dash-msg-row .dash-msg{
+            max-width:86% !important;
+          }
         }
 
       `;
