@@ -2,7 +2,6 @@
 
 
 
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -154,10 +153,10 @@
       localStorage.getItem("FB_SEND_ENDPOINT") ||
       "https://facebook.next-erp-mzj.workers.dev/crm/send";
 
-    const MERSAL_SEND_ENDPOINT =
-      window.MERSAL_SEND_ENDPOINT ||
-      localStorage.getItem("MERSAL_SEND_ENDPOINT") ||
-      "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
+    const INSTAGRAM_SEND_ENDPOINT =
+      window.INSTAGRAM_SEND_ENDPOINT ||
+      localStorage.getItem("INSTAGRAM_SEND_ENDPOINT") ||
+      "https://instagram-crm.next-erp-mzj.workers.dev/crm/send";
 
     let dashboardChatState = {
       lead:null,
@@ -169,7 +168,6 @@
       actualCompletion:null,
       completionByLead:{}
     };
-    let dashboardStatusSaveTimer = null;
 
     const SECTION_DEFS = {
       cash: {
@@ -342,8 +340,21 @@
     function visibleLeadsForSection(def){
       let items = leads.filter(l => leadDepartment(l) === def.department);
 
-      // Dashboard popup is an operational workspace: any active representative who can open
-      // the dashboard can update customer data from the popup. Firestore rules remain the final authority.
+      if(!isAdmin && currentProfile?.allDepartments !== true){
+        const uid = currentUser?.uid || "";
+        const userDept = currentProfile?.department || "";
+        if(userDept && userDept !== def.department) return [];
+
+        items = items.filter(l => {
+          return !uid ||
+            l.assignedTo === uid ||
+            l.responsibleUid === uid ||
+            l.salesAssignedTo === uid ||
+            l.callCenterUid === uid ||
+            l.callCenterAssignedTo === uid;
+        });
+      }
+
       return items;
     }
 
@@ -466,10 +477,6 @@
               <div class="customer-form-card">
                 <h4>بيانات العميل</h4>
                 <label>حالة العميل<select id="chatStatus"></select></label>
-                <div class="two">
-                  <label>المصدر<input id="chatSource" readonly></label>
-                  <label>القسم<input id="chatDepartment" readonly></label>
-                </div>
                 <label id="chatFollowupDateBox" class="followup-date-box hidden">موعد المتابعة<input id="chatFollowupDate" type="datetime-local"></label>
                 <label>اسم العميل<input id="chatName"></label>
                 <div class="two">
@@ -545,7 +552,6 @@
       el("chatTemplateSelect").onchange = () => {
         const t = selectedDashboardTemplate();
         if(t) applyDashboardTemplateToMessage(t, true);
-        else clearDashboardTemplateSelectionForFreeText();
       };
       const quickSelect = el("chatQuickMessageSelect");
       if(quickSelect){
@@ -712,26 +718,10 @@
       return true;
     }
 
-    function clearDashboardTemplateSelectionForFreeText(){
-      const templateSelect = el("chatTemplateSelect");
-      const quickSelect = el("chatQuickMessageSelect");
-      const textarea = el("chatReplyText");
-
-      if(templateSelect) templateSelect.value = "";
-      if(quickSelect) quickSelect.value = "";
-      if(textarea){
-        textarea.value = "";
-        textarea.placeholder = "اكتب رسالة نص حر هنا... Enter للإرسال و Shift + Enter لسطر جديد";
-      }
-    }
-
     function selectDashboardTemplateByStatus(status){
       const template = findDashboardTemplateByStatus(status);
       const select = el("chatTemplateSelect");
-      if(!template || !select){
-        clearDashboardTemplateSelectionForFreeText();
-        return false;
-      }
+      if(!template || !select) return false;
 
       select.value = template.id;
       applyDashboardTemplateToMessage(template, true);
@@ -742,48 +732,6 @@
       updateDashboardStatusVisual();
       updateChatCompletionProgress();
       selectDashboardTemplateByStatus(el("chatStatus")?.value || "");
-      scheduleDashboardStatusSave();
-    }
-
-    function scheduleDashboardStatusSave(){
-      clearTimeout(dashboardStatusSaveTimer);
-      dashboardStatusSaveTimer = setTimeout(saveDashboardStatusOnly, 300);
-    }
-
-    async function saveDashboardStatusOnly(){
-      const lead = dashboardChatState.lead;
-      const status = el("chatStatus")?.value || "";
-      if(!lead?.__id || !status) return;
-      if(normalizeDashboardStatusKey(status) === normalizeDashboardStatusKey(getLeadStatus(lead))) return;
-
-      const payload = {
-        status,
-        statusLabel: status,
-        leadStatus: status,
-        currentStatus: status,
-        currentStatusLabel: status,
-        clientStatus: status,
-        customerStatus: status,
-        updatedByUid: currentUser?.uid || "",
-        updatedByEmail: currentUser?.email || "",
-        updatedAt: serverTimestamp(),
-        lastUpdated: serverTimestamp()
-      };
-
-      try{
-        await setDoc(doc(db, "leads", lead.__id), payload, { merge:true });
-        const cfg = chatPlatformConfig(dashboardChatState.platform);
-        const convId = dashboardChatState.convId || lead.conversationId || lead.convId;
-        if(convId){
-          await setDoc(doc(db, cfg.conversations, convId), payload, { merge:true });
-        }
-        Object.assign(lead, payload);
-        renderDashboard();
-        toast("تم تحديث حالة العميل");
-      }catch(err){
-        console.error(err);
-        toast("تعذر تحديث الحالة - راجع صلاحيات Firestore");
-      }
     }
 
 
@@ -791,44 +739,6 @@
       const t = selectedDashboardTemplate();
       if(!t) return toast("اختر قالب أولاً");
       if(!applyDashboardTemplateToMessage(t, true)) return toast("القالب لا يحتوي على رسالة");
-    }
-
-    function dashboardTemplateParams(t){
-      const candidates = [t?.params, t?.parameters, t?.templateParams, t?.template?.params, t?.template?.parameters];
-      for(const v of candidates){
-        if(Array.isArray(v)) return v;
-      }
-      return [];
-    }
-
-    function dashboardMersalPayload(t, phone, text){
-      const type = String(t?.type || "").toLowerCase();
-      const templateName = String(t?.template_name || t?.templateName || t?.name || t?.template?.name || "").trim();
-      if(type === "mersal" && templateName){
-        return {
-          phone,
-          template_name:templateName,
-          template_language:String(t?.template_language || t?.templateLang || t?.lang || t?.template?.lang || "ar").trim() || "ar",
-          params:dashboardTemplateParams(t),
-          components:Array.isArray(t?.components) ? t.components : undefined,
-          message:text
-        };
-      }
-      return { phone, message:text, text };
-    }
-
-    async function sendDashboardMersalDirect({ phone, text, selectedTemplate }){
-      const payload = dashboardMersalPayload(selectedTemplate, phone, text);
-      const res = await fetch(MERSAL_SEND_ENDPOINT, {
-        method:"POST",
-        headers:{ "content-type":"application/json" },
-        body:JSON.stringify(payload)
-      });
-      const result = await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }));
-      if(!res.ok || result.ok === false){
-        throw new Error(result.error || result.message || result.raw || "mersal send failed");
-      }
-      return result;
     }
 
     function listenDashboardTemplates(){
@@ -940,8 +850,6 @@
       el("chatCustomerName").textContent = customerName(lead);
       el("chatCustomerMeta").textContent = customerMeta(lead) || "لا توجد بيانات إضافية";
       fillDashboardChatStatusOptions(lead);
-      el("chatSource").value = getLeadField(lead, ["sourceName","source","leadSource","campaignSource","platform","channel"], "");
-      el("chatDepartment").value = departmentLabel(leadDepartment(lead));
       el("chatName").value = customerName(lead) === "عميل بدون اسم" ? "" : customerName(lead);
       el("chatPhone").value = phoneOfLead(lead) || "";
       el("chatAge").value = getLeadField(lead, ["age","customerAge"]);
@@ -1037,30 +945,16 @@
     }
 
     function messageSortTime(m){
-      const values = [
-        m.createdAt, m.sentAt, m.receivedAt, m.timestamp, m.time,
-        m.messageTimestamp, m.lastMessageAt, m.updatedAt, m.created_time,
-        m.date, m.createdAtMs, m.createdAtSeconds
-      ].filter(v => v !== undefined && v !== null && String(v).trim() !== "");
-
-      for(const value of values){
-        if(value?.toDate) return value.toDate().getTime();
-        if(typeof value === "number") return value < 9999999999 ? value * 1000 : value;
-        const raw = String(value).trim();
-        if(/^\d+(?:\.\d+)?$/.test(raw)){
-          const n = Number(raw);
-          if(Number.isFinite(n)) return n < 9999999999 ? n * 1000 : n;
-        }
-        const parsed = Date.parse(raw);
-        if(Number.isFinite(parsed)) return parsed;
+      const value =
+        m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt ||
+        m.messageTimestamp || m.lastMessageAt || m.updatedAt || "";
+      if(value?.toDate) return value.toDate().getTime();
+      if(typeof value === "number") {
+        // supports seconds or milliseconds
+        return value < 9999999999 ? value * 1000 : value;
       }
-
-      const docTime = String(m.id || "").match(/^(\d{10,13})/);
-      if(docTime){
-        const n = Number(docTime[1]);
-        if(Number.isFinite(n)) return n < 9999999999 ? n * 1000 : n;
-      }
-      return 0;
+      const parsed = Date.parse(value);
+      return Number.isFinite(parsed) ? parsed : 0;
     }
 
     function messageText(m){
@@ -1068,44 +962,18 @@
     }
 
     function isDashboardOutgoingMessage(m){
-      const norm = v => String(v ?? "").trim().toLowerCase();
-      const text = norm(messageText(m));
-      const direction = norm(m?.direction || m?.messageDirection || m?.statusDirection || m?.dir);
-      const type = norm(m?.type || m?.messageType || m?.kind || m?.messageKind);
-      const status = norm(m?.status || m?.deliveryStatus);
-      const senderType = norm(m?.senderType || m?.role || m?.authorType || m?.actorType);
-      const senderId = norm(m?.senderId || m?.from || m?.authorId || m?.createdBy || m?.userId);
-      const senderName = norm(m?.senderName || m?.authorName || m?.createdByName || m?.sentByName);
-      const currentUid = norm(currentUser?.uid || "");
-      const currentEmail = norm(currentUser?.email || "");
-      const phone = norm(phoneOfLead(dashboardChatState.lead || {})).replace(/\D/g, "");
-      const fromPhone = norm(m?.from || m?.phone || m?.waId || m?.senderPhone || m?.customerPhone).replace(/\D/g, "");
-
-      const incomingWords = ["in","incoming","inbound","customer","client","received","receive","user","lead","reply_from_customer","from_customer"];
-      const outgoingWords = ["out","outgoing","outbound","agent","sent_by_agent","system","admin","automation","reply","from_agent","to_customer"];
-
-      if(m?.fromAgent === true || m?.isAgent === true || m?.mine === true || m?.isMine === true || m?.fromMe === true || m?.isFromMe === true) return true;
-      if(m?.fromCustomer === true || m?.isCustomer === true || m?.mine === false || m?.isMine === false || m?.fromMe === false || m?.isFromMe === false) return false;
-
-      if(currentUid && norm(m?.sentByUid || m?.updatedByUid || m?.createdByUid) === currentUid) return true;
-      if(currentEmail && norm(m?.sentByEmail || m?.updatedByEmail || m?.createdByEmail) === currentEmail) return true;
-      if(m?.sentByUid || m?.sentByEmail || m?.agentUid || m?.adminUid) return true;
-
-      if(incomingWords.includes(direction) || incomingWords.includes(senderType) || incomingWords.includes(type)) return false;
-      if(outgoingWords.includes(direction) || outgoingWords.includes(senderType) || outgoingWords.includes(type)) return true;
-
-      // Do not treat status/type "sent" alone as proof that the message is ours;
-      // some webhook payloads use delivery-like values for customer replies too.
-      if(["delivered","read","pending","queued","failed"].includes(status) && (m?.sentByUid || m?.fromAgent === true)) return true;
-      if(status === "received" || status === "incoming") return false;
-
-      if(phone && fromPhone && fromPhone.endsWith(phone.slice(-9))) return false;
-      if(["automation","system","agent","admin","crm"].includes(senderId)) return true;
-      if(senderName.includes("automation") || senderName.includes("facebook automation") || senderName.includes("system") || senderName.includes("السيستم") || senderName.includes("admin") || senderName.includes("مندوب")) return true;
-
-      // Short numeric replies are almost always customer choices/replies in these conversations.
-      if(/^\d{1,6}$/.test(text)) return false;
-      return false;
+      const direction = String(m?.direction || m?.type || "").toLowerCase();
+      const senderType = String(m?.senderType || "").toLowerCase();
+      const senderId = String(m?.senderId || "").toLowerCase();
+      const senderName = String(m?.senderName || "").toLowerCase();
+      return ["out","outgoing","agent","sent","system"].includes(direction)
+        || ["agent","system","admin","automation"].includes(senderType)
+        || m?.fromAgent === true
+        || ["automation","system","agent","admin"].includes(senderId)
+        || senderName.includes("automation")
+        || senderName.includes("facebook automation")
+        || senderName.includes("system")
+        || senderName.includes("السيستم");
     }
 
     function renderDashboardMessages(messages){
@@ -1114,16 +982,12 @@
         box.innerHTML = `<div class="empty">لا توجد رسائل لهذه المحادثة.</div>`;
         return;
       }
-      const ordered = messages.slice().sort((a,b) => messageSortTime(a) - messageSortTime(b));
-      box.innerHTML = ordered.map(m => {
+      box.innerHTML = messages.map(m => {
         const outgoing = isDashboardOutgoingMessage(m);
-        const text = messageText(m) || "رسالة";
         return `
-          <div class="dash-msg-row ${outgoing ? "out" : "in"}">
-            <div class="dash-msg ${outgoing ? "out" : "in"}">
-              <div class="dash-msg-text">${escapeHtml(text)}</div>
-              <small>${escapeHtml(formatMessageTime(m.createdAt || m.sentAt || m.receivedAt || m.timestamp || m.time || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
-            </div>
+          <div class="dash-msg ${outgoing ? "out" : "in"}">
+            <div>${escapeHtml(messageText(m) || "رسالة")}</div>
+            <small>${escapeHtml(formatMessageTime(m.createdAt || m.timestamp || m.time || m.receivedAt || m.sentAt || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
           </div>
         `;
       }).join("");
@@ -1143,7 +1007,35 @@
 
       // لا نستخدم orderBy("createdAt") هنا لأن بعض رسائل العميل القادمة من الوركر
       // لا تحتوي createdAt، وقد تحتوي timestamp / time / receivedAt بدلاً منها.
-      // Firestore يستبعد أي document لا يحتوي حقل orderBy، لذلك كانت تظهر رسائل الأوتوميشن فقط.
+      if(dashboardChatState.platform === "instagram"){
+        const collectionsToRead = [...new Set([cfg.conversations, "wa_conversations"].filter(Boolean))];
+        const messagesByKey = new Map();
+        const unsubs = [];
+
+        const renderMerged = () => {
+          const messages = [...messagesByKey.values()].sort((a,b) => messageSortTime(a) - messageSortTime(b));
+          renderDashboardMessages(messages);
+        };
+
+        collectionsToRead.forEach(collectionName => {
+          const unsub = onSnapshot(collection(db, collectionName, convId, "messages"), snap => {
+            [...messagesByKey.keys()].filter(k => k.startsWith(collectionName + ":")).forEach(k => messagesByKey.delete(k));
+            snap.forEach(d => {
+              const data = { id:d.id, __collection:collectionName, ...d.data() };
+              const stable = data.messageId || data.id || `${messageText(data)}_${messageSortTime(data)}_${data.direction || ""}`;
+              messagesByKey.set(`${collectionName}:${stable}`, data);
+            });
+            renderMerged();
+          }, err => {
+            console.error(err);
+            renderMerged();
+          });
+          unsubs.push(unsub);
+        });
+        dashboardChatState.unsubMessages = () => unsubs.forEach(fn => fn && fn());
+        return;
+      }
+
       dashboardChatState.unsubMessages = onSnapshot(collection(db, cfg.conversations, convId, "messages"), snap => {
         const messages = [];
         snap.forEach(d => messages.push({ id:d.id, ...d.data() }));
@@ -1199,6 +1091,39 @@
       if(modal) modal.classList.add("hidden");
     }
 
+    function dashboardInstagramSubscriberId(lead, convId){
+      const direct = lead?.subscriber_id || lead?.subscriberId || lead?.participantId || lead?.igId || lead?.instagramId || lead?.manychatContactId || "";
+      if(direct) return String(direct).trim();
+      const parts = String(convId || "").split(":");
+      return String(parts[parts.length - 1] || "").trim();
+    }
+
+    async function sendDashboardInstagramDirect(lead, convId, text){
+      const subscriberId = dashboardInstagramSubscriberId(lead, convId);
+      if(!subscriberId) throw new Error("missing instagram subscriber id");
+      const res = await fetch(INSTAGRAM_SEND_ENDPOINT, {
+        method:"POST",
+        headers:{ "content-type":"application/json" },
+        body:JSON.stringify({
+          convId,
+          conversationId:convId,
+          subscriber_id:subscriberId,
+          subscriberId,
+          participantId:subscriberId,
+          message:text,
+          text,
+          displayName:customerName(lead),
+          name:customerName(lead)
+        })
+      });
+      const result = await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }));
+      if(!res.ok || result.ok === false){
+        console.error("Dashboard Instagram send failed", result);
+        throw new Error(result.error || result.raw || "instagram send failed");
+      }
+      return result;
+    }
+
     async function sendDashboardChatReply(){
       const lead = dashboardChatState.lead;
       const text = el("chatReplyText").value.trim();
@@ -1227,42 +1152,8 @@
           });
           const result = await res.json().catch(() => ({}));
           if(!res.ok || result.ok === false) throw new Error(result.error || "facebook send failed");
-        } else if(platform === "whatsapp") {
-          await sendDashboardMersalDirect({ phone:phoneOfLead(lead) || convId, text, selectedTemplate });
-
-          await addDoc(collection(db, cfg.conversations, convId, "messages"), {
-            text,
-            direction:"outgoing",
-            fromAgent:true,
-            department:leadDepartment(lead),
-            template: selectedTemplate || null,
-            sentByUid:currentUser?.uid || '',
-            sentByEmail:currentUser?.email || '',
-            createdAt:serverTimestamp(),
-            status:"sent"
-          });
-          await setDoc(doc(db, cfg.conversations, convId), {
-            lastMessage:text,
-            lastMessageText:text,
-            updatedAt:serverTimestamp(),
-            lastUpdated:serverTimestamp()
-          }, { merge:true });
-
-          if(cfg.outbox){
-            await addDoc(collection(db, cfg.outbox), {
-              conversationId:convId,
-              platform,
-              department:leadDepartment(lead),
-              to: phoneOfLead(lead),
-              text,
-              status:"sent",
-              messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
-              template: selectedTemplate || null,
-              sentByUid:currentUser?.uid || '',
-              sentByEmail:currentUser?.email || '',
-              createdAt:serverTimestamp()
-            }).catch(console.warn);
-          }
+        } else if(platform === "instagram"){
+          await sendDashboardInstagramDirect(lead, convId, text);
         } else {
           if(!cfg.outbox) throw new Error("لا يوجد مسار إرسال مضبوط لهذه المنصة");
           await addDoc(collection(db, cfg.outbox), {
@@ -1330,9 +1221,6 @@
         payment: el("chatPayment").value.trim(),
         paymentType: el("chatPayment").value.trim(),
         payType: el("chatPayment").value.trim(),
-        source: getLeadField(lead, ["source","sourceName","leadSource"], ""),
-        sourceName: getLeadField(lead, ["sourceName","source","leadSource"], ""),
-        department: leadDepartment(lead),
         notes: el("chatNotes").value.trim(),
         followupDate: el("chatFollowupDate")?.value || "",
         followUpDate: el("chatFollowupDate")?.value || "",
@@ -2377,274 +2265,6 @@
           min-height:150px !important;
         }
 
-
-        /* V60 final popup chat sides + stable bubbles */
-        .inbox-messages,
-        #chatMessages.dashboard-chat-messages{
-          direction:ltr !important;
-          align-items:stretch !important;
-          gap:8px !important;
-          padding:18px 22px !important;
-        }
-        .inbox-messages .dash-msg-row,
-        #chatMessages .dash-msg-row{
-          direction:ltr !important;
-          width:100% !important;
-          display:flex !important;
-          margin:0 !important;
-          padding:0 !important;
-          background:transparent !important;
-          border:0 !important;
-          box-shadow:none !important;
-        }
-        .inbox-messages .dash-msg-row.in,
-        #chatMessages .dash-msg-row.in{
-          justify-content:flex-end !important;
-        }
-        .inbox-messages .dash-msg-row.out,
-        #chatMessages .dash-msg-row.out{
-          justify-content:flex-start !important;
-        }
-        .inbox-messages .dash-msg-row .dash-msg,
-        #chatMessages .dash-msg-row .dash-msg{
-          direction:rtl !important;
-          align-self:auto !important;
-          width:auto !important;
-          max-width:min(70%, 620px) !important;
-          min-width:0 !important;
-          min-height:0 !important;
-          height:auto !important;
-          display:block !important;
-          padding:8px 12px 6px !important;
-          border-radius:14px !important;
-          line-height:1.7 !important;
-          font-size:14px !important;
-          white-space:normal !important;
-          box-shadow:0 5px 14px rgba(80,32,24,.05) !important;
-        }
-        .inbox-messages .dash-msg-row.in .dash-msg,
-        #chatMessages .dash-msg-row.in .dash-msg{
-          background:#fff !important;
-          color:#3d160f !important;
-          border:1px solid #ead4c8 !important;
-          border-bottom-right-radius:5px !important;
-        }
-        .inbox-messages .dash-msg-row.out .dash-msg,
-        #chatMessages .dash-msg-row.out .dash-msg{
-          background:#eaf6ff !important;
-          color:#18324a !important;
-          border:1px solid #bfe0f7 !important;
-          border-bottom-left-radius:5px !important;
-        }
-        .inbox-messages .dash-msg-row .dash-msg > div,
-        #chatMessages .dash-msg-row .dash-msg > div{
-          display:block !important;
-          width:auto !important;
-          max-width:100% !important;
-          margin:0 !important;
-          padding:0 !important;
-          line-height:1.75 !important;
-          white-space:pre-wrap !important;
-          word-break:break-word !important;
-          overflow-wrap:anywhere !important;
-          text-align:right !important;
-        }
-        .inbox-messages .dash-msg-row .dash-msg small,
-        #chatMessages .dash-msg-row .dash-msg small{
-          display:block !important;
-          margin-top:4px !important;
-          padding:0 !important;
-          line-height:1 !important;
-          font-size:10px !important;
-          opacity:.6 !important;
-          color:inherit !important;
-        }
-        .inbox-messages .dash-msg-row.in .dash-msg small,
-        #chatMessages .dash-msg-row.in .dash-msg small{
-          text-align:left !important;
-        }
-        .inbox-messages .dash-msg-row.out .dash-msg small,
-        #chatMessages .dash-msg-row.out .dash-msg small{
-          text-align:right !important;
-        }
-        @media(max-width:900px){
-          .inbox-messages .dash-msg-row .dash-msg,
-          #chatMessages .dash-msg-row .dash-msg{
-            max-width:86% !important;
-          }
-        }
-
-
-        /* V61 exact popup chat alignment: customer right, agent/system left */
-        #chatMessages.dashboard-chat-messages,
-        .dashboard-chat-panel #chatMessages.inbox-messages{
-          direction:ltr !important;
-          display:flex !important;
-          flex-direction:column !important;
-          align-items:stretch !important;
-          gap:8px !important;
-          padding:18px 22px !important;
-        }
-        #chatMessages .dash-msg-row{
-          direction:ltr !important;
-          width:100% !important;
-          display:flex !important;
-          margin:0 !important;
-          padding:0 !important;
-          background:transparent !important;
-          border:0 !important;
-          box-shadow:none !important;
-        }
-        #chatMessages .dash-msg-row.in{ justify-content:flex-end !important; }
-        #chatMessages .dash-msg-row.out{ justify-content:flex-start !important; }
-        #chatMessages .dash-msg-row .dash-msg{
-          direction:rtl !important;
-          align-self:auto !important;
-          width:auto !important;
-          max-width:min(68%, 620px) !important;
-          min-width:0 !important;
-          height:auto !important;
-          padding:8px 12px 6px !important;
-          border-radius:14px !important;
-          display:block !important;
-          line-height:1.75 !important;
-          font-size:14px !important;
-          box-shadow:0 5px 14px rgba(80,32,24,.05) !important;
-        }
-        #chatMessages .dash-msg-row.in .dash-msg{
-          background:#fff !important;
-          color:#3d160f !important;
-          border:1px solid #ead4c8 !important;
-          border-bottom-right-radius:5px !important;
-        }
-        #chatMessages .dash-msg-row.out .dash-msg{
-          background:#eaf6ff !important;
-          color:#18324a !important;
-          border:1px solid #bfe0f7 !important;
-          border-bottom-left-radius:5px !important;
-        }
-        #chatMessages .dash-msg-row .dash-msg > div{
-          display:block !important;
-          width:auto !important;
-          max-width:100% !important;
-          margin:0 !important;
-          padding:0 !important;
-          white-space:pre-wrap !important;
-          word-break:break-word !important;
-          overflow-wrap:anywhere !important;
-          text-align:right !important;
-        }
-        #chatMessages .dash-msg-row .dash-msg small{
-          display:block !important;
-          margin-top:4px !important;
-          line-height:1 !important;
-          font-size:10px !important;
-          opacity:.6 !important;
-          color:inherit !important;
-        }
-        #chatMessages .dash-msg-row.in .dash-msg small{ text-align:left !important; }
-        #chatMessages .dash-msg-row.out .dash-msg small{ text-align:right !important; }
-        @media(max-width:900px){
-          #chatMessages .dash-msg-row .dash-msg{ max-width:86% !important; }
-        }
-
-        /* V62 final popup chat order/alignment fix */
-        #dashboardChatModal #chatMessages.dashboard-chat-messages,
-        #dashboardChatModal #chatMessages.inbox-messages{
-          direction:ltr !important;
-          display:flex !important;
-          flex-direction:column !important;
-          justify-content:flex-start !important;
-          align-content:stretch !important;
-          align-items:stretch !important;
-          gap:8px !important;
-          padding:18px 22px !important;
-          overflow-y:auto !important;
-          overflow-x:hidden !important;
-        }
-        #dashboardChatModal #chatMessages .dash-msg-row{
-          direction:ltr !important;
-          width:100% !important;
-          max-width:100% !important;
-          display:flex !important;
-          flex:0 0 auto !important;
-          margin:0 !important;
-          padding:0 !important;
-          background:transparent !important;
-          border:0 !important;
-          box-shadow:none !important;
-        }
-        #dashboardChatModal #chatMessages .dash-msg-row.in{
-          justify-content:flex-end !important;
-        }
-        #dashboardChatModal #chatMessages .dash-msg-row.out{
-          justify-content:flex-start !important;
-        }
-        #dashboardChatModal #chatMessages .dash-msg-row .dash-msg{
-          direction:rtl !important;
-          flex:0 1 auto !important;
-          width:auto !important;
-          min-width:0 !important;
-          max-width:min(70%, 620px) !important;
-          height:auto !important;
-          min-height:0 !important;
-          display:block !important;
-          margin:0 !important;
-          padding:9px 12px 6px !important;
-          border-radius:14px !important;
-          line-height:1.75 !important;
-          white-space:normal !important;
-          word-break:break-word !important;
-          overflow-wrap:anywhere !important;
-          box-shadow:0 5px 14px rgba(80,32,24,.05) !important;
-        }
-        #dashboardChatModal #chatMessages .dash-msg-row.in .dash-msg{
-          background:#fff !important;
-          color:#3d160f !important;
-          border:1px solid #ead4c8 !important;
-          border-bottom-right-radius:5px !important;
-        }
-        #dashboardChatModal #chatMessages .dash-msg-row.out .dash-msg{
-          background:#eaf6ff !important;
-          color:#18324a !important;
-          border:1px solid #bfe0f7 !important;
-          border-bottom-left-radius:5px !important;
-        }
-        #dashboardChatModal #chatMessages .dash-msg-text,
-        #dashboardChatModal #chatMessages .dash-msg > div{
-          display:block !important;
-          width:auto !important;
-          max-width:100% !important;
-          margin:0 !important;
-          padding:0 !important;
-          text-align:right !important;
-          direction:rtl !important;
-          line-height:1.75 !important;
-          white-space:pre-wrap !important;
-          word-break:break-word !important;
-          overflow-wrap:anywhere !important;
-        }
-        #dashboardChatModal #chatMessages .dash-msg small{
-          display:block !important;
-          margin-top:4px !important;
-          padding:0 !important;
-          line-height:1 !important;
-          font-size:10px !important;
-          opacity:.6 !important;
-          color:inherit !important;
-        }
-        #dashboardChatModal #chatMessages .dash-msg-row.in .dash-msg small{
-          text-align:left !important;
-        }
-        #dashboardChatModal #chatMessages .dash-msg-row.out .dash-msg small{
-          text-align:right !important;
-        }
-        @media(max-width:900px){
-          #dashboardChatModal #chatMessages .dash-msg-row .dash-msg{
-            max-width:86% !important;
-          }
-        }
-
       `;
       document.head.appendChild(style);
     }
@@ -2722,7 +2342,6 @@
       if(e.target?.id === "chatTemplateSelect"){
         const t = selectedDashboardTemplate();
         if(t) applyDashboardTemplateToMessage(t, true);
-        else clearDashboardTemplateSelectionForFreeText();
       }
       if(e.target?.id === "chatStatus"){
         onDashboardStatusChanged();
