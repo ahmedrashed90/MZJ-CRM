@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -600,7 +601,7 @@
     function getCustomerName(c){ return c.customerName || c.customer?.customerName || c.name || c.contactName || c.senderName || c.phone || "عميل بدون اسم"; }
     function getPhone(c){ return c.phone || c.customer?.phone || c.customerPhone || c.from || c.sender || ""; }
     function getLastText(c){
-      return c.lastMessageText || c.lastMessage || c.lastText || c.preview || c.message || "";
+      return c.lastTextInput || c.lastMessageText || c.lastMessage || c.lastText || c.preview || c.message || "";
     }
     function getClientStatus(c){
       return c.clientStatus || c.customer?.clientStatus || c.status || "";
@@ -981,7 +982,7 @@
     }
 
     function messageTextOf(m){
-      return m.text || m.body || m.message || m.caption || m.content || m.lastMessageText || "";
+      return m.text || m.body || m.message || m.caption || m.content || m.lastTextInput || m.lastMessageText || "";
     }
 
     function messageCandidateIds(c){
@@ -1014,6 +1015,17 @@
         state.unsubMessages = onSnapshot(colRef, snap => {
           const messages = [];
           snap.forEach(d => messages.push({ id:d.id, ...d.data() }));
+
+          if(!messages.length && c.platform === "instagram" && String(c.lastTextInput || "").trim()){
+            messages.push({
+              id:"lastTextInput",
+              text:c.lastTextInput,
+              direction:"in",
+              fromAgent:false,
+              createdAt:c.lastTextInputAt || c.lastMessageAt || c.updatedAt || c.createdAt || null,
+              status:"received"
+            });
+          }
 
           if(!messages.length && idx < ids.length - 1){
             if(state.unsubMessages) state.unsubMessages();
