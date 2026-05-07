@@ -231,7 +231,7 @@
 
     const PLATFORM_CONFIG = {
       whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox" },
-      instagram:{ label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
+      instagram:{ label:"انستجرام", conversations:"wa_conversations", outbox:"ig_outbox" },
       // فيسبوك محفوظ في نفس مسار صندوق الوارد الموحد.
       facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"" },
       tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
@@ -246,6 +246,19 @@
       window.MERSAL_SEND_ENDPOINT ||
       localStorage.getItem("MERSAL_SEND_ENDPOINT") ||
       "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
+
+
+    const INSTAGRAM_SEND_ENDPOINT =
+      window.INSTAGRAM_SEND_ENDPOINT ||
+      localStorage.getItem("INSTAGRAM_SEND_ENDPOINT") ||
+      "https://instagram.next-erp-mzj.workers.dev/";
+
+    function instagramSendEndpoint(){
+      const raw = String(INSTAGRAM_SEND_ENDPOINT || "https://instagram.next-erp-mzj.workers.dev/").trim();
+      const clean = raw.replace(/\/+$/, "");
+      if(/\/(crm\/send|send)$/i.test(clean)) return clean;
+      return clean + "/crm/send";
+    }
 
     const CUSTOMER_FIELDS = [
       "customerName","phone","salary","obligation","location","age","salaryBank",
@@ -990,12 +1003,13 @@
       messagesEl.innerHTML = '<div class="empty">جاري التحميل...</div>';
 
       const cfg = PLATFORM_CONFIG[c.platform] || PLATFORM_CONFIG.whatsapp;
+      const messageCollectionName = c.platform === "instagram" ? (c.__collection || cfg.conversations) : cfg.conversations;
       const ids = messageCandidateIds(c);
       let idx = 0;
 
       const attach = () => {
         const convId = ids[idx] || c.id;
-        const colRef = collection(db, cfg.conversations, convId, "messages");
+        const colRef = collection(db, messageCollectionName, convId, "messages");
 
         state.unsubMessages = onSnapshot(colRef, snap => {
           const messages = [];
@@ -1103,6 +1117,57 @@
       return result;
     }
 
+
+
+    function instagramSendEndpointCandidates(){
+      return [instagramSendEndpoint()];
+    }
+
+    function instagramSubscriberIdFromConversation(c){
+      const direct = c.subscriber_id || c.subscriberId || c.participantId || c.igId || c.instagramId || c.manychatContactId || c.phone || c.mobile || c.phoneNumber || getPhone(c) || "";
+      if(direct) return String(direct).trim();
+      const conv = String(c.conversationId || c.convId || c.contactKey || c.id || "").trim();
+      if(!conv) return "";
+      const parts = conv.split(":");
+      return String(parts[parts.length - 1] || "").trim();
+    }
+
+    async function sendInstagramDirect(c, text){
+      const subscriberId = instagramSubscriberIdFromConversation(c);
+      if(!subscriberId) throw new Error("missing instagram subscriber id");
+      const payload = {
+        convId:c.id,
+        conversationId:c.conversationId || c.convId || c.contactKey || c.id,
+        subscriber_id:subscriberId,
+        subscriberId,
+        participantId:subscriberId,
+        pageId:c.pageId || c.page_id || "",
+        displayName:getCustomerName(c),
+        name:getCustomerName(c),
+        text,
+        message:text
+      };
+
+      const errors = [];
+      for(const endpoint of instagramSendEndpointCandidates()){
+        try{
+          const res = await fetch(endpoint, {
+            method:"POST",
+            headers:{ "content-type":"application/json" },
+            body:JSON.stringify(payload)
+          });
+          const rawText = await res.text();
+          let result = {};
+          try { result = rawText ? JSON.parse(rawText) : {}; } catch(e) { result = { raw: rawText }; }
+          if(res.ok && result.ok !== false) return { endpoint, result };
+          errors.push(`${endpoint}: ${result.error || result.message || result.raw || res.status}`);
+        }catch(err){
+          errors.push(`${endpoint}: ${err?.message || err}`);
+        }
+      }
+      throw new Error(errors.join(" | ") || "instagram send failed");
+    }
+
     async function sendReply(){
       const c = state.selected;
       const text = el("replyText").value.trim();
@@ -1140,6 +1205,72 @@
           console.error(err);
           return toast("فشل اتصال وركر فيسبوك.");
         }
+      }
+
+
+      if(c.platform === "instagram"){
+        const convId = c.id;
+        const messageCollectionName = c.__collection || cfg.conversations;
+        try{
+          await sendInstagramDirect(c, text);
+        }catch(err){
+          console.error("Instagram send failed", err);
+          return toast("فشل إرسال إنستجرام. راجع رابط الوركر أو ManyChat.");
+        }
+
+        await addDoc(collection(db, messageCollectionName, convId, "messages"), {
+          text,
+          direction:"outgoing",
+          fromAgent:true,
+          channel:"instagram",
+          channelCode:"ig",
+          department:dept,
+          template:selectedTemplate || null,
+          sentByUid:state.user.uid,
+          sentByEmail:state.user.email,
+          createdAt:serverTimestamp(),
+          sentAt:serverTimestamp(),
+          status:"sent"
+        }).catch(console.warn);
+
+        await setDoc(doc(db, messageCollectionName, convId), {
+          conversationId:convId,
+          convId,
+          platform:"instagram",
+          channel:"instagram",
+          channelCode:"ig",
+          participantId: instagramSubscriberIdFromConversation(c),
+          igId: instagramSubscriberIdFromConversation(c),
+          customerName:getCustomerName(c),
+          displayName:getCustomerName(c),
+          lastMessage:text,
+          lastMessageText:text,
+          department:dept,
+          updatedAt:serverTimestamp(),
+          lastUpdated:serverTimestamp()
+        }, { merge:true }).catch(console.warn);
+
+        if(cfg.outbox){
+          await addDoc(collection(db, cfg.outbox), {
+            conversationId:convId,
+            platform:c.platform,
+            department:dept,
+            to:instagramSubscriberIdFromConversation(c),
+            text,
+            status:"sent",
+            messageKind:"text",
+            template:selectedTemplate || null,
+            sentByUid:state.user.uid,
+            sentByEmail:state.user.email,
+            createdAt:serverTimestamp()
+          }).catch(console.warn);
+        }
+
+        el("replyText").value = "";
+        clearSelectedTemplateControls();
+        autoResizeReply();
+        toast("تم الإرسال");
+        return;
       }
 
       if(c.__virtual || c.platform === "whatsapp"){
