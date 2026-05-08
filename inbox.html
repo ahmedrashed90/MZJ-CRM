@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -230,7 +231,7 @@
 
     const PLATFORM_CONFIG = {
       whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox" },
-      instagram:{ label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
+      instagram:{ label:"انستجرام", conversations:"wa_conversations", outbox:"" },
       // فيسبوك محفوظ في نفس مسار صندوق الوارد الموحد.
       facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"" },
       tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
@@ -240,6 +241,11 @@
       window.FB_SEND_ENDPOINT ||
       localStorage.getItem("FB_SEND_ENDPOINT") ||
       "https://facebook.next-erp-mzj.workers.dev/crm/send";
+
+    const IG_SEND_ENDPOINT =
+      window.IG_SEND_ENDPOINT ||
+      localStorage.getItem("IG_SEND_ENDPOINT") ||
+      "https://instagram.next-erp-mzj.workers.dev/crm/send";
 
     const MERSAL_SEND_ENDPOINT =
       window.MERSAL_SEND_ENDPOINT ||
@@ -586,7 +592,7 @@
     function getCustomerName(c){ return c.customerName || c.customer?.customerName || c.name || c.contactName || c.senderName || c.phone || "عميل بدون اسم"; }
     function getPhone(c){ return c.phone || c.customer?.phone || c.customerPhone || c.from || c.sender || ""; }
     function getLastText(c){
-      return c.lastMessageText || c.lastMessage || c.lastText || c.preview || c.message || "";
+      return c.last_input_text || c.lastTextInput || c.lastInputText || c.lastMessageText || c.lastMessage || c.lastText || c.previewText || c.preview || c.message || "";
     }
     function getClientStatus(c){
       return c.clientStatus || c.customer?.clientStatus || c.status || "";
@@ -967,13 +973,13 @@
     }
 
     function messageTextOf(m){
-      return m.text || m.body || m.message || m.caption || m.content || m.lastMessageText || "";
+      return m.last_input_text || m.lastTextInput || m.lastInputText || m.messageText || m.text || m.body || m.message || m.caption || m.content || m.lastMessageText || "";
     }
 
     function messageCandidateIds(c){
       const ids = [
-        c.id, c.conversationId, c.convId, c.waId, c.participantId,
-        c.phoneNormalized, c.phone, c.phoneNumber, c.mobile
+        c.id, c.conversationId, c.convId, c.contactKey, c.waId, c.participantId,
+        c.fbId, c.igId, c.manychatContactId, c.phoneNormalized, c.phone, c.phoneNumber, c.mobile
       ].filter(Boolean).map(x => String(x).replace(/^\+/, ""));
       const extra = [];
       ids.forEach(id => {
@@ -1138,6 +1144,41 @@
         } catch(err){
           console.error(err);
           return toast("فشل اتصال وركر فيسبوك.");
+        }
+      }
+
+      if(c.platform === "instagram"){
+        try{
+          const participantId = c.participantId || c.igId || c.manychatContactId || getPhone(c) || c.id;
+          const res = await fetch(IG_SEND_ENDPOINT, {
+            method:"POST",
+            headers:{ "content-type":"application/json" },
+            body:JSON.stringify({
+              convId:c.id,
+              conversationId:c.conversationId || c.convId || c.id,
+              subscriber_id:participantId,
+              subscriberId:participantId,
+              participantId,
+              pageId:c.pageId || "",
+              displayName:getCustomerName(c),
+              name:getCustomerName(c),
+              text,
+              message:text
+            })
+          });
+          const result = await res.json().catch(() => ({}));
+          if(!res.ok || result.ok === false){
+            console.error("Instagram send failed", result);
+            return toast("فشل إرسال إنستجرام. راجع رابط الوركر أو التوكن.");
+          }
+          el("replyText").value = "";
+          clearSelectedTemplateControls();
+          autoResizeReply();
+          toast("تم الإرسال");
+          return;
+        } catch(err){
+          console.error(err);
+          return toast("فشل اتصال وركر إنستجرام.");
         }
       }
 
