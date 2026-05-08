@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -206,7 +207,6 @@
         page: "leads-finance.html",
         note: "ترتيب حالات مبيعات التمويل",
         statuses: [
-          { title:"الكول سنتر", match:["عميل جديد"] },
           { title:"تم الاتصال", match:["تم الاتصال","تم الإتصال"] },
           { title:"غير مؤهل", match:["غير مؤهل"] },
           { title:"مؤجل", match:["مؤجل"] },
@@ -348,7 +348,7 @@
     }
 
     function sectionTotal(def){
-      return visibleLeadsForSection(def).filter(l => getLeadStatus(l) === "عميل جديد").length;
+      return visibleLeadsForSection(def).length;
     }
 
     function renderSectionCards(){
@@ -698,6 +698,55 @@
         || null;
     }
 
+    function dashboardStatusNeedsMessageClear(status){
+      const s = normalizeDashboardStatusKey(status);
+      const clearStatuses = [
+        "مؤهل - تأخر في إرسال الأوراق",
+        "طلب إستكمال أوراق",
+        "طلب استكمال أوراق",
+        "إستيفاء الطلب - متقدم",
+        "استيفاء الطلب - متقدم",
+        "تم الإتصال لتوقيع العقد",
+        "تم الاتصال لتوقيع العقد",
+        "تم الإنتهاء - إنشاء طلب البيع",
+        "تم الانتهاء - إنشاء طلب البيع"
+      ].map(normalizeDashboardStatusKey);
+      return clearStatuses.includes(s);
+    }
+
+    function dashboardQuickMessageNameForStatus(status){
+      const lead = dashboardChatState.lead || {};
+      const dept = leadDepartment(lead);
+      const s = normalizeDashboardStatusKey(status);
+
+      if(dept === "cash_sales" && s === normalizeDashboardStatusKey("تم الرد")) return "تم الرد";
+      if(dept === "customer_service" && s === normalizeDashboardStatusKey("جاري العمل")) return "جاري العمل";
+      if(dept === "customer_service" && (s === normalizeDashboardStatusKey("تم الانتهاء") || s === normalizeDashboardStatusKey("تم الإنتهاء"))) return "جاري الانتهاء";
+
+      return "";
+    }
+
+    function findDashboardQuickMessageByLabel(label){
+      const labelNorm = normalizeDashboardTemplateMatch(label);
+      if(!labelNorm) return null;
+      const lead = dashboardChatState.lead || {};
+      const allowed = dashboardChatState.templates
+        .filter(t => templateAppliesToLead(t, lead))
+        .filter(t => String(t.type || "quick") === "quick");
+      return allowed.find(t => normalizeDashboardTemplateMatch(dashboardTemplateLabel(t)) === labelNorm)
+        || allowed.find(t => normalizeDashboardTemplateMatch(dashboardTemplateLabel(t)).includes(labelNorm))
+        || null;
+    }
+
+    function insertDashboardTemplate(t){
+      if(!t) return false;
+      const templateSelect = el("chatTemplateSelect");
+      const quickSelect = el("chatQuickMessageSelect");
+      if(String(t.type || "quick") === "quick" && quickSelect) quickSelect.value = t.id;
+      if(String(t.type || "quick") !== "quick" && templateSelect) templateSelect.value = t.id;
+      return applyDashboardTemplateToMessage(t, true);
+    }
+
     function applyDashboardTemplateToMessage(t, force=true){
       if(!t) return false;
       const text = applyTemplateVariables(dashboardTemplateText(t), dashboardChatState.lead || {});
@@ -726,6 +775,21 @@
     }
 
     function selectDashboardTemplateByStatus(status){
+      if(dashboardStatusNeedsMessageClear(status)){
+        clearDashboardTemplateSelectionForFreeText();
+        return false;
+      }
+
+      const quickName = dashboardQuickMessageNameForStatus(status);
+      if(quickName){
+        const quick = findDashboardQuickMessageByLabel(quickName);
+        const templateSelect = el("chatTemplateSelect");
+        if(templateSelect) templateSelect.value = "";
+        if(quick) return insertDashboardTemplate(quick);
+        clearDashboardTemplateSelectionForFreeText();
+        return false;
+      }
+
       const template = findDashboardTemplateByStatus(status);
       const select = el("chatTemplateSelect");
       if(!template || !select){
@@ -734,6 +798,7 @@
       }
 
       select.value = template.id;
+      if(el("chatQuickMessageSelect")) el("chatQuickMessageSelect").value = "";
       applyDashboardTemplateToMessage(template, true);
       return true;
     }
@@ -748,6 +813,86 @@
     function scheduleDashboardStatusSave(){
       clearTimeout(dashboardStatusSaveTimer);
       dashboardStatusSaveTimer = setTimeout(saveDashboardStatusOnly, 300);
+    }
+
+    function dashboardConversationSyncIds(lead, extra = {}){
+      const phone = normalizeKsaPhone(extra.phone || phoneOfLead(lead));
+      return [...new Set([
+        dashboardChatState.convId,
+        extra.conversationId,
+        extra.convId,
+        lead?.conversationId,
+        lead?.convId,
+        lead?.contactKey,
+        lead?.participantId,
+        lead?.fbId,
+        lead?.igId,
+        lead?.tiktokId,
+        lead?.waId,
+        lead?.__id,
+        lead?.id,
+        phone,
+        phone ? "wa_" + phone : ""
+      ].filter(Boolean).map(String))];
+    }
+
+    function dashboardPayloadHasCustomerData(payload){
+      return Object.prototype.hasOwnProperty.call(payload, "customerName")
+        || Object.prototype.hasOwnProperty.call(payload, "phone")
+        || Object.prototype.hasOwnProperty.call(payload, "car")
+        || Object.prototype.hasOwnProperty.call(payload, "notes");
+    }
+
+    function dashboardCustomerNestedPayload(payload){
+      return {
+        customer:{
+          customerName: payload.customerName || "",
+          fullName: payload.fullName || payload.customerName || "",
+          name: payload.name || payload.customerName || "",
+          phone: payload.phone || "",
+          mobile: payload.mobile || payload.phone || "",
+          phoneNumber: payload.phoneNumber || payload.phone || "",
+          phoneNormalized: payload.phoneNormalized || normalizeKsaPhone(payload.phone),
+          age: payload.age || "",
+          salary: payload.salary || "",
+          obligation: payload.obligation || "",
+          commitment: payload.commitment || payload.obligation || "",
+          location: payload.location || "",
+          car: payload.car || "",
+          carName: payload.carName || payload.car || "",
+          carType: payload.carType || payload.car || "",
+          model: payload.model || payload.carModel || "",
+          carModel: payload.carModel || payload.model || "",
+          color: payload.color || "",
+          payment: payload.payment || "",
+          paymentType: payload.paymentType || payload.payment || "",
+          payType: payload.payType || payload.payment || "",
+          financeType: payload.financeType || payload.paymentType || payload.payment || "",
+          notes: payload.notes || ""
+        }
+      };
+    }
+
+    async function syncDashboardCustomerEverywhere(lead, payload){
+      const cfg = chatPlatformConfig(dashboardChatState.platform || platformOf(lead));
+      const convPayload = {
+        ...payload,
+        ...(dashboardPayloadHasCustomerData(payload) ? dashboardCustomerNestedPayload(payload) : {}),
+        conversationId: dashboardChatState.convId || lead?.conversationId || lead?.convId || "",
+        convId: dashboardChatState.convId || lead?.convId || lead?.conversationId || "",
+        platform: dashboardChatState.platform || platformOf(lead),
+        channel: dashboardChatState.platform || platformOf(lead),
+        department: payload.department || leadDepartment(lead),
+        phoneNormalized: payload.phoneNormalized || normalizeKsaPhone(payload.phone || phoneOfLead(lead))
+      };
+
+      if(lead?.__id){
+        await setDoc(doc(db, "leads", lead.__id), payload, { merge:true });
+      }
+
+      const ids = dashboardConversationSyncIds(lead, convPayload);
+      const writes = ids.map(id => setDoc(doc(db, cfg.conversations, id), convPayload, { merge:true }));
+      if(writes.length) await Promise.allSettled(writes);
     }
 
     async function saveDashboardStatusOnly(){
@@ -771,12 +916,7 @@
       };
 
       try{
-        await setDoc(doc(db, "leads", lead.__id), payload, { merge:true });
-        const cfg = chatPlatformConfig(dashboardChatState.platform);
-        const convId = dashboardChatState.convId || lead.conversationId || lead.convId;
-        if(convId){
-          await setDoc(doc(db, cfg.conversations, convId), payload, { merge:true });
-        }
+        await syncDashboardCustomerEverywhere(lead, payload);
         Object.assign(lead, payload);
         renderDashboard();
         toast("تم تحديث حالة العميل");
@@ -1350,15 +1490,8 @@
       };
 
       try{
-        // setDoc merge أوضح مع صلاحيات Firestore من updateDoc، ويحافظ على نفس doc لو موجود.
-        await setDoc(doc(db, "leads", lead.__id), payload, { merge:true });
-
-        // لو المحادثة مفتوحة، حدّث نفس بيانات العميل في conversation أيضاً حتى تظهر فوراً في الشات.
-        const cfg = chatPlatformConfig(dashboardChatState.platform);
-        const convId = dashboardChatState.convId || lead.conversationId || lead.convId;
-        if(convId){
-          await setDoc(doc(db, cfg.conversations, convId), payload, { merge:true });
-        }
+        // حفظ موحد لبيانات العميل والحالة داخل الليد وكل وثائق المحادثة المحتملة حتى يظهر التحديث في النظام كامل.
+        await syncDashboardCustomerEverywhere(lead, payload);
 
         Object.assign(lead, payload);
         dashboardChatState.actualCompletion = inboxCompletionFromData({
@@ -1381,9 +1514,9 @@
         console.error(err);
         try{
           const cfg = chatPlatformConfig(dashboardChatState.platform);
-          const convId = dashboardChatState.convId || lead.conversationId || lead.convId;
-          if(convId){
-            await setDoc(doc(db, cfg.conversations, convId), payload, { merge:true });
+          const convIds = dashboardConversationSyncIds(lead, payload);
+          if(convIds.length){
+            await Promise.allSettled(convIds.map(id => setDoc(doc(db, cfg.conversations, id), { ...payload, ...(dashboardPayloadHasCustomerData(payload) ? dashboardCustomerNestedPayload(payload) : {}) }, { merge:true })));
             Object.assign(lead, payload);
             fillDashboardChatCustomerForm(lead);
             toast("تم حفظ بيانات العميل في المحادثة");
