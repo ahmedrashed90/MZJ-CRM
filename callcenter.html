@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -231,7 +232,7 @@
       return p;
     }
 
-    function openWhatsappInboxByPhone(phone, name=""){
+    function openWhatsappInboxByPhone(phone, name="", leadId=""){
       const p = normalizePhone(phone);
       if(!p) return toast("لا يوجد رقم جوال صالح");
       const params = new URLSearchParams({
@@ -239,23 +240,25 @@
         phone:p,
         conversationId:p,
         name:name || "",
-        department:PAGE_DEPARTMENT || ""
+        department:"finance_sales"
       });
+      if(leadId) params.set("leadId", leadId);
       window.location.href = `./inbox.html?${params.toString()}`;
     }
 
     function leadNameHtml(row){
       const name = escapeHtml(row.customerName || "عميل بدون اسم");
       const p = normalizePhone(row.phone || row.mobile || row.phoneNumber || "");
+      const leadId = escapeHtml(row.id || row.__id || "");
       if(!p) return `<span class="lead-static-pill lead-name-pill"><span class="lead-pill-text">${name}</span></span>`;
-      return `<button type="button" class="lead-name-chat lead-action-pill lead-name-pill" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(row.customerName || "")}"><span class="lead-pill-text">${name}</span></button>`;
+      return `<button type="button" class="lead-name-chat lead-action-pill lead-name-pill" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(row.customerName || "")}" data-lead-id="${leadId}"><span class="lead-pill-text">${name}</span></button>`;
     }
 
-    function phoneLinkHtml(phone, name=""){
+    function phoneLinkHtml(phone, name="", leadId=""){
       const p = normalizePhone(phone);
       const display = escapeHtml(phone || p || "—");
       if(!p) return `<span class="lead-static-pill lead-phone-pill"><span class="lead-pill-icon">☎</span><span class="lead-pill-text">${display}</span></span>`;
-      return `<button type="button" class="phone-open-chat lead-action-pill lead-phone-pill" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}"><span class="lead-pill-icon">☎</span><span class="lead-pill-text">${display}</span></button>`;
+      return `<button type="button" class="phone-open-chat lead-action-pill lead-phone-pill" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}" data-lead-id="${escapeHtml(leadId || "")}"><span class="lead-pill-icon">☎</span><span class="lead-pill-text">${display}</span></button>`;
     }
 
     function fullName(row){
@@ -536,7 +539,7 @@
 
         tr.innerHTML = `
           <td>${leadNameHtml(l)}</td>
-          <td>${phoneLinkHtml(l.phone, l.customerName)}</td>
+          <td>${phoneLinkHtml(l.phone, l.customerName, l.id)}</td>
           <td>${escapeHtml(l.location)}</td>
           <td>${escapeHtml(l.branch)}</td>
           <td>${escapeHtml(normalizeSourceLabel(l.source))}</td>
@@ -624,7 +627,7 @@
       el("leadsBody").addEventListener("click", (e) => {
         const btn = e.target.closest(".phone-open-chat, .lead-name-chat");
         if(!btn) return;
-        openWhatsappInboxByPhone(btn.dataset.phone, btn.dataset.name);
+        openWhatsappInboxByPhone(btn.dataset.phone, btn.dataset.name, btn.dataset.leadId || "");
       });
     }
 
