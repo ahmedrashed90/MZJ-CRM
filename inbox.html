@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -234,7 +235,7 @@
       instagram:{ label:"انستجرام", conversations:"wa_conversations", outbox:"" },
       // فيسبوك محفوظ في نفس مسار صندوق الوارد الموحد.
       facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"" },
-      tiktok:{ label:"تيك توك", conversations:"tt_conversations", outbox:"tt_outbox" }
+      tiktok:{ label:"تيك توك", conversations:"wa_conversations", outbox:"" }
     };
 
     const FACEBOOK_SEND_ENDPOINT =
@@ -246,6 +247,11 @@
       window.IG_SEND_ENDPOINT ||
       localStorage.getItem("IG_SEND_ENDPOINT") ||
       "https://instagram.next-erp-mzj.workers.dev/crm/send";
+
+    const TIKTOK_SEND_ENDPOINT =
+      window.TIKTOK_SEND_ENDPOINT ||
+      localStorage.getItem("TIKTOK_SEND_ENDPOINT") ||
+      "https://test.next-erp-mzj.workers.dev/crm/send";
 
     const MERSAL_SEND_ENDPOINT =
       window.MERSAL_SEND_ENDPOINT ||
@@ -1179,6 +1185,69 @@
         } catch(err){
           console.error(err);
           return toast("فشل اتصال وركر إنستجرام.");
+        }
+      }
+
+      if(c.platform === "tiktok"){
+        try{
+          const participantId = c.participantId || c.tiktokId || c.manychatContactId || getPhone(c) || c.id;
+          const conversationId = c.conversationId || c.convId || c.id || `tiktok_${participantId}`;
+
+          const res = await fetch(TIKTOK_SEND_ENDPOINT, {
+            method:"POST",
+            headers:{ "content-type":"application/json" },
+            body:JSON.stringify({
+              convId:conversationId,
+              conversationId,
+              subscriber_id:participantId,
+              subscriberId:participantId,
+              participantId,
+              displayName:getCustomerName(c),
+              name:getCustomerName(c),
+              text,
+              message:text,
+              serviceKey:c.serviceKey || c.autoService || "cs",
+              saveMessage:false
+            })
+          });
+
+          const result = await res.json().catch(() => ({}));
+          if(!res.ok || result.ok === false){
+            console.error("TikTok send failed", result);
+            return toast("فشل إرسال تيك توك. راجع الوركر أو ManyChat.");
+          }
+
+          await addDoc(collection(db, "wa_conversations", conversationId, "messages"), {
+            text,
+            direction:"outgoing",
+            fromAgent:true,
+            department:dept,
+            template:selectedTemplate,
+            sentByUid:state.user.uid,
+            sentByEmail:state.user.email,
+            createdAt:serverTimestamp(),
+            status:"sent",
+            channel:"تيك توك",
+            channelCode:"tiktok",
+            provider:"manychat"
+          });
+
+          await setDoc(doc(db, "wa_conversations", conversationId), {
+            lastMessage:text,
+            lastMessageText:text,
+            department:dept,
+            updatedAt:serverTimestamp(),
+            lastUpdated:serverTimestamp()
+          }, { merge:true }).catch(()=>{});
+
+          el("replyText").value = "";
+          clearSelectedTemplateControls();
+          autoResizeReply();
+          toast("تم الإرسال");
+          return;
+        } catch(err){
+          console.error(err);
+          return toast("فشل اتصال وركر تيك توك.");
         }
       }
 
