@@ -9,6 +9,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -525,18 +526,29 @@
     function leadAssignedToCurrentRepresentative(lead = {}){
       if(isAdmin || currentProfile?.allDepartments === true) return true;
 
+      const primaryAssigneeValues = [
+        lead.responsibleUid, lead.responsibleUserId, lead.responsibleEmail,
+        lead.responsibleName, lead.responsible
+      ].filter(v => v !== undefined && v !== null && String(v).trim() !== "");
+
+      // When the lead has a current responsible person, trust that value only.
+      // Legacy fields like assignedName / ownerName may still contain the old rep after transfer.
+      if(primaryAssigneeValues.length){
+        return primaryAssigneeValues.some(v => dashboardAssigneeMatchesCurrentUser(v));
+      }
+
       return [
         lead.assignedToUid, lead.assignedUid, lead.assignedUserId, lead.assignedId,
-        lead.responsibleUid, lead.responsibleUserId, lead.ownerUid, lead.ownerUserId,
+        lead.ownerUid, lead.ownerUserId,
         lead.salesUid, lead.salesUserId, lead.salesRepUid, lead.representativeUid,
         lead.agentUid, lead.userUid, lead.employeeUid,
-        lead.assignedToEmail, lead.assignedEmail, lead.responsibleEmail, lead.ownerEmail,
+        lead.assignedToEmail, lead.assignedEmail, lead.ownerEmail,
         lead.salesEmail, lead.salesRepEmail, lead.representativeEmail, lead.agentEmail,
         lead.userEmail, lead.employeeEmail,
-        lead.assignedToName, lead.assignedName, lead.responsibleName, lead.ownerName,
+        lead.assignedToName, lead.assignedName, lead.ownerName,
         lead.salesName, lead.salesRepName, lead.representativeName, lead.agentName,
         lead.userName, lead.employeeName,
-        lead.assignedTo, lead.assigned, lead.responsible, lead.owner,
+        lead.assignedTo, lead.assigned, lead.owner,
         lead.salesRep, lead.representative, lead.agent, lead.user, lead.employee
       ].some(v => dashboardAssigneeMatchesCurrentUser(v));
     }
@@ -593,7 +605,7 @@
       const parts = [];
       if(l.sourceName || l.source) parts.push(l.sourceName || l.source);
       if(l.phone || l.mobile || l.phoneNumber) parts.push(l.phone || l.mobile || l.phoneNumber);
-      if(l.assignedName || l.responsibleName) parts.push("المسؤول: " + (l.assignedName || l.responsibleName));
+      if(l.responsibleName || l.assignedName) parts.push("المسؤول: " + (l.responsibleName || l.assignedName));
       return parts.join(" - ");
     }
 
