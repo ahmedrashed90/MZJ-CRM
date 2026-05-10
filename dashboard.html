@@ -12,6 +12,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -564,9 +565,24 @@
 
     function sectionTotal(def){
       const items = visibleLeadsForSection(def);
-      if(def?.key === "cash" || def?.key === "cs"){
-        return items.filter(l => normalizeDashboardStatusKey(getLeadStatus(l)) === normalizeDashboardStatusKey("عميل جديد")).length;
+      const statusKey = lead => normalizeDashboardStatusKey(getLeadStatus(lead));
+
+      if(def?.key === "cash"){
+        const included = ["عميل جديد", "تم الرد", "غير مؤهل", "مؤجل", "محتمل"].map(normalizeDashboardStatusKey);
+        return items.filter(l => included.includes(statusKey(l))).length;
       }
+
+      if(def?.key === "finance"){
+        return items.filter(l => {
+          const s = statusKey(l);
+          return s !== normalizeDashboardStatusKey("غير مؤهل") && !s.includes(normalizeDashboardStatusKey("تم الانتهاء"));
+        }).length;
+      }
+
+      if(def?.key === "cs"){
+        return items.filter(l => !statusKey(l).includes(normalizeDashboardStatusKey("تم الانتهاء"))).length;
+      }
+
       return items.length;
     }
 
