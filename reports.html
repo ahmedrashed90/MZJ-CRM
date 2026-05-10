@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -14,6 +15,20 @@
     .formula-note{display:block;margin-top:8px;color:#8d6e63;font-size:12px;line-height:1.7;}
     .report-stack{display:flex;flex-direction:column;gap:18px;}
     .table-wrap{overflow:auto;}
+    .agent-details-btn{padding:7px 12px;border-radius:10px;font-size:12px;white-space:nowrap;}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:1000;padding:18px;}
+    .modal-backdrop.show{display:flex;}
+    .modal-card{width:min(1180px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 18px 60px rgba(0,0,0,.22);padding:18px;border:1px solid #eee;}
+    .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;}
+    .modal-title{margin:0;font-size:20px;color:#1C1C1C;}
+    .modal-subtitle{margin-top:6px;color:#8d6e63;font-size:13px;}
+    .modal-actions{display:flex;gap:8px;flex-wrap:wrap;}
+    .agent-details-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:12px 0 16px;}
+    .agent-details-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;color:#5d4037;font-size:13px;}
+    .agent-details-summary span{background:#f7f5f2;border:1px solid #eadfd6;border-radius:999px;padding:7px 10px;}
+    .updates-list{margin:0;padding-inline-start:18px;line-height:1.8;}
+    .updates-list li{margin-bottom:4px;}
+    @media print{.modal-actions,.agent-details-filters,.agent-details-btn{display:none!important}.modal-card{box-shadow:none;border:0;width:100%;max-height:none}.modal-backdrop{position:static;display:block;background:#fff;padding:0}}
   </style>
 </head>
 <body>
@@ -122,7 +137,7 @@
                   <th>مؤجل</th>
                   <th>محتمل</th>
                   <th>تم البيع</th>
-                  <th>جودة المندوب</th>
+                  <th>جودة القسم</th>
                 </tr>
               </thead>
               <tbody id="departmentsReport"></tbody>
@@ -145,6 +160,7 @@
                   <th>محتمل</th>
                   <th>تم البيع</th>
                   <th>جودة المندوب</th>
+                  <th>الإجراءات</th>
                 </tr>
               </thead>
               <tbody id="agentsReport"></tbody>
@@ -153,6 +169,44 @@
         </div>
         </div>
 </main>
+  </div>
+
+  <div class="modal-backdrop" id="agentDetailsModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="agentDetailsTitle">
+      <div class="modal-head">
+        <div>
+          <h3 class="modal-title" id="agentDetailsTitle">تفاصيل المندوب</h3>
+          <div class="modal-subtitle" id="agentDetailsSubtitle"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="primary" id="agentDetailsPdfBtn" type="button">تحميل PDF</button>
+          <button class="secondary" id="closeAgentDetailsBtn" type="button">إغلاق</button>
+        </div>
+      </div>
+      <div class="agent-details-filters">
+        <label>من تاريخ التسجيل<input id="agentDetailsFrom" type="date" /></label>
+        <label>إلى تاريخ التسجيل<input id="agentDetailsTo" type="date" /></label>
+      </div>
+      <div class="agent-details-summary" id="agentDetailsSummary"></div>
+      <div class="table-wrap" id="agentDetailsPrintable">
+        <table class="management-table">
+          <thead>
+            <tr>
+              <th>اسم العميل</th>
+              <th>الجوال</th>
+              <th>السيارة</th>
+              <th>المصدر</th>
+              <th>الفرع</th>
+              <th>الحالة الحالية</th>
+              <th>تاريخ التسجيل</th>
+              <th>آخر تحديث</th>
+              <th>التحديثات</th>
+            </tr>
+          </thead>
+          <tbody id="agentDetailsBody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -214,6 +268,8 @@
     let isAdmin = false;
     let leads = [];
     let users = [];
+    let lastAgentGroups = [];
+    let activeAgentGroupKey = "";
     let unsubLeads = null;
     let unsubUsers = null;
 
@@ -379,6 +435,163 @@
       return String(lead.reason || lead.lossReason || lead.notes || lead.note || lead.statusReason || lead.comment || lead.comments || "").trim();
     }
 
+    function formatDateTime(value){
+      const dt = tsToDate(value);
+      if(!dt || isNaN(dt)) return "";
+      return dt.toLocaleString('ar-SA', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+    }
+
+    function formatDateOnly(value){
+      const dt = tsToDate(value);
+      if(!dt || isNaN(dt)) return "";
+      return dt.toISOString().slice(0,10);
+    }
+
+    function leadCreatedDate(lead){
+      return tsToDate(
+        lead.createdAt ||
+        lead.timestamp ||
+        lead.createdDate ||
+        lead.registrationDate ||
+        lead.registeredAt ||
+        lead.addedAt ||
+        lead["تاريخ التسجيل"] ||
+        lead["تاريخ دخول العميل"] ||
+        lead["تاريخ الإنشاء"] ||
+        lead["تاريخ الانشاء"]
+      );
+    }
+
+    function getCustomerName(lead){
+      return String(lead.customerName || lead.name || lead.displayName || lead.clientName || "").trim();
+    }
+
+    function getCustomerPhone(lead){
+      return String(lead.phone || lead.mobile || lead.phoneNumber || lead.customerPhone || lead.whatsapp || "").trim();
+    }
+
+    function getCarText(lead){
+      return String(lead.carName || lead.carType || lead.carModel || lead.vehicle || lead.requiredCar || "").trim();
+    }
+
+    function getSourceText(lead){
+      return String(lead.source || lead.sourceName || lead.leadSource || lead.platform || "").trim();
+    }
+
+    function stripUpdateDatePrefix(value){
+      const raw = String(value || "").trim();
+      if(!raw) return "";
+      return raw.replace(/^[\s\d٠-٩۰-۹\/:\-.,،\u200e\u200f]+(?:ص|م|AM|PM)?\s*-\s*/i, "").trim();
+    }
+
+    function normalizeUpdateItem(item){
+      if(!item) return "";
+      if(typeof item === "string") return stripUpdateDatePrefix(item);
+      const actor = String(item.byName || item.userName || item.actorName || item.by || item.user || "").trim();
+      const field = String(item.field || item.key || item.type || item.action || "تحديث").trim();
+      const from = String(item.from ?? item.oldValue ?? item.before ?? "").trim();
+      const to = String(item.to ?? item.newValue ?? item.after ?? item.value ?? item.status ?? "").trim();
+      const note = String(item.note || item.notes || item.comment || item.description || item.message || "").trim();
+      let text = [actor, field].filter(Boolean).join(" - ");
+      if(from || to) text += `: ${from || "فارغ"} ← ${to || "فارغ"}`;
+      if(note) text += ` (${note})`;
+      return text || JSON.stringify(item);
+    }
+
+    function getLeadUpdates(lead){
+      const fields = ["updates", "history", "statusHistory", "activityLog", "activities", "events", "logs", "auditTrail", "timeline"];
+      const items = [];
+      fields.forEach(field => {
+        const value = lead[field];
+        if(Array.isArray(value)) value.forEach(v => items.push(normalizeUpdateItem(v)));
+      });
+      if(!items.length){
+        const status = String(lead.status || lead.clientStatus || "").trim();
+        const reason = getReasonText(lead);
+        if(status) items.push(`الحالة الحالية: ${status}${reason ? " - " + reason : ""}`);
+      }
+      return items.filter(Boolean);
+    }
+
+    function activeAgentRows(){
+      const group = lastAgentGroups.find(g => g.key === activeAgentGroupKey);
+      if(!group) return [];
+      const from = el("agentDetailsFrom").value;
+      const to = el("agentDetailsTo").value;
+      return group.rows.filter(lead => {
+        const dt = leadCreatedDate(lead);
+        const day = dt && !isNaN(dt) ? dt.toISOString().slice(0,10) : "";
+        if(from && (!day || day < from)) return false;
+        if(to && (!day || day > to)) return false;
+        return true;
+      });
+    }
+
+    function renderAgentDetails(){
+      const group = lastAgentGroups.find(g => g.key === activeAgentGroupKey);
+      if(!group) return;
+      const rows = activeAgentRows();
+      const metrics = computeMetrics(rows);
+      el("agentDetailsTitle").textContent = `تفاصيل المندوب: ${group.name}`;
+      el("agentDetailsSubtitle").textContent = `${group.section} - حسب تاريخ التسجيل`;
+      el("agentDetailsSummary").innerHTML = [
+        `إجمالي العملاء: ${metrics.total}`,
+        `غير مؤهل: ${metrics.waste}`,
+        `مؤجل: ${metrics.delayed}`,
+        `محتمل: ${metrics.potential}`,
+        `تم البيع: ${metrics.sold}`,
+        `جودة المندوب: ${metrics.agentQualityRate}%`
+      ].map(x => `<span>${escapeHtml(x)}</span>`).join("");
+
+      const bodyRows = rows.map(lead => {
+        const updates = getLeadUpdates(lead);
+        const updatesHtml = updates.length ? `<ul class="updates-list">${updates.map(u => `<li>${escapeHtml(u)}</li>`).join("")}</ul>` : "لا توجد تحديثات مسجلة";
+        return `<tr>
+          <td>${escapeHtml(getCustomerName(lead) || "بدون اسم")}</td>
+          <td>${escapeHtml(getCustomerPhone(lead))}</td>
+          <td>${escapeHtml(getCarText(lead))}</td>
+          <td>${escapeHtml(getSourceText(lead))}</td>
+          <td>${escapeHtml(lead.branch || "")}</td>
+          <td>${escapeHtml(lead.status || lead.clientStatus || "")}</td>
+          <td>${escapeHtml(formatDateTime(leadCreatedDate(lead)) || "غير محدد")}</td>
+          <td>${escapeHtml(formatDateTime(lead.lastUpdated || lead.updatedAt || lead.lastEventAt))}</td>
+          <td>${updatesHtml}</td>
+        </tr>`;
+      });
+      el("agentDetailsBody").innerHTML = bodyRows.length ? bodyRows.join("") : '<tr><td colspan="9">لا توجد بيانات في الفترة المحددة.</td></tr>';
+    }
+
+    function openAgentDetails(key){
+      activeAgentGroupKey = key;
+      const group = lastAgentGroups.find(g => g.key === activeAgentGroupKey);
+      const dates = (group?.rows || []).map(lead => leadCreatedDate(lead)).filter(dt => dt && !isNaN(dt)).sort((a,b)=>a-b);
+      el("agentDetailsFrom").value = dates[0] ? dates[0].toISOString().slice(0,10) : "";
+      el("agentDetailsTo").value = dates[dates.length - 1] ? dates[dates.length - 1].toISOString().slice(0,10) : "";
+      renderAgentDetails();
+      el("agentDetailsModal").classList.add("show");
+      el("agentDetailsModal").setAttribute("aria-hidden", "false");
+    }
+
+    function closeAgentDetails(){
+      el("agentDetailsModal").classList.remove("show");
+      el("agentDetailsModal").setAttribute("aria-hidden", "true");
+    }
+
+    function exportAgentDetailsPdf(){
+      const group = lastAgentGroups.find(g => g.key === activeAgentGroupKey);
+      const printable = el("agentDetailsPrintable");
+      if(!group || !printable) return;
+      const summary = el("agentDetailsSummary").innerHTML;
+      const from = el("agentDetailsFrom").value || "بداية البيانات";
+      const to = el("agentDetailsTo").value || "نهاية البيانات";
+      const win = window.open('', '_blank', 'width=1400,height=1000');
+      if(!win) return;
+      win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8" /><title>تفاصيل ${escapeHtml(group.name)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1C1C1C}h1,p{margin:0 0 12px}.summary{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.summary span{border:1px solid #ddd;border-radius:999px;padding:6px 10px;background:#f7f5f2}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #ddd;padding:8px;text-align:right;vertical-align:top;font-size:12px}th{background:#f7f5f2}.updates-list{margin:0;padding-inline-start:18px;line-height:1.7}</style></head><body><h1>تفاصيل المندوب: ${escapeHtml(group.name)}</h1><p>${escapeHtml(group.section)} - من ${escapeHtml(from)} إلى ${escapeHtml(to)}</p><div class="summary">${summary}</div>${printable.innerHTML}</body></html>`);
+      win.document.close();
+      win.focus();
+      setTimeout(() => { try{ win.print(); }catch(e){} }, 400);
+    }
+
     function filteredRows(){
       const section = el("departmentFilter").value;
       const branch = el("branchFilter").value;
@@ -463,17 +676,18 @@
         const uid = getAgentUidForSection(lead, sec) || `na:${getAgentNameForSection(lead, sec)}`;
         const name = getAgentNameForSection(lead, sec);
         const key = `${sec}__${uid}`;
-        if(!agentMap.has(key)) agentMap.set(key, { name, section: departmentLabel(sec), rows: [] });
+        if(!agentMap.has(key)) agentMap.set(key, { key, name, section: departmentLabel(sec), rows: [] });
         agentMap.get(key).rows.push(lead);
       });
 
-      const agentRows = Array.from(agentMap.values())
-        .sort((a,b) => b.rows.length - a.rows.length || String(a.name).localeCompare(String(b.name), 'ar'))
-        .map(item => {
+      lastAgentGroups = Array.from(agentMap.values())
+        .sort((a,b) => b.rows.length - a.rows.length || String(a.name).localeCompare(String(b.name), 'ar'));
+
+      const agentRows = lastAgentGroups.map(item => {
           const m = computeMetrics(item.rows);
-          return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
+          return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td><td><button class="secondary agent-details-btn" type="button" data-agent-key="${escapeHtml(item.key)}">تفاصيل العملاء</button></td></tr>`;
         });
-      el("agentsReport").innerHTML = agentRows.length ? agentRows.join("") : '<tr><td colspan="8">لا توجد بيانات للمندوبين.</td></tr>';
+      el("agentsReport").innerHTML = agentRows.length ? agentRows.join("") : '<tr><td colspan="10">لا توجد بيانات للمندوبين.</td></tr>';
 }
 
     function buildExportSheets(){
@@ -499,7 +713,7 @@
           "مؤجل": m.delayed,
           "محتمل": m.potential,
           "تم البيع": m.sold,
-          "جودة المندوب": `${m.agentQualityRate}%`
+          "جودة القسم": `${m.agentQualityRate}%`
         };
       });
 
@@ -568,6 +782,15 @@
       el('refreshBtn').onclick = render;
       el('exportExcelBtn').onclick = exportExcel;
       el('exportPdfBtn').onclick = exportPdf;
+      el('closeAgentDetailsBtn').onclick = closeAgentDetails;
+      el('agentDetailsPdfBtn').onclick = exportAgentDetailsPdf;
+      el('agentDetailsFrom').addEventListener('change', renderAgentDetails);
+      el('agentDetailsTo').addEventListener('change', renderAgentDetails);
+      el('agentDetailsModal').addEventListener('click', e => { if(e.target === el('agentDetailsModal')) closeAgentDetails(); });
+      el('agentsReport').addEventListener('click', e => {
+        const btn = e.target.closest('[data-agent-key]');
+        if(btn) openAgentDetails(btn.dataset.agentKey);
+      });
     }
 
     function setupAuth(pageInit){
