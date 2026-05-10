@@ -2,6 +2,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -142,6 +143,7 @@
                   <th>إجمالي العملاء</th>
                   <th>جودة التسويق</th>
                   <th>غير مؤهل</th>
+                  <th>مؤهل</th>
                   <th>مؤجل</th>
                   <th>محتمل</th>
                   <th>تم البيع</th>
@@ -164,6 +166,7 @@
                   <th>إجمالي العملاء</th>
                   <th>جودة التسويق</th>
                   <th>غير مؤهل</th>
+                  <th>مؤهل</th>
                   <th>مؤجل</th>
                   <th>محتمل</th>
                   <th>تم البيع</th>
@@ -320,7 +323,7 @@
     }
 
     function isAdminProfile(profile){
-      return profile?.role === "admin" || profile?.allDepartments === true;
+      return profile?.role === "admin" || profile?.role === "sales_manager" || profile?.allDepartments === true;
     }
 
     function escapeHtml(str){
@@ -332,8 +335,8 @@
     function renderAllowedNavigation(profile, adminFlag){
       const currentPage = location.pathname.split("/").pop() || "inbox.html";
       const pages = Array.isArray(profile?.pages) ? profile.pages : [];
-      const unrestricted = adminFlag || profile?.allDepartments === true || !pages.length;
-      const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
+      const unrestricted = !pages.length;
+      const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page));
       const nav = document.querySelector(".nav-tabs");
       if(!nav) return;
       nav.innerHTML = allowed.map(item => `<a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">${item.label}</a>`).join("");
@@ -343,21 +346,22 @@
     function allowedPagesForCurrentUser(){ return Array.isArray(currentProfile?.pages) ? currentProfile.pages : []; }
     function hasPageAccess(page){
       const pages = allowedPagesForCurrentUser();
-      return isAdmin || currentProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html";
+      return !pages.length || pages.includes(page);
     }
 
     function applyPagePermissions(){
       const page = currentPageName();
       const pages = allowedPagesForCurrentUser();
-      const unrestricted = isAdmin || currentProfile?.allDepartments === true || !pages.length;
+      const unrestricted = !pages.length;
       document.querySelectorAll(".nav-tabs a").forEach(a => {
         const linkPage = (a.getAttribute("href") || "").replace("./", "");
-        if(!unrestricted && !pages.includes(linkPage) && linkPage !== "dashboard.html") a.classList.add("hidden");
+        if(!unrestricted && !pages.includes(linkPage)) a.classList.add("hidden");
         else a.classList.remove("hidden");
       });
       if(!hasPageAccess(page)){
         sessionStorage.setItem("mzj_no_permission_page", page);
-        window.location.replace("./dashboard.html");
+        const fallbackPage = pages[0] || "dashboard.html";
+        window.location.replace(`./${fallbackPage}`);
         return false;
       }
       return true;
@@ -814,9 +818,9 @@
       const depRows = activeSections.map(sec => {
         const secRows = rows.filter(lead => getLeadSectionKey(lead) === sec.key);
         const m = computeMetrics(secRows);
-        return `<tr><td>${escapeHtml(sec.label)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
+        return `<tr><td>${escapeHtml(sec.label)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.qualified}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
       });
-      el("departmentsReport").innerHTML = depRows.length ? depRows.join("") : '<tr><td colspan="8">لا توجد بيانات مطابقة للفلاتر الحالية.</td></tr>';
+      el("departmentsReport").innerHTML = depRows.length ? depRows.join("") : '<tr><td colspan="9">لا توجد بيانات مطابقة للفلاتر الحالية.</td></tr>';
 
       const customerServiceRows = rows.filter(lead => getLeadSectionKey(lead) === "customer_service");
       const customerServiceMetrics = computeCustomerServiceMetrics(customerServiceRows);
@@ -838,9 +842,9 @@
 
       const agentRows = lastAgentGroups.map(item => {
           const m = computeMetrics(item.rows);
-          return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td><td><button class="secondary agent-details-btn" type="button" data-agent-key="${escapeHtml(item.key)}">تقارير العملاء</button></td></tr>`;
+          return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.qualified}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td><td><button class="secondary agent-details-btn" type="button" data-agent-key="${escapeHtml(item.key)}">تقارير العملاء</button></td></tr>`;
         });
-      el("agentsReport").innerHTML = agentRows.length ? agentRows.join("") : '<tr><td colspan="10">لا توجد بيانات للمندوبين.</td></tr>';
+      el("agentsReport").innerHTML = agentRows.length ? agentRows.join("") : '<tr><td colspan="11">لا توجد بيانات للمندوبين.</td></tr>';
 }
 
     function buildExportSheets(){
@@ -864,6 +868,7 @@
           "إجمالي العملاء": m.total,
           "جودة التسويق": `${m.marketingQualityRate}%`,
           "غير مؤهل": m.waste,
+          "مؤهل": m.qualified,
           "مؤجل": m.delayed,
           "محتمل": m.potential,
           "تم البيع": m.sold,
@@ -873,17 +878,18 @@
 
       const agentRows = Array.from(document.querySelectorAll('#agentsReport tr')).map(tr => {
         const cells = [...tr.children].map(td => td.textContent.trim());
-        if(cells.length < 9) return null;
+        if(cells.length < 10) return null;
         return {
           "المندوب": cells[0],
           "القسم": cells[1],
           "إجمالي العملاء": cells[2],
           "جودة التسويق": cells[3],
           "غير مؤهل": cells[4],
-          "مؤجل": cells[5],
-          "محتمل": cells[6],
-          "تم البيع": cells[7],
-          "جودة المندوب": cells[8]
+          "مؤهل": cells[5],
+          "مؤجل": cells[6],
+          "محتمل": cells[7],
+          "تم البيع": cells[8],
+          "جودة المندوب": cells[9]
         };
       }).filter(Boolean);
 
@@ -980,7 +986,7 @@
           }
           el('loginScreen').classList.add('hidden');
           el('app').classList.remove('hidden');
-          el('userInfo').textContent = `${currentProfile.name || user.email} - ${isAdmin ? 'إدارة عامة' : departmentLabel(currentProfile.department)}`;
+          el('userInfo').textContent = `${currentProfile.name || user.email} - ${currentProfile.role === 'sales_manager' ? 'مدير مبيعات' : (isAdmin ? 'إدارة عامة' : departmentLabel(currentProfile.department))}`;
           renderAllowedNavigation(currentProfile, isAdmin);
           if(!applyPagePermissions()) return;
           pageInit();
