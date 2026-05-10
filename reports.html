@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -171,6 +172,24 @@
                 </tr>
               </thead>
               <tbody id="agentsReport"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="report-table-section">
+          <h3>تقرير خدمة العملاء</h3>
+          <div class="table-wrap">
+            <table class="management-table">
+              <thead>
+                <tr>
+                  <th>القسم</th>
+                  <th>إجمالي العملاء</th>
+                  <th>جاري العمل</th>
+                  <th>تم الانتهاء</th>
+                  <th>جودة القسم</th>
+                </tr>
+              </thead>
+              <tbody id="customerServiceReport"></tbody>
             </table>
           </div>
         </div>
@@ -496,6 +515,20 @@
       return { total, sold, waste, qualified, delayed, potential, marketingQualityRate, agentQualityRate };
     }
 
+    function isCustomerServiceDoneStatus(statusName=""){
+      const s = String(statusName || "").trim();
+      return s === "تم الانتهاء" || s === "تم الإنتهاء" || s.includes("تم الانتهاء") || s.includes("تم الإنتهاء");
+    }
+
+    function computeCustomerServiceMetrics(rows){
+      const arr = Array.isArray(rows) ? rows : [];
+      const total = arr.length;
+      const done = arr.filter(item => isCustomerServiceDoneStatus(item.status || item.clientStatus || "")).length;
+      const inProgress = Math.max(0, total - done);
+      const qualityRate = total ? Math.round((done / total) * 100) : 0;
+      return { total, done, inProgress, qualityRate };
+    }
+
     function getReasonText(lead={}){
       return String(lead.reason || lead.lossReason || lead.notes || lead.note || lead.statusReason || lead.comment || lead.comments || "").trim();
     }
@@ -785,9 +818,14 @@
       });
       el("departmentsReport").innerHTML = depRows.length ? depRows.join("") : '<tr><td colspan="8">لا توجد بيانات مطابقة للفلاتر الحالية.</td></tr>';
 
+      const customerServiceRows = rows.filter(lead => getLeadSectionKey(lead) === "customer_service");
+      const customerServiceMetrics = computeCustomerServiceMetrics(customerServiceRows);
+      el("customerServiceReport").innerHTML = `<tr><td>${escapeHtml(departmentLabel("customer_service"))}</td><td>${customerServiceMetrics.total}</td><td>${customerServiceMetrics.inProgress}</td><td>${customerServiceMetrics.done}</td><td>${customerServiceMetrics.qualityRate}%</td></tr>`;
+
       const agentMap = new Map();
       rows.forEach(lead => {
         const sec = getLeadSectionKey(lead);
+        if(sec === "customer_service") return;
         const uid = getAgentUidForSection(lead, sec) || `na:${getAgentNameForSection(lead, sec)}`;
         const name = getAgentNameForSection(lead, sec);
         const key = `${sec}__${uid}`;
@@ -849,15 +887,28 @@
         };
       }).filter(Boolean);
 
-      return { summarySheet, sectionRows, agentRows };
+      const customerServiceRows = Array.from(document.querySelectorAll('#customerServiceReport tr')).map(tr => {
+        const cells = [...tr.children].map(td => td.textContent.trim());
+        if(cells.length < 5) return null;
+        return {
+          "القسم": cells[0],
+          "إجمالي العملاء": cells[1],
+          "جاري العمل": cells[2],
+          "تم الانتهاء": cells[3],
+          "جودة القسم": cells[4]
+        };
+      }).filter(Boolean);
+
+      return { summarySheet, sectionRows, agentRows, customerServiceRows };
     }
 
     function exportExcel(){
       const wb = XLSX.utils.book_new();
-      const { summarySheet, sectionRows, agentRows } = buildExportSheets();
+      const { summarySheet, sectionRows, agentRows, customerServiceRows } = buildExportSheets();
       XLSX.utils.book_append_sheet(wb, summarySheet, 'الملخص');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sectionRows), 'الأقسام');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(agentRows), 'المناديب');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(customerServiceRows), 'خدمة العملاء');
       XLSX.writeFile(wb, `mzj-reports-${new Date().toISOString().slice(0,10)}.xlsx`);
     }
 
