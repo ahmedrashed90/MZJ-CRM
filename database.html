@@ -4,6 +4,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -173,9 +174,11 @@
     let leads = [];
     let users = [];
     let statuses = [];
+    let branches = [];
     let unsubLeads = null;
     let unsubUsers = null;
     let unsubStatuses = null;
+    let unsubBranches = null;
 
     const el = id => document.getElementById(id);
 
@@ -254,6 +257,121 @@
       select.value = selected;
     }
 
+    const LEGACY_BRANCH_DEPARTMENT_ALIASES = {
+      "مبيعات التمويل":"finance_sales",
+      "قسم التمويل":"finance_sales",
+      "التمويل":"finance_sales",
+      "تمويل":"finance_sales",
+      "finance_sales":"finance_sales",
+      "finance sales":"finance_sales",
+      "مبيعات الكاش":"cash_sales",
+      "قسم الكاش":"cash_sales",
+      "الكاش":"cash_sales",
+      "كاش":"cash_sales",
+      "cash_sales":"cash_sales",
+      "cash sales":"cash_sales",
+      "خدمة عملاء":"customer_service",
+      "خدمة العملاء":"customer_service",
+      "قسم خدمة العملاء":"customer_service",
+      "customer_service":"customer_service",
+      "customer service":"customer_service"
+    };
+
+    function normalizeLegacyKey(value){
+      return String(value || "").trim().toLowerCase().replace(/\s+/g, " " );
+    }
+
+    function legacyDepartmentFromBranchName(value){
+      const raw = String(value || "").trim();
+      if(!raw) return "";
+      return LEGACY_BRANCH_DEPARTMENT_ALIASES[raw] || LEGACY_BRANCH_DEPARTMENT_ALIASES[normalizeLegacyKey(raw)] || "";
+    }
+
+    function isLegacyDepartmentBranchName(value){
+      return !!legacyDepartmentFromBranchName(value);
+    }
+
+    function branchLabel(branch){
+      return branch.name || branch.branch || branch.branchName || branch.title || branch.label || branch.id || "";
+    }
+
+    function branchForName(name){
+      const wanted = String(name || "").trim();
+      if(!wanted || isLegacyDepartmentBranchName(wanted)) return null;
+      return branches.find(b => branchLabel(b) === wanted || b.id === wanted) || null;
+    }
+
+    function branchOptions(selectedBranch=""){
+      selectedBranch = isLegacyDepartmentBranchName(selectedBranch) ? "" : selectedBranch;
+      const opts = ['<option value="">اختر الفرع</option>'];
+      branches
+        .filter(b => b.active !== false && !isLegacyDepartmentBranchName(branchLabel(b)))
+        .sort((a,b) => branchLabel(a).localeCompare(branchLabel(b), "ar"))
+        .forEach(b => {
+          const label = branchLabel(b);
+          if(!label) return;
+          opts.push(`<option value="${escapeHtml(label)}" ${label === selectedBranch ? "selected" : ""}>${escapeHtml(label)}</option>`);
+        });
+      if(selectedBranch && !branches.some(b => branchLabel(b) === selectedBranch)){
+        opts.push(`<option value="${escapeHtml(selectedBranch)}" selected>${escapeHtml(selectedBranch)}</option>`);
+      }
+      return opts.join("");
+    }
+
+    function valuesFromBranchField(value){
+      if(value === undefined || value === null || value === false) return [];
+      if(Array.isArray(value)) return value.flatMap(valuesFromBranchField);
+      if(typeof value === "object"){
+        return [value.uid, value.id, value.userId, value.name, value.email, value.displayName, value.label, value.value].filter(Boolean).map(v => String(v).trim());
+      }
+      return String(value).split(/[،,|؛;\n]+/).map(v => v.trim()).filter(Boolean);
+    }
+
+    function branchDepartmentValues(branch, dept){
+      if(!branch) return [];
+      const keysByDept = {
+        cash_sales:["cash", "cashSales", "cash_sales", "cashUsers", "cashRepresentatives", "cashSalesUsers", "كاش"],
+        finance_sales:["finance", "financeSales", "finance_sales", "financeUsers", "financeRepresentatives", "financeSalesUsers", "تمويل"],
+        customer_service:["customerService", "customer_service", "service", "customerUsers", "customerServiceUsers", "خدمة عملاء", "خدمة العملاء"],
+        call_center:["callCenter", "call_center", "callcenter", "callCenterUsers", "callCenterRepresentatives", "callCenterAgents", "كول سنتر", "الكول سنتر"]
+      };
+      const keys = keysByDept[dept] || [];
+      const values = [];
+      keys.forEach(k => values.push(...valuesFromBranchField(branch[k])));
+      if(branch.assignments) keys.forEach(k => values.push(...valuesFromBranchField(branch.assignments[k])));
+      if(branch.departments) keys.forEach(k => values.push(...valuesFromBranchField(branch.departments[k])));
+      return [...new Set(values)];
+    }
+
+    function branchUserMatches(user, value){
+      const wanted = String(value || "").trim().toLowerCase();
+      if(!wanted) return false;
+      return [user.uid, user.id, user.userId, user.name, user.email, user.displayName]
+        .filter(Boolean)
+        .some(v => String(v).trim().toLowerCase() === wanted);
+    }
+
+    function usersForBranchDepartment(branchName, dept){
+      const base = usersForDepartment(dept);
+      const branch = branchForName(branchName);
+      const values = branchDepartmentValues(branch, dept);
+      if(!branch || !values.length) return base;
+      return base.filter(u => values.some(v => branchUserMatches(u, v)));
+    }
+
+    function departmentHasBranchUsers(branchName, dept){
+      const branch = branchForName(branchName);
+      if(!branch) return true;
+      const values = branchDepartmentValues(branch, dept);
+      return !values.length || usersForBranchDepartment(branchName, dept).length > 0;
+    }
+
+    function branchCell(lead){
+      const selectedBranch = String(lead.branch || "").trim();
+      if(!isAdmin) return escapeHtml(isLegacyDepartmentBranchName(selectedBranch) ? "" : selectedBranch);
+      return `<select class="assignment-select branch-select" data-lead-id="${escapeHtml(lead.id)}" data-field="branch">${branchOptions(selectedBranch)}</select>`;
+    }
+
     function usersForDepartment(dept){
       return users.filter(u => u.active !== false && (
         u.department === dept ||
@@ -303,7 +421,10 @@
       const lead = leads.find(x => x.id === leadId);
       if(!lead) return toast("العميل غير موجود");
 
-      const responsibleDepartment = document.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="responsibleDepartment"]`)?.value || responsibleDepartmentForLead(lead);
+      const branchSelect = document.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="branch"]`);
+      const selectedBranch = branchSelect ? branchSelect.value : (isLegacyDepartmentBranchName(lead.branch) ? "" : (lead.branch || ""));
+      const departmentSelect = document.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="responsibleDepartment"]`);
+      const responsibleDepartment = departmentSelect ? departmentSelect.value : responsibleDepartmentForLead(lead);
       const responsibleUid = document.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="responsible"]`)?.value || "";
       const callCenterUid = document.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="callCenter"]`)?.value || "";
       const responsibleUser = responsibleUid ? users.find(u => (u.uid || u.id) === responsibleUid) : null;
@@ -313,11 +434,16 @@
       if(!["cash_sales", "finance_sales", "customer_service"].includes(responsibleDepartment)) return toast("اختر قسم صحيح للمسؤول");
       if(responsibleUid && !responsibleUser) return toast("المسؤول غير موجود");
       if(callCenterUid && !callCenterUser) return toast("الكول سنتر غير موجود");
-      if(responsibleUser && !usersForDepartment(responsibleDepartment).some(u => (u.uid || u.id) === (responsibleUser.uid || responsibleUser.id))){
-        return toast("المسؤول المختار لا يتبع القسم المحدد");
+      if(responsibleUser && !usersForBranchDepartment(selectedBranch, responsibleDepartment).some(u => (u.uid || u.id) === (responsibleUser.uid || responsibleUser.id))){
+        return toast("المسؤول المختار لا يتبع الفرع والقسم المحددين");
+      }
+      if(callCenterUser && !usersForBranchDepartment(selectedBranch, "call_center").some(u => (u.uid || u.id) === (callCenterUser.uid || callCenterUser.id))){
+        return toast("الكول سنتر المختار لا يتبع الفرع المحدد");
       }
 
       const payload = {
+        branch: selectedBranch,
+        branchName: selectedBranch,
         department: responsibleDepartment,
         payment: PAGE_PAYMENTS[responsibleDepartment] || "",
         status: selectedStatus,
@@ -390,19 +516,27 @@
       toast("تم نقل العميل للقسم والمسؤول الجديد");
     }
 
-    function userOptions(dept, selectedUid=""){
+    function userOptions(dept, selectedUid="", branchName=""){
       const opts = ['<option value="">اختر</option>'];
-      usersForDepartment(dept).forEach(u => {
+      usersForBranchDepartment(branchName, dept).forEach(u => {
         const uid = u.uid || u.id;
         opts.push(`<option value="${escapeHtml(uid)}" ${uid === selectedUid ? "selected" : ""}>${escapeHtml(u.name || u.email || uid)}</option>`);
       });
       return opts.join("");
     }
 
-    function departmentOptions(selectedDept=""){
-      return ["cash_sales", "finance_sales", "customer_service"].map(d =>
-        `<option value="${escapeHtml(d)}" ${d === selectedDept ? "selected" : ""}>${escapeHtml(departmentLabel(d))}</option>`
-      ).join("");
+    function departmentOptions(selectedDept="", branchName="", includePlaceholder=false){
+      const opts = [];
+      if(includePlaceholder) opts.push('<option value="">اختر القسم</option>');
+      ["cash_sales", "finance_sales", "customer_service"]
+        .filter(d => departmentHasBranchUsers(branchName, d))
+        .forEach(d => {
+          opts.push(`<option value="${escapeHtml(d)}" ${d === selectedDept ? "selected" : ""}>${escapeHtml(departmentLabel(d))}</option>`);
+        });
+      if(selectedDept && !opts.some(o => o.includes(`value="${escapeHtml(selectedDept)}"`))){
+        opts.push(`<option value="${escapeHtml(selectedDept)}" selected>${escapeHtml(departmentLabel(selectedDept))}</option>`);
+      }
+      return opts.join("");
     }
 
     function statusLabel(status){
@@ -447,6 +581,8 @@
 
     function responsibleDepartmentForLead(lead){
       if(lead.department && lead.department !== "call_center") return lead.department;
+      const legacyDept = legacyDepartmentFromBranchName(lead.branch);
+      if(legacyDept) return legacyDept;
       const payment = String(lead.payment || "").trim();
       if(payment.includes("تمويل")) return "finance_sales";
       if(payment.includes("كاش")) return "cash_sales";
@@ -465,8 +601,9 @@
 
     function responsibleDepartmentCell(lead){
       const dept = responsibleDepartmentForLead(lead);
+      const branchName = String(lead.branch || "").trim();
       if(!isAdmin) return escapeHtml(departmentLabel(dept));
-      return `<select class="assignment-select department-select" data-lead-id="${escapeHtml(lead.id)}" data-field="responsibleDepartment">${departmentOptions(dept)}</select>`;
+      return `<select class="assignment-select department-select" data-lead-id="${escapeHtml(lead.id)}" data-field="responsibleDepartment">${departmentOptions(dept, branchName)}</select>`;
     }
 
     function assignmentCell(lead, field){
@@ -474,8 +611,9 @@
       const selectedUid = isResponsible ? (lead.responsibleUid || "") : (lead.callCenterUid || "");
       const selectedName = isResponsible ? (lead.responsibleName || "") : (lead.callCenterName || "");
       if(!isAdmin) return escapeHtml(selectedName);
+      const branchName = String(lead.branch || "").trim();
       const dept = isResponsible ? responsibleDepartmentForLead(lead) : "call_center";
-      return `<select class="assignment-select" data-lead-id="${escapeHtml(lead.id)}" data-field="${field}">${userOptions(dept, selectedUid)}</select>`;
+      return `<select class="assignment-select" data-lead-id="${escapeHtml(lead.id)}" data-field="${field}">${userOptions(dept, selectedUid, branchName)}</select>`;
     }
 
     function statusCell(lead){
@@ -558,6 +696,7 @@
         if(unsubLeads) unsubLeads();
         if(unsubUsers) unsubUsers();
         if(unsubStatuses) unsubStatuses();
+        if(unsubBranches) unsubBranches();
 
         if(!user){
           currentUser = null;
@@ -616,6 +755,15 @@
         render();
       });
 
+      unsubBranches = onSnapshot(collection(db, "branches"), snap => {
+        branches = [];
+        snap.forEach(d => branches.push({ id:d.id, ...d.data() }));
+        render();
+      }, err => {
+        console.error(err);
+        toast("تعذر تحميل الفروع");
+      });
+
       unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy("lastUpdated", "desc")), snap => {
         leads = [];
         snap.forEach(d => leads.push({ id:d.id, ...d.data() }));
@@ -637,7 +785,7 @@
       fillSelectOptions(el("carFilter"), "كل السيارات", uniqueValues(leads, "carName"), selectedCar);
       fillSelectOptions(el("paymentFilter"), "كل طرق الدفع", ["كاش", "تمويل", "خدمة عملاء"], selectedPayment);
       fillSelectOptions(el("campaignFilter"), "كل الحملات", uniqueValues(leads, "campaignName"), selectedCampaign);
-      fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads, "branch"), selectedBranch);
+      fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads, "branch").filter(v => !isLegacyDepartmentBranchName(v)), selectedBranch);
     }
 
     function dateOnly(v){
@@ -879,7 +1027,7 @@
           <td>${dbNameButton(l)}</td>
           <td>${dbPhoneButton(l.phone, l.customerName)}</td>
           <td>${escapeHtml(l.location)}</td>
-          <td>${escapeHtml(l.branch)}</td>
+          <td>${branchCell(l)}</td>
           <td>${escapeHtml(normalizeSourceLabel(l.source))}</td>
           <td>${escapeHtml(l.carName)}</td>
           <td>${escapeHtml(paymentLabelForLead(l))}</td>
@@ -896,12 +1044,40 @@
         body.appendChild(tr);
       });
 
+      body.querySelectorAll('[data-field="branch"]').forEach(select => {
+        select.onchange = () => {
+          const leadId = select.dataset.leadId;
+          const departmentSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="responsibleDepartment"]`);
+          const responsibleSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="responsible"]`);
+          const callCenterSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="callCenter"]`);
+          const statusSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="status"]`);
+          if(departmentSelect){
+            departmentSelect.innerHTML = departmentOptions("", select.value, true);
+          }
+          if(responsibleSelect){
+            responsibleSelect.innerHTML = userOptions("", "", select.value);
+          }
+          if(callCenterSelect){
+            callCenterSelect.innerHTML = userOptions("call_center", "", select.value);
+          }
+          if(statusSelect){
+            statusSelect.innerHTML = statusOptions("", "", false);
+          }
+        };
+      });
+
       body.querySelectorAll('[data-field="responsibleDepartment"]').forEach(select => {
         select.onchange = () => {
           const leadId = select.dataset.leadId;
+          const branchSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="branch"]`);
+          const branchName = branchSelect?.value || "";
           const responsibleSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="responsible"]`);
           if(responsibleSelect){
-            responsibleSelect.innerHTML = userOptions(select.value, "");
+            responsibleSelect.innerHTML = userOptions(select.value, "", branchName);
+          }
+          const callCenterSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="callCenter"]`);
+          if(callCenterSelect){
+            callCenterSelect.innerHTML = userOptions("call_center", "", branchName);
           }
           const statusSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="status"]`);
           if(statusSelect){
