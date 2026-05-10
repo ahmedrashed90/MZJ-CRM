@@ -303,6 +303,7 @@
 
       const payload = {
         department: responsibleDepartment,
+        payment: PAGE_PAYMENTS[responsibleDepartment] || "",
         lastUpdated: serverTimestamp()
       };
       payload.responsibleUid = responsibleUser ? (responsibleUser.uid || responsibleUser.id) : "";
@@ -336,6 +337,15 @@
       if(payment.includes("كاش")) return "cash_sales";
       if(payment.includes("خدمة")) return "customer_service";
       return currentProfile?.department || "cash_sales";
+    }
+
+    function paymentLabelForLead(lead){
+      const raw = String(lead.payment || "").trim();
+      if(raw.includes("تمويل")) return "تمويل";
+      if(raw.includes("كاش")) return "كاش";
+      if(raw.includes("خدمة")) return "خدمة عملاء";
+      const dept = responsibleDepartmentForLead(lead);
+      return PAGE_PAYMENTS[dept] || "";
     }
 
     function responsibleDepartmentCell(lead){
@@ -504,7 +514,7 @@
       const selectedBranch = el("branchFilter").value;
       fillSelectOptions(el("sourceFilter"), "كل المصادر", uniqueValues(leads, "source"), selectedSource);
       fillSelectOptions(el("carFilter"), "كل السيارات", uniqueValues(leads, "carName"), selectedCar);
-      fillSelectOptions(el("paymentFilter"), "كل طرق الدفع", uniqueValues(leads, "payment"), selectedPayment);
+      fillSelectOptions(el("paymentFilter"), "كل طرق الدفع", ["كاش", "تمويل", "خدمة عملاء"], selectedPayment);
       fillSelectOptions(el("campaignFilter"), "كل الحملات", uniqueValues(leads, "campaignName"), selectedCampaign);
       fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads, "branch"), selectedBranch);
     }
@@ -533,11 +543,11 @@
         if(dateTo && last && last > dateTo) return false;
         if(source && l.source !== source) return false;
         if(car && l.carName !== car) return false;
-        if(payment && l.payment !== payment) return false;
+        if(payment && paymentLabelForLead(l) !== payment) return false;
         if(campaign && l.campaignName !== campaign) return false;
         if(branch && l.branch !== branch) return false;
         if(q){
-          const hay = [l.customerName,l.phone,l.location,l.branch,l.source,l.carName,l.payment,l.status,l.responsibleName,l.callCenterName,l.campaignName].join(" ").toLowerCase();
+          const hay = [l.customerName,l.phone,l.location,l.branch,l.source,l.carName,paymentLabelForLead(l),l.status,l.responsibleName,l.callCenterName,l.campaignName].join(" ").toLowerCase();
           if(!hay.includes(q)) return false;
         }
         return true;
@@ -751,7 +761,7 @@
           <td>${escapeHtml(l.branch)}</td>
           <td>${escapeHtml(normalizeSourceLabel(l.source))}</td>
           <td>${escapeHtml(l.carName)}</td>
-          <td>${escapeHtml(l.payment)}</td>
+          <td>${escapeHtml(paymentLabelForLead(l))}</td>
           <td>${escapeHtml(l.status)}</td>
           <td>${responsibleDepartmentCell(l)}</td>
           <td>${assignmentCell(l, "responsible")}</td>
@@ -787,7 +797,7 @@
         "الفرع": l.branch || "",
         "المصدر": l.source || "",
         "اسم السيارة": l.carName || "",
-        "الدفع": l.payment || "",
+        "الدفع": paymentLabelForLead(l),
         "الحالة": l.status || "",
         "القسم": departmentLabel(responsibleDepartmentForLead(l)),
         "المسؤول": l.responsibleName || "",
