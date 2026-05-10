@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -81,12 +82,14 @@
               <select id="newRole">
                 <option value="user">مستخدم</option>
                 <option value="admin">أدمن</option>
+                <option value="sales_manager">مدير مبيعات</option>
                 <option value="call_center">كول سنتر</option>
               </select>
             </div>
             <div class="field">
               <label>القسم</label>
               <select id="newDepartment">
+                <option value="">بدون قسم</option>
                 <option value="cash_sales">مبيعات الكاش</option>
                 <option value="finance_sales">مبيعات التمويل</option>
                 <option value="customer_service">خدمة العملاء</option>
@@ -160,6 +163,13 @@
       call_center:"الكول سنتر"
     };
 
+    const ROLE_LABELS = {
+      user:"مستخدم",
+      admin:"أدمن",
+      sales_manager:"مدير مبيعات",
+      call_center:"كول سنتر"
+    };
+
     const BRANCH_ASSIGNMENT_FIELDS = {
       cash_sales:{uids:"cashSalesUids", names:"cashSalesNames"},
       finance_sales:{uids:"financeSalesUids", names:"financeSalesNames"},
@@ -221,7 +231,9 @@
     }
 
     function isAdminProfile(profile){
-      return profile?.role === "admin" || profile?.allDepartments === true;
+      // مدير المبيعات يأخذ نفس صلاحيات الإدارة العامة في التعديل والإجراءات،
+      // لكن ظهور الصفحات يظل حسب pages المحددة له فقط.
+      return profile?.role === "admin" || profile?.role === "sales_manager" || profile?.allDepartments === true;
     }
 
     function escapeHtml(str){
@@ -231,6 +243,26 @@
     }
 
     function departmentLabel(d){ const key = normalizeDepartment(d); return DEPARTMENTS[key] || d || ""; }
+    function roleLabel(role){ return ROLE_LABELS[role] || role || ""; }
+
+    function isManagementRole(role){
+      return role === "admin" || role === "sales_manager";
+    }
+
+    function syncRoleFields(){
+      const role = el("newRole").value;
+      const management = isManagementRole(role) || el("allDepartments").checked;
+
+      // مدير المبيعات يأخذ صلاحيات إدارية من الدور نفسه، وليس من علامة كل الصلاحيات.
+      // لذلك لا نجبر checkbox كل الصلاحيات على التفعيل؛ حتى لا تفتح كل الصفحات في الصفحات القديمة.
+      el("newDepartment").disabled = management;
+      el("newBranch").disabled = management;
+
+      if(management){
+        el("newDepartment").value = "";
+        el("newBranch").value = "";
+      }
+    }
 
 
 
@@ -253,8 +285,10 @@
     function renderAllowedNavigation(profile, adminFlag){
       const currentPage = location.pathname.split("/").pop() || "inbox.html";
       const pages = Array.isArray(profile?.pages) ? profile.pages : [];
-      const unrestricted = adminFlag || profile?.allDepartments === true || !pages.length;
-      const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
+      // وجود صلاحية إدارة عامة يفتح الأقسام والبيانات، لكنه لا يلغي تحديد الصفحات.
+      // لو المستخدم له صفحات محددة، لا نعرض له إلا هذه الصفحات فقط.
+      const unrestricted = !pages.length;
+      const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page));
       const nav = document.querySelector(".nav-tabs");
       if(!nav) return;
 
@@ -275,17 +309,18 @@
 
     function hasPageAccess(page){
       const pages = allowedPagesForCurrentUser();
-      return isAdmin || currentProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html";
+      // الإدارة العامة لا تعني فتح كل الصفحات تلقائيًا؛ الصفحات المختارة هي المرجع.
+      return !pages.length || pages.includes(page);
     }
 
     function applyPagePermissions(){
       const page = currentPageName();
       const pages = allowedPagesForCurrentUser();
-      const unrestricted = isAdmin || currentProfile?.allDepartments === true || !pages.length;
+      const unrestricted = !pages.length;
 
       document.querySelectorAll(".nav-tabs a").forEach(a => {
         const linkPage = (a.getAttribute("href") || "").replace("./", "");
-        if(!unrestricted && !pages.includes(linkPage) && linkPage !== "dashboard.html"){
+        if(!unrestricted && !pages.includes(linkPage)){
           a.classList.add("hidden");
         } else {
           a.classList.remove("hidden");
@@ -294,7 +329,8 @@
 
       if(!hasPageAccess(page)){
         sessionStorage.setItem("mzj_no_permission_page", page);
-        window.location.replace("./dashboard.html");
+        const fallbackPage = pages[0] || "dashboard.html";
+        window.location.replace(`./${fallbackPage}`);
         return false;
       }
 
@@ -316,7 +352,10 @@
           currentProfile = await loadUserProfile(user);
           isAdmin = isAdminProfile(currentProfile);
 
-          if(currentProfile.active === false || (adminOnly && !isAdmin)){
+          const pages = Array.isArray(currentProfile?.pages) ? currentProfile.pages : [];
+          const hasExplicitAdminPageAccess = pages.includes(currentPageName());
+
+          if(currentProfile.active === false || (adminOnly && !isAdmin && !hasExplicitAdminPageAccess)){
             await signOut(auth);
             showLoginError("لا توجد صلاحية دخول لهذه الصفحة.");
             return;
@@ -324,7 +363,8 @@
 
           el("loginScreen").classList.add("hidden");
           el("app").classList.remove("hidden");
-          el("userInfo").textContent = `${currentProfile.name || user.email} - ${isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department)}`;
+          const userRoleText = roleLabel(currentProfile.role) || (isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department));
+          el("userInfo").textContent = `${currentProfile.name || user.email} - ${userRoleText}`;
           renderAllowedNavigation(currentProfile, isAdmin);
           if(!applyPagePermissions()) return;
           pageInit();
@@ -402,7 +442,7 @@
           <td>${escapeHtml(u.name)}</td>
           <td>${escapeHtml(u.email)}</td>
           <td>${departmentLabel(u.department)}</td>
-          <td>${escapeHtml(u.role)}</td>
+          <td>${escapeHtml(roleLabel(u.role))}</td>
           <td>${escapeHtml(u.branchName || branchName(u.branchId))}</td>
           <td>${u.active === false ? "لا" : "نعم"}</td>
           <td><button class="secondary" data-edit-user="${escapeHtml(uid)}">تعديل</button></td>
@@ -423,6 +463,7 @@
       el("activeUser").checked = true;
       renderPagesPermissions();
       renderBranches();
+      syncRoleFields();
     }
 
     function loadUserIntoForm(uid){
@@ -443,10 +484,11 @@
       el("passwordNote").textContent = "تغيير الإيميل أو كلمة المرور يحتاج Firebase Console أو Admin SDK.";
 
       el("newRole").value = u.role || "user";
-      el("newDepartment").value = u.department || "cash_sales";
+      el("newDepartment").value = u.department || "";
       el("newBranch").value = u.branchId || "";
       el("allDepartments").checked = u.allDepartments === true;
       el("activeUser").checked = u.active !== false;
+      syncRoleFields();
 
       document.querySelectorAll('input[name="pages"]').forEach(ch => {
         ch.checked = Array.isArray(u.pages) ? u.pages.includes(ch.value) : true;
@@ -462,7 +504,7 @@
     async function updateBranchMembership(uid, profilePayload){
       const userName = userDisplayNameFromPayload(profilePayload, uid);
       const userDept = normalizeDepartment(profilePayload.department);
-      const targetBranchId = (profilePayload.role === "admin" || profilePayload.allDepartments === true) ? "" : (profilePayload.branchId || "");
+      const targetBranchId = (profilePayload.role === "admin" || profilePayload.role === "sales_manager" || profilePayload.allDepartments === true) ? "" : (profilePayload.branchId || "");
 
       for(const b of branches){
         const updates = {};
@@ -504,8 +546,12 @@
       const branchId = el("newBranch").value;
 
       const selectedRole = el("newRole").value;
-      const selectedDepartment = normalizeDepartment(el("newDepartment").value);
-      const isGeneralAdmin = selectedRole === "admin" || el("allDepartments").checked;
+      const isManagementUser = isManagementRole(selectedRole);
+      const isGeneralAdmin = isManagementUser || el("allDepartments").checked;
+      const selectedDepartment = isGeneralAdmin ? "" : normalizeDepartment(el("newDepartment").value);
+      // مهم: مدير المبيعات لا نحفظ له allDepartments=true حتى لا تفتح كل الصفحات تلقائيًا في الصفحات القديمة.
+      // صلاحياته الإدارية تعتمد على role === "sales_manager"، والصفحات تعتمد على pages فقط.
+      const selectedAllDepartments = selectedRole === "sales_manager" ? false : el("allDepartments").checked;
 
       const profilePayload = {
         name: el("newName").value.trim(),
@@ -515,7 +561,7 @@
         branchId: isGeneralAdmin ? "" : branchId,
         branchName: isGeneralAdmin ? "" : branchName(branchId),
         pages: selectedPages(),
-        allDepartments: el("allDepartments").checked,
+        allDepartments: selectedAllDepartments,
         active: el("activeUser").checked,
         updatedAt: serverTimestamp(),
         updatedByUid: currentUser.uid,
@@ -563,6 +609,8 @@
       onSnapshot(collection(db, "users"), snap => { users=[]; snap.forEach(d => users.push({id:d.id,uid:d.id,...d.data()})); renderUsers(); });
       onSnapshot(query(collection(db, "branches"), orderBy("name","asc")), snap => { branches=[]; snap.forEach(d => branches.push({id:d.id,...d.data()})); renderBranches(); renderUsers(); });
       el("userForm").onsubmit = saveUserAccount;
+      el("newRole").onchange = syncRoleFields;
+      el("allDepartments").onchange = syncRoleFields;
       el("resetUserBtn").onclick = resetUserForm;
       el("usersBody").onclick = (e) => {
         const uid = e.target.dataset.editUser;
