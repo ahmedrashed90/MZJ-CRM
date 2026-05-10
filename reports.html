@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -121,11 +122,11 @@
 
         <div class="report-kpis">
           <div class="stat-card"><h3>جودة التسويق</h3><div class="stat-number" id="marketingQualityCount">0%</div><span class="formula-note">مؤهل ÷ إجمالي العملاء</span></div>
-          <div class="stat-card"><h3>إجمالي العملاء</h3><div class="stat-number" id="totalCount">0</div><span class="formula-note">عدد العملاء المطابقين للفلاتر الحالية</span></div>
+          <div class="stat-card"><h3>إجمالي العملاء</h3><div class="stat-number" id="totalCount">0</div><span class="formula-note">بدون خدمة العملاء</span></div>
           <div class="stat-card"><h3>غير مؤهل</h3><div class="stat-number" id="wasteCount">0</div><span class="formula-note">رفض / خسارة / غير مؤهل / لم تتم الموافقة</span></div>
           <div class="stat-card"><h3>مؤهل</h3><div class="stat-number" id="qualifiedCount">0</div><span class="formula-note">إجمالي العملاء - غير مؤهل</span></div>
           <div class="stat-card"><h3>مؤجل</h3><div class="stat-number" id="delayedCount">0</div><span class="formula-note">تأخر / مؤجل / استكمال / انتظار توقيع</span></div>
-          <div class="stat-card"><h3>محتمل</h3><div class="stat-number" id="potentialCount">0</div><span class="formula-note">إجمالي العملاء - تم البيع - غير مؤهل - مؤجل</span></div>
+          <div class="stat-card"><h3>محتمل</h3><div class="stat-number" id="potentialCount">0</div><span class="formula-note">بدون خدمة العملاء</span></div>
           <div class="stat-card"><h3>تم البيع</h3><div class="stat-number" id="soldCount">0</div><span class="formula-note">حالات البيع والإغلاق الربحي</span></div>
           <div class="stat-card"><h3>جودة المبيعات</h3><div class="stat-number" id="agentQualityCount">0%</div><span class="formula-note">تم البيع ÷ مؤهل</span></div>
         </div>
@@ -250,6 +251,9 @@
       { key:"finance_sales", label:"العملاء المحتملون - تمويل" },
       { key:"customer_service", label:"العملاء المحتملون - خدمة عملاء" }
     ];
+
+    const DEPARTMENT_REPORT_EXCLUDED_SECTIONS = new Set(["call_center", "customer_service"]);
+    const SUMMARY_EXCLUDED_SECTIONS = new Set(["customer_service"]);
 
     const NAV_ITEMS = [
       { page:"inbox.html", label:"صندوق الوارد" },
@@ -728,6 +732,14 @@
       });
     }
 
+    function summaryRows(rows){
+      return (Array.isArray(rows) ? rows : []).filter(lead => !SUMMARY_EXCLUDED_SECTIONS.has(getLeadSectionKey(lead)));
+    }
+
+    function reportSectionDefs(){
+      return SECTION_DEFS.filter(sec => !DEPARTMENT_REPORT_EXCLUDED_SECTIONS.has(sec.key));
+    }
+
     function refreshBranchOptions(){
       fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads.filter(userCanSeeLead), "branch"));
     }
@@ -751,7 +763,7 @@
       refreshAgentOptions();
 
       const rows = filteredRows();
-      const totals = computeMetrics(rows);
+      const totals = computeMetrics(summaryRows(rows));
 
       el("totalCount").textContent = totals.total;
       el("soldCount").textContent = totals.sold;
@@ -763,8 +775,8 @@
       el("agentQualityCount").textContent = `${totals.agentQualityRate}%`;
 
       const activeSections = el("departmentFilter").value
-        ? SECTION_DEFS.filter(sec => sec.key === el("departmentFilter").value)
-        : SECTION_DEFS;
+        ? reportSectionDefs().filter(sec => sec.key === el("departmentFilter").value)
+        : reportSectionDefs();
 
       const depRows = activeSections.map(sec => {
         const secRows = rows.filter(lead => getLeadSectionKey(lead) === sec.key);
@@ -795,19 +807,19 @@
 
     function buildExportSheets(){
       const rows = filteredRows();
-      const totals = computeMetrics(rows);
+      const totals = computeMetrics(summaryRows(rows));
       const summarySheet = XLSX.utils.json_to_sheet([
-        { "المؤشر": "إجمالي العملاء", "القيمة": totals.total },
+        { "المؤشر": "إجمالي العملاء بدون خدمة العملاء", "القيمة": totals.total },
         { "المؤشر": "جودة التسويق", "القيمة": `${totals.marketingQualityRate}%` },
         { "المؤشر": "غير مؤهل", "القيمة": totals.waste },
         { "المؤشر": "مؤهل", "القيمة": totals.qualified },
         { "المؤشر": "مؤجل", "القيمة": totals.delayed },
-        { "المؤشر": "محتمل", "القيمة": totals.potential },
+        { "المؤشر": "محتمل بدون خدمة العملاء", "القيمة": totals.potential },
         { "المؤشر": "تم البيع", "القيمة": totals.sold },
         { "المؤشر": "جودة المندوب", "القيمة": `${totals.agentQualityRate}%` }
       ]);
 
-      const sectionRows = (el("departmentFilter").value ? SECTION_DEFS.filter(sec => sec.key === el("departmentFilter").value) : SECTION_DEFS).map(sec => {
+      const sectionRows = (el("departmentFilter").value ? reportSectionDefs().filter(sec => sec.key === el("departmentFilter").value) : reportSectionDefs()).map(sec => {
         const m = computeMetrics(rows.filter(lead => getLeadSectionKey(lead) === sec.key));
         return {
           "القسم": sec.label,
