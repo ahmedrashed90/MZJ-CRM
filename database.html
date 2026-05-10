@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -9,6 +10,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MZJ CRM - قاعدة البيانات</title>
   <link rel="stylesheet" href="./theme.css" />
+  <style>
+    .leads-table .assignment-select,
+    .leads-table .department-select {
+      width: 180px;
+      min-width: 180px;
+      box-sizing: border-box;
+    }
+  </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -296,6 +305,7 @@
       const callCenterUid = document.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="callCenter"]`)?.value || "";
       const responsibleUser = responsibleUid ? users.find(u => (u.uid || u.id) === responsibleUid) : null;
       const callCenterUser = callCenterUid ? users.find(u => (u.uid || u.id) === callCenterUid) : null;
+      const selectedStatus = document.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="status"]`)?.value || lead.status || "";
 
       if(!["cash_sales", "finance_sales", "customer_service"].includes(responsibleDepartment)) return toast("اختر قسم صحيح للمسؤول");
       if(responsibleUid && !responsibleUser) return toast("المسؤول غير موجود");
@@ -307,6 +317,18 @@
       const payload = {
         department: responsibleDepartment,
         payment: PAGE_PAYMENTS[responsibleDepartment] || "",
+        status: selectedStatus,
+        statusLabel: selectedStatus,
+        leadStatus: selectedStatus,
+        currentStatus: selectedStatus,
+        currentStatusLabel: selectedStatus,
+        clientStatus: selectedStatus,
+        customerStatus: selectedStatus,
+        customerStatusLabel: selectedStatus,
+        pipelineStatus: selectedStatus,
+        pipelineStatusLabel: selectedStatus,
+        stage: selectedStatus,
+        stageLabel: selectedStatus,
         lastUpdated: serverTimestamp()
       };
       const responsibleId = responsibleUser ? (responsibleUser.uid || responsibleUser.id) : "";
@@ -380,6 +402,42 @@
       ).join("");
     }
 
+    function statusLabel(status){
+      return status.name || status.label || status.title || status.status || status.value || status.id || "";
+    }
+
+    function statusValue(status){
+      return status.status || status.value || status.name || status.label || status.title || status.id || "";
+    }
+
+    function statusBelongsToDepartment(status, dept){
+      const values = [status.department, status.departmentId, status.departmentKey, status.section, status.sectionKey, status.payment, status.paymentType]
+        .filter(Boolean)
+        .map(v => String(v).trim());
+      const multi = Array.isArray(status.departments) ? status.departments.map(v => String(v).trim()) : [];
+      const all = [...values, ...multi];
+      if(!all.length) return true;
+      return all.includes(dept) || all.includes(departmentLabel(dept)) || all.includes(PAGE_PAYMENTS[dept]);
+    }
+
+    function statusOptions(dept, selectedStatus="", includeSelected=true){
+      const opts = ['<option value="">اختر الحالة</option>'];
+      const seen = new Set([""]);
+      statuses
+        .filter(s => s.active !== false && statusBelongsToDepartment(s, dept))
+        .forEach(s => {
+          const value = statusValue(s);
+          const label = statusLabel(s);
+          if(!value || seen.has(value)) return;
+          seen.add(value);
+          opts.push(`<option value="${escapeHtml(value)}" ${value === selectedStatus ? "selected" : ""}>${escapeHtml(label || value)}</option>`);
+        });
+      if(includeSelected && selectedStatus && !seen.has(selectedStatus)){
+        opts.push(`<option value="${escapeHtml(selectedStatus)}" selected>${escapeHtml(selectedStatus)}</option>`);
+      }
+      return opts.join("");
+    }
+
     function responsibleDepartmentForLead(lead){
       if(lead.department && lead.department !== "call_center") return lead.department;
       const payment = String(lead.payment || "").trim();
@@ -411,6 +469,12 @@
       if(!isAdmin) return escapeHtml(selectedName);
       const dept = isResponsible ? responsibleDepartmentForLead(lead) : "call_center";
       return `<select class="assignment-select" data-lead-id="${escapeHtml(lead.id)}" data-field="${field}">${userOptions(dept, selectedUid)}</select>`;
+    }
+
+    function statusCell(lead){
+      const selectedStatus = lead.status || "";
+      if(!isAdmin) return escapeHtml(selectedStatus);
+      return `<select class="assignment-select" data-lead-id="${escapeHtml(lead.id)}" data-field="status">${statusOptions(responsibleDepartmentForLead(lead), selectedStatus)}</select>`;
     }
 
 
@@ -812,7 +876,7 @@
           <td>${escapeHtml(normalizeSourceLabel(l.source))}</td>
           <td>${escapeHtml(l.carName)}</td>
           <td>${escapeHtml(paymentLabelForLead(l))}</td>
-          <td>${escapeHtml(l.status)}</td>
+          <td>${statusCell(l)}</td>
           <td>${responsibleDepartmentCell(l)}</td>
           <td>${assignmentCell(l, "responsible")}</td>
           <td>${assignmentCell(l, "callCenter")}</td>
@@ -830,6 +894,10 @@
           const responsibleSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="responsible"]`);
           if(responsibleSelect){
             responsibleSelect.innerHTML = userOptions(select.value, "");
+          }
+          const statusSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="status"]`);
+          if(statusSelect){
+            statusSelect.innerHTML = statusOptions(select.value, "", false);
           }
         };
       });
