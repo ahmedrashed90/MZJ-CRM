@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -11,7 +12,11 @@
   <style>
     .report-note{color:#8d6e63;font-size:13px;line-height:1.9;}
     .filters-grid.reports{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;}
-    .report-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:18px 0;}
+    .report-kpis{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:14px;margin:18px 0;align-items:stretch;}
+    .report-kpis .stat-card{min-width:0;}
+    @media (max-width:1400px){.report-kpis{grid-template-columns:repeat(4,minmax(0,1fr));}}
+    @media (max-width:760px){.report-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media (max-width:480px){.report-kpis{grid-template-columns:1fr;}}
     .formula-note{display:block;margin-top:8px;color:#8d6e63;font-size:12px;line-height:1.7;}
     .report-stack{display:flex;flex-direction:column;gap:18px;}
     .table-wrap{overflow:auto;}
@@ -115,14 +120,14 @@
         </div>
 
         <div class="report-kpis">
-          <div class="stat-card"><h3>جودة التسويق</h3><div class="stat-number" id="marketingQualityCount">0%</div><span class="formula-note">(مؤجل + محتمل) ÷ إجمالي العملاء</span></div>
+          <div class="stat-card"><h3>جودة التسويق</h3><div class="stat-number" id="marketingQualityCount">0%</div><span class="formula-note">مؤهل ÷ إجمالي العملاء</span></div>
           <div class="stat-card"><h3>إجمالي العملاء</h3><div class="stat-number" id="totalCount">0</div><span class="formula-note">عدد العملاء المطابقين للفلاتر الحالية</span></div>
           <div class="stat-card"><h3>غير مؤهل</h3><div class="stat-number" id="wasteCount">0</div><span class="formula-note">رفض / خسارة / غير مؤهل / لم تتم الموافقة</span></div>
-          <div class="stat-card"><h3>مؤهل</h3><div class="stat-number" id="wasteCount">0</div><span class="formula-note"></span></div>
+          <div class="stat-card"><h3>مؤهل</h3><div class="stat-number" id="qualifiedCount">0</div><span class="formula-note">إجمالي العملاء - غير مؤهل</span></div>
           <div class="stat-card"><h3>مؤجل</h3><div class="stat-number" id="delayedCount">0</div><span class="formula-note">تأخر / مؤجل / استكمال / انتظار توقيع</span></div>
           <div class="stat-card"><h3>محتمل</h3><div class="stat-number" id="potentialCount">0</div><span class="formula-note">إجمالي العملاء - تم البيع - غير مؤهل - مؤجل</span></div>
           <div class="stat-card"><h3>تم البيع</h3><div class="stat-number" id="soldCount">0</div><span class="formula-note">حالات البيع والإغلاق الربحي</span></div>
-          <div class="stat-card"><h3>جودة المبيعات</h3><div class="stat-number" id="agentQualityCount">0%</div><span class="formula-note">تم البيع ÷ (مؤجل + محتمل)</span></div>
+          <div class="stat-card"><h3>جودة المبيعات</h3><div class="stat-number" id="agentQualityCount">0%</div><span class="formula-note">تم البيع ÷ مؤهل</span></div>
         </div>
 
         <div class="report-table-section">
@@ -481,10 +486,10 @@
         else if(isDelayedStatus(status)) delayed += 1;
       });
       const potential = Math.max(0, total - sold - waste - delayed);
-      const marketingQualityRate = total ? Math.round(((delayed + potential) / total) * 100) : 0;
-      const denominator = delayed + potential;
-      const agentQualityRate = denominator ? Math.round((sold / denominator) * 100) : 0;
-      return { total, sold, waste, delayed, potential, marketingQualityRate, agentQualityRate };
+      const qualified = Math.max(0, total - waste);
+      const marketingQualityRate = total ? Math.round((qualified / total) * 100) : 0;
+      const agentQualityRate = qualified ? Math.round((sold / qualified) * 100) : 0;
+      return { total, sold, waste, qualified, delayed, potential, marketingQualityRate, agentQualityRate };
     }
 
     function getReasonText(lead={}){
@@ -634,6 +639,7 @@
       el("agentDetailsSummary").innerHTML = [
         `إجمالي العملاء: ${metrics.total}`,
         `غير مؤهل: ${metrics.waste}`,
+        `مؤهل: ${metrics.qualified}`,
         `مؤجل: ${metrics.delayed}`,
         `محتمل: ${metrics.potential}`,
         `تم البيع: ${metrics.sold}`,
@@ -752,6 +758,7 @@
       el("potentialCount").textContent = totals.potential;
       el("delayedCount").textContent = totals.delayed;
       el("wasteCount").textContent = totals.waste;
+      el("qualifiedCount").textContent = totals.qualified;
       el("marketingQualityCount").textContent = `${totals.marketingQualityRate}%`;
       el("agentQualityCount").textContent = `${totals.agentQualityRate}%`;
 
@@ -781,7 +788,7 @@
 
       const agentRows = lastAgentGroups.map(item => {
           const m = computeMetrics(item.rows);
-          return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td><td><button class="secondary agent-details-btn" type="button" data-agent-key="${escapeHtml(item.key)}">تفاصيل العملاء</button></td></tr>`;
+          return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td><td><button class="secondary agent-details-btn" type="button" data-agent-key="${escapeHtml(item.key)}">تقارير العملاء</button></td></tr>`;
         });
       el("agentsReport").innerHTML = agentRows.length ? agentRows.join("") : '<tr><td colspan="10">لا توجد بيانات للمندوبين.</td></tr>';
 }
@@ -793,6 +800,7 @@
         { "المؤشر": "إجمالي العملاء", "القيمة": totals.total },
         { "المؤشر": "جودة التسويق", "القيمة": `${totals.marketingQualityRate}%` },
         { "المؤشر": "غير مؤهل", "القيمة": totals.waste },
+        { "المؤشر": "مؤهل", "القيمة": totals.qualified },
         { "المؤشر": "مؤجل", "القيمة": totals.delayed },
         { "المؤشر": "محتمل", "القيمة": totals.potential },
         { "المؤشر": "تم البيع", "القيمة": totals.sold },
@@ -845,7 +853,7 @@
       const area = el('reportsPrintableArea');
       const win = window.open('', '_blank', 'width=1400,height=1000');
       if(!win || !area) return;
-      win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8" /><title>تقارير CRM</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1C1C1C}h1,h3{margin:0 0 14px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #ddd;padding:10px;text-align:right;vertical-align:top}th{background:#f7f5f2}.stat-card,.filters-card,.report-table-section{border:1px solid #ddd;border-radius:12px;padding:12px;margin-bottom:14px;background:#fff}.report-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.formula-note,.report-note{display:block;color:#666;font-size:12px;margin-top:6px}</style></head><body><h1>تقارير CRM</h1>${area.innerHTML}</body></html>`);
+      win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8" /><title>تقارير CRM</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1C1C1C}h1,h3{margin:0 0 14px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #ddd;padding:10px;text-align:right;vertical-align:top}th{background:#f7f5f2}.stat-card,.filters-card,.report-table-section{border:1px solid #ddd;border-radius:12px;padding:12px;margin-bottom:14px;background:#fff}.report-kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:12px}.formula-note,.report-note{display:block;color:#666;font-size:12px;margin-top:6px}</style></head><body><h1>تقارير CRM</h1>${area.innerHTML}</body></html>`);
       win.document.close();
       win.focus();
       setTimeout(() => { try{ win.print(); }catch(e){} }, 400);
