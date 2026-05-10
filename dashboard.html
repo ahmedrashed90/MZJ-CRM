@@ -11,6 +11,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -762,6 +763,7 @@
                   <label>الراتب<input id="chatSalary"></label>
                   <label>الالتزام إن وجد<input id="chatObligation"></label>
                 </div>
+                <label>نزول الراتب على أي بنك<input id="chatSalaryBank"></label>
                 <label>المكان<input id="chatLocation"></label>
                 <div class="two">
                   <label>نوع السيارة<input id="chatCar"></label>
@@ -852,7 +854,7 @@
         chatStatusField.addEventListener("input", onDashboardStatusChanged);
         chatStatusField.addEventListener("change", onDashboardStatusChanged);
       }
-      ["chatName","chatPhone","chatAge","chatSalary","chatObligation","chatLocation","chatCar","chatModel","chatColor","chatPayment","chatNotes","chatFollowupDate"].forEach(id => {
+      ["chatName","chatPhone","chatAge","chatSalary","chatObligation","chatSalaryBank","chatLocation","chatCar","chatModel","chatColor","chatPayment","chatNotes","chatFollowupDate"].forEach(id => {
         const field = el(id);
         if(field) field.addEventListener("input", updateChatCompletionProgress);
         if(field) field.addEventListener("change", updateChatCompletionProgress);
@@ -1130,6 +1132,8 @@
           phoneNormalized: payload.phoneNormalized || normalizeKsaPhone(payload.phone),
           age: payload.age || "",
           salary: payload.salary || "",
+          salaryBank: payload.salaryBank || payload.bank || "",
+          bank: payload.bank || payload.salaryBank || "",
           obligation: payload.obligation || "",
           commitment: payload.commitment || payload.obligation || "",
           location: payload.location || "",
@@ -1360,6 +1364,7 @@
       el("chatAge").value = getLeadField(lead, ["age","customerAge"]);
       el("chatSalary").value = getLeadField(lead, ["salary","monthlySalary"]);
       el("chatObligation").value = getLeadField(lead, ["obligation","commitment"]);
+      el("chatSalaryBank").value = getLeadField(lead, ["salaryBank","bank"]);
       el("chatLocation").value = getLeadField(lead, ["location","city","place"]);
       el("chatCar").value = getLeadField(lead, ["car","carName","carType","vehicleName"]);
       el("chatModel").value = getLeadField(lead, ["model","carModel"]);
@@ -1431,7 +1436,7 @@
           obligation: el("chatObligation")?.value || "",
           location: el("chatLocation")?.value || "",
           age: el("chatAge")?.value || "",
-          salaryBank: getLeadField(dashboardChatState.lead || {}, ["salaryBank","bank"]),
+          salaryBank: el("chatSalaryBank")?.value || getLeadField(dashboardChatState.lead || {}, ["salaryBank","bank"]),
           carType: el("chatCar")?.value || "",
           carModel: el("chatModel")?.value || "",
           color: el("chatColor")?.value || "",
@@ -1774,6 +1779,8 @@
         phoneNormalized: normalizeKsaPhone(el("chatPhone").value),
         age: el("chatAge").value.trim(),
         salary: el("chatSalary").value.trim(),
+        salaryBank: el("chatSalaryBank").value.trim(),
+        bank: el("chatSalaryBank").value.trim(),
         obligation: el("chatObligation").value.trim(),
         commitment: el("chatObligation").value.trim(),
         location: el("chatLocation").value.trim(),
@@ -1812,6 +1819,7 @@
           customerName: payload.customerName,
           phone: payload.phone,
           salary: payload.salary,
+          salaryBank: payload.salaryBank || "",
           obligation: payload.obligation,
           location: payload.location,
           age: payload.age,
