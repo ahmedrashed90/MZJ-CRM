@@ -8,6 +8,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -485,12 +486,64 @@
       return "";
     }
 
+    function dashboardNormalizeAssigneeValue(value){
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function dashboardAssigneeMatchesCurrentUser(value){
+      if(value === undefined || value === null || value === "") return false;
+
+      if(Array.isArray(value)){
+        return value.some(v => dashboardAssigneeMatchesCurrentUser(v));
+      }
+
+      if(typeof value === "object"){
+        return [
+          value.uid, value.id, value.userId, value.email, value.mail,
+          value.name, value.displayName, value.fullName
+        ].some(v => dashboardAssigneeMatchesCurrentUser(v));
+      }
+
+      const v = dashboardNormalizeAssigneeValue(value);
+      const currentValues = [
+        currentUser?.uid,
+        currentUser?.email,
+        currentProfile?.uid,
+        currentProfile?.id,
+        currentProfile?.userId,
+        currentProfile?.email,
+        currentProfile?.name,
+        currentProfile?.displayName,
+        currentProfile?.fullName
+      ].map(dashboardNormalizeAssigneeValue).filter(Boolean);
+
+      return currentValues.includes(v);
+    }
+
+    function leadAssignedToCurrentRepresentative(lead = {}){
+      if(isAdmin || currentProfile?.allDepartments === true) return true;
+
+      return [
+        lead.assignedToUid, lead.assignedUid, lead.assignedUserId, lead.assignedId,
+        lead.responsibleUid, lead.responsibleUserId, lead.ownerUid, lead.ownerUserId,
+        lead.salesUid, lead.salesUserId, lead.salesRepUid, lead.representativeUid,
+        lead.agentUid, lead.userUid, lead.employeeUid,
+        lead.assignedToEmail, lead.assignedEmail, lead.responsibleEmail, lead.ownerEmail,
+        lead.salesEmail, lead.salesRepEmail, lead.representativeEmail, lead.agentEmail,
+        lead.userEmail, lead.employeeEmail,
+        lead.assignedToName, lead.assignedName, lead.responsibleName, lead.ownerName,
+        lead.salesName, lead.salesRepName, lead.representativeName, lead.agentName,
+        lead.userName, lead.employeeName,
+        lead.assignedTo, lead.assigned, lead.responsible, lead.owner,
+        lead.salesRep, lead.representative, lead.agent, lead.user, lead.employee
+      ].some(v => dashboardAssigneeMatchesCurrentUser(v));
+    }
+
     function visibleLeadsForSection(def){
       let items = leads.filter(l => leadDepartment(l) === def.department);
 
-      // Dashboard popup is an operational workspace: any active representative who can open
-      // the dashboard can update customer data from the popup. Firestore rules remain the final authority.
-      return items;
+      if(isAdmin || currentProfile?.allDepartments === true) return items;
+      return items.filter(leadAssignedToCurrentRepresentative);
     }
 
     function sectionTotal(def){
