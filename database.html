@@ -2,6 +2,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -255,7 +256,7 @@
       return users.filter(u => u.active !== false && (
         u.department === dept ||
         u.role === dept ||
-        (dept === "call_center" && (u.department === "call_center" || u.role === "call_center" || u.department === "finance_sales"))
+        (dept === "call_center" && (u.department === "call_center" || u.role === "call_center"))
       ));
     }
 
