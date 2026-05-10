@@ -197,7 +197,6 @@
               <th>السيارة</th>
               <th>المصدر</th>
               <th>الفرع</th>
-              <th>الحالة الحالية</th>
               <th>تاريخ التسجيل</th>
               <th>آخر تحديث</th>
               <th>التحديثات</th>
@@ -345,12 +344,68 @@
       return lead.responsibleUid === uid || lead.callCenterUid === uid;
     }
 
+    function normalizeDateDigits(value){
+      return String(value ?? "")
+        .replace(/[٠-٩]/g, d => "0123456789"["٠١٢٣٤٥٦٧٨٩".indexOf(d)])
+        .replace(/[۰-۹]/g, d => "0123456789"["۰۱۲۳۴۵۶۷۸۹".indexOf(d)])
+        .replace(/[‎‏]/g, "")
+        .trim();
+    }
+
+    function parseDateString(value){
+      const raw = String(value ?? "").trim();
+      if(!raw) return null;
+      let text = normalizeDateDigits(raw)
+        .replace(/،/g, " ")
+        .replace(/-/g, "/")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const parsed = new Date(text);
+      if(!isNaN(parsed)) return parsed;
+
+      const meridiemMatch = text.match(/(ص|م|AM|PM)/i);
+      const meridiem = meridiemMatch ? meridiemMatch[1].toUpperCase() : "";
+      text = text.replace(/(ص|م|AM|PM)/ig, "").trim();
+
+      const match = text.match(/(\d{1,4})[\/](\d{1,2})[\/](\d{1,4})(?:\s+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?/);
+      if(!match) return null;
+
+      let a = Number(match[1]);
+      let b = Number(match[2]);
+      let c = Number(match[3]);
+      let year, month, day;
+
+      if(String(match[1]).length === 4){
+        year = a; month = b; day = c;
+      } else if(String(match[3]).length === 4){
+        year = c;
+        if(a > 12){ day = a; month = b; }
+        else if(b > 12){ month = a; day = b; }
+        else { month = a; day = b; }
+      } else {
+        return null;
+      }
+
+      let hour = match[4] ? Number(match[4]) : 0;
+      const minute = match[5] ? Number(match[5]) : 0;
+      const second = match[6] ? Number(match[6]) : 0;
+      if((meridiem === "م" || meridiem === "PM") && hour < 12) hour += 12;
+      if((meridiem === "ص" || meridiem === "AM") && hour === 12) hour = 0;
+
+      const dt = new Date(year, month - 1, day, hour, minute, second);
+      return isNaN(dt) ? null : dt;
+    }
+
     function tsToDate(v){
       if(!v) return null;
       if(typeof v?.toDate === "function") return v.toDate();
+      if(typeof v?.toMillis === "function") return new Date(v.toMillis());
       if(typeof v === "number") return new Date(v);
-      if(typeof v === "string") return new Date(v);
+      if(typeof v === "string") return parseDateString(v);
       if(v?.seconds) return new Date(v.seconds * 1000);
+      if(v?._seconds) return new Date(v._seconds * 1000);
+      if(v?.milliseconds) return new Date(v.milliseconds);
       return null;
     }
 
@@ -447,19 +502,60 @@
       return dt.toISOString().slice(0,10);
     }
 
+    function getRegistrationKeys(){
+      return [
+        "registrationDate", "registrationTime", "registeredAt", "registeredOn", "registeredTime",
+        "leadCreatedAt", "leadCreatedDate", "leadDate", "leadDateTime",
+        "createdAt", "created_at", "created", "createdOn", "createdDate", "createdTime",
+        "creationDate", "creationTime", "dateCreated", "clientCreatedAt", "clientCreatedDate",
+        "timestamp", "timeStamp", "submittedAt", "submittedOn", "receivedAt", "receivedOn", "firstReceivedAt",
+        "addedAt", "addedOn", "addedDate", "addedTime", "manualCreatedAt", "manualAddedAt", "manualDate",
+        "entryDate", "entryTime", "date", "dateTime",
+        "تاريخ التسجيل", "وقت التسجيل", "تاريخ تسجيل", "وقت تسجيل",
+        "تاريخ دخول العميل", "وقت دخول العميل", "تاريخ دخول", "وقت دخول",
+        "تاريخ الإنشاء", "تاريخ الانشاء", "وقت الإنشاء", "وقت الانشاء",
+        "تاريخ إنشاء العميل", "تاريخ انشاء العميل", "وقت إنشاء العميل", "وقت انشاء العميل",
+        "تاريخ الإضافة", "تاريخ الاضافة", "وقت الإضافة", "وقت الاضافة",
+        "تاريخ إضافة العميل", "تاريخ اضافة العميل", "وقت إضافة العميل", "وقت اضافة العميل",
+        "تاريخ العميل", "وقت العميل", "التاريخ"
+      ];
+    }
+
+    function getFirstRawValueFromLead(lead, keys){
+      for(const key of keys){
+        const value = lead?.[key];
+        if(value !== undefined && value !== null && String(value).trim() !== "") return value;
+      }
+      return null;
+    }
+
+    function getRegistrationRawValue(lead){
+      const direct = getFirstRawValueFromLead(lead, getRegistrationKeys());
+      if(direct !== null) return direct;
+
+      const negative = /(update|updated|last|modified|status|campaign|آخر|اخر|تحديث|تعديل|حالة|الحالة|حملة|الحملة)/i;
+      const positive = /(created|creation|registered|registration|added|submitted|received|timestamp|entry|leadDate|date|تسجيل|دخول|إنشاء|انشاء|إضافة|اضافة|التاريخ|تاريخ)/i;
+      const keys = Object.keys(lead || {}).filter(key => positive.test(key) && !negative.test(key));
+      for(const key of keys){
+        const value = lead[key];
+        if(value !== undefined && value !== null && String(value).trim() !== "") return value;
+      }
+      return null;
+    }
+
     function leadCreatedDate(lead){
-      return tsToDate(
-        lead.createdAt ||
-        lead.timestamp ||
-        lead.createdDate ||
-        lead.registrationDate ||
-        lead.registeredAt ||
-        lead.addedAt ||
-        lead["تاريخ التسجيل"] ||
-        lead["تاريخ دخول العميل"] ||
-        lead["تاريخ الإنشاء"] ||
-        lead["تاريخ الانشاء"]
-      );
+      const raw = getRegistrationRawValue(lead);
+      const rawDate = tsToDate(raw);
+      if(rawDate && !isNaN(rawDate)) return rawDate;
+      return null;
+    }
+
+    function formatRegistrationDate(lead){
+      const raw = getRegistrationRawValue(lead);
+      const parsed = tsToDate(raw);
+      if(parsed && !isNaN(parsed)) return parsed.toLocaleString('ar-SA', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+      if(raw !== null && raw !== undefined && String(raw).trim()) return String(raw).trim();
+      return "غير محدد";
     }
 
     function getCustomerName(lead){
@@ -552,13 +648,12 @@
           <td>${escapeHtml(getCarText(lead))}</td>
           <td>${escapeHtml(getSourceText(lead))}</td>
           <td>${escapeHtml(lead.branch || "")}</td>
-          <td>${escapeHtml(lead.status || lead.clientStatus || "")}</td>
-          <td>${escapeHtml(formatDateTime(leadCreatedDate(lead)) || "غير محدد")}</td>
+          <td>${escapeHtml(formatRegistrationDate(lead))}</td>
           <td>${escapeHtml(formatDateTime(lead.lastUpdated || lead.updatedAt || lead.lastEventAt))}</td>
           <td>${updatesHtml}</td>
         </tr>`;
       });
-      el("agentDetailsBody").innerHTML = bodyRows.length ? bodyRows.join("") : '<tr><td colspan="9">لا توجد بيانات في الفترة المحددة.</td></tr>';
+      el("agentDetailsBody").innerHTML = bodyRows.length ? bodyRows.join("") : '<tr><td colspan="8">لا توجد بيانات في الفترة المحددة.</td></tr>';
     }
 
     function openAgentDetails(key){
@@ -601,7 +696,7 @@
       const to = el("dateTo").value;
 
       return leads.filter(lead => {
-        if(lead.manualOnly === true || lead.manualDuplicateRequest === true || lead.manualRequestType === "duplicate_phone") return false;
+        if(lead.manualDuplicateRequest === true || lead.manualRequestType === "duplicate_phone") return false;
         if(!userCanSeeLead(lead)) return false;
         const leadSection = getLeadSectionKey(lead);
         if(!SECTION_DEFS.some(sec => sec.key === leadSection)) return false;
