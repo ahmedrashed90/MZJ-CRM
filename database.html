@@ -423,6 +423,10 @@
     function statusOptions(dept, selectedStatus="", includeSelected=true){
       const opts = ['<option value="">اختر الحالة</option>'];
       const seen = new Set([""]);
+      if(["cash_sales", "finance_sales", "customer_service"].includes(dept)){
+        seen.add("عميل جديد");
+        opts.push(`<option value="عميل جديد" ${selectedStatus === "عميل جديد" ? "selected" : ""}>عميل جديد</option>`);
+      }
       statuses
         .filter(s => s.active !== false && statusBelongsToDepartment(s, dept))
         .forEach(s => {
