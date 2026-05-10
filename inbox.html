@@ -2,6 +2,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -272,9 +273,9 @@
 
     const state = {
       user:null, userProfile:null, isAdmin:false,
-      conversations:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
+      conversations:[], leads:[], statuses:[], templates:[], selected:null, selectedPlatform:"all",
       pendingOpenTarget:null, limitedInboxMode:false,
-      department:"cash_sales", unsubConversations:[], unsubMessages:null, unsubStatuses:null, unsubTemplates:null
+      department:"cash_sales", unsubConversations:[], unsubLeads:null, unsubMessages:null, unsubStatuses:null, unsubTemplates:null
     };
 
     const conversationList = el("conversationList");
@@ -321,6 +322,7 @@
           // في حسابات المناديب، فتظل الصفحة على "جاري الاتصال" حتى الضغط على تحديث.
           listenStatuses();
           listenTemplates();
+          listenLeads();
           listenConversations();
           setTimeout(() => {
             if(!state.limitedInboxMode && el("connectionStatus").textContent.includes("جاري")){
@@ -403,20 +405,45 @@
       return unrestricted || pages.includes("inbox.html") || pages.includes("صندوق الوارد");
     }
 
+    function normalizeCompareValue(v){
+      return String(v || "").trim().toLowerCase();
+    }
+
     function isAssignedToCurrentUser(data = {}){
       if(state.isAdmin || state.userProfile?.allDepartments === true) return true;
-      const uid = state.user?.uid || "";
-      if(!uid) return false;
+      const uid = normalizeCompareValue(state.user?.uid || "");
+      const email = normalizeCompareValue(state.user?.email || state.userProfile?.email || "");
+      const name = normalizeCompareValue(state.userProfile?.name || state.user?.displayName || "");
+      if(!uid && !email && !name) return false;
+
       const ids = [
         data.assignedTo,
         data.responsibleUid,
         data.salesAssignedTo,
-        data.callCenterAssignedTo,
-        data.callCenterUid,
+        data.financeResponsibleUid,
+        data.financeAssignedTo,
+        data.financeUserUid,
+        data.salesUid,
+        data.mandobUid,
         data.uid,
         data.ownerUid
-      ].filter(Boolean).map(String);
-      return ids.includes(uid);
+      ].filter(Boolean).map(normalizeCompareValue);
+
+      const names = [
+        data.responsibleName,
+        data.assignedName,
+        data.salesAssignedName,
+        data.financeResponsibleName,
+        data.financeAssignedName,
+        data.financeUserName,
+        data.salesName,
+        data.mandobName,
+        data.ownerName
+      ].filter(Boolean).map(normalizeCompareValue);
+
+      return (uid && ids.includes(uid)) ||
+             (email && (ids.includes(email) || names.includes(email))) ||
+             (name && names.includes(name));
     }
 
     function hasPageAccess(page){
@@ -480,7 +507,10 @@
       state.unsubMessages = null;
       state.unsubStatuses = null;
       state.unsubTemplates = null;
+      if(state.unsubLeads) state.unsubLeads();
+      state.unsubLeads = null;
       state.conversations = [];
+      state.leads = [];
       state.selected = null;
     }
 
@@ -503,6 +533,21 @@
         snap.forEach(d => state.templates.push({ id:d.id, ...d.data() }));
         fillTemplateDropdowns();
       }, err => console.error(err));
+    }
+
+
+    function listenLeads(){
+      if(state.unsubLeads) state.unsubLeads();
+      const q = query(collection(db, "leads"), limit(1000));
+      state.unsubLeads = onSnapshot(q, snap => {
+        state.leads = [];
+        snap.forEach(d => state.leads.push({ id:d.id, ...d.data() }));
+        refreshSelectedFromLead();
+        renderConversations();
+      }, err => {
+        console.error(err);
+        // صندوق الوارد يفضل شغال حتى لو صلاحيات قراءة leads غير متاحة لحساب معين.
+      });
     }
 
     function getSelectedDepartmentForTemplates(){
@@ -605,7 +650,9 @@
       return c.clientStatus || c.customer?.clientStatus || c.status || "";
     }
     function getResponsibleName(c){
-      return c.responsibleName || c.assignedName || c.salesAssignedName || c.callCenterName || c.callCenterAssignedName || "";
+      return c.responsibleName || c.salesAssignedName || c.assignedName ||
+             c.financeResponsibleName || c.financeAssignedName || c.financeUserName ||
+             c.salesName || c.mandobName || c.callCenterName || c.callCenterAssignedName || "";
     }
     function getUnreadCount(c){
       return Number(c.unreadCount || c.unread || c.unreadMessages || 0);
@@ -669,6 +716,110 @@
       return [...map.values()];
     }
 
+
+    function getLeadPhone(lead = {}){
+      return normalizeKsaPhone(lead.phone || lead.customer?.phone || lead.customerPhone || lead.phoneNumber || lead.mobile || lead.sender || lead.from || "");
+    }
+
+    function leadCandidateIds(lead = {}){
+      return [
+        lead.id, lead.leadId, lead.conversationId, lead.convId, lead.contactKey, lead.waId,
+        lead.participantId, lead.fbId, lead.igId, lead.tiktokId, lead.manychatContactId,
+        lead.phoneNormalized, lead.phone, lead.phoneNumber, lead.mobile
+      ].filter(Boolean).map(x => String(x));
+    }
+
+    function pickFirstValue(...values){
+      for(const v of values){
+        if(v !== undefined && v !== null && String(v).trim() !== "") return v;
+      }
+      return "";
+    }
+
+    function extractLeadAssignment(lead = {}){
+      const responsibleUid = pickFirstValue(
+        lead.responsibleUid,
+        lead.salesAssignedTo,
+        lead.assignedTo,
+        lead.financeResponsibleUid,
+        lead.financeAssignedTo,
+        lead.financeUserUid,
+        lead.salesUid,
+        lead.mandobUid
+      );
+      const responsibleName = pickFirstValue(
+        lead.responsibleName,
+        lead.salesAssignedName,
+        lead.assignedName,
+        lead.financeResponsibleName,
+        lead.financeAssignedName,
+        lead.financeUserName,
+        lead.salesName,
+        lead.mandobName
+      );
+      return {
+        assignedTo:pickFirstValue(lead.assignedTo, responsibleUid),
+        assignedName:pickFirstValue(lead.assignedName, responsibleName),
+        salesAssignedTo:pickFirstValue(lead.salesAssignedTo, responsibleUid),
+        salesAssignedName:pickFirstValue(lead.salesAssignedName, responsibleName),
+        responsibleUid,
+        responsibleName,
+        financeResponsibleUid:pickFirstValue(lead.financeResponsibleUid, responsibleUid),
+        financeResponsibleName:pickFirstValue(lead.financeResponsibleName, responsibleName),
+        financeAssignedTo:pickFirstValue(lead.financeAssignedTo, responsibleUid),
+        financeAssignedName:pickFirstValue(lead.financeAssignedName, responsibleName),
+        financeUserUid:pickFirstValue(lead.financeUserUid, responsibleUid),
+        financeUserName:pickFirstValue(lead.financeUserName, responsibleName)
+      };
+    }
+
+    function findLinkedLead(c = {}){
+      const directLeadId = String(c.__leadId || c.leadId || c.leadDocId || "").trim();
+      if(directLeadId){
+        const byId = state.leads.find(l => l.id === directLeadId || String(l.leadId || "") === directLeadId);
+        if(byId) return byId;
+      }
+
+      const conversationIds = [
+        c.id, c.conversationId, c.convId, c.contactKey, c.waId, c.participantId,
+        c.fbId, c.igId, c.tiktokId, c.manychatContactId
+      ].filter(Boolean).map(x => cleanIdValue(x));
+
+      const phone = normalizeKsaPhone(getPhone(c) || c.phoneNormalized || c.mobile || c.phoneNumber || "");
+      return state.leads.find(lead => {
+        if(phone && getLeadPhone(lead) === phone) return true;
+        const ids = leadCandidateIds(lead).map(x => cleanIdValue(x));
+        return conversationIds.some(id => id && ids.includes(id));
+      }) || null;
+    }
+
+    function enrichConversationWithLead(c = {}){
+      const lead = findLinkedLead(c);
+      if(!lead) return c;
+      const assignment = extractLeadAssignment(lead);
+      return {
+        ...c,
+        __leadId:lead.id || c.__leadId || c.leadId || "",
+        leadId:lead.id || c.leadId || "",
+        linkedLead:lead,
+        department:lead.department || c.department || c.customer?.department || "",
+        customerName:lead.customerName || lead.fullName || lead.name || c.customerName || "",
+        phone:lead.phone || lead.phoneNumber || lead.mobile || c.phone || "",
+        clientStatus:lead.clientStatus || lead.status || c.clientStatus || "",
+        status:lead.clientStatus || lead.status || c.status || "",
+        ...assignment
+      };
+    }
+
+    function refreshSelectedFromLead(){
+      if(!state.selected) return;
+      state.selected = enrichConversationWithLead(state.selected);
+      el("chatTitle").textContent = getCustomerName(state.selected);
+      el("chatSub").textContent = `${platformLabel(state.selected.platform)} - ${departmentLabel(state.selected.department || state.department)}${getClientStatus(state.selected) ? " - " + getClientStatus(state.selected) : ""}`;
+      fillCustomerForm(state.selected.customer || state.selected);
+      fillTemplateDropdowns();
+    }
+
     function readInboxOpenTarget(){
       const params = new URLSearchParams(location.search);
       let stored = {};
@@ -705,9 +856,10 @@
         try{
           const snap = await getDoc(doc(db, cfg.conversations, id));
           if(!snap.exists()) continue;
-          const conv = normalizeConversation(platform, snap.id, snap.data());
+          let conv = normalizeConversation(platform, snap.id, snap.data());
           conv.__collection = cfg.conversations;
           conv.__leadId = target.leadId || conv.leadId || conv.__leadId || "";
+          conv = enrichConversationWithLead(conv);
           if(state.limitedInboxMode && !isAssignedToCurrentUser(conv)){
             messagesEl.innerHTML = '<div class="empty">لا توجد صلاحية لهذا العميل</div>';
             toast("لا توجد صلاحية لهذا العميل");
@@ -860,7 +1012,7 @@
       const target = state.pendingOpenTarget;
       if(!target) return;
 
-      const match = state.conversations.find(c => conversationMatchesTarget(c, target));
+      const match = state.conversations.map(enrichConversationWithLead).find(c => conversationMatchesTarget(c, target));
       if(match){
         if(state.limitedInboxMode && !isAssignedToCurrentUser(match)){
           state.pendingOpenTarget = null;
@@ -883,10 +1035,11 @@
 
     function renderConversations(){
       const search = el("searchInput").value.trim().toLowerCase();
-      let items = dedupeConversations(state.conversations.slice());
+      let items = dedupeConversations(state.conversations.map(enrichConversationWithLead));
 
       if(state.selectedPlatform !== "all") items = items.filter(c => c.platform === state.selectedPlatform);
       if(!state.isAdmin || state.department !== "all") items = items.filter(c => !c.department || c.department === state.department);
+      if(!state.isAdmin && !state.userProfile?.allDepartments) items = items.filter(c => isAssignedToCurrentUser(c));
 
       if(state.limitedInboxMode && state.pendingOpenTarget){
         items = items.filter(c => conversationMatchesTarget(c, state.pendingOpenTarget) && isAssignedToCurrentUser(c));
@@ -931,6 +1084,7 @@
     }
 
     function selectConversation(c){
+      c = enrichConversationWithLead(c);
       state.selected = c;
       el("app").classList.add("chat-open");
       el("backBtn").classList.remove("hidden");
@@ -1407,6 +1561,7 @@
 
       await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), { ...data, conversationId:c.id, platform:c.platform }, { merge:true });
 
+      const assignmentData = extractLeadAssignment(c.linkedLead || c);
       await setDoc(doc(db, cfg.conversations, c.id), {
         customer:data,
         customerName:data.customerName,
@@ -1415,10 +1570,11 @@
         status:data.clientStatus,
         department:data.department,
         profileCompletion:data.profileCompletion,
+        ...assignmentData,
         updatedAt:serverTimestamp()
       }, { merge:true });
 
-      const linkedLeadId = c.__leadId || c.leadId || state.pendingOpenTarget?.leadId || "";
+      const linkedLeadId = c.__leadId || c.leadId || c.linkedLead?.id || state.pendingOpenTarget?.leadId || "";
       if(linkedLeadId){
         await setDoc(doc(db, "leads", linkedLeadId), {
           customerName:data.customerName,
@@ -1493,6 +1649,7 @@
     el("refreshBtn").onclick = () => {
       listenStatuses();
       listenTemplates();
+      listenLeads();
       listenConversations();
     };
     el("searchInput").oninput = renderConversations;
