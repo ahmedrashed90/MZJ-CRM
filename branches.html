@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -133,6 +134,26 @@
       customer_service:"خدمة العملاء",
       call_center:"الكول سنتر"
     };
+
+    const BRANCH_ASSIGNMENT_FIELDS = {
+      cash_sales:{uids:"cashSalesUids", names:"cashSalesNames"},
+      finance_sales:{uids:"financeSalesUids", names:"financeSalesNames"},
+      customer_service:{uids:"customerServiceUids", names:"customerServiceNames"},
+      call_center:{uids:"callCenterUids", names:"callCenterNames"}
+    };
+
+    const DEPARTMENT_ALIASES = {
+      "cash_sales":"cash_sales", "cash sales":"cash_sales", "مبيعات الكاش":"cash_sales", "كاش":"cash_sales", "الكاش":"cash_sales",
+      "finance_sales":"finance_sales", "finance sales":"finance_sales", "مبيعات التمويل":"finance_sales", "تمويل":"finance_sales", "التمويل":"finance_sales",
+      "customer_service":"customer_service", "customer service":"customer_service", "خدمة العملاء":"customer_service", "خدمة عملاء":"customer_service",
+      "call_center":"call_center", "call center":"call_center", "callcenter":"call_center", "الكول سنتر":"call_center", "كول سنتر":"call_center"
+    };
+
+    function normalizeDepartment(value){
+      const raw = String(value || "").trim();
+      const low = raw.toLowerCase().replace(/\s+/g, " ");
+      return DEPARTMENT_ALIASES[raw] || DEPARTMENT_ALIASES[low] || raw;
+    }
 
     const SYSTEM_PAGES = [
       { value:"inbox.html", label:"صندوق الوارد" },
@@ -322,7 +343,12 @@
     let unsubBranches = null;
 
     function usersFor(dept){
-      return users.filter(u => u.active !== false && (u.department === dept || u.role === dept));
+      const normalizedDept = normalizeDepartment(dept);
+      return users.filter(u => {
+        if(u.active === false || u.role === "admin" || u.allDepartments === true) return false;
+        const userDept = normalizeDepartment(u.department || u.role);
+        return userDept === normalizedDept || (normalizedDept === "call_center" && normalizeDepartment(u.role) === "call_center");
+      });
     }
 
     function getSelectedValues(id){
@@ -395,6 +421,74 @@
       });
     }
 
+    async function removeSelectedUsersFromOtherBranches(branchId, selectedUids){
+      if(!selectedUids.size) return;
+      for(const b of branches){
+        if(b.id === branchId) continue;
+        const updates = {};
+        let changed = false;
+        Object.values(BRANCH_ASSIGNMENT_FIELDS).forEach(fields => {
+          const oldUids = Array.isArray(b[fields.uids]) ? b[fields.uids].filter(Boolean) : [];
+          const oldNames = Array.isArray(b[fields.names]) ? b[fields.names] : [];
+          const nextPairs = oldUids.map((uid, index) => ({uid, name:oldNames[index] || ""}))
+            .filter(item => !selectedUids.has(item.uid));
+          const nextUids = nextPairs.map(item => item.uid);
+          const nextNames = nextPairs.map(item => item.name);
+          if(JSON.stringify(oldUids) !== JSON.stringify(nextUids)){
+            updates[fields.uids] = nextUids;
+            updates[fields.names] = nextNames;
+            changed = true;
+          }
+        });
+        if(changed){
+          updates.updatedAt = serverTimestamp();
+          updates.updatedByUid = currentUser.uid;
+          updates.updatedByEmail = currentUser.email;
+          await setDoc(doc(db, "branches", b.id), updates, { merge:true });
+        }
+      }
+    }
+
+    async function syncUsersForBranch(branchId, branchName, payload, previousBranch={}){
+      const selectedByDept = {};
+      Object.entries(BRANCH_ASSIGNMENT_FIELDS).forEach(([dept, fields]) => {
+        selectedByDept[dept] = new Set(payload[fields.uids] || []);
+      });
+      const selectedUids = new Set();
+      Object.values(selectedByDept).forEach(set => set.forEach(uid => selectedUids.add(uid)));
+      await removeSelectedUsersFromOtherBranches(branchId, selectedUids);
+
+      const previousUids = new Set();
+      Object.values(BRANCH_ASSIGNMENT_FIELDS).forEach(fields => {
+        (previousBranch[fields.uids] || []).forEach(uid => previousUids.add(uid));
+      });
+
+      for(const u of users){
+        const uid = u.uid || u.id;
+        let selectedDept = "";
+        Object.entries(selectedByDept).forEach(([dept, set]) => { if(set.has(uid)) selectedDept = dept; });
+
+        if(selectedDept){
+          await setDoc(doc(db, "users", uid), {
+            branchId,
+            branchName,
+            department:selectedDept,
+            updatedAt:serverTimestamp(),
+            updatedByUid:currentUser.uid,
+            updatedByEmail:currentUser.email
+          }, { merge:true });
+        } else if(previousUids.has(uid) && (u.branchId === branchId || u.branchName === branchName)){
+          await setDoc(doc(db, "users", uid), {
+            branchId:"",
+            branchName:"",
+            updatedAt:serverTimestamp(),
+            updatedByUid:currentUser.uid,
+            updatedByEmail:currentUser.email
+          }, { merge:true });
+        }
+      }
+    }
+
     async function saveBranch(e){
       e.preventDefault();
 
@@ -422,7 +516,9 @@
 
       if(!payload.name) return toast("اكتب اسم الفرع");
 
+      const previousBranch = branches.find(b => b.id === id) || {};
       await setDoc(doc(db, "branches", id), payload, { merge:true });
+      await syncUsersForBranch(id, payload.name, payload, previousBranch);
       resetForm();
       toast("تم حفظ الفرع");
     }
