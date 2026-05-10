@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -96,6 +97,7 @@
               <th>اسم السيارة</th>
               <th>الدفع</th>
               <th>الحالة</th>
+              <th>القسم</th>
               <th>المسؤول</th>
               <th>الكول سنتر</th>
               <th>اسم الحملة</th>
@@ -286,22 +288,30 @@
       const lead = leads.find(x => x.id === leadId);
       if(!lead) return toast("العميل غير موجود");
 
+      const responsibleDepartment = document.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="responsibleDepartment"]`)?.value || responsibleDepartmentForLead(lead);
       const responsibleUid = document.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="responsible"]`)?.value || "";
       const callCenterUid = document.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="callCenter"]`)?.value || "";
       const responsibleUser = responsibleUid ? users.find(u => (u.uid || u.id) === responsibleUid) : null;
       const callCenterUser = callCenterUid ? users.find(u => (u.uid || u.id) === callCenterUid) : null;
 
+      if(!["cash_sales", "finance_sales", "customer_service"].includes(responsibleDepartment)) return toast("اختر قسم صحيح للمسؤول");
       if(responsibleUid && !responsibleUser) return toast("المسؤول غير موجود");
       if(callCenterUid && !callCenterUser) return toast("الكول سنتر غير موجود");
+      if(responsibleUser && !usersForDepartment(responsibleDepartment).some(u => (u.uid || u.id) === (responsibleUser.uid || responsibleUser.id))){
+        return toast("المسؤول المختار لا يتبع القسم المحدد");
+      }
 
-      const payload = { lastUpdated: serverTimestamp() };
+      const payload = {
+        department: responsibleDepartment,
+        lastUpdated: serverTimestamp()
+      };
       payload.responsibleUid = responsibleUser ? (responsibleUser.uid || responsibleUser.id) : "";
       payload.responsibleName = responsibleUser ? (responsibleUser.name || responsibleUser.email || "") : "";
       payload.callCenterUid = callCenterUser ? (callCenterUser.uid || callCenterUser.id) : "";
       payload.callCenterName = callCenterUser ? (callCenterUser.name || callCenterUser.email || "") : "";
 
       await updateDoc(doc(db, "leads", leadId), payload);
-      toast("تم نقل العميل للمسؤول والكول سنتر الجديد");
+      toast("تم نقل العميل للقسم والمسؤول الجديد");
     }
 
     function userOptions(dept, selectedUid=""){
@@ -313,6 +323,12 @@
       return opts.join("");
     }
 
+    function departmentOptions(selectedDept=""){
+      return ["cash_sales", "finance_sales", "customer_service"].map(d =>
+        `<option value="${escapeHtml(d)}" ${d === selectedDept ? "selected" : ""}>${escapeHtml(departmentLabel(d))}</option>`
+      ).join("");
+    }
+
     function responsibleDepartmentForLead(lead){
       if(lead.department && lead.department !== "call_center") return lead.department;
       const payment = String(lead.payment || "").trim();
@@ -320,6 +336,12 @@
       if(payment.includes("كاش")) return "cash_sales";
       if(payment.includes("خدمة")) return "customer_service";
       return currentProfile?.department || "cash_sales";
+    }
+
+    function responsibleDepartmentCell(lead){
+      const dept = responsibleDepartmentForLead(lead);
+      if(!isAdmin) return escapeHtml(departmentLabel(dept));
+      return `<select class="assignment-select department-select" data-lead-id="${escapeHtml(lead.id)}" data-field="responsibleDepartment">${departmentOptions(dept)}</select>`;
     }
 
     function assignmentCell(lead, field){
@@ -718,7 +740,7 @@
       el("countBadge").textContent = rows.length + " عميل";
 
       const body = el("leadsBody");
-      body.innerHTML = rows.length ? "" : '<tr><td colspan="14">لا توجد بيانات</td></tr>';
+      body.innerHTML = rows.length ? "" : '<tr><td colspan="15">لا توجد بيانات</td></tr>';
 
       rows.forEach(l => {
         const tr = document.createElement("tr");
@@ -731,6 +753,7 @@
           <td>${escapeHtml(l.carName)}</td>
           <td>${escapeHtml(l.payment)}</td>
           <td>${escapeHtml(l.status)}</td>
+          <td>${responsibleDepartmentCell(l)}</td>
           <td>${assignmentCell(l, "responsible")}</td>
           <td>${assignmentCell(l, "callCenter")}</td>
           <td>${escapeHtml(l.campaignName)}</td>
@@ -739,6 +762,16 @@
           <td>${isAdmin ? `<button type="button" class="secondary save-assignment-btn" data-save-assignment="${escapeHtml(l.id)}">حفظ</button>` : ""}</td>
         `;
         body.appendChild(tr);
+      });
+
+      body.querySelectorAll('[data-field="responsibleDepartment"]').forEach(select => {
+        select.onchange = () => {
+          const leadId = select.dataset.leadId;
+          const responsibleSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="responsible"]`);
+          if(responsibleSelect){
+            responsibleSelect.innerHTML = userOptions(select.value, "");
+          }
+        };
       });
 
       body.querySelectorAll("[data-save-assignment]").forEach(btn => {
@@ -756,6 +789,7 @@
         "اسم السيارة": l.carName || "",
         "الدفع": l.payment || "",
         "الحالة": l.status || "",
+        "القسم": departmentLabel(responsibleDepartmentForLead(l)),
         "المسؤول": l.responsibleName || "",
         "الكول سنتر": l.callCenterName || "",
         "اسم الحملة": l.campaignName || "",
