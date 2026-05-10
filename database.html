@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -115,6 +116,7 @@
               <th>الكول سنتر</th>
               <th>اسم الحملة</th>
               <th>تاريخ الحملة</th>
+              <th>تاريخ التسجيل</th>
               <th>آخر تحديث</th>
               <th class="admin-assignment-col">حفظ النقل</th>
             </tr>
@@ -657,9 +659,9 @@
       return leads.filter(l => {
         if(l.manualOnly === true || l.manualDuplicateRequest === true || l.manualRequestType === "duplicate_phone") return false;
         if(!canSeeLead(l)) return false;
-        const last = dateOnly(l.lastUpdated || l.createdAt);
-        if(dateFrom && last && last < dateFrom) return false;
-        if(dateTo && last && last > dateTo) return false;
+        const registration = dateOnly(l.createdAt);
+        if(dateFrom && registration && registration < dateFrom) return false;
+        if(dateTo && registration && registration > dateTo) return false;
         if(source && l.source !== source) return false;
         if(car && l.carName !== car) return false;
         if(payment && paymentLabelForLead(l) !== payment) return false;
@@ -869,7 +871,7 @@
       el("countBadge").textContent = rows.length + " عميل";
 
       const body = el("leadsBody");
-      body.innerHTML = rows.length ? "" : '<tr><td colspan="15">لا توجد بيانات</td></tr>';
+      body.innerHTML = rows.length ? "" : '<tr><td colspan="16">لا توجد بيانات</td></tr>';
 
       rows.forEach(l => {
         const tr = document.createElement("tr");
@@ -887,6 +889,7 @@
           <td>${assignmentCell(l, "callCenter")}</td>
           <td>${escapeHtml(l.campaignName)}</td>
           <td>${escapeHtml(l.campaignDate)}</td>
+          <td>${formatDate(l.createdAt)}</td>
           <td>${formatDate(l.lastUpdated || l.createdAt)}</td>
           <td>${isAdmin ? `<button type="button" class="secondary save-assignment-btn" data-save-assignment="${escapeHtml(l.id)}">حفظ</button>` : ""}</td>
         `;
@@ -927,6 +930,7 @@
         "الكول سنتر": l.callCenterName || "",
         "اسم الحملة": l.campaignName || "",
         "تاريخ الحملة": l.campaignDate || "",
+        "تاريخ التسجيل": formatDate(l.createdAt),
         "آخر تحديث": formatDate(l.lastUpdated || l.createdAt)
       }));
 
