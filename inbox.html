@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -736,6 +737,35 @@
       return "";
     }
 
+    function financeRateFromType(value){
+      const text = String(value || "");
+      const match = text.match(/(45|65)\s*%?/);
+      return match ? `${match[1]}%` : "";
+    }
+
+    function isFinanceRateValue(value){
+      return /^(45|65)\s*%?$/.test(String(value || "").trim()) || /(45|65)\s*%/.test(String(value || ""));
+    }
+
+    function getSafePaymentValue(c = {}, data = {}){
+      const currentPayment = pickFirstValue(
+        c.linkedLead?.payment,
+        c.linkedLead?.paymentType,
+        c.linkedLead?.paymentMethod,
+        c.payment,
+        c.paymentType,
+        c.paymentMethod,
+        c.customer?.payment,
+        c.customer?.paymentType,
+        c.customer?.paymentMethod
+      );
+
+      // نوع التمويل 45% / 65% خاص بحساب التمويل فقط، وليس قيمة خانة الدفع في قاعدة البيانات.
+      if(currentPayment && !isFinanceRateValue(currentPayment)) return currentPayment;
+      if(data.financeType) return "تمويل";
+      return currentPayment || "";
+    }
+
     function extractLeadAssignment(lead = {}){
       const responsibleUid = pickFirstValue(
         lead.responsibleUid,
@@ -816,7 +846,7 @@
       state.selected = enrichConversationWithLead(state.selected);
       el("chatTitle").textContent = getCustomerName(state.selected);
       el("chatSub").textContent = `${platformLabel(state.selected.platform)} - ${departmentLabel(state.selected.department || state.department)}${getClientStatus(state.selected) ? " - " + getClientStatus(state.selected) : ""}`;
-      fillCustomerForm(state.selected.customer || state.selected);
+      fillCustomerForm({ ...(state.selected.customer || {}), ...state.selected, clientStatus:getClientStatus(state.selected) });
       fillTemplateDropdowns();
     }
 
@@ -1090,7 +1120,7 @@
       el("backBtn").classList.remove("hidden");
       el("chatTitle").textContent = getCustomerName(c);
       el("chatSub").textContent = `${platformLabel(c.platform)} - ${departmentLabel(c.department || state.department)}${getClientStatus(c) ? " - " + getClientStatus(c) : ""}`;
-      fillCustomerForm(c.customer || c);
+      fillCustomerForm({ ...(c.customer || {}), ...c, clientStatus:getClientStatus(c) });
       fillTemplateDropdowns();
       renderConversations();
       listenMessages(c);
@@ -1513,10 +1543,17 @@
       toast("تم الإرسال");
     }
 
+    function getCustomerFieldValue(data = {}, field){
+      if(field === "financeType"){
+        return data.financeType || data.financeProgram || data.financeRateType || data.financePlan || "";
+      }
+      return data[field] || "";
+    }
+
     function fillCustomerForm(data = {}){
       CUSTOMER_FIELDS.forEach(f => {
         const input = form.elements[f];
-        if(input && f !== "attachments") input.value = data[f] || "";
+        if(input && f !== "attachments") input.value = getCustomerFieldValue(data, f);
       });
       fillStatusDropdown(data.clientStatus || "");
       el("attachmentsHint").textContent = "";
@@ -1543,6 +1580,104 @@
       el("completionBar").style.width = percent + "%";
       el("completionText").textContent = `${percent}% مكتمل`;
       return percent;
+    }
+
+    function buildCustomerSavePayload(data, c){
+      const safePayment = getSafePaymentValue(c, data);
+      const financeRate = financeRateFromType(data.financeType);
+      const payload = {
+        customerName:data.customerName,
+        phone:data.phone,
+        location:data.location,
+        salary:data.salary,
+        obligation:data.obligation,
+        age:data.age,
+        salaryBank:data.salaryBank,
+        carType:data.carType,
+        carModel:data.carModel,
+        carName:data.carType || c.carName || "",
+        color:data.color,
+        notes:data.notes,
+        attachmentsNotes:data.attachmentsNotes,
+        // financeProgram / financeRate للاستخدام في حساب التمويل فقط.
+        // الدفع في قاعدة البيانات يفضل تمويل/كاش ولا يتحول إلى 45% أو 65%.
+        financeType:data.financeType,
+        financeProgram:data.financeType,
+        financeRate,
+        financeRateType:data.financeType,
+        clientStatus:data.clientStatus,
+        status:data.clientStatus,
+        department:data.department,
+        profileCompletion:data.profileCompletion,
+        lastUpdated:serverTimestamp(),
+        updatedAt:serverTimestamp(),
+        updatedByUid:state.user.uid,
+        updatedByEmail:state.user.email
+      };
+      if(safePayment){
+        payload.payment = safePayment;
+        payload.paymentType = safePayment;
+        payload.paymentMethod = safePayment;
+      }
+      return payload;
+    }
+
+    function getLinkedLeadIdForConversation(c){
+      return c.__leadId || c.leadId || c.linkedLead?.id || state.pendingOpenTarget?.leadId || "";
+    }
+
+    async function saveClientStatusOnly(){
+      const c = state.selected;
+      if(!c) return;
+      const select = el("clientStatusSelect");
+      const newStatus = String(select?.value || "").trim();
+      if(!newStatus) return;
+      const oldStatus = getClientStatus(c);
+      if(newStatus === oldStatus) return;
+
+      const cfg = PLATFORM_CONFIG[c.platform] || PLATFORM_CONFIG.whatsapp;
+      const data = getFormData();
+      data.clientStatus = newStatus;
+      data.profileCompletion = updateCompletion(data);
+      data.updatedByUid = state.user.uid;
+      data.updatedByEmail = state.user.email;
+      data.updatedAt = serverTimestamp();
+      const assignmentData = extractLeadAssignment(c.linkedLead || c);
+      const linkedLeadId = getLinkedLeadIdForConversation(c);
+
+      await setDoc(doc(db, "customers", `${c.platform}_${c.id}`), { ...data, conversationId:c.id, platform:c.platform }, { merge:true });
+      await setDoc(doc(db, cfg.conversations, c.id), {
+        customer:{ ...(c.customer || {}), ...data },
+        customerName:data.customerName,
+        phone:data.phone,
+        clientStatus:newStatus,
+        status:newStatus,
+        department:data.department,
+        profileCompletion:data.profileCompletion,
+        ...assignmentData,
+        updatedAt:serverTimestamp(),
+        lastUpdated:serverTimestamp()
+      }, { merge:true });
+
+      if(linkedLeadId){
+        await setDoc(doc(db, "leads", linkedLeadId), buildCustomerSavePayload(data, c), { merge:true });
+      }
+
+      await addDoc(collection(db, cfg.conversations, c.id, "status_history"), {
+        status:newStatus, note:"", department:data.department,
+        createdByUid:state.user.uid, createdByEmail:state.user.email, createdAt:serverTimestamp()
+      }).catch(console.warn);
+
+      state.selected = {
+        ...state.selected,
+        ...data,
+        status:newStatus,
+        clientStatus:newStatus,
+        customer:{ ...(state.selected.customer || {}), ...data, clientStatus:newStatus, status:newStatus },
+        __leadId:linkedLeadId || state.selected.__leadId || ""
+      };
+      renderConversations();
+      toast("تم تحديث حالة العميل");
     }
 
     async function saveCustomer(e){
@@ -1574,32 +1709,9 @@
         updatedAt:serverTimestamp()
       }, { merge:true });
 
-      const linkedLeadId = c.__leadId || c.leadId || c.linkedLead?.id || state.pendingOpenTarget?.leadId || "";
+      const linkedLeadId = getLinkedLeadIdForConversation(c);
       if(linkedLeadId){
-        await setDoc(doc(db, "leads", linkedLeadId), {
-          customerName:data.customerName,
-          phone:data.phone,
-          location:data.location,
-          salary:data.salary,
-          obligation:data.obligation,
-          age:data.age,
-          salaryBank:data.salaryBank,
-          carType:data.carType,
-          carModel:data.carModel,
-          carName:data.carType || c.carName || "",
-          color:data.color,
-          notes:data.notes,
-          attachmentsNotes:data.attachmentsNotes,
-          financeType:data.financeType,
-          clientStatus:data.clientStatus,
-          status:data.clientStatus,
-          department:data.department,
-          profileCompletion:data.profileCompletion,
-          lastUpdated:serverTimestamp(),
-          updatedAt:serverTimestamp(),
-          updatedByUid:state.user.uid,
-          updatedByEmail:state.user.email
-        }, { merge:true });
+        await setDoc(doc(db, "leads", linkedLeadId), buildCustomerSavePayload(data, c), { merge:true });
       }
 
       if(data.clientStatus && data.clientStatus !== oldStatus){
@@ -1693,6 +1805,12 @@
         e.preventDefault();
         sendReply();
       }
+    });
+    el("clientStatusSelect").addEventListener("change", () => {
+      saveClientStatusOnly().catch(err => {
+        console.error(err);
+        toast("تعذر تحديث حالة العميل");
+      });
     });
     form.oninput = () => updateCompletion(getFormData());
 
