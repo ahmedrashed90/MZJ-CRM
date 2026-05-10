@@ -654,7 +654,8 @@
       return fallback;
     }
 
-    function dashboardFinancePercentOptionValue(value){
+
+    function dashboardFinanceTypeValue(value){
       const raw = String(value || "").trim();
       if(!raw) return "";
       const compact = raw.replace(/\s+/g, "").replace("٪", "%");
@@ -670,48 +671,51 @@
       return "";
     }
 
-    function dashboardFinancePercentValue(value){
-      const type = dashboardFinancePercentOptionValue(value || el("chatPayment")?.value || "");
+    function dashboardFinanceRatio(value){
+      const type = dashboardFinanceTypeValue(value || el("chatPayment")?.value || "");
       if(type === "عام") return 0.45;
       if(type === "عقاري") return 0.65;
       return 0;
     }
 
-    function dashboardNumericValue(value){
+    function dashboardNumberValue(value){
       const arabic = "٠١٢٣٤٥٦٧٨٩";
       const eastern = "۰۱۲۳۴۵۶۷۸۹";
-      const raw = String(value || "").replace(/[٠-٩]/g, d => arabic.indexOf(d)).replace(/[۰-۹]/g, d => eastern.indexOf(d));
+      const raw = String(value || "")
+        .replace(/[٠-٩]/g, d => arabic.indexOf(d))
+        .replace(/[۰-۹]/g, d => eastern.indexOf(d));
       const n = Number(raw.replace(/,/g, "").replace(/[^0-9.\-]/g, ""));
       return Number.isFinite(n) ? n : 0;
     }
 
-    function dashboardFormatMoney(value){
+    function dashboardMoney(value){
       const n = Number(value);
       if(!Number.isFinite(n)) return "0";
-      return Math.max(0, n).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
+      return Math.max(0, n).toLocaleString("ar-EG", { maximumFractionDigits:0 });
+    }
+
+    function fillDashboardFinanceTypeSelect(value){
+      const field = el("chatPayment");
+      if(!field) return;
+      field.value = dashboardFinanceTypeValue(value);
+      updateDashboardCreditLimitResult();
     }
 
     function updateDashboardCreditLimitResult(){
       const box = el("chatCreditLimitResult");
       if(!box) return;
-      const salary = dashboardNumericValue(el("chatSalary")?.value || "");
-      const obligation = dashboardNumericValue(el("chatObligation")?.value || "");
-      const percent = dashboardFinancePercentValue(el("chatPayment")?.value || "");
-
-      if(!salary || !percent){
+      const salary = dashboardNumberValue(el("chatSalary")?.value || "");
+      const obligation = dashboardNumberValue(el("chatObligation")?.value || "");
+      const ratio = dashboardFinanceRatio(el("chatPayment")?.value || "");
+      if(!salary || !ratio){
+        box.className = "chat-credit-limit-result";
         box.textContent = "الحد الائتماني = أدخل الراتب واختر نوع التمويل";
         return;
       }
-
-      const creditLimit = (salary * percent) - obligation;
-      box.textContent = "الحد الائتماني = " + dashboardFormatMoney(creditLimit) + " ريال";
-    }
-
-    function fillDashboardFinancePercentSelect(value){
-      const field = el("chatPayment");
-      if(!field) return;
-      field.value = dashboardFinancePercentOptionValue(value);
-      updateDashboardCreditLimitResult();
+      const creditLimit = (salary * ratio) - obligation;
+      const qualified = creditLimit >= 600;
+      box.className = "chat-credit-limit-result " + (qualified ? "qualified" : "not-qualified");
+      box.innerHTML = "الحد الائتماني = " + dashboardMoney(creditLimit) + " ريال - <span>" + (qualified ? "مؤهل" : "غير مؤهل") + "</span>";
     }
 
     function chatPlatformConfig(platform){
@@ -1360,7 +1364,7 @@
       el("chatCar").value = getLeadField(lead, ["car","carName","carType","vehicleName"]);
       el("chatModel").value = getLeadField(lead, ["model","carModel"]);
       el("chatColor").value = getLeadField(lead, ["color","carColor"]);
-      fillDashboardFinancePercentSelect(getLeadField(lead, ["financeType","financePercent","financePercentage","downPaymentPercent"]));
+      fillDashboardFinanceTypeSelect(getLeadField(lead, ["financeType","financePercent","financePercentage","downPaymentPercent"]));
       el("chatNotes").value = getLeadField(lead, ["notes","remarks","comment"]);
       if(el("chatFollowupDate")){
         el("chatFollowupDate").value = normalizeDateTimeLocalValue(getLeadField(lead, ["followupDate","followUpDate","nextFollowupDate","appointmentDate","scheduledAt"]));
@@ -2761,6 +2765,7 @@
           font-weight:900 !important;
           white-space:nowrap !important;
         }
+
         .chat-credit-limit-result{
           border:1px solid #ead4c8 !important;
           border-radius:14px !important;
@@ -2771,6 +2776,14 @@
           font-size:13px !important;
           font-weight:900 !important;
           line-height:1.7 !important;
+        }
+        .chat-credit-limit-result.qualified,
+        .chat-credit-limit-result.qualified span{
+          color:#15803d !important;
+        }
+        .chat-credit-limit-result.not-qualified,
+        .chat-credit-limit-result.not-qualified span{
+          color:#b91c1c !important;
         }
 
         /* V55 popup status + follow-up + composer */
