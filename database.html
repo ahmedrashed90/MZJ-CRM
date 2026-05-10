@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -308,8 +309,55 @@
         payment: PAGE_PAYMENTS[responsibleDepartment] || "",
         lastUpdated: serverTimestamp()
       };
-      payload.responsibleUid = responsibleUser ? (responsibleUser.uid || responsibleUser.id) : "";
-      payload.responsibleName = responsibleUser ? (responsibleUser.name || responsibleUser.email || "") : "";
+      const responsibleId = responsibleUser ? (responsibleUser.uid || responsibleUser.id) : "";
+      const responsibleName = responsibleUser ? (responsibleUser.name || responsibleUser.email || "") : "";
+      const responsibleEmail = responsibleUser ? (responsibleUser.email || "") : "";
+
+      payload.responsibleUid = responsibleId;
+      payload.responsibleUserId = responsibleId;
+      payload.responsibleName = responsibleName;
+      payload.responsibleEmail = responsibleEmail;
+
+      // Sync old assignment aliases too, because some pages still read these fields.
+      // Without this, the customer may remain visible for the previous representative.
+      payload.assignedToUid = responsibleId;
+      payload.assignedUid = responsibleId;
+      payload.assignedUserId = responsibleId;
+      payload.assignedId = responsibleId;
+      payload.assignedToName = responsibleName;
+      payload.assignedName = responsibleName;
+      payload.assignedToEmail = responsibleEmail;
+      payload.assignedEmail = responsibleEmail;
+      payload.assignedTo = responsibleName;
+      payload.assigned = responsibleName;
+      payload.ownerUid = responsibleId;
+      payload.ownerUserId = responsibleId;
+      payload.ownerName = responsibleName;
+      payload.ownerEmail = responsibleEmail;
+      payload.owner = responsibleName;
+      payload.salesUid = responsibleId;
+      payload.salesUserId = responsibleId;
+      payload.salesRepUid = responsibleId;
+      payload.salesName = responsibleName;
+      payload.salesEmail = responsibleEmail;
+      payload.salesRep = responsibleName;
+      payload.representativeUid = responsibleId;
+      payload.representativeName = responsibleName;
+      payload.representativeEmail = responsibleEmail;
+      payload.representative = responsibleName;
+      payload.agentUid = responsibleId;
+      payload.agentName = responsibleName;
+      payload.agentEmail = responsibleEmail;
+      payload.agent = responsibleName;
+      payload.userUid = responsibleId;
+      payload.userName = responsibleName;
+      payload.userEmail = responsibleEmail;
+      payload.user = responsibleName;
+      payload.employeeUid = responsibleId;
+      payload.employeeName = responsibleName;
+      payload.employeeEmail = responsibleEmail;
+      payload.employee = responsibleName;
+
       payload.callCenterUid = callCenterUser ? (callCenterUser.uid || callCenterUser.id) : "";
       payload.callCenterName = callCenterUser ? (callCenterUser.name || callCenterUser.email || "") : "";
 
