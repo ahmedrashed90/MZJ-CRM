@@ -286,17 +286,18 @@
     }
 
     function branchOptions(selectedBranch=""){
-      selectedBranch = isDepartmentLabel(selectedBranch) ? "" : String(selectedBranch || "").trim();
+      selectedBranch = String(selectedBranch || "").trim();
       const opts = ['<option value="">اختر الفرع</option>'];
-      branches
-        .filter(b => b.active !== false && !isDepartmentLabel(branchLabel(b)))
-        .sort((a,b) => branchLabel(a).localeCompare(branchLabel(b), "ar"))
-        .forEach(b => {
-          const label = branchLabel(b);
-          if(!label) return;
-          opts.push(`<option value="${escapeHtml(label)}" ${label === selectedBranch ? "selected" : ""}>${escapeHtml(label)}</option>`);
-        });
-      if(selectedBranch && !branches.some(b => branchLabel(b) === selectedBranch || b.id === selectedBranch)){
+      const activeBranches = branches
+        .filter(b => b.active !== false)
+        .sort((a,b) => branchLabel(a).localeCompare(branchLabel(b), "ar"));
+      activeBranches.forEach(b => {
+        const label = branchLabel(b);
+        if(!label) return;
+        opts.push(`<option value="${escapeHtml(label)}" ${label === selectedBranch ? "selected" : ""}>${escapeHtml(label)}</option>`);
+      });
+      const selectedExists = activeBranches.some(b => branchLabel(b) === selectedBranch || b.id === selectedBranch);
+      if(selectedBranch && !selectedExists && !isDepartmentLabel(selectedBranch)){
         opts.push(`<option value="${escapeHtml(selectedBranch)}" selected>${escapeHtml(selectedBranch)}</option>`);
       }
       return opts.join("");
@@ -354,8 +355,10 @@
 
     function branchCell(lead){
       const selectedBranch = String(lead.branch || "").trim();
-      if(!isAdmin) return escapeHtml(isDepartmentLabel(selectedBranch) ? "" : selectedBranch);
-      return `<select class="assignment-select branch-select" data-lead-id="${escapeHtml(lead.id)}" data-field="branch">${branchOptions(selectedBranch)}</select>`;
+      const knownBranch = branchForName(selectedBranch);
+      const displayBranch = knownBranch ? branchLabel(knownBranch) : (isDepartmentLabel(selectedBranch) ? "" : selectedBranch);
+      if(!isAdmin) return escapeHtml(displayBranch);
+      return `<select class="assignment-select branch-select" data-lead-id="${escapeHtml(lead.id)}" data-field="branch">${branchOptions(displayBranch)}</select>`;
     }
 
     function usersForDepartment(dept){
