@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -159,6 +160,26 @@
       call_center:"الكول سنتر"
     };
 
+    const BRANCH_ASSIGNMENT_FIELDS = {
+      cash_sales:{uids:"cashSalesUids", names:"cashSalesNames"},
+      finance_sales:{uids:"financeSalesUids", names:"financeSalesNames"},
+      customer_service:{uids:"customerServiceUids", names:"customerServiceNames"},
+      call_center:{uids:"callCenterUids", names:"callCenterNames"}
+    };
+
+    const DEPARTMENT_ALIASES = {
+      "cash_sales":"cash_sales", "cash sales":"cash_sales", "مبيعات الكاش":"cash_sales", "كاش":"cash_sales", "الكاش":"cash_sales",
+      "finance_sales":"finance_sales", "finance sales":"finance_sales", "مبيعات التمويل":"finance_sales", "تمويل":"finance_sales", "التمويل":"finance_sales",
+      "customer_service":"customer_service", "customer service":"customer_service", "خدمة العملاء":"customer_service", "خدمة عملاء":"customer_service",
+      "call_center":"call_center", "call center":"call_center", "callcenter":"call_center", "الكول سنتر":"call_center", "كول سنتر":"call_center"
+    };
+
+    function normalizeDepartment(value){
+      const raw = String(value || "").trim();
+      const low = raw.toLowerCase().replace(/\s+/g, " ");
+      return DEPARTMENT_ALIASES[raw] || DEPARTMENT_ALIASES[low] || raw;
+    }
+
     const SYSTEM_PAGES = [
       { value:"inbox.html", label:"صندوق الوارد" },
       { value:"callcenter.html", label:"الكول سنتر" },
@@ -209,7 +230,7 @@
       }[s]));
     }
 
-    function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
+    function departmentLabel(d){ const key = normalizeDepartment(d); return DEPARTMENTS[key] || d || ""; }
 
 
 
@@ -434,19 +455,65 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
+    function userDisplayNameFromPayload(profilePayload, uid){
+      return profilePayload.name || profilePayload.email || uid;
+    }
+
+    async function updateBranchMembership(uid, profilePayload){
+      const userName = userDisplayNameFromPayload(profilePayload, uid);
+      const userDept = normalizeDepartment(profilePayload.department);
+      const targetBranchId = (profilePayload.role === "admin" || profilePayload.allDepartments === true) ? "" : (profilePayload.branchId || "");
+
+      for(const b of branches){
+        const updates = {};
+        let changed = false;
+
+        Object.entries(BRANCH_ASSIGNMENT_FIELDS).forEach(([dept, fields]) => {
+          const oldUids = Array.isArray(b[fields.uids]) ? b[fields.uids].filter(Boolean) : [];
+          const oldNames = Array.isArray(b[fields.names]) ? b[fields.names] : [];
+          const filteredUids = oldUids.filter(existingUid => existingUid !== uid);
+          const filteredNames = oldUids.map((existingUid, index) => ({uid:existingUid, name:oldNames[index] || ""}))
+            .filter(item => item.uid !== uid)
+            .map(item => item.name);
+
+          if(b.id === targetBranchId && dept === userDept){
+            filteredUids.push(uid);
+            filteredNames.push(userName);
+          }
+
+          if(JSON.stringify(oldUids) !== JSON.stringify(filteredUids)){
+            updates[fields.uids] = filteredUids;
+            updates[fields.names] = filteredNames;
+            changed = true;
+          }
+        });
+
+        if(changed){
+          updates.updatedAt = serverTimestamp();
+          updates.updatedByUid = currentUser.uid;
+          updates.updatedByEmail = currentUser.email;
+          await setDoc(doc(db, "branches", b.id), updates, { merge:true });
+        }
+      }
+    }
+
     async function saveUserAccount(e){
       e.preventDefault();
 
       const editingUid = el("editingUid").value;
       const branchId = el("newBranch").value;
 
+      const selectedRole = el("newRole").value;
+      const selectedDepartment = normalizeDepartment(el("newDepartment").value);
+      const isGeneralAdmin = selectedRole === "admin" || el("allDepartments").checked;
+
       const profilePayload = {
         name: el("newName").value.trim(),
         email: el("newEmail").value.trim(),
-        role: el("newRole").value,
-        department: el("newDepartment").value,
-        branchId,
-        branchName: branchName(branchId),
+        role: selectedRole,
+        department: selectedDepartment,
+        branchId: isGeneralAdmin ? "" : branchId,
+        branchName: isGeneralAdmin ? "" : branchName(branchId),
         pages: selectedPages(),
         allDepartments: el("allDepartments").checked,
         active: el("activeUser").checked,
@@ -457,6 +524,7 @@
 
       if(editingUid){
         await setDoc(doc(db, "users", editingUid), profilePayload, { merge:true });
+        await updateBranchMembership(editingUid, profilePayload);
         toast("تم تعديل المستخدم");
         resetUserForm();
         return;
@@ -475,6 +543,8 @@
           createdByUid: currentUser.uid,
           createdByEmail: currentUser.email
         });
+
+        await updateBranchMembership(uid, profilePayload);
 
         await signOut(secondaryAuth);
         await deleteApp(secondaryApp);
