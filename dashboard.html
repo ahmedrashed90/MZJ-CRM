@@ -714,7 +714,7 @@
         return;
       }
       const creditLimit = (salary * ratio) - obligation;
-      const qualified = creditLimit >= 600;
+      const qualified = creditLimit >= 650;
       box.className = "chat-credit-limit-result " + (qualified ? "qualified" : "not-qualified");
       box.innerHTML = "الحد الائتماني = " + dashboardMoney(creditLimit) + " ريال - <span>" + (qualified ? "مؤهل" : "غير مؤهل") + "</span>";
     }
