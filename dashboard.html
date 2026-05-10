@@ -6,6 +6,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -173,7 +174,9 @@
       convId:"",
       unsubMessages:null,
       unsubTemplates:null,
+      unsubClientStatuses:null,
       templates:[],
+      clientStatuses:[],
       actualCompletion:null,
       completionByLead:{}
     };
@@ -262,6 +265,111 @@
       { title:"لم يتم توقيع العقد", match:["لم يتم توقيع العقد"] },
       { title:"تم الإنتهاء - إنشاء طلب البيع", match:["تم الإنتهاء - إنشاء طلب البيع","تم الانتهاء - إنشاء طلب البيع"] }
     ];
+
+    function dashboardCanonicalDepartment(value){
+      const raw = String(value || "").trim();
+      const key = raw
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+
+      if(["cash_sales","cash","leads-cash.html"].includes(raw) || key.includes("كاش")) return "cash_sales";
+      if(["finance_sales","finance","leads-finance.html"].includes(raw) || key.includes("تمويل")) return "finance_sales";
+      if(["customer_service","cs","service","leads-customer-service.html"].includes(raw) || key.includes("خدمه عملاء") || key.includes("خدمة عملاء")) return "customer_service";
+      if(["call_center","callcenter","call-center","callcenter.html"].includes(raw) || key.includes("كول سنتر")) return "call_center";
+      return raw;
+    }
+
+    function dashboardClientStatusDepartment(data = {}){
+      const candidates = [
+        data.department, data.dept, data.section, data.category, data.type,
+        data.group, data.targetDepartment, data.salesDepartment, data.page,
+        data.path, data.service, data.team
+      ];
+      for(const v of candidates){
+        const dept = dashboardCanonicalDepartment(v);
+        if(["cash_sales","finance_sales","customer_service","call_center"].includes(dept)) return dept;
+      }
+      return "";
+    }
+
+    function dashboardClientStatusTitle(data = {}){
+      return String(
+        data.title || data.status || data.name || data.label || data.statusName ||
+        data.clientStatus || data.value || ""
+      ).trim();
+    }
+
+    function dashboardClientStatusAliases(data = {}, title = ""){
+      const values = [title, data.match, data.matches, data.aliases, data.keywords, data.values, data.options]
+        .flatMap(v => Array.isArray(v) ? v : [v])
+        .filter(Boolean)
+        .map(v => String(v).trim())
+        .filter(Boolean);
+      return uniqueDashboardStatuses(values);
+    }
+
+    function dashboardStatusSortValue(data = {}, fallback = 0){
+      const v = data.sort ?? data.order ?? data.index ?? data.position ?? data.priority;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function dashboardStatusIsVisible(data = {}){
+      return data.active !== false && data.enabled !== false && data.hidden !== true && data.deleted !== true;
+    }
+
+    function buildDashboardStatusDefsFromClientStatuses(department){
+      const items = (dashboardChatState.clientStatuses || [])
+        .filter(item => item.department === department)
+        .sort((a,b) => (a.sort - b.sort) || a.title.localeCompare(b.title, "ar"));
+
+      const seen = new Set();
+      const out = [];
+      items.forEach(item => {
+        const title = String(item.title || "").trim();
+        const key = normalizeDashboardStatusKey(title);
+        if(!key || seen.has(key)) return;
+        seen.add(key);
+        out.push({ title, match: dashboardClientStatusAliases(item.raw || {}, title) });
+      });
+      return out;
+    }
+
+    function applyDashboardClientStatusesToSections(){
+      const map = { cash:"cash_sales", finance:"finance_sales", cs:"customer_service" };
+      Object.entries(map).forEach(([sectionKey, department]) => {
+        const defs = buildDashboardStatusDefsFromClientStatuses(department);
+        if(defs.length) SECTION_DEFS[sectionKey].statuses = defs;
+      });
+      renderDashboard();
+      if(dashboardChatState.lead) fillDashboardChatStatusOptions(dashboardChatState.lead);
+    }
+
+    function listenDashboardClientStatuses(){
+      if(dashboardChatState.unsubClientStatuses) dashboardChatState.unsubClientStatuses();
+      dashboardChatState.unsubClientStatuses = onSnapshot(collection(db, "client_statuses"), snap => {
+        const rows = [];
+        let i = 0;
+        snap.forEach(d => {
+          const data = d.data() || {};
+          if(!dashboardStatusIsVisible(data)) return;
+          const title = dashboardClientStatusTitle(data);
+          const department = dashboardClientStatusDepartment(data);
+          if(!title || !department) return;
+          rows.push({ id:d.id, title, department, sort:dashboardStatusSortValue(data, i++), raw:data });
+        });
+        dashboardChatState.clientStatuses = rows;
+        applyDashboardClientStatusesToSections();
+      }, err => {
+        console.error(err);
+        dashboardChatState.clientStatuses = [];
+        renderDashboard();
+      });
+    }
 
     let currentUser = null;
     let currentProfile = null;
@@ -677,7 +785,7 @@
 
 
     function dashboardTemplateLabel(t){
-      return String(t?.label || t?.title || t?.name || t?.templateName || t?.subject || "").trim();
+      return String(t?.label || t?.title || t?.name || t?.templateName || t?.template_name || t?.template?.name || t?.subject || "").trim();
     }
 
     function dashboardTemplateText(t){
@@ -733,19 +841,7 @@
     }
 
     function dashboardStatusNeedsMessageClear(status){
-      const s = normalizeDashboardStatusKey(status);
-      const clearStatuses = [
-        "مؤهل - تأخر في إرسال الأوراق",
-        "طلب إستكمال أوراق",
-        "طلب استكمال أوراق",
-        "إستيفاء الطلب - متقدم",
-        "استيفاء الطلب - متقدم",
-        "تم الإتصال لتوقيع العقد",
-        "تم الاتصال لتوقيع العقد",
-        "تم الإنتهاء - إنشاء طلب البيع",
-        "تم الانتهاء - إنشاء طلب البيع"
-      ].map(normalizeDashboardStatusKey);
-      return clearStatuses.includes(s);
+      return false;
     }
 
     function dashboardQuickMessageNameForStatus(status){
@@ -898,10 +994,7 @@
           model: payload.model || payload.carModel || "",
           carModel: payload.carModel || payload.model || "",
           color: payload.color || "",
-          payment: payload.payment || "",
-          paymentType: payload.paymentType || payload.payment || "",
-          payType: payload.payType || payload.payment || "",
-          financeType: payload.financeType || payload.paymentType || payload.payment || "",
+          financeType: payload.financeType || "",
           notes: payload.notes || ""
         }
       };
@@ -1077,8 +1170,9 @@
       const def = Object.values(SECTION_DEFS).find(x => x.department === dept) || SECTION_DEFS.cash;
       const statuses = [];
       def.statuses.forEach(st => {
-        if(st.title !== "الكول سنتر") statuses.push(st.title);
-        (st.match || []).forEach(v => statuses.push(v));
+        const titleKey = normalizeDashboardStatusKey(st.title);
+        if(titleKey === normalizeDashboardStatusKey("إجمالي العملاء") || titleKey === normalizeDashboardStatusKey("الكول سنتر")) return;
+        statuses.push(st.title);
       });
       return uniqueDashboardStatuses(statuses);
     }
@@ -1125,7 +1219,7 @@
       el("chatCar").value = getLeadField(lead, ["car","carName","carType","vehicleName"]);
       el("chatModel").value = getLeadField(lead, ["model","carModel"]);
       el("chatColor").value = getLeadField(lead, ["color","carColor"]);
-      el("chatPayment").value = getLeadField(lead, ["payment","paymentType","payType","leadPayment"]);
+      el("chatPayment").value = getLeadField(lead, ["financeType","financePercent","financePercentage","downPaymentPercent"]);
       el("chatNotes").value = getLeadField(lead, ["notes","remarks","comment"]);
       if(el("chatFollowupDate")){
         el("chatFollowupDate").value = normalizeDateTimeLocalValue(getLeadField(lead, ["followupDate","followUpDate","nextFollowupDate","appointmentDate","scheduledAt"]));
@@ -1543,9 +1637,7 @@
         model: el("chatModel").value.trim(),
         carModel: el("chatModel").value.trim(),
         color: el("chatColor").value.trim(),
-        payment: el("chatPayment").value.trim(),
-        paymentType: el("chatPayment").value.trim(),
-        payType: el("chatPayment").value.trim(),
+        financeType: el("chatPayment").value.trim(),
         source: getLeadField(lead, ["source","sourceName","leadSource"], ""),
         sourceName: getLeadField(lead, ["sourceName","source","leadSource"], ""),
         department: leadDepartment(lead),
@@ -1581,7 +1673,7 @@
           carType: payload.carType,
           carModel: payload.carModel,
           color: payload.color,
-          financeType: payload.financeType || payload.paymentType || payload.payment
+          financeType: payload.financeType || ""
         });
         renderDashboard();
         fillDashboardChatCustomerForm(lead);
@@ -2862,6 +2954,7 @@
       injectDashboardStyles();
       renderNoPermissionNotice();
       listenDashboardTemplates();
+      listenDashboardClientStatuses();
       el("backToSectionsBtn").onclick = () => {
         selectedSectionKey = "";
         el("dashboardBoard").classList.add("hidden");
