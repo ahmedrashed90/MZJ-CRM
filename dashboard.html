@@ -10,6 +10,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -653,6 +654,66 @@
       return fallback;
     }
 
+    function dashboardFinancePercentOptionValue(value){
+      const raw = String(value || "").trim();
+      if(!raw) return "";
+      const compact = raw.replace(/\s+/g, "").replace("٪", "%");
+      const normalized = compact
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .toLowerCase();
+      const n = Number(compact.replace("%", ""));
+      if(n === 45 || normalized.includes("عام")) return "عام";
+      if(n === 65 || normalized.includes("عقار")) return "عقاري";
+      return "";
+    }
+
+    function dashboardFinancePercentValue(value){
+      const type = dashboardFinancePercentOptionValue(value || el("chatPayment")?.value || "");
+      if(type === "عام") return 0.45;
+      if(type === "عقاري") return 0.65;
+      return 0;
+    }
+
+    function dashboardNumericValue(value){
+      const arabic = "٠١٢٣٤٥٦٧٨٩";
+      const eastern = "۰۱۲۳۴۵۶۷۸۹";
+      const raw = String(value || "").replace(/[٠-٩]/g, d => arabic.indexOf(d)).replace(/[۰-۹]/g, d => eastern.indexOf(d));
+      const n = Number(raw.replace(/,/g, "").replace(/[^0-9.\-]/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function dashboardFormatMoney(value){
+      const n = Number(value);
+      if(!Number.isFinite(n)) return "0";
+      return Math.max(0, n).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
+    }
+
+    function updateDashboardCreditLimitResult(){
+      const box = el("chatCreditLimitResult");
+      if(!box) return;
+      const salary = dashboardNumericValue(el("chatSalary")?.value || "");
+      const obligation = dashboardNumericValue(el("chatObligation")?.value || "");
+      const percent = dashboardFinancePercentValue(el("chatPayment")?.value || "");
+
+      if(!salary || !percent){
+        box.textContent = "الحد الائتماني = أدخل الراتب واختر نوع التمويل";
+        return;
+      }
+
+      const creditLimit = (salary * percent) - obligation;
+      box.textContent = "الحد الائتماني = " + dashboardFormatMoney(creditLimit) + " ريال";
+    }
+
+    function fillDashboardFinancePercentSelect(value){
+      const field = el("chatPayment");
+      if(!field) return;
+      field.value = dashboardFinancePercentOptionValue(value);
+      updateDashboardCreditLimitResult();
+    }
+
     function chatPlatformConfig(platform){
       return CHAT_PLATFORM_CONFIG[platform] || CHAT_PLATFORM_CONFIG.whatsapp;
     }
@@ -703,7 +764,12 @@
                   <label>الموديل<input id="chatModel"></label>
                 </div>
                 <label>اللون<input id="chatColor"></label>
-                <label>نوع التمويل<input id="chatPayment"></label>
+                <label>نوع التمويل<select id="chatPayment">
+                  <option value="">اختر نوع التمويل</option>
+                  <option value="عام">عام - 45%</option>
+                  <option value="عقاري">عقاري - 65%</option>
+                </select></label>
+                <div id="chatCreditLimitResult" class="chat-credit-limit-result">الحد الائتماني = أدخل الراتب واختر نوع التمويل</div>
                 <label>ملاحظات<textarea id="chatNotes" rows="3"></textarea></label>
               </div>
             </div>
@@ -1294,7 +1360,7 @@
       el("chatCar").value = getLeadField(lead, ["car","carName","carType","vehicleName"]);
       el("chatModel").value = getLeadField(lead, ["model","carModel"]);
       el("chatColor").value = getLeadField(lead, ["color","carColor"]);
-      el("chatPayment").value = getLeadField(lead, ["financeType","financePercent","financePercentage","downPaymentPercent"]);
+      fillDashboardFinancePercentSelect(getLeadField(lead, ["financeType","financePercent","financePercentage","downPaymentPercent"]));
       el("chatNotes").value = getLeadField(lead, ["notes","remarks","comment"]);
       if(el("chatFollowupDate")){
         el("chatFollowupDate").value = normalizeDateTimeLocalValue(getLeadField(lead, ["followupDate","followUpDate","nextFollowupDate","appointmentDate","scheduledAt"]));
@@ -1371,6 +1437,7 @@
       }
       const badge = document.getElementById("chatProgressBadge");
       if(badge) badge.textContent = pct + "% مكتمل";
+      updateDashboardCreditLimitResult();
     }
 
     function formatMessageTime(value){
@@ -1712,7 +1779,7 @@
         model: el("chatModel").value.trim(),
         carModel: el("chatModel").value.trim(),
         color: el("chatColor").value.trim(),
-        financeType: el("chatPayment").value.trim(),
+        financeType: getLeadField(lead, ["financeType","financePercent","financePercentage","downPaymentPercent"], ""),
         source: getLeadField(lead, ["source","sourceName","leadSource"], ""),
         sourceName: getLeadField(lead, ["sourceName","source","leadSource"], ""),
         department: leadDepartment(lead),
@@ -2693,6 +2760,17 @@
           font-size:11px !important;
           font-weight:900 !important;
           white-space:nowrap !important;
+        }
+        .chat-credit-limit-result{
+          border:1px solid #ead4c8 !important;
+          border-radius:14px !important;
+          background:#fff7f1 !important;
+          color:#7b2d22 !important;
+          padding:10px 12px !important;
+          margin:-2px 0 9px !important;
+          font-size:13px !important;
+          font-weight:900 !important;
+          line-height:1.7 !important;
         }
 
         /* V55 popup status + follow-up + composer */
