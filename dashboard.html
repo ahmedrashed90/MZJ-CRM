@@ -7,6 +7,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -467,8 +468,10 @@
     }
 
     function matchesStatus(lead, statusDef){
-      if(normalizeStatus(statusDef?.title) === "إجمالي العملاء") return true;
       const s = getLeadStatus(lead);
+      if(normalizeStatus(statusDef?.title) === "إجمالي العملاء"){
+        return normalizeDashboardStatusKey(s) === normalizeDashboardStatusKey("عميل جديد");
+      }
       return statusDef.match.some(x => normalizeStatus(x) === s);
     }
 
@@ -491,7 +494,11 @@
     }
 
     function sectionTotal(def){
-      return visibleLeadsForSection(def).length;
+      const items = visibleLeadsForSection(def);
+      if(def?.key === "cash" || def?.key === "cs"){
+        return items.filter(l => normalizeDashboardStatusKey(getLeadStatus(l)) === normalizeDashboardStatusKey("عميل جديد")).length;
+      }
+      return items.length;
     }
 
     function renderSectionCards(){
