@@ -14,6 +14,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -408,8 +409,10 @@
       return { email:user.email, name:user.email, role:"user", department:"cash_sales", active:true };
     }
 
+    function isSalesManagerProfile(profile){ return profile?.role === "sales_manager"; }
+
     function isAdminProfile(profile){
-      return profile?.role === "admin" || profile?.allDepartments === true;
+      return profile?.role === "admin" || isSalesManagerProfile(profile) || profile?.allDepartments === true;
     }
 
     function escapeHtml(str){
@@ -430,13 +433,16 @@
 
     function hasPageAccess(page){
       const pages = allowedPagesForCurrentUser();
-      return isAdmin || currentProfile?.allDepartments === true || !pages.length || pages.includes(page) || page === "dashboard.html";
+      const salesManager = isSalesManagerProfile(currentProfile);
+      const unrestricted = !pages.length || (!salesManager && (isAdmin || currentProfile?.allDepartments === true));
+      return unrestricted || pages.includes(page) || page === "dashboard.html";
     }
 
     function renderAllowedNavigation(profile=currentProfile, adminFlag=isAdmin){
       const currentPage = currentPageName();
       const pages = Array.isArray(profile?.pages) ? profile.pages : [];
-      const unrestricted = adminFlag || profile?.allDepartments === true || !pages.length;
+      const salesManager = isSalesManagerProfile(profile);
+      const unrestricted = !pages.length || (!salesManager && (adminFlag || profile?.allDepartments === true));
       const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
       const nav = document.querySelector(".nav-tabs");
       if(!nav) return;
@@ -3185,7 +3191,7 @@
 
           el("loginScreen").classList.add("hidden");
           el("app").classList.remove("hidden");
-          el("userInfo").textContent = `${currentProfile.name || user.email} - ${isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department)}`;
+          el("userInfo").textContent = `${currentProfile.name || user.email} - ${isSalesManagerProfile(currentProfile) ? "مدير مبيعات" : (isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department))}`;
           renderAllowedNavigation(currentProfile, isAdmin);
           if(!applyPagePermissions()) return;
           pageInit();
