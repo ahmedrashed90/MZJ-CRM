@@ -4,6 +4,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -368,6 +369,50 @@
       return profile?.role === "admin" || profile?.role === "sales_manager" || profile?.allDepartments === true;
     }
 
+    function isBranchManagerProfile(profile){
+      const role = String(profile?.role || "").trim();
+      return profile?.branchManagerReports === true
+        || profile?.reportsBranchManager === true
+        || profile?.canViewBranchReports === true
+        || profile?.branchManager === true
+        || profile?.isBranchManager === true
+        || ["branch_manager", "branchManager", "branch_admin", "branchAdmin", "manager_branch", "مدير فرع", "مدير_فرع"].includes(role);
+    }
+
+    function normalizeValue(value){
+      return String(value ?? "").trim();
+    }
+
+    function getProfileBranches(profile){
+      const list = [];
+      [profile?.branch, profile?.branchName, profile?.branchId, profile?.mainBranch].forEach(v => {
+        const text = normalizeValue(v);
+        if(text) list.push(text);
+      });
+      if(Array.isArray(profile?.branches)) profile.branches.forEach(v => {
+        const text = normalizeValue(v);
+        if(text) list.push(text);
+      });
+      if(Array.isArray(profile?.branchIds)) profile.branchIds.forEach(v => {
+        const text = normalizeValue(v);
+        if(text) list.push(text);
+      });
+      return [...new Set(list)];
+    }
+
+    function leadMatchesProfileBranch(lead, profile){
+      const profileBranches = getProfileBranches(profile);
+      if(!profileBranches.length) return true;
+      const leadBranches = [lead?.branch, lead?.branchName, lead?.branchId].map(normalizeValue).filter(Boolean);
+      return leadBranches.some(branch => profileBranches.includes(branch));
+    }
+
+    function canManageLeadDepartment(lead, profile){
+      const profileDepartment = normalizeValue(profile?.department || profile?.managedDepartment || profile?.section || profile?.role);
+      if(!profileDepartment || profileDepartment === "branch_manager" || profileDepartment === "branchManager") return true;
+      return getLeadSectionKey(lead) === profileDepartment;
+    }
+
     function escapeHtml(str){
       return String(str ?? "").replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     }
@@ -413,6 +458,11 @@
       if(isAdmin) return true;
       const uid = currentUser?.uid;
       if(!uid) return false;
+
+      if(isBranchManagerProfile(currentProfile)){
+        return canManageLeadDepartment(lead, currentProfile) && leadMatchesProfileBranch(lead, currentProfile);
+      }
+
       const dept = currentProfile?.department || currentProfile?.role || "";
       if(dept === "call_center") return lead.callCenterUid === uid;
       if(["cash_sales","finance_sales","customer_service"].includes(dept)) return lead.responsibleUid === uid;
