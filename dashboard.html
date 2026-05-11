@@ -1193,6 +1193,79 @@
       };
     }
 
+    function dashboardConversationCollectionsForLead(lead){
+      const preferred = chatPlatformConfig(dashboardChatState.platform || platformOf(lead)).conversations;
+      return [...new Set([
+        preferred,
+        CHAT_PLATFORM_CONFIG.whatsapp.conversations,
+        CHAT_PLATFORM_CONFIG.instagram.conversations,
+        CHAT_PLATFORM_CONFIG.facebook.conversations,
+        CHAT_PLATFORM_CONFIG.tiktok.conversations
+      ].filter(Boolean))];
+    }
+
+    function dashboardSavedCustomerFieldsFromData(data = {}){
+      const customer = data.customer && typeof data.customer === "object" ? data.customer : {};
+      const src = { ...data, ...customer };
+      return {
+        customerName: src.customerName || src.fullName || src.name || "",
+        fullName: src.fullName || src.customerName || src.name || "",
+        name: src.name || src.customerName || src.fullName || "",
+        phone: src.phone || src.mobile || src.phoneNumber || "",
+        mobile: src.mobile || src.phone || src.phoneNumber || "",
+        phoneNumber: src.phoneNumber || src.phone || src.mobile || "",
+        phoneNormalized: src.phoneNormalized || normalizeKsaPhone(src.phone || src.mobile || src.phoneNumber),
+        age: src.age || src.customerAge || "",
+        salary: src.salary || src.monthlySalary || "",
+        salaryBank: src.salaryBank || src.bank || "",
+        bank: src.bank || src.salaryBank || "",
+        obligation: src.obligation || src.commitment || "",
+        commitment: src.commitment || src.obligation || "",
+        location: src.location || src.city || src.place || "",
+        car: src.car || src.carName || src.carType || src.vehicleName || "",
+        carName: src.carName || src.car || src.carType || "",
+        carType: src.carType || src.car || src.carName || "",
+        model: src.model || src.carModel || "",
+        carModel: src.carModel || src.model || "",
+        color: src.color || src.carColor || "",
+        financeType: src.financeType || src.financePercent || src.financePercentage || src.downPaymentPercent || "",
+        notes: src.notes || src.remarks || src.comment || "",
+        followupDate: src.followupDate || src.followUpDate || src.nextFollowupDate || src.appointmentDate || "",
+        followUpDate: src.followUpDate || src.followupDate || src.nextFollowupDate || src.appointmentDate || "",
+        nextFollowupDate: src.nextFollowupDate || src.followUpDate || src.followupDate || src.appointmentDate || "",
+        appointmentDate: src.appointmentDate || src.nextFollowupDate || src.followUpDate || src.followupDate || ""
+      };
+    }
+
+    function dashboardHasAnySavedCustomerField(data = {}){
+      return Object.values(dashboardSavedCustomerFieldsFromData(data)).some(v => String(v || "").trim() !== "");
+    }
+
+    async function loadDashboardSavedCustomerData(lead){
+      const ids = dashboardConversationSyncIds(lead, { phone: phoneOfLead(lead) });
+      const collections = dashboardConversationCollectionsForLead(lead);
+      for(const col of collections){
+        for(const id of ids){
+          try{
+            const snap = await getDoc(doc(db, col, id));
+            if(!snap.exists()) continue;
+            const saved = dashboardSavedCustomerFieldsFromData(snap.data() || {});
+            if(!dashboardHasAnySavedCustomerField(saved)) continue;
+            Object.entries(saved).forEach(([key, value]) => {
+              if(value !== undefined && value !== null && String(value).trim() !== "") lead[key] = value;
+            });
+            if(lead.__id){
+              setDoc(doc(db, "leads", lead.__id), saved, { merge:true }).catch(() => {});
+            }
+            return true;
+          }catch(e){
+            console.warn("saved customer read skipped", col, id, e);
+          }
+        }
+      }
+      return false;
+    }
+
     async function syncDashboardCustomerEverywhere(lead, payload){
       const cfg = chatPlatformConfig(dashboardChatState.platform || platformOf(lead));
       const convPayload = {
@@ -1206,13 +1279,25 @@
         phoneNormalized: payload.phoneNormalized || normalizeKsaPhone(payload.phone || phoneOfLead(lead))
       };
 
+      const ids = dashboardConversationSyncIds(lead, convPayload);
+      const conversationWrites = [];
+      dashboardConversationCollectionsForLead(lead).forEach(col => {
+        ids.forEach(id => conversationWrites.push(setDoc(doc(db, col, id), convPayload, { merge:true })));
+      });
+
+      let leadWriteError = null;
       if(lead?.__id){
-        await setDoc(doc(db, "leads", lead.__id), payload, { merge:true });
+        try{
+          await setDoc(doc(db, "leads", lead.__id), payload, { merge:true });
+        }catch(err){
+          leadWriteError = err;
+          console.warn("lead customer save skipped", err);
+        }
       }
 
-      const ids = dashboardConversationSyncIds(lead, convPayload);
-      const writes = ids.map(id => setDoc(doc(db, cfg.conversations, id), convPayload, { merge:true }));
-      if(writes.length) await Promise.allSettled(writes);
+      const results = conversationWrites.length ? await Promise.allSettled(conversationWrites) : [];
+      const hasConversationSave = results.some(r => r.status === "fulfilled");
+      if(leadWriteError && !hasConversationSave) throw leadWriteError;
     }
 
     async function saveDashboardStatusOnly(){
@@ -1625,6 +1710,7 @@
       dashboardChatState.convId = resolveChatConversationId(lead);
       dashboardChatState.actualCompletion = null;
 
+      await loadDashboardSavedCustomerData(lead);
       fillDashboardChatCustomerForm(lead);
       renderDashboardTemplateOptions();
       el("chatReplyText").value = "";
