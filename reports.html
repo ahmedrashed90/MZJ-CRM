@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -22,6 +23,9 @@
     @media (max-width:480px){.report-kpis{grid-template-columns:1fr;}}
     .formula-note{display:block;margin-top:8px;color:#8d6e63;font-size:12px;line-height:1.7;}
     .report-stack{display:flex;flex-direction:column;gap:18px;}
+    .section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
+    .section-head h3{margin:0;}
+    .section-pdf-btn{padding:7px 12px;border-radius:10px;font-size:12px;white-space:nowrap;}
     .table-wrap{overflow:auto;}
     .agent-details-btn{padding:7px 12px;border-radius:10px;font-size:12px;white-space:nowrap;}
     .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:1000;padding:18px;}
@@ -133,8 +137,43 @@
           <div class="stat-card"><h3>جودة المبيعات</h3><div class="stat-number" id="agentQualityCount">0%</div><span class="formula-note">تم البيع ÷ مؤهل</span></div>
         </div>
 
-        <div class="report-table-section">
-          <h3>تقرير الأقسام</h3>
+        <div class="report-table-section" id="sourceReportSection">
+          <div class="section-head">
+            <h3>تقرير المصدر</h3>
+            <button class="secondary section-pdf-btn" id="sourceReportPdfBtn" type="button">تصدير PDF</button>
+          </div>
+          <div class="filters-card">
+            <div class="filters-grid reports">
+              <select id="sourceReportFilter"><option value="">كل المصادر</option></select>
+              <input id="sourceDateFrom" type="date" aria-label="من تاريخ" />
+              <input id="sourceDateTo" type="date" aria-label="إلى تاريخ" />
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="management-table">
+              <thead>
+                <tr>
+                  <th>المصدر</th>
+                  <th>إجمالي العملاء</th>
+                  <th>جودة التسويق</th>
+                  <th>غير مؤهل</th>
+                  <th>مؤهل</th>
+                  <th>مؤجل</th>
+                  <th>محتمل</th>
+                  <th>تم البيع</th>
+                  <th>جودة المصدر</th>
+                </tr>
+              </thead>
+              <tbody id="sourceReport"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="report-table-section" id="departmentsReportSection">
+          <div class="section-head">
+            <h3>تقرير الأقسام</h3>
+            <button class="secondary section-pdf-btn" id="departmentsReportPdfBtn" type="button">تصدير PDF</button>
+          </div>
           <div class="table-wrap">
             <table class="management-table">
               <thead>
@@ -179,8 +218,11 @@
           </div>
         </div>
 
-        <div class="report-table-section">
-          <h3>تقرير خدمة العملاء</h3>
+        <div class="report-table-section" id="customerServiceReportSection">
+          <div class="section-head">
+            <h3>تقرير خدمة العملاء</h3>
+            <button class="secondary section-pdf-btn" id="customerServiceReportPdfBtn" type="button">تصدير PDF</button>
+          </div>
           <div class="table-wrap">
             <table class="management-table">
               <thead>
@@ -621,6 +663,50 @@
       return String(lead.source || lead.sourceName || lead.leadSource || lead.platform || "").trim();
     }
 
+    function sourceReportBaseRows(){
+      return leads.filter(lead => {
+        if(lead.manualDuplicateRequest === true || lead.manualRequestType === "duplicate_phone") return false;
+        if(!userCanSeeLead(lead)) return false;
+        const leadSection = getLeadSectionKey(lead);
+        if(!SECTION_DEFS.some(sec => sec.key === leadSection)) return false;
+        if(SUMMARY_EXCLUDED_SECTIONS.has(leadSection)) return false;
+        return true;
+      });
+    }
+
+    function refreshSourceReportOptions(){
+      const items = uniqueValues(sourceReportBaseRows().map(lead => ({ sourceValue:getSourceText(lead) || "غير محدد" })), "sourceValue");
+      fillSelectOptions(el("sourceReportFilter"), "كل المصادر", items);
+    }
+
+    function sourceReportRows(){
+      const selectedSource = el("sourceReportFilter").value;
+      const from = el("sourceDateFrom").value;
+      const to = el("sourceDateTo").value;
+      return sourceReportBaseRows().filter(lead => {
+        const source = getSourceText(lead) || "غير محدد";
+        if(selectedSource && source !== selectedSource) return false;
+
+        const dt = leadDate(lead);
+        const day = dt && !isNaN(dt) ? dt.toISOString().slice(0,10) : "";
+        if(from && (!day || day < from)) return false;
+        if(to && (!day || day > to)) return false;
+        return true;
+      });
+    }
+
+    function buildSourceReportData(){
+      const sourceMap = new Map();
+      sourceReportRows().forEach(lead => {
+        const source = getSourceText(lead) || "غير محدد";
+        if(!sourceMap.has(source)) sourceMap.set(source, []);
+        sourceMap.get(source).push(lead);
+      });
+      return Array.from(sourceMap.entries())
+        .map(([source, rows]) => ({ source, metrics: computeMetrics(rows) }))
+        .sort((a,b) => b.metrics.total - a.metrics.total || String(a.source).localeCompare(String(b.source), 'ar'));
+    }
+
     function stripUpdateDatePrefix(value){
       const raw = String(value || "").trim();
       if(!raw) return "";
@@ -798,6 +884,7 @@
     function render(){
       refreshBranchOptions();
       refreshAgentOptions();
+      refreshSourceReportOptions();
 
       const rows = filteredRows();
       const totals = computeMetrics(summaryRows(rows));
@@ -810,6 +897,12 @@
       el("qualifiedCount").textContent = totals.qualified;
       el("marketingQualityCount").textContent = `${totals.marketingQualityRate}%`;
       el("agentQualityCount").textContent = `${totals.agentQualityRate}%`;
+
+      const sourceRows = buildSourceReportData().map(item => {
+        const m = item.metrics;
+        return `<tr><td>${escapeHtml(item.source)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.qualified}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
+      });
+      el("sourceReport").innerHTML = sourceRows.length ? sourceRows.join("") : '<tr><td colspan="9">لا توجد بيانات مطابقة لفلاتر المصدر والتاريخ.</td></tr>';
 
       const activeSections = el("departmentFilter").value
         ? reportSectionDefs().filter(sec => sec.key === el("departmentFilter").value)
@@ -876,6 +969,21 @@
         };
       });
 
+      const sourceRows = buildSourceReportData().map(item => {
+        const m = item.metrics;
+        return {
+          "المصدر": item.source,
+          "إجمالي العملاء": m.total,
+          "جودة التسويق": `${m.marketingQualityRate}%`,
+          "غير مؤهل": m.waste,
+          "مؤهل": m.qualified,
+          "مؤجل": m.delayed,
+          "محتمل": m.potential,
+          "تم البيع": m.sold,
+          "جودة المصدر": `${m.agentQualityRate}%`
+        };
+      });
+
       const agentRows = Array.from(document.querySelectorAll('#agentsReport tr')).map(tr => {
         const cells = [...tr.children].map(td => td.textContent.trim());
         if(cells.length < 10) return null;
@@ -905,13 +1013,14 @@
         };
       }).filter(Boolean);
 
-      return { summarySheet, sectionRows, agentRows, customerServiceRows };
+      return { summarySheet, sourceRows, sectionRows, agentRows, customerServiceRows };
     }
 
     function exportExcel(){
       const wb = XLSX.utils.book_new();
-      const { summarySheet, sectionRows, agentRows, customerServiceRows } = buildExportSheets();
+      const { summarySheet, sourceRows, sectionRows, agentRows, customerServiceRows } = buildExportSheets();
       XLSX.utils.book_append_sheet(wb, summarySheet, 'الملخص');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sourceRows), 'المصدر');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sectionRows), 'الأقسام');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(agentRows), 'المناديب');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(customerServiceRows), 'خدمة العملاء');
@@ -922,7 +1031,34 @@
       const area = el('reportsPrintableArea');
       const win = window.open('', '_blank', 'width=1400,height=1000');
       if(!win || !area) return;
-      win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8" /><title>تقارير CRM</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1C1C1C}h1,h3{margin:0 0 14px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #ddd;padding:10px;text-align:right;vertical-align:top}th{background:#f7f5f2}.stat-card,.filters-card,.report-table-section{border:1px solid #ddd;border-radius:12px;padding:12px;margin-bottom:14px;background:#fff}.report-kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:12px}.formula-note,.report-note{display:block;color:#666;font-size:12px;margin-top:6px}</style></head><body><h1>تقارير CRM</h1>${area.innerHTML}</body></html>`);
+      const sourceInfo = `تقرير المصدر: ${el('sourceReportFilter').value || 'كل المصادر'} - من ${el('sourceDateFrom').value || 'بداية البيانات'} إلى ${el('sourceDateTo').value || 'نهاية البيانات'}`;
+      win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8" /><title>تقارير CRM</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1C1C1C}h1,h3{margin:0 0 14px}.pdf-meta{margin:0 0 14px;color:#5d4037;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #ddd;padding:10px;text-align:right;vertical-align:top}th{background:#f7f5f2}.stat-card,.filters-card,.report-table-section{border:1px solid #ddd;border-radius:12px;padding:12px;margin-bottom:14px;background:#fff}.report-kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:12px}.formula-note,.report-note{display:block;color:#666;font-size:12px;margin-top:6px}.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-pdf-btn,.actions,button{display:none!important}</style></head><body><h1>تقارير CRM</h1><p class="pdf-meta">${escapeHtml(sourceInfo)}</p>${area.innerHTML}</body></html>`);
+      win.document.close();
+      win.focus();
+      setTimeout(() => { try{ win.print(); }catch(e){} }, 400);
+    }
+
+    function reportPdfMeta(sectionType){
+      const generalFrom = el('dateFrom').value || 'بداية البيانات';
+      const generalTo = el('dateTo').value || 'نهاية البيانات';
+      if(sectionType === 'source'){
+        return `المصدر: ${el('sourceReportFilter').value || 'كل المصادر'} - من ${el('sourceDateFrom').value || 'بداية البيانات'} إلى ${el('sourceDateTo').value || 'نهاية البيانات'}`;
+      }
+      if(sectionType === 'departments'){
+        return `القسم: ${departmentLabel(el('departmentFilter').value) || 'كل الأقسام'} - الفرع: ${el('branchFilter').value || 'كل الفروع'} - المندوب: ${el('agentFilter').selectedOptions[0]?.textContent || 'كل المناديب'} - من ${generalFrom} إلى ${generalTo}`;
+      }
+      if(sectionType === 'customer_service'){
+        return `تقرير خدمة العملاء - الفرع: ${el('branchFilter').value || 'كل الفروع'} - من ${generalFrom} إلى ${generalTo}`;
+      }
+      return `من ${generalFrom} إلى ${generalTo}`;
+    }
+
+    function exportSectionPdf(sectionId, title, sectionType){
+      const section = el(sectionId);
+      const win = window.open('', '_blank', 'width=1200,height=900');
+      if(!win || !section) return;
+      const meta = reportPdfMeta(sectionType);
+      win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1C1C1C}h1,h3{margin:0 0 14px}.pdf-meta{margin:0 0 14px;color:#5d4037;font-size:13px;line-height:1.8}.filters-card{border:1px solid #ddd;border-radius:12px;padding:12px;margin-bottom:14px;background:#fff}.filters-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}select,input{padding:8px;border:1px solid #ddd;border-radius:8px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #ddd;padding:10px;text-align:right;vertical-align:top}th{background:#f7f5f2}.report-table-section{border:1px solid #ddd;border-radius:12px;padding:12px;margin-bottom:14px;background:#fff}.section-head{display:block}.section-pdf-btn,button{display:none!important}</style></head><body><h1>${escapeHtml(title)}</h1><p class="pdf-meta">${escapeHtml(meta)}</p>${section.innerHTML}</body></html>`);
       win.document.close();
       win.focus();
       setTimeout(() => { try{ win.print(); }catch(e){} }, 400);
@@ -947,7 +1083,7 @@
         render();
       });
 
-      ['dateFrom','dateTo','departmentFilter','branchFilter','agentFilter','searchInput'].forEach(id => {
+      ['dateFrom','dateTo','departmentFilter','branchFilter','agentFilter','searchInput','sourceReportFilter','sourceDateFrom','sourceDateTo'].forEach(id => {
         el(id).addEventListener('input', render);
         el(id).addEventListener('change', render);
       });
@@ -955,6 +1091,9 @@
       el('refreshBtn').onclick = render;
       el('exportExcelBtn').onclick = exportExcel;
       el('exportPdfBtn').onclick = exportPdf;
+      el('sourceReportPdfBtn').onclick = () => exportSectionPdf('sourceReportSection', 'تقرير المصدر', 'source');
+      el('departmentsReportPdfBtn').onclick = () => exportSectionPdf('departmentsReportSection', 'تقرير الأقسام', 'departments');
+      el('customerServiceReportPdfBtn').onclick = () => exportSectionPdf('customerServiceReportSection', 'تقرير خدمة العملاء', 'customer_service');
       el('closeAgentDetailsBtn').onclick = closeAgentDetails;
       el('agentDetailsPdfBtn').onclick = exportAgentDetailsPdf;
       el('agentDetailsFrom').addEventListener('change', renderAgentDetails);
