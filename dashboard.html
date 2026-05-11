@@ -15,6 +15,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -101,6 +102,7 @@
             <h3 id="selectedSectionTitle">القسم</h3>
             <div class="small-note" id="selectedSectionNote"></div>
           </div>
+          <input id="dashboardLeadSearch" class="dashboard-lead-search" type="search" placeholder="بحث بالاسم أو رقم الجوال" autocomplete="off" />
           <button class="secondary" id="backToSectionsBtn">رجوع للأقسام</button>
         </div>
         <div class="dashboard-status-grid" id="statusCards"></div>
@@ -388,6 +390,7 @@
     let unsub = null;
     let leads = [];
     let selectedSectionKey = "";
+    let dashboardLeadSearchTerm = "";
 
     const el = id => document.getElementById(id);
 
@@ -617,6 +620,8 @@
       el("dashboardBoard").classList.remove("hidden");
       el("selectedSectionTitle").textContent = def.title;
       el("selectedSectionNote").textContent = def.note || "";
+      const searchField = el("dashboardLeadSearch");
+      if(searchField) searchField.value = dashboardLeadSearchTerm;
       renderSectionCards();
       renderStatusCards();
       el("dashboardBoard").scrollIntoView({ behavior:"smooth", block:"start" });
@@ -632,6 +637,22 @@
       if(l.phone || l.mobile || l.phoneNumber) parts.push(l.phone || l.mobile || l.phoneNumber);
       if(l.responsibleName || l.assignedName) parts.push("المسؤول: " + (l.responsibleName || l.assignedName));
       return parts.join(" - ");
+    }
+
+    function dashboardLeadMatchesSearch(lead){
+      const term = String(dashboardLeadSearchTerm || "").trim().toLowerCase();
+      if(!term) return true;
+      const digits = term.replace(/\D/g, "");
+      const nameText = [customerName(lead), lead.fullName, lead.name, lead.displayName, lead.leadName]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const phoneText = [phoneOfLead(lead), lead.phone, lead.mobile, lead.phoneNumber, lead.customerPhone, lead.phoneNormalized]
+        .filter(Boolean)
+        .map(v => String(v))
+        .join(" ");
+      const phoneDigits = phoneText.replace(/\D/g, "");
+      return nameText.includes(term) || (!!digits && phoneDigits.includes(digits)) || phoneText.toLowerCase().includes(term);
     }
 
     function platformOf(l){
@@ -1813,7 +1834,7 @@
         model: el("chatModel").value.trim(),
         carModel: el("chatModel").value.trim(),
         color: el("chatColor").value.trim(),
-        financeType: getLeadField(lead, ["financeType","financePercent","financePercentage","downPaymentPercent"], ""),
+        financeType: el("chatPayment").value || getLeadField(lead, ["financeType","financePercent","financePercentage","downPaymentPercent"], ""),
         source: getLeadField(lead, ["source","sourceName","leadSource"], ""),
         sourceName: getLeadField(lead, ["sourceName","source","leadSource"], ""),
         department: leadDepartment(lead),
@@ -1916,7 +1937,7 @@
       dashboardChatState.completionByLead = {};
       const def = SECTION_DEFS[selectedSectionKey];
       if(!def) return;
-      const all = visibleLeadsForSection(def);
+      const all = visibleLeadsForSection(def).filter(dashboardLeadMatchesSearch);
       const grid = el("statusCards");
 
       grid.innerHTML = def.statuses.map(statusDef => {
@@ -1997,6 +2018,17 @@
           gap:12px;
           margin-bottom:14px;
         }
+        .dashboard-lead-search{
+          min-width:260px;
+          max-width:360px;
+          width:34%;
+          border:1px solid var(--line);
+          border-radius:14px;
+          padding:11px 13px;
+          background:#fff;
+          color:var(--text);
+          font:inherit;
+        }
         .dashboard-status-grid{
           display:grid;
           grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
@@ -2066,6 +2098,7 @@
         @media(max-width:900px){
           .dashboard-section-cards{grid-template-columns:1fr;}
           .board-head{align-items:flex-start;flex-direction:column;}
+          .dashboard-lead-search{width:100%;max-width:none;}
         }
         .dashboard-chat-modal.hidden{ display:none; }
         .dashboard-chat-modal{
@@ -3152,8 +3185,17 @@
       renderNoPermissionNotice();
       listenDashboardTemplates();
       listenDashboardClientStatuses();
+      const searchField = el("dashboardLeadSearch");
+      if(searchField){
+        searchField.oninput = () => {
+          dashboardLeadSearchTerm = searchField.value || "";
+          renderStatusCards();
+        };
+      }
       el("backToSectionsBtn").onclick = () => {
         selectedSectionKey = "";
+        dashboardLeadSearchTerm = "";
+        if(searchField) searchField.value = "";
         el("dashboardBoard").classList.add("hidden");
         renderSectionCards();
       };
