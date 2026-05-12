@@ -1,0 +1,1207 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.png">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MZJ CRM - مساعد المبيعات الذكي</title>
+  <link rel="stylesheet" href="./theme.css" />
+  <style>
+    .agent-stack{display:flex;flex-direction:column;gap:18px;}
+    .agent-hero{display:grid;grid-template-columns:1.25fr .75fr;gap:16px;align-items:stretch;}
+    .agent-panel,.agent-section{background:#fff;border:1px solid #eadfd6;border-radius:18px;padding:16px;box-shadow:0 8px 26px rgba(92,64,51,.055);}
+    .agent-title{margin:0 0 8px;color:#1C1C1C;font-size:22px;}
+    .agent-subtitle{margin:0;color:#8d6e63;line-height:1.9;font-size:14px;}
+    .readonly-badge{display:inline-flex;align-items:center;gap:8px;background:#f7f5f2;border:1px solid #eadfd6;color:#5d4037;border-radius:999px;padding:8px 12px;font-size:13px;font-weight:800;margin-top:12px;}
+    .score-card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:170px;background:linear-gradient(135deg,#fff,#f7f5f2);}
+    .score-ring{width:108px;height:108px;border-radius:50%;border:12px solid #eadfd6;display:grid;place-items:center;font-size:26px;font-weight:900;color:#5d4037;margin-bottom:10px;}
+    .score-caption{color:#8d6e63;font-size:13px;line-height:1.7;}
+    .filters-grid.agent{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}
+    .agent-kpis{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:14px;align-items:stretch;}
+    .agent-kpis .stat-card{min-width:0;}
+    .kpi-note{display:block;margin-top:8px;color:#8d6e63;font-size:12px;line-height:1.7;}
+    .agent-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+    .full-row{grid-column:1/-1;}
+    .section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+    .section-head h3{margin:0;color:#1C1C1C;font-size:18px;}
+    .section-head p{margin:5px 0 0;color:#8d6e63;font-size:13px;line-height:1.7;}
+    .pill-row{display:flex;gap:8px;flex-wrap:wrap;}
+    .pill{border:1px solid #eadfd6;background:#f7f5f2;color:#5d4037;border-radius:999px;padding:7px 10px;font-size:12px;line-height:1.5;}
+    .pill strong{color:#1C1C1C;}
+    .diagnostic{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;}
+    .diag-item{background:#f7f5f2;border:1px solid #eadfd6;border-radius:14px;padding:10px;color:#5d4037;font-size:13px;line-height:1.7;}
+    .diag-item strong{display:block;color:#1C1C1C;font-size:18px;}
+    .insight-list{display:flex;flex-direction:column;gap:10px;}
+    .insight-card{border:1px solid #eadfd6;background:#fff;border-radius:14px;padding:12px;display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:flex-start;}
+    .insight-priority{min-width:76px;text-align:center;border-radius:999px;padding:6px 8px;font-size:12px;font-weight:800;background:#f7f5f2;color:#5d4037;border:1px solid #eadfd6;}
+    .insight-priority.high{background:#fff1f0;color:#b42318;border-color:#ffd7d3;}
+    .insight-priority.medium{background:#fff7e6;color:#9a5b00;border-color:#ffe0a3;}
+    .insight-priority.low{background:#eef8f1;color:#287a3e;border-color:#cfecd7;}
+    .insight-body h4{margin:0 0 5px;font-size:14px;color:#1C1C1C;}
+    .insight-body p{margin:0;color:#5d4037;line-height:1.75;font-size:13px;}
+    .recommendation{border-right:4px solid #8d6e63;background:#fdfbf9;border-radius:14px;padding:12px;margin-bottom:10px;line-height:1.8;color:#4e342e;font-size:13px;}
+    .recommendation strong{display:block;color:#1C1C1C;margin-bottom:3px;}
+    .table-wrap{overflow:auto;}
+    .management-table td,.management-table th{vertical-align:top;}
+    .ask-box{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:10px;}
+    .ask-box input{min-height:44px;}
+    .answer-box{display:none;margin-top:12px;background:#f7f5f2;border:1px solid #eadfd6;border-radius:14px;padding:14px;color:#4e342e;line-height:1.9;white-space:pre-line;}
+    .answer-box.show{display:block;}
+    .quick-question{border:1px solid #eadfd6;background:#fff;color:#5d4037;border-radius:999px;padding:7px 10px;font-size:12px;cursor:pointer;}
+    .quick-question:hover{background:#f7f5f2;}
+    .empty-state{color:#8d6e63;font-size:13px;line-height:1.8;padding:12px;background:#f7f5f2;border-radius:12px;border:1px solid #eadfd6;}
+
+    .live-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+    .watcher-state{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#5d4037;font-size:13px;line-height:1.7;}
+    .live-dot{width:10px;height:10px;border-radius:50%;background:#2e7d32;display:inline-block;box-shadow:0 0 0 6px rgba(46,125,50,.10);}
+    .live-dot.paused{background:#9a5b00;box-shadow:0 0 0 6px rgba(154,91,0,.12);}
+    .live-dot.off{background:#b42318;box-shadow:0 0 0 6px rgba(180,35,24,.12);}
+    .watcher-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px;}
+    .watcher-card{border:1px solid #eadfd6;background:#fdfbf9;border-radius:14px;padding:12px;color:#5d4037;font-size:13px;line-height:1.7;}
+    .watcher-card strong{display:block;color:#1C1C1C;font-size:22px;line-height:1.25;}
+    .alerts-feed{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+    .alert-card{border:1px solid #eadfd6;background:#fff;border-radius:15px;padding:12px;display:flex;gap:10px;align-items:flex-start;box-shadow:0 6px 20px rgba(92,64,51,.04);}
+    .alert-card.critical{border-color:#ffd7d3;background:#fff8f7;}
+    .alert-card.warning{border-color:#ffe0a3;background:#fffaf0;}
+    .alert-card.opportunity{border-color:#cfecd7;background:#f7fff9;}
+    .alert-card.info{border-color:#d9e6ff;background:#f8fbff;}
+    .alert-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;background:#f7f5f2;border:1px solid #eadfd6;}
+    .alert-content{min-width:0;flex:1;}
+    .alert-content h4{margin:0 0 5px;color:#1C1C1C;font-size:14px;}
+    .alert-content p{margin:0;color:#4e342e;line-height:1.75;font-size:13px;}
+    .alert-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+    .alert-meta span{border:1px solid #eadfd6;background:#f7f5f2;border-radius:999px;padding:4px 8px;font-size:11px;color:#5d4037;}
+    .live-actions{display:flex;gap:8px;flex-wrap:wrap;}
+    .mini-btn{padding:7px 10px;border-radius:10px;font-size:12px;}
+    .warn-box{display:none;background:#fff7e6;border:1px solid #ffe0a3;color:#7a4a00;border-radius:14px;padding:12px;line-height:1.8;font-size:13px;}
+    .warn-box.show{display:block;}
+    @media (max-width:1500px){.agent-kpis{grid-template-columns:repeat(4,minmax(0,1fr));}.agent-hero{grid-template-columns:1fr;}}
+    @media (max-width:900px){.agent-grid{grid-template-columns:1fr;}.agent-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}.ask-box{grid-template-columns:1fr;}.alerts-feed{grid-template-columns:1fr}.watcher-cards{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media (max-width:520px){.agent-kpis{grid-template-columns:1fr;}.insight-card{grid-template-columns:1fr;}.watcher-cards{grid-template-columns:1fr;}}
+    @media print{.actions,.filters-card,.ask-box,.pill-row button,.sidebar,.login-screen{display:none!important}.management-page{display:block}.management-main{width:100%;padding:0}.agent-section,.agent-panel,.stat-card{box-shadow:none}.agent-grid,.agent-hero{grid-template-columns:1fr}.agent-kpis{grid-template-columns:repeat(4,1fr)}}
+  </style>
+</head>
+<body>
+  <section class="login-screen hidden" id="loginScreen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="logo-mark">MZJ</div>
+        <div>
+          <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+          <p>تسجيل الدخول إلى نظام CRM</p>
+        </div>
+      </div>
+      <form class="login-form" id="loginForm">
+        <input id="loginEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required />
+        <input id="loginPassword" type="password" placeholder="كلمة المرور" autocomplete="current-password" required />
+        <div class="login-error" id="loginError"></div>
+        <button class="primary" type="submit">تسجيل الدخول</button>
+      </form>
+    </div>
+  </section>
+
+  <div class="management-page hidden" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="logo-box">
+            <div class="logo-mark">MZJ</div>
+            <div>
+              <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+              <div class="status-text" id="userInfo"></div>
+            </div>
+          </div>
+          <button class="secondary" id="logoutBtn">خروج</button>
+        </div>
+        <div class="nav-card">
+          <div class="menu-label">التنقل بين صفحات النظام</div>
+          <div class="nav-tabs"></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="management-main">
+      <div class="page-head">
+        <div>
+          <h2>مساعد المبيعات الذكي</h2>
+        </div>
+        <div class="actions">
+          <button class="secondary" id="refreshBtn">تحديث</button>
+          <button class="secondary" id="printBtn">تصدير PDF</button>
+        </div>
+      </div>
+
+      <div class="agent-stack" id="agentPrintableArea">
+        <div class="agent-hero">
+          <div class="agent-panel">
+            <h3 class="agent-title">Sales Intelligence Agent</h3>
+            <p class="agent-subtitle">صفحة تحليلية تقرأ بيانات العملاء والمناديب والمصادر والفروع، وتعرض المشاكل والفرص والتوصيات التي تساعد على رفع المبيعات. الصفحة لا تعدل أي بيانات داخل النظام.</p>
+            <div class="readonly-badge">🔒 Read Only Mode - قراءة وتحليل وتوصيات فقط</div>
+          </div>
+          <div class="agent-panel score-card">
+            <div class="score-ring" id="healthScore">0%</div>
+            <strong>مؤشر صحة المبيعات</strong>
+            <div class="score-caption" id="healthCaption">يتم حسابه من جودة البيع، سرعة المتابعة، جودة الملاحظات، وتراكم العملاء.</div>
+          </div>
+        </div>
+
+        <div class="warn-box" id="dataWarning"></div>
+
+
+        <section class="agent-section" id="liveWatcherSection">
+          <div class="live-toolbar">
+            <div>
+              <h3 style="margin:0;color:#1C1C1C;font-size:18px;">غرفة التنبيهات الحية</h3>
+              <p class="agent-subtitle">الـAgent يراقب تغييرات العملاء لحظيًا طالما الصفحة مفتوحة، ويعرض تنبيهات وفرص بدون تعديل أي بيانات.</p>
+            </div>
+            <div class="live-actions">
+              <button class="secondary mini-btn" id="pauseWatcherBtn" type="button">إيقاف مؤقت</button>
+              <button class="secondary mini-btn" id="clearAlertsBtn" type="button">مسح التنبيهات اللحظية</button>
+            </div>
+          </div>
+          <div class="watcher-state">
+            <span class="live-dot" id="watcherDot"></span>
+            <strong id="watcherStatus">يعمل الآن</strong>
+            <span id="watcherLastUpdate">آخر تحديث: --</span>
+            <span>Read Only Live Mode</span>
+          </div>
+          <div class="watcher-cards">
+            <div class="watcher-card"><strong id="criticalAlertsCount">0</strong>تنبيهات حرجة الآن</div>
+            <div class="watcher-card"><strong id="warningAlertsCount">0</strong>تحذيرات تحتاج متابعة</div>
+            <div class="watcher-card"><strong id="opportunityAlertsCount">0</strong>فرص مبيعات مباشرة</div>
+            <div class="watcher-card"><strong id="liveEventsCount">0</strong>أحداث لحظية منذ فتح الصفحة</div>
+          </div>
+          <div class="alerts-feed" id="liveAlertsList"></div>
+        </section>
+
+        <div class="agent-section">
+          <div class="section-head">
+            <div>
+              <h3>تشخيص الداتا</h3>
+              <p>يوضح هل المشكلة من التحميل، الصلاحيات، أو الفلاتر.</p>
+            </div>
+          </div>
+          <div class="diagnostic">
+            <div class="diag-item"><strong id="diagLoaded">0</strong>تم تحميلها من leads</div>
+            <div class="diag-item"><strong id="diagVisible">0</strong>مسموح للمستخدم رؤيتها</div>
+            <div class="diag-item"><strong id="diagFiltered">0</strong>بعد الفلاتر الحالية</div>
+            <div class="diag-item"><strong id="diagUsers">0</strong>مستخدم / مندوب</div>
+            <div class="diag-item"><strong id="diagStatuses">0</strong>حالة من client_statuses</div>
+          </div>
+        </div>
+
+        <div class="filters-card">
+          <div class="filters-grid agent">
+            <input id="dateFrom" type="date" />
+            <input id="dateTo" type="date" />
+            <select id="departmentFilter">
+              <option value="">كل الأقسام</option>
+              <option value="call_center">الكول سنتر</option>
+              <option value="cash_sales">العملاء المحتملون - كاش</option>
+              <option value="finance_sales">العملاء المحتملون - تمويل</option>
+              <option value="customer_service">العملاء المحتملون - خدمة عملاء</option>
+            </select>
+            <select id="branchFilter"><option value="">كل الفروع</option></select>
+            <select id="agentFilter"><option value="">كل المناديب</option></select>
+            <select id="statusFilter"><option value="">كل الحالات</option></select>
+            <select id="sourceFilter"><option value="">كل المصادر</option></select>
+            <input id="searchInput" placeholder="بحث بالاسم / الجوال / المصدر / المندوب..." />
+          </div>
+        </div>
+
+        <div class="agent-kpis">
+          <div class="stat-card"><h3>إجمالي العملاء</h3><div class="stat-number" id="totalLeads">0</div><span class="kpi-note">حسب الفلاتر</span></div>
+          <div class="stat-card"><h3>عملاء اليوم</h3><div class="stat-number" id="todayLeads">0</div><span class="kpi-note">تاريخ التسجيل اليوم</span></div>
+          <div class="stat-card"><h3>متأخرين</h3><div class="stat-number" id="staleLeads">0</div><span class="kpi-note">بدون تحديث حديث</span></div>
+          <div class="stat-card"><h3>بدون ملاحظات</h3><div class="stat-number" id="noNotesLeads">0</div><span class="kpi-note">متابعة غير موثقة</span></div>
+          <div class="stat-card"><h3>بيانات ناقصة</h3><div class="stat-number" id="missingDataLeads">0</div><span class="kpi-note">اسم / جوال / مندوب</span></div>
+          <div class="stat-card"><h3>تم البيع</h3><div class="stat-number" id="soldLeads">0</div><span class="kpi-note">بيع / إغلاق ربحي</span></div>
+          <div class="stat-card"><h3>غير مؤهل</h3><div class="stat-number" id="wasteLeads">0</div><span class="kpi-note">خسارة / رفض / غير مؤهل</span></div>
+          <div class="stat-card"><h3>جودة البيع</h3><div class="stat-number" id="salesQuality">0%</div><span class="kpi-note">تم البيع ÷ المؤهل</span></div>
+        </div>
+
+        <div class="agent-grid">
+          <section class="agent-section">
+            <div class="section-head"><div><h3>أهم الفرص الضائعة</h3><p>عملاء يحتاجون تدخل سريع قبل انخفاض احتمالية التحويل.</p></div></div>
+            <div class="insight-list" id="opportunitiesList"></div>
+          </section>
+
+          <section class="agent-section">
+            <div class="section-head"><div><h3>مشاكل تمنع البيع</h3><p>نقاط ضعف متكررة في المتابعة أو التوزيع أو جودة البيانات.</p></div></div>
+            <div class="insight-list" id="problemsList"></div>
+          </section>
+
+          <section class="agent-section">
+            <div class="section-head"><div><h3>توصيات لرفع المبيعات</h3><p>خطوات عملية مبنية على البيانات الحالية.</p></div></div>
+            <div id="recommendationsList"></div>
+          </section>
+
+          <section class="agent-section">
+            <div class="section-head"><div><h3>اسأل الـAgent</h3><p>تحليل من الداتا المحملة فقط، بدون إرسال أو تعديل.</p></div></div>
+            <div class="pill-row">
+              <button class="quick-question" data-q="إيه أهم حاجة أعملها النهارده علشان أزود المبيعات؟">أهم قرار اليوم</button>
+              <button class="quick-question" data-q="مين أكتر مندوب عنده فرص متأخرة؟">مندوبين متأخرين</button>
+              <button class="quick-question" data-q="إيه أفضل مصدر للعملاء؟">أفضل مصدر</button>
+              <button class="quick-question" data-q="إيه أكبر مشكلة في المتابعة؟">مشكلة المتابعة</button>
+            </div>
+            <div class="ask-box">
+              <input id="agentQuestion" placeholder="اكتب سؤالك هنا..." />
+              <button class="primary" id="askBtn" type="button">تحليل</button>
+            </div>
+            <div class="answer-box" id="agentAnswer"></div>
+          </section>
+
+          <section class="agent-section full-row">
+            <div class="section-head"><div><h3>اختصار تنفيذي</h3><p>أهم أرقام وقراءات الإدارة.</p></div></div>
+            <div class="pill-row" id="executiveSummary"></div>
+          </section>
+
+          <section class="agent-section full-row">
+            <div class="section-head"><div><h3>تحليل الحالات</h3><p>أين تقف رحلة العميل؟ وأي حالة تسبب تراكم؟</p></div></div>
+            <div class="table-wrap">
+              <table class="management-table">
+                <thead><tr><th>الحالة</th><th>إجمالي</th><th>تم البيع</th><th>متأخر</th><th>بدون ملاحظات</th><th>قراءة الـAgent</th></tr></thead>
+                <tbody id="statusAnalysis"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="agent-section full-row">
+            <div class="section-head"><div><h3>تحليل المناديب</h3><p>تراكم العملاء، جودة البيع، العملاء المتأخرين، والعملاء بدون ملاحظات.</p></div></div>
+            <div class="table-wrap">
+              <table class="management-table">
+                <thead><tr><th>المندوب</th><th>القسم</th><th>إجمالي العملاء</th><th>تم البيع</th><th>جودة البيع</th><th>متأخر</th><th>بدون ملاحظات</th><th>آخر تحديث</th><th>توصية</th></tr></thead>
+                <tbody id="agentsAnalysis"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="agent-section full-row">
+            <div class="section-head"><div><h3>تحليل المصادر والفروع</h3><p>مصادر وفروع تحتاج تحسين في المتابعة أو جودة التحويل.</p></div></div>
+            <div class="table-wrap">
+              <table class="management-table">
+                <thead><tr><th>النوع</th><th>الاسم</th><th>إجمالي</th><th>تم البيع</th><th>جودة البيع</th><th>متأخر</th><th>بدون ملاحظات</th><th>قراءة الـAgent</th></tr></thead>
+                <tbody id="sourceBranchAnalysis"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="agent-section full-row">
+            <div class="section-head"><div><h3>قائمة العملاء المحتاجين متابعة</h3><p>قائمة Read Only للأولويات. التنفيذ يتم من صفحات العملاء فقط.</p></div></div>
+            <div class="table-wrap">
+              <table class="management-table">
+                <thead><tr><th>الأولوية</th><th>اسم العميل</th><th>الجوال</th><th>القسم</th><th>الحالة</th><th>المصدر</th><th>المندوب</th><th>آخر تحديث</th><th>سبب الظهور</th></tr></thead>
+                <tbody id="opportunityRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getFirestore, collection, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    const appFirebase = initializeApp(firebaseConfig);
+    try { getAnalytics(appFirebase); } catch(e) {}
+    const auth = getAuth(appFirebase);
+    const db = getFirestore(appFirebase);
+
+    const DEPARTMENTS = {
+      call_center:"الكول سنتر",
+      cash_sales:"العملاء المحتملون - كاش",
+      finance_sales:"العملاء المحتملون - تمويل",
+      customer_service:"العملاء المحتملون - خدمة عملاء"
+    };
+
+    const SECTION_DEFS = [
+      { key:"call_center", label:"الكول سنتر" },
+      { key:"cash_sales", label:"العملاء المحتملون - كاش" },
+      { key:"finance_sales", label:"العملاء المحتملون - تمويل" },
+      { key:"customer_service", label:"العملاء المحتملون - خدمة عملاء" }
+    ];
+
+    const NAV_ITEMS = [
+      { page:"inbox.html", label:"صندوق الوارد" },
+      { page:"callcenter.html", label:"الكول سنتر" },
+      { page:"leads-finance.html", label:"العملاء المحتملون - تمويل" },
+      { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
+      { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
+      { page:"database.html", label:"قاعدة البيانات" },
+      { page:"manual-leads.html", label:"إضافة العملاء" },
+      { page:"dashboard.html", label:"الداش بورد" },
+      { page:"reports.html", label:"التقارير" },
+      { page:"agent.html", label:"مساعد المبيعات الذكي" },
+      { page:"branches.html", label:"الفروع" },
+      { page:"statuses.html", label:"حالات العملاء" },
+      { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
+      { page:"admin.html", label:"الإدارة" }
+    ];
+
+    const el = id => document.getElementById(id);
+    let currentUser = null;
+    let currentProfile = null;
+    let isAdmin = false;
+    let leads = [];
+    let users = [];
+    let statuses = [];
+    let lastAnalysis = null;
+    let liveAlerts = [];
+    let watcherPaused = false;
+    let firstLeadSnapshotLoaded = false;
+    let previousLeadMap = new Map();
+    let unsubLeads = null;
+    let unsubUsers = null;
+    let unsubStatuses = null;
+    let initDone = false;
+
+    function toast(msg){
+      const t = el("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(()=> t.style.display = "none", 2500);
+    }
+
+    function setWarning(msg){
+      const box = el("dataWarning");
+      if(!msg){ box.classList.remove("show"); box.textContent = ""; return; }
+      box.textContent = msg;
+      box.classList.add("show");
+    }
+
+    function showLoginError(msg){
+      el("loginError").textContent = msg;
+      el("loginError").style.display = "block";
+    }
+
+    function normalizeValue(value){ return String(value ?? "").trim(); }
+    function uniqueNormalizedValues(values){ return [...new Set((values || []).map(normalizeValue).filter(Boolean))]; }
+    function escapeHtml(str){ return String(str ?? "").replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s])); }
+    function departmentLabel(d){ return DEPARTMENTS[d] || d || "غير محدد"; }
+
+    async function loadUserProfile(user){
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if(snap.exists()) return snap.data();
+      return { email:user.email, name:user.email, role:"user", department:"cash_sales", active:true };
+    }
+
+    function isAdminProfile(profile){
+      return profile?.role === "admin" || profile?.role === "sales_manager" || profile?.allDepartments === true;
+    }
+
+    function isBranchManagerProfile(profile){
+      const role = normalizeValue(profile?.role);
+      const roleId = normalizeValue(profile?.roleId);
+      return profile?.branchManagerReports === true || profile?.reportsBranchManager === true || profile?.canViewBranchReports === true || profile?.branchManager === true || profile?.isBranchManager === true || ["branch_manager", "branchManager", "branch_admin", "branchAdmin", "manager_branch", "مدير فرع", "مدير_فرع"].includes(role) || ["branch_manager", "branchManager", "branch_admin", "branchAdmin", "manager_branch", "مدير فرع", "مدير_فرع"].includes(roleId);
+    }
+
+    function effectivePagesForProfile(profile){
+      const pages = Array.isArray(profile?.pages) ? [...profile.pages] : [];
+      if(pages.length && !pages.includes("agent.html") && (pages.includes("reports.html") || pages.includes("dashboard.html") || pages.includes("admin.html"))){ pages.push("agent.html"); }
+      return pages;
+    }
+
+    function renderAllowedNavigation(profile){
+      const currentPage = location.pathname.split("/").pop() || "agent.html";
+      const pages = effectivePagesForProfile(profile);
+      const unrestricted = !pages.length;
+      const nav = document.querySelector(".nav-tabs");
+      if(!nav) return;
+      nav.innerHTML = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page)).map(item => `<a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">${item.label}</a>`).join("");
+    }
+
+    function hasPageAccess(page){
+      const pages = effectivePagesForProfile(currentProfile);
+      return !pages.length || pages.includes(page);
+    }
+
+    function applyPagePermissions(){
+      const page = location.pathname.split("/").pop() || "agent.html";
+      if(!hasPageAccess(page)){
+        sessionStorage.setItem("mzj_no_permission_page", page);
+        const pages = effectivePagesForProfile(currentProfile);
+        window.location.replace(`./${pages[0] || "dashboard.html"}`);
+        return false;
+      }
+      return true;
+    }
+
+    function getProfileBranchValues(profile){
+      const values = [profile?.branch, profile?.branchId, profile?.branchName, profile?.branchLocationId, profile?.branchLocationName, profile?.locationId, profile?.locationName, profile?.officeBranchId, profile?.officeBranchName, profile?.mainBranch, profile?.mainBranchId, profile?.mainBranchName];
+      if(Array.isArray(profile?.branches)) values.push(...profile.branches);
+      if(Array.isArray(profile?.branchIds)) values.push(...profile.branchIds);
+      if(Array.isArray(profile?.branchNames)) values.push(...profile.branchNames);
+      if(Array.isArray(profile?.locations)) values.push(...profile.locations);
+      if(Array.isArray(profile?.locationIds)) values.push(...profile.locationIds);
+      if(Array.isArray(profile?.officeBranches)) values.push(...profile.officeBranches);
+      return uniqueNormalizedValues(values);
+    }
+
+    function getLeadBranchValues(lead){
+      return uniqueNormalizedValues([lead?.branch, lead?.branchId, lead?.branchName, lead?.branchLocationId, lead?.branchLocationName, lead?.locationId, lead?.locationName, lead?.officeBranchId, lead?.officeBranchName, lead?.mainBranch, lead?.mainBranchId, lead?.mainBranchName, lead?.sectionLabel]);
+    }
+
+    function getDisplayBranchName(lead){
+      return normalizeValue(lead?.branchName || lead?.branchLocationName || lead?.locationName || lead?.officeBranchName || lead?.branch || lead?.sectionLabel || lead?.branchLocationId || lead?.locationId || lead?.officeBranchId || lead?.branchId) || "غير محدد";
+    }
+
+    function getLeadSectionKey(lead){
+      const dept = normalizeValue(lead.department);
+      if(SECTION_DEFS.some(sec => sec.key === dept)) return dept;
+      const service = normalizeValue(lead.serviceKey || lead.autoService || lead.departmentKey);
+      if(service === "cash") return "cash_sales";
+      if(service === "finance") return "finance_sales";
+      if(service === "customer_service") return "customer_service";
+      if((lead.callCenterUid || lead.callCenterName || lead.callCenterAssignedTo) && !dept) return "call_center";
+      return dept || "غير محدد";
+    }
+
+    function getAgentUidForSection(lead, section){
+      const sec = section || getLeadSectionKey(lead);
+      if(sec === "call_center") return normalizeValue(lead.callCenterUid || lead.callCenterAssignedTo || lead.assignedUid || lead.assignedTo);
+      return normalizeValue(lead.salesAssignedTo || lead.responsibleUid || lead.assignedTo || lead.assignedUid || lead.createdBy);
+    }
+
+    function getAgentNameForSection(lead, section){
+      const sec = section || getLeadSectionKey(lead);
+      const explicit = sec === "call_center" ? (lead.callCenterName || lead.callCenterAssignedName || lead.assignedName || lead.responsibleName) : (lead.salesAssignedName || lead.responsibleName || lead.assignedName || lead.createdByName || lead.callCenterName);
+      if(normalizeValue(explicit)) return normalizeValue(explicit);
+      const uid = getAgentUidForSection(lead, sec);
+      const user = users.find(u => String(u.uid || u.id || "") === uid);
+      return normalizeValue(user?.name || user?.email || "غير موزع") || "غير موزع";
+    }
+
+    function leadMatchesProfileBranch(lead, profile){
+      const profileBranches = getProfileBranchValues(profile);
+      if(!profileBranches.length) return true;
+      const leadBranches = getLeadBranchValues(lead);
+      return leadBranches.some(branch => profileBranches.includes(branch));
+    }
+
+    function canManageLeadDepartment(lead, profile){
+      const profileDepartment = normalizeValue(profile?.department || profile?.managedDepartment || profile?.section);
+      const profileDeptKey = normalizeValue(profile?.deptKey);
+      const leadSection = getLeadSectionKey(lead);
+      const leadDeptKey = normalizeValue(lead?.deptKey);
+      if(!profileDepartment && !profileDeptKey) return true;
+      return leadSection === profileDepartment || (!!profileDeptKey && leadDeptKey === profileDeptKey);
+    }
+
+    function userCanSeeLead(lead){
+      if(isAdmin) return true;
+      const uid = currentUser?.uid;
+      if(!uid) return false;
+      if(isBranchManagerProfile(currentProfile)) return canManageLeadDepartment(lead, currentProfile) && leadMatchesProfileBranch(lead, currentProfile);
+      const dept = currentProfile?.department || currentProfile?.role || "";
+      if(dept === "call_center") return lead.callCenterUid === uid || lead.callCenterAssignedTo === uid || lead.assignedTo === uid;
+      if(["cash_sales","finance_sales","customer_service"].includes(dept)) return getAgentUidForSection(lead, getLeadSectionKey(lead)) === uid;
+      return lead.responsibleUid === uid || lead.callCenterUid === uid || lead.assignedTo === uid || lead.salesAssignedTo === uid || lead.createdBy === uid;
+    }
+
+    function normalizeDateDigits(value){
+      return String(value ?? "").replace(/[٠-٩]/g, d => "0123456789"["٠١٢٣٤٥٦٧٨٩".indexOf(d)]).replace(/[۰-۹]/g, d => "0123456789"["۰۱۲۳۴۵۶۷۸۹".indexOf(d)]).replace(/[‎‏]/g, "").trim();
+    }
+
+    function parseDateString(value){
+      const raw = String(value ?? "").trim();
+      if(!raw) return null;
+      let text = normalizeDateDigits(raw).replace(/،/g, " ").replace(/-/g, "/").replace(/\s+/g, " ").trim();
+      const parsed = new Date(text);
+      if(!isNaN(parsed)) return parsed;
+      const meridiemMatch = text.match(/(ص|م|AM|PM)/i);
+      const meridiem = meridiemMatch ? meridiemMatch[1].toUpperCase() : "";
+      text = text.replace(/(ص|م|AM|PM)/ig, "").trim();
+      const match = text.match(/(\d{1,4})[\/](\d{1,2})[\/](\d{1,4})(?:\s+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?/);
+      if(!match) return null;
+      let a = Number(match[1]), b = Number(match[2]), c = Number(match[3]);
+      let year, month, day;
+      if(String(match[1]).length === 4){ year = a; month = b; day = c; }
+      else if(String(match[3]).length === 4){ year = c; if(a > 12){ day = a; month = b; } else if(b > 12){ month = a; day = b; } else { month = a; day = b; } }
+      else return null;
+      let hour = match[4] ? Number(match[4]) : 0;
+      const minute = match[5] ? Number(match[5]) : 0;
+      const second = match[6] ? Number(match[6]) : 0;
+      if((meridiem === "م" || meridiem === "PM") && hour < 12) hour += 12;
+      if((meridiem === "ص" || meridiem === "AM") && hour === 12) hour = 0;
+      const dt = new Date(year, month - 1, day, hour, minute, second);
+      return isNaN(dt) ? null : dt;
+    }
+
+    function tsToDate(v){
+      if(!v) return null;
+      if(typeof v?.toDate === "function") return v.toDate();
+      if(typeof v?.toMillis === "function") return new Date(v.toMillis());
+      if(typeof v === "number") return new Date(v);
+      if(typeof v === "string") return parseDateString(v);
+      if(v?.seconds) return new Date(v.seconds * 1000);
+      if(v?._seconds) return new Date(v._seconds * 1000);
+      if(v?.milliseconds) return new Date(v.milliseconds);
+      return null;
+    }
+
+    function leadCreatedDate(lead){ return tsToDate(lead.createdAt || lead.leadCreatedAt || lead.timestamp || lead.manualCreatedAt || lead.addedAt || lead.receivedAt); }
+    function leadUpdatedDate(lead){ return tsToDate(lead.updatedAt || lead.lastUpdated || lead.lastUpdateAt || lead.lastEventAt || lead.assignedAt || lead.createdAt); }
+    function formatDateTime(value){ const dt = value instanceof Date ? value : tsToDate(value); if(!dt || isNaN(dt)) return "غير محدد"; return dt.toLocaleString('ar-SA', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }); }
+    function hoursSince(dt){ if(!dt || isNaN(dt)) return Infinity; return (Date.now() - dt.getTime()) / 36e5; }
+    function sameDay(dt, ref=new Date()){ return dt && !isNaN(dt) && dt.getFullYear() === ref.getFullYear() && dt.getMonth() === ref.getMonth() && dt.getDate() === ref.getDate(); }
+
+    function getCustomerName(lead){ return normalizeValue(lead.customerName || lead.fullName || lead.displayName || lead.name || lead.clientName) || "بدون اسم"; }
+    function getCustomerPhone(lead){ return normalizeValue(lead.phoneNormalized || lead.phone || lead.mobile || lead.phoneNumber || lead.customerPhone || lead.whatsapp); }
+    function getSourceText(lead){ return normalizeValue(lead.sourceName || lead.source || lead.manualSource || lead.leadSource || lead.platform || lead.channel || lead.provider) || "غير محدد"; }
+    function getLeadStatus(lead){ return normalizeValue(lead.currentStatus || lead.status || lead.leadStatus || lead.pipelineStatus || lead.customerStatus || lead.clientStatus || lead.stage) || "غير محدد"; }
+    function getNotesText(lead){ return normalizeValue(lead.notes || lead.note || lead.comment || lead.comments || lead.reason || lead.lossReason || lead.statusReason); }
+
+    function isSoldStatus(statusName=""){
+      const s = normalizeValue(statusName);
+      return ["تم الإنتهاء - إنشاء طلب البيع", "تم البيع", "مغلق (ربح)", "تم الإنتهاء", "تم الانتهاء"].includes(s) || s.includes("بيع") || s.includes("ربح");
+    }
+    function isWasteStatus(statusName=""){
+      const s = normalizeValue(statusName);
+      return ["غير مؤهل", "مغلق (خسارة)", "مرفوض", "طلبات لم تتم الموافقة"].includes(s) || s.includes("خسارة") || s.includes("مرفوض") || s.includes("غير مؤهل");
+    }
+    function isDelayedStatus(statusName=""){
+      const s = normalizeValue(statusName);
+      return s.includes("تأخر") || s.includes("مؤجل") || s.includes("استكمال") || s.includes("إستكمال") || s === "لم يتم توقيع العقد" || s === "تم الإتصال لتوقيع العقد";
+    }
+    function isNewishStatus(statusName=""){
+      const s = normalizeValue(statusName);
+      return !s || s === "غير محدد" || s === "عميل جديد" || s.includes("جديد") || s.includes("محتمل") || s.includes("متابعة") || s.includes("مهتم");
+    }
+
+    function hasMissingCoreData(lead){ return !getCustomerName(lead) || getCustomerName(lead) === "بدون اسم" || !getCustomerPhone(lead) || !getAgentUidForSection(lead, getLeadSectionKey(lead)); }
+    function isStaleLead(lead){
+      const status = getLeadStatus(lead);
+      if(isSoldStatus(status) || isWasteStatus(status)) return false;
+      const updated = leadUpdatedDate(lead) || leadCreatedDate(lead);
+      const ageHours = hoursSince(updated);
+      if(isNewishStatus(status) && ageHours >= 2) return true;
+      if(ageHours >= 24) return true;
+      return false;
+    }
+
+    function computeMetrics(rows){
+      const arr = Array.isArray(rows) ? rows : [];
+      const total = arr.length;
+      let sold = 0, waste = 0, delayed = 0, noNotes = 0, stale = 0, today = 0, missing = 0, newish = 0;
+      arr.forEach(lead => {
+        const status = getLeadStatus(lead);
+        if(isSoldStatus(status)) sold += 1;
+        else if(isWasteStatus(status)) waste += 1;
+        else if(isDelayedStatus(status)) delayed += 1;
+        if(isNewishStatus(status)) newish += 1;
+        if(!getNotesText(lead)) noNotes += 1;
+        if(isStaleLead(lead)) stale += 1;
+        if(hasMissingCoreData(lead)) missing += 1;
+        if(sameDay(leadCreatedDate(lead))) today += 1;
+      });
+      const qualified = Math.max(0, total - waste);
+      const potential = Math.max(0, total - sold - waste - delayed);
+      const salesQualityRate = qualified ? Math.round((sold / qualified) * 100) : 0;
+      const marketingQualityRate = total ? Math.round((qualified / total) * 100) : 0;
+      const staleRate = total ? Math.round((stale / total) * 100) : 0;
+      const notesRate = total ? Math.round(((total - noNotes) / total) * 100) : 0;
+      const missingRate = total ? Math.round((missing / total) * 100) : 0;
+      return { total, sold, waste, delayed, noNotes, stale, today, missing, newish, qualified, potential, salesQualityRate, marketingQualityRate, staleRate, notesRate, missingRate };
+    }
+
+    function uniqueValues(rows, getter){ return [...new Set(rows.map(getter).map(normalizeValue).filter(Boolean))].sort((a,b)=>a.localeCompare(b, 'ar')); }
+    function fillSelectOptions(select, placeholder, items){
+      const current = select.value;
+      select.innerHTML = `<option value="">${placeholder}</option>`;
+      items.forEach(item => {
+        const value = typeof item === "string" ? item : item.value;
+        const label = typeof item === "string" ? item : item.label;
+        select.append(new Option(label, value));
+      });
+      if([...select.options].some(opt => opt.value === current)) select.value = current;
+    }
+
+    function baseRows(){
+      return leads.filter(lead => {
+        if(lead.manualDuplicateRequest === true || lead.manualRequestType === "duplicate_phone") return false;
+        if(!userCanSeeLead(lead)) return false;
+        return true;
+      });
+    }
+
+    function filteredRows(){
+      const section = el("departmentFilter").value;
+      const branch = el("branchFilter").value;
+      const agent = el("agentFilter").value;
+      const status = el("statusFilter").value;
+      const source = el("sourceFilter").value;
+      const q = el("searchInput").value.trim().toLowerCase();
+      const from = el("dateFrom").value;
+      const to = el("dateTo").value;
+      return baseRows().filter(lead => {
+        const leadSection = getLeadSectionKey(lead);
+        if(section && leadSection !== section) return false;
+        if(branch && !getLeadBranchValues(lead).includes(branch)) return false;
+        if(agent && getAgentUidForSection(lead, leadSection) !== agent) return false;
+        if(status && getLeadStatus(lead) !== status) return false;
+        if(source && getSourceText(lead) !== source) return false;
+        const dt = leadCreatedDate(lead) || leadUpdatedDate(lead);
+        const day = dt && !isNaN(dt) ? dt.toISOString().slice(0,10) : "";
+        if(from && (!day || day < from)) return false;
+        if(to && (!day || day > to)) return false;
+        if(q){
+          const hay = [getCustomerName(lead), getCustomerPhone(lead), getSourceText(lead), getLeadStatus(lead), getDisplayBranchName(lead), getAgentNameForSection(lead, leadSection), getNotesText(lead), lead.paymentType, lead.payment, lead.payType].join(" ").toLowerCase();
+          if(!hay.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function refreshFilters(){
+      const rows = baseRows();
+      fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueNormalizedValues(rows.flatMap(getLeadBranchValues)));
+      const agentMap = new Map();
+      rows.forEach(lead => {
+        const sec = getLeadSectionKey(lead);
+        const uid = getAgentUidForSection(lead, sec);
+        if(uid) agentMap.set(uid, getAgentNameForSection(lead, sec));
+      });
+      fillSelectOptions(el("agentFilter"), "كل المناديب", [...agentMap.entries()].map(([value,label]) => ({value,label})).sort((a,b)=>a.label.localeCompare(b.label,'ar')));
+      const statusSet = new Set(uniqueValues(rows, getLeadStatus));
+      statuses.forEach(s => statusSet.add(normalizeValue(s.name || s.label || s.status || s.title || s.id)));
+      fillSelectOptions(el("statusFilter"), "كل الحالات", [...statusSet].filter(Boolean).sort((a,b)=>a.localeCompare(b,'ar')));
+      fillSelectOptions(el("sourceFilter"), "كل المصادر", uniqueValues(rows, getSourceText));
+    }
+
+    function groupBy(rows, keyFn){
+      const map = new Map();
+      rows.forEach(row => {
+        const key = normalizeValue(keyFn(row)) || "غير محدد";
+        if(!map.has(key)) map.set(key, []);
+        map.get(key).push(row);
+      });
+      return map;
+    }
+
+    function buildAgentGroups(rows){
+      const map = new Map();
+      rows.forEach(lead => {
+        const sec = getLeadSectionKey(lead);
+        const uid = getAgentUidForSection(lead, sec) || `na:${getAgentNameForSection(lead, sec)}`;
+        const key = `${sec}__${uid}`;
+        if(!map.has(key)) map.set(key, { key, name:getAgentNameForSection(lead, sec), section:departmentLabel(sec), rows:[] });
+        map.get(key).rows.push(lead);
+      });
+      return [...map.values()].sort((a,b)=>b.rows.length-a.rows.length || a.name.localeCompare(b.name,'ar'));
+    }
+
+    function getOpportunityReason(lead){
+      const status = getLeadStatus(lead);
+      const updated = leadUpdatedDate(lead) || leadCreatedDate(lead);
+      const age = Math.round(hoursSince(updated));
+      if(isNewishStatus(status) && age >= 2) return `الحالة "${status}" بدون تحديث منذ حوالي ${age} ساعة`;
+      if(!getNotesText(lead)) return "لا توجد ملاحظات تساعد على معرفة آخر إجراء";
+      if(hasMissingCoreData(lead)) return "بيانات أساسية ناقصة مثل الجوال أو المندوب";
+      if(isDelayedStatus(status)) return `حالة مؤجلة تحتاج خطة متابعة: ${status}`;
+      if(age >= 24) return `لم يتم تحديث العميل منذ حوالي ${age} ساعة`;
+      return "فرصة تحتاج مراجعة";
+    }
+
+    function getOpportunityPriority(lead){
+      const status = getLeadStatus(lead);
+      const updated = leadUpdatedDate(lead) || leadCreatedDate(lead);
+      const age = hoursSince(updated);
+      if(isNewishStatus(status) && age >= 4) return "high";
+      if(isDelayedStatus(status)) return "medium";
+      if(hasMissingCoreData(lead)) return "medium";
+      if(!getNotesText(lead) && age >= 8) return "medium";
+      return "low";
+    }
+
+    function priorityRank(p){ return {high:0, medium:1, low:2}[p] ?? 3; }
+
+
+    function alertTypeRank(type){ return {critical:0, warning:1, opportunity:2, info:3}[type] ?? 4; }
+    function alertTypeLabel(type){ return {critical:"حرج", warning:"تحذير", opportunity:"فرصة", info:"معلومة"}[type] || "معلومة"; }
+    function alertIcon(type){ return {critical:"🚨", warning:"⚠️", opportunity:"💰", info:"ℹ️"}[type] || "ℹ️"; }
+    function timeAgo(date){
+      const dt = date instanceof Date ? date : tsToDate(date);
+      if(!dt || isNaN(dt)) return "الآن";
+      const mins = Math.max(0, Math.round((Date.now() - dt.getTime()) / 60000));
+      if(mins < 1) return "الآن";
+      if(mins < 60) return `منذ ${mins} دقيقة`;
+      const hours = Math.round(mins / 60);
+      if(hours < 24) return `منذ ${hours} ساعة`;
+      return `منذ ${Math.round(hours/24)} يوم`;
+    }
+    function sameInstant(a,b){
+      const da = tsToDate(a), db = tsToDate(b);
+      if(!da || !db || isNaN(da) || isNaN(db)) return false;
+      return Math.abs(da.getTime() - db.getTime()) < 60000;
+    }
+    function isFollowupUnclear(lead){
+      const status = getLeadStatus(lead);
+      const created = leadCreatedDate(lead);
+      const updated = leadUpdatedDate(lead);
+      if(isSoldStatus(status) || isWasteStatus(status)) return false;
+      if(!created) return false;
+      const noNotes = !getNotesText(lead);
+      const sameTime = !updated || sameInstant(created, updated);
+      return isNewishStatus(status) && noNotes && sameTime;
+    }
+    function makeAlert({id,type="info",title,text,recommendation="",scope="عام",lead=null,createdAt=null,source="rule"}){
+      return { id, type, title, text, recommendation, scope, lead, createdAt: createdAt || new Date(), source };
+    }
+    function addLiveAlert(alert){
+      if(!alert || watcherPaused) return;
+      const key = alert.id || `${alert.type}_${alert.title}_${Date.now()}`;
+      if(liveAlerts.some(a => a.id === key)) return;
+      liveAlerts.unshift({ ...alert, id:key, source:"live", createdAt:new Date() });
+      liveAlerts = liveAlerts.slice(0, 40);
+    }
+    function summarizeLeadForAlert(lead){
+      const sec = getLeadSectionKey(lead);
+      return `${getCustomerName(lead)} - ${getSourceText(lead)} - ${getAgentNameForSection(lead, sec)}`;
+    }
+    function processLeadChanges(snapshot){
+      if(!firstLeadSnapshotLoaded){
+        previousLeadMap = new Map();
+        snapshot.forEach(d => previousLeadMap.set(d.id, { id:d.id, ...d.data() }));
+        firstLeadSnapshotLoaded = true;
+        return;
+      }
+      snapshot.docChanges().forEach(change => {
+        if(change.type === "removed"){
+          previousLeadMap.delete(change.doc.id);
+          return;
+        }
+        const lead = { id:change.doc.id, ...change.doc.data() };
+        const old = previousLeadMap.get(change.doc.id);
+        previousLeadMap.set(change.doc.id, lead);
+        if(!userCanSeeLead(lead)) return;
+        const status = getLeadStatus(lead);
+        const titleBase = summarizeLeadForAlert(lead);
+        if(change.type === "added"){
+          addLiveAlert(makeAlert({
+            id:`live_added_${change.doc.id}`,
+            type:"info",
+            title:"Lead جديد دخل النظام",
+            text:titleBase,
+            recommendation:"راقبه في أول 30 دقيقة وتأكد من وجود مندوب وملاحظة متابعة.",
+            scope:"Lead جديد",
+            lead
+          }));
+        } else if(change.type === "modified" && old){
+          const oldStatus = getLeadStatus(old);
+          const oldAgent = getAgentUidForSection(old, getLeadSectionKey(old));
+          const newAgent = getAgentUidForSection(lead, getLeadSectionKey(lead));
+          if(oldStatus !== status){
+            addLiveAlert(makeAlert({
+              id:`live_status_${change.doc.id}_${status}_${Date.now()}`,
+              type:isSoldStatus(status) ? "opportunity" : (isWasteStatus(status) ? "warning" : "info"),
+              title:"تم تغيير حالة عميل",
+              text:`${titleBase} | ${oldStatus || "غير محدد"} ← ${status}`,
+              recommendation:isSoldStatus(status) ? "راجع سبب النجاح واستفد منه مع الفريق." : "تأكد من وجود ملاحظة توضّح سبب تغيير الحالة والخطوة التالية.",
+              scope:"تغيير حالة",
+              lead
+            }));
+          }
+          if(oldAgent !== newAgent){
+            addLiveAlert(makeAlert({
+              id:`live_agent_${change.doc.id}_${newAgent}_${Date.now()}`,
+              type:"info",
+              title:"تم تغيير المندوب المسؤول",
+              text:titleBase,
+              recommendation:"تأكد أن المندوب الجديد يستلم العميل بسرعة ولا يبدأ المتابعة من الصفر.",
+              scope:"توزيع",
+              lead
+            }));
+          }
+        }
+      });
+    }
+    function buildRuleAlerts(rows, analysis){
+      const alerts = [];
+      const now = new Date();
+      const newUnfollowed = rows.filter(lead => isFollowupUnclear(lead) && hoursSince(leadCreatedDate(lead)) >= .5 && hoursSince(leadCreatedDate(lead)) < 24);
+      if(newUnfollowed.length){
+        const top = newUnfollowed.sort((a,b)=>hoursSince(leadCreatedDate(b))-hoursSince(leadCreatedDate(a)))[0];
+        alerts.push(makeAlert({
+          id:"rule_new_unfollowed",
+          type:newUnfollowed.length >= 5 ? "critical" : "warning",
+          title:`${newUnfollowed.length} Lead جديد بدون متابعة واضحة`,
+          text:`أقدمهم: ${summarizeLeadForAlert(top)} (${timeAgo(leadCreatedDate(top))}).`,
+          recommendation:"ابدأ بالعملاء الجدد فورًا؛ أول 30-120 دقيقة غالبًا هي أعلى فرصة للتحويل.",
+          scope:"متابعة العملاء الجدد",
+          createdAt:now
+        }));
+      }
+      const unassigned = rows.filter(lead => !getAgentUidForSection(lead, getLeadSectionKey(lead)) && !isSoldStatus(getLeadStatus(lead)) && !isWasteStatus(getLeadStatus(lead)));
+      if(unassigned.length){
+        alerts.push(makeAlert({ id:"rule_unassigned", type:"critical", title:`${unassigned.length} Lead بدون مندوب`, text:"يوجد عملاء نشطين لا يظهر لهم مندوب مسؤول واضح.", recommendation:"راجع التوزيع فورًا حتى لا تضيع فرص البيع.", scope:"التوزيع", createdAt:now }));
+      }
+      const staleAgents = (analysis.agentGroups || []).map(g => ({...g, metrics:computeMetrics(g.rows)})).filter(g => g.metrics.stale >= 5).sort((a,b)=>b.metrics.stale-a.metrics.stale).slice(0,3);
+      staleAgents.forEach((g, idx) => alerts.push(makeAlert({
+        id:`rule_agent_stale_${idx}_${g.key}`,
+        type:g.metrics.stale >= 10 ? "critical" : "warning",
+        title:`تراكم متابعة عند ${g.name}`,
+        text:`لديه ${g.metrics.stale} عميل متأخر من أصل ${g.metrics.total}.`,
+        recommendation:"راجع ضغط المندوب أو أعد توزيع جزء من العملاء الساخنين.",
+        scope:"أداء المناديب",
+        createdAt:now
+      })));
+      const sourceToday = [...groupBy(rows.filter(lead => sameDay(leadCreatedDate(lead))), getSourceText).entries()].map(([name, groupRows]) => ({name, rows:groupRows, metrics:computeMetrics(groupRows)})).filter(g => g.metrics.total >= 5);
+      sourceToday.forEach(g => {
+        const stuck = g.rows.filter(lead => isNewishStatus(getLeadStatus(lead)) && !isSoldStatus(getLeadStatus(lead))).length;
+        if(stuck / Math.max(1,g.metrics.total) >= .7){
+          alerts.push(makeAlert({
+            id:`rule_source_stuck_${g.name}`,
+            type:"warning",
+            title:`مصدر ${g.name} جاب Leads لكن أغلبها واقفة`,
+            text:`اليوم: ${g.metrics.total} Lead، منهم ${stuck} ما زالوا في حالة أولية أو متابعة.`,
+            recommendation:"راجع سرعة المتابعة لهذا المصدر أو جودة الرسالة الإعلانية.",
+            scope:"مصادر العملاء",
+            createdAt:now
+          }));
+        }
+      });
+      const hotOpportunities = rows.filter(lead => {
+        const s = getLeadStatus(lead);
+        return !isSoldStatus(s) && !isWasteStatus(s) && (s.includes("مهتم") || s.includes("محتمل") || s.includes("متابعة") || isDelayedStatus(s));
+      }).filter(lead => hoursSince(leadUpdatedDate(lead) || leadCreatedDate(lead)) >= 6).slice(0, 20);
+      if(hotOpportunities.length){
+        alerts.push(makeAlert({
+          id:"rule_hot_opportunities",
+          type:"opportunity",
+          title:`${hotOpportunities.length} فرصة مبيعات تحتاج Closing`,
+          text:"عملاء في حالات مهتم/محتمل/متابعة ولم يحدث عليهم نشاط حديث.",
+          recommendation:"ابدأ برسالة أو اتصال متابعة مخصص قبل الدخول في عملاء أبرد.",
+          scope:"فرص مبيعات",
+          createdAt:now
+        }));
+      }
+      const todayCount = rows.filter(lead => sameDay(leadCreatedDate(lead))).length;
+      const last7 = rows.filter(lead => {
+        const d = leadCreatedDate(lead);
+        return d && !isNaN(d) && (now - d) <= 7*24*36e5 && !sameDay(d);
+      }).length;
+      const avgPrevDays = Math.round(last7 / 6);
+      if(avgPrevDays >= 5 && todayCount < avgPrevDays * .55){
+        alerts.push(makeAlert({
+          id:"rule_today_drop",
+          type:"warning",
+          title:"هبوط ملحوظ في Leads اليوم",
+          text:`اليوم ${todayCount} Lead مقابل متوسط تقريبي ${avgPrevDays} في الأيام السابقة.`,
+          recommendation:"راجع الإعلانات، ManyChat، والـWorkers الخاصة بالاستقبال.",
+          scope:"تدفق الليدز",
+          createdAt:now
+        }));
+      }
+      return alerts.sort((a,b)=>alertTypeRank(a.type)-alertTypeRank(b.type));
+    }
+    function renderLiveWatcher(analysis, rows){
+      const ruleAlerts = buildRuleAlerts(rows, analysis);
+      const combined = [...ruleAlerts, ...liveAlerts].sort((a,b)=>alertTypeRank(a.type)-alertTypeRank(b.type) || (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0)).slice(0, 12);
+      const counts = combined.reduce((acc,a)=>{ acc[a.type]=(acc[a.type]||0)+1; return acc; }, {});
+      el("criticalAlertsCount").textContent = counts.critical || 0;
+      el("warningAlertsCount").textContent = counts.warning || 0;
+      el("opportunityAlertsCount").textContent = counts.opportunity || 0;
+      el("liveEventsCount").textContent = liveAlerts.length;
+      el("watcherLastUpdate").textContent = `آخر تحديث: ${new Date().toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit', second:'2-digit'})}`;
+      el("watcherStatus").textContent = watcherPaused ? "متوقف مؤقتًا" : "يعمل الآن";
+      el("watcherDot").classList.toggle("paused", watcherPaused);
+      el("watcherDot").classList.toggle("off", !rows.length && leads.length === 0);
+      el("liveAlertsList").innerHTML = combined.length ? combined.map(alert => `
+        <div class="alert-card ${escapeHtml(alert.type)}">
+          <div class="alert-icon">${alertIcon(alert.type)}</div>
+          <div class="alert-content">
+            <h4>${escapeHtml(alert.title)}</h4>
+            <p>${escapeHtml(alert.text)}</p>
+            ${alert.recommendation ? `<p><strong>التوصية:</strong> ${escapeHtml(alert.recommendation)}</p>` : ""}
+            <div class="alert-meta"><span>${escapeHtml(alertTypeLabel(alert.type))}</span><span>${escapeHtml(alert.scope || "عام")}</span><span>${escapeHtml(alert.source === "live" ? "لحظي" : "قاعدة مراقبة")}</span></div>
+          </div>
+        </div>`).join("") : '<div class="empty-state full-row">لا توجد تنبيهات حية الآن. الـWatcher سيعرض أي فرصة أو مشكلة بمجرد ظهورها.</div>';
+    }
+
+    function analyze(rows){
+      const metrics = computeMetrics(rows);
+      const agentGroups = buildAgentGroups(rows);
+      const sourceGroups = [...groupBy(rows, getSourceText).entries()].map(([name, groupRows]) => ({ type:"مصدر", name, rows:groupRows, metrics:computeMetrics(groupRows) })).sort((a,b)=>b.rows.length-a.rows.length);
+      const branchGroups = [...groupBy(rows, getDisplayBranchName).entries()].map(([name, groupRows]) => ({ type:"فرع", name, rows:groupRows, metrics:computeMetrics(groupRows) })).sort((a,b)=>b.rows.length-a.rows.length);
+      const statusGroups = [...groupBy(rows, getLeadStatus).entries()].map(([name, groupRows]) => ({ name, rows:groupRows, metrics:computeMetrics(groupRows) })).sort((a,b)=>b.rows.length-a.rows.length);
+      const opportunities = rows.filter(lead => isStaleLead(lead) || !getNotesText(lead) || hasMissingCoreData(lead) || isDelayedStatus(getLeadStatus(lead)))
+        .map(lead => ({ lead, priority:getOpportunityPriority(lead), reason:getOpportunityReason(lead) }))
+        .sort((a,b)=> priorityRank(a.priority) - priorityRank(b.priority) || hoursSince(leadUpdatedDate(b.lead)) - hoursSince(leadUpdatedDate(a.lead)))
+        .slice(0,80);
+      const agentScored = agentGroups.map(g => ({...g, metrics:computeMetrics(g.rows)}));
+      const topStaleAgent = agentScored.sort((a,b)=>b.metrics.stale-a.metrics.stale)[0];
+      const topNoNotesAgent = [...agentScored].sort((a,b)=>b.metrics.noNotes-a.metrics.noNotes)[0];
+      const bestSource = sourceGroups.filter(g=>g.metrics.total >= 2).sort((a,b)=>b.metrics.salesQualityRate-a.metrics.salesQualityRate || b.metrics.total-a.metrics.total)[0] || sourceGroups[0];
+      const weakSource = sourceGroups.filter(g=>g.metrics.total >= 2).sort((a,b)=>a.metrics.salesQualityRate-b.metrics.salesQualityRate || b.metrics.total-a.metrics.total)[0] || sourceGroups[sourceGroups.length-1];
+      const bottleneckStatus = statusGroups.filter(g=>!isSoldStatus(g.name) && !isWasteStatus(g.name)).sort((a,b)=>b.metrics.total-a.metrics.total)[0];
+      return { metrics, agentGroups, sourceGroups, branchGroups, statusGroups, opportunities, topStaleAgent, topNoNotesAgent, bestSource, weakSource, bottleneckStatus };
+    }
+
+    function priorityLabel(priority){ if(priority === "high") return "عالية"; if(priority === "medium") return "متوسطة"; return "منخفضة"; }
+
+    function renderInsightList(targetId, items){
+      el(targetId).innerHTML = items.length ? items.map(item => `<div class="insight-card"><div class="insight-priority ${item.priority}">${priorityLabel(item.priority)}</div><div class="insight-body"><h4>${escapeHtml(item.title)}</h4><p>${escapeHtml(item.text)}</p></div></div>`).join("") : `<div class="empty-state">لا توجد مؤشرات كافية في الفلاتر الحالية.</div>`;
+    }
+
+    function renderRecommendations(items){
+      el("recommendationsList").innerHTML = items.length ? items.map((item, idx) => `<div class="recommendation"><strong>${idx+1}. ${escapeHtml(item.title)}</strong>${escapeHtml(item.text)}</div>`).join("") : `<div class="empty-state">لا توجد توصيات حاليًا، جرّب توسيع الفترة أو إزالة بعض الفلاتر.</div>`;
+    }
+
+    function renderDiagnostics(rows, visibleRows){
+      el("diagLoaded").textContent = leads.length;
+      el("diagVisible").textContent = visibleRows.length;
+      el("diagFiltered").textContent = rows.length;
+      el("diagUsers").textContent = users.length;
+      el("diagStatuses").textContent = statuses.length;
+      if(leads.length === 0) setWarning("لم يتم تحميل أي مستندات من collection: leads. راجع اسم المسار أو صلاحيات Firestore Rules أو اتصال Firebase.");
+      else if(visibleRows.length === 0) setWarning("تم تحميل الليدز لكن المستخدم الحالي لا يرى أي Lead حسب الصلاحيات. راجع role / department / assigned uid أو افتح الصفحة بحساب مدير.");
+      else if(rows.length === 0) setWarning("يوجد داتا، لكن الفلاتر الحالية أرجعت صفر. جرّب إزالة التاريخ أو القسم أو البحث.");
+      else setWarning("");
+    }
+
+    function renderExecutiveSummary(analysis){
+      const m = analysis.metrics;
+      const items = [
+        `إجمالي العملاء: <strong>${m.total}</strong>`,
+        `فرص متابعة: <strong>${m.stale}</strong>`,
+        `بدون ملاحظات: <strong>${m.noNotes}</strong>`,
+        `أفضل مصدر: <strong>${escapeHtml(analysis.bestSource?.name || "غير محدد")}</strong>`,
+        `أكبر تراكم حالة: <strong>${escapeHtml(analysis.bottleneckStatus?.name || "غير محدد")}</strong>`,
+        `مندوب يحتاج متابعة: <strong>${escapeHtml(analysis.topStaleAgent?.name || "غير محدد")}</strong>`
+      ];
+      el("executiveSummary").innerHTML = items.map(x => `<span class="pill">${x}</span>`).join("");
+    }
+
+    function render(){
+      refreshFilters();
+      const visibleRows = baseRows();
+      const rows = filteredRows();
+      renderDiagnostics(rows, visibleRows);
+      const analysis = analyze(rows);
+      lastAnalysis = analysis;
+      renderLiveWatcher(analysis, rows);
+      const m = analysis.metrics;
+      el("totalLeads").textContent = m.total;
+      el("todayLeads").textContent = m.today;
+      el("staleLeads").textContent = m.stale;
+      el("noNotesLeads").textContent = m.noNotes;
+      el("missingDataLeads").textContent = m.missing;
+      el("soldLeads").textContent = m.sold;
+      el("wasteLeads").textContent = m.waste;
+      el("salesQuality").textContent = `${m.salesQualityRate}%`;
+      const health = m.total ? Math.max(0, Math.min(100, Math.round((m.salesQualityRate * 0.45) + (m.notesRate * 0.20) + ((100 - m.staleRate) * 0.25) + ((100 - m.missingRate) * 0.10)))) : 0;
+      el("healthScore").textContent = `${health}%`;
+      el("healthCaption").textContent = health >= 75 ? "الوضع جيد، ركّز على تسريع المتابعة للفرص الساخنة." : health >= 50 ? "الوضع متوسط، توجد فرص لتحسين التوثيق والمتابعة." : "الوضع يحتاج تدخل سريع في المتابعة وتوزيع العملاء.";
+      renderExecutiveSummary(analysis);
+
+      const opportunityInsights = [];
+      if(m.stale) opportunityInsights.push({ priority:m.stale >= 10 ? "high" : "medium", title:`${m.stale} عميل يحتاج متابعة`, text:"يوجد عملاء لم يتم تحديثهم بالسرعة الكافية. ابدأ بالأولوية العالية في الجدول أسفل الصفحة." });
+      if(m.noNotes) opportunityInsights.push({ priority:m.noNotes >= Math.ceil(Math.max(1,m.total)*.35) ? "high" : "medium", title:`${m.noNotes} عميل بدون ملاحظات`, text:"غياب الملاحظات يصعّب معرفة سبب التعثر ويضعف جودة المتابعة وإعادة التنشيط." });
+      if(m.missing) opportunityInsights.push({ priority:"medium", title:`${m.missing} عميل ببيانات ناقصة`, text:"أكمل بيانات الجوال أو المندوب أو الاسم لتحسين المتابعة والتقارير." });
+      if(analysis.bestSource) opportunityInsights.push({ priority:"low", title:`أفضل مصدر حاليًا: ${analysis.bestSource.name}`, text:`جودة البيع من هذا المصدر ${analysis.bestSource.metrics.salesQualityRate}% من إجمالي ${analysis.bestSource.metrics.total} عميل.` });
+      renderInsightList("opportunitiesList", opportunityInsights);
+
+      const problemInsights = [];
+      if(analysis.topStaleAgent?.metrics?.stale) problemInsights.push({ priority:analysis.topStaleAgent.metrics.stale >= 5 ? "high" : "medium", title:`تراكم عند ${analysis.topStaleAgent.name}`, text:`لديه ${analysis.topStaleAgent.metrics.stale} عميل متأخر من أصل ${analysis.topStaleAgent.metrics.total}. راجع الضغط أو سرعة المتابعة.` });
+      if(analysis.weakSource?.metrics?.total) problemInsights.push({ priority:"medium", title:`مصدر يحتاج مراجعة: ${analysis.weakSource.name}`, text:`جودة البيع ${analysis.weakSource.metrics.salesQualityRate}% من ${analysis.weakSource.metrics.total} عميل. راجع جودة الليد أو رسالة الإعلان.` });
+      if(analysis.bottleneckStatus?.metrics?.total) problemInsights.push({ priority:"medium", title:`تراكم في حالة: ${analysis.bottleneckStatus.name}`, text:`يوجد ${analysis.bottleneckStatus.metrics.total} عميل في هذه الحالة. راجع هل تحتاج Follow-up أو Script أو توزيع مختلف.` });
+      if(m.total && m.noNotes / m.total > .4) problemInsights.push({ priority:"high", title:"نسبة كبيرة بدون ملاحظات", text:`${Math.round((m.noNotes/m.total)*100)}% من العملاء لا توجد عليهم ملاحظات، وهذا يقلل القدرة على تحليل أسباب الخسارة.` });
+      renderInsightList("problemsList", problemInsights);
+
+      const recs = [];
+      if(m.stale) recs.push({ title:"ابدأ بالعملاء المتأخرين", text:`تابع أول ${Math.min(m.stale, 20)} عميل في قائمة الأولويات، خصوصًا العملاء الجدد المتأخرين أكثر من ساعتين.` });
+      if(analysis.topNoNotesAgent?.metrics?.noNotes) recs.push({ title:"ارفع جودة التوثيق", text:`اطلب من ${analysis.topNoNotesAgent.name} تحديث ملاحظات العملاء؛ لديه ${analysis.topNoNotesAgent.metrics.noNotes} عميل بدون ملاحظات.` });
+      if(analysis.bottleneckStatus?.name) recs.push({ title:"فكّ التراكم من الحالة الأكبر", text:`راجع العملاء في حالة ${analysis.bottleneckStatus.name} وحدد لهم خطوة واضحة: اتصال، واتساب، عرض، أو إغلاق سبب الخسارة.` });
+      if(analysis.weakSource?.metrics?.total) recs.push({ title:"راجع المصدر الأضعف", text:`حلل مصدر ${analysis.weakSource.name}: هل المشكلة في جودة الليد، الرسالة الإعلانية، أم سرعة المتابعة؟` });
+      if(m.today) recs.push({ title:"استغل عملاء اليوم", text:`يوجد ${m.today} عميل جديد اليوم. المتابعة السريعة خلال أول ساعتين هي أعلى فرصة لرفع التحويل.` });
+      renderRecommendations(recs);
+
+      renderStatusTable(analysis.statusGroups);
+      renderAgentsTable(analysis.agentGroups);
+      renderSourceBranchTable([...analysis.sourceGroups.slice(0,10), ...analysis.branchGroups.slice(0,10)]);
+      renderOpportunityRows(analysis.opportunities.slice(0,50));
+    }
+
+    function statusReading(item){
+      if(isSoldStatus(item.name)) return "حالة إغلاق جيدة";
+      if(isWasteStatus(item.name)) return "راجع سبب الخسارة";
+      if(item.metrics.stale >= 5) return "تراكم يحتاج Follow-up";
+      if(item.metrics.noNotes >= Math.max(3, Math.ceil(item.metrics.total*.35))) return "تحتاج توثيق أفضل";
+      return "متابعة عادية";
+    }
+
+    function renderStatusTable(groups){
+      const rows = groups.map(g => `<tr><td>${escapeHtml(g.name)}</td><td>${g.metrics.total}</td><td>${g.metrics.sold}</td><td>${g.metrics.stale}</td><td>${g.metrics.noNotes}</td><td>${escapeHtml(statusReading(g))}</td></tr>`);
+      el("statusAnalysis").innerHTML = rows.length ? rows.join("") : '<tr><td colspan="6">لا توجد بيانات حالات.</td></tr>';
+    }
+
+    function agentRecommendation(metrics){
+      if(metrics.stale >= 5) return "متابعة عاجلة أو إعادة توزيع";
+      if(metrics.noNotes >= Math.max(3, Math.ceil(metrics.total*.35))) return "تحسين كتابة الملاحظات";
+      if(metrics.salesQualityRate >= 20) return "استفد من أسلوبه مع الفريق";
+      return "متابعة دورية";
+    }
+
+    function renderAgentsTable(groups){
+      const rows = groups.map(g => {
+        const m = computeMetrics(g.rows);
+        const latest = g.rows.map(leadUpdatedDate).filter(Boolean).sort((a,b)=>b-a)[0];
+        return `<tr><td>${escapeHtml(g.name)}</td><td>${escapeHtml(g.section)}</td><td>${m.total}</td><td>${m.sold}</td><td>${m.salesQualityRate}%</td><td>${m.stale}</td><td>${m.noNotes}</td><td>${escapeHtml(formatDateTime(latest))}</td><td>${escapeHtml(agentRecommendation(m))}</td></tr>`;
+      });
+      el("agentsAnalysis").innerHTML = rows.length ? rows.join("") : '<tr><td colspan="9">لا توجد بيانات للمندوبين.</td></tr>';
+    }
+
+    function groupReading(item){
+      if(item.metrics.stale >= 5) return "تراكم متابعة يحتاج تدخل";
+      if(item.metrics.noNotes >= Math.max(3, Math.ceil(item.metrics.total*.35))) return "التوثيق ضعيف";
+      if(item.metrics.salesQualityRate >= 20) return "أداء جيد نسبيًا";
+      return "راقب الأداء";
+    }
+
+    function renderSourceBranchTable(items){
+      const rows = items.map(item => `<tr><td>${escapeHtml(item.type)}</td><td>${escapeHtml(item.name)}</td><td>${item.metrics.total}</td><td>${item.metrics.sold}</td><td>${item.metrics.salesQualityRate}%</td><td>${item.metrics.stale}</td><td>${item.metrics.noNotes}</td><td>${escapeHtml(groupReading(item))}</td></tr>`);
+      el("sourceBranchAnalysis").innerHTML = rows.length ? rows.join("") : '<tr><td colspan="8">لا توجد بيانات كافية.</td></tr>';
+    }
+
+    function renderOpportunityRows(items){
+      const rows = items.map(item => {
+        const lead = item.lead;
+        const sec = getLeadSectionKey(lead);
+        return `<tr><td>${escapeHtml(priorityLabel(item.priority))}</td><td>${escapeHtml(getCustomerName(lead))}</td><td>${escapeHtml(getCustomerPhone(lead))}</td><td>${escapeHtml(departmentLabel(sec))}</td><td>${escapeHtml(getLeadStatus(lead))}</td><td>${escapeHtml(getSourceText(lead))}</td><td>${escapeHtml(getAgentNameForSection(lead, sec))}</td><td>${escapeHtml(formatDateTime(leadUpdatedDate(lead)))}</td><td>${escapeHtml(item.reason)}</td></tr>`;
+      });
+      el("opportunityRows").innerHTML = rows.length ? rows.join("") : '<tr><td colspan="9">لا توجد فرص متأخرة حاليًا حسب الفلاتر.</td></tr>';
+    }
+
+    function askAgent(question){
+      const q = normalizeValue(question);
+      const a = lastAnalysis || analyze(filteredRows());
+      const m = a.metrics;
+      let answer = "";
+      if(!m.total) answer = "لا توجد بيانات كافية في الفلاتر الحالية. جرّب توسيع الفترة أو إزالة بعض الفلاتر. راجع أيضًا تشخيص الداتا أعلى الصفحة.";
+      else if(q.includes("مندوب") || q.includes("متأخر")){
+        const top = a.topStaleAgent;
+        answer = top ? `أكثر مندوب يحتاج متابعة هو: ${top.name}\nلديه ${top.metrics.stale} عميل متأخر من أصل ${top.metrics.total}.\nالتوصية: راجع العملاء المتأخرين لديه وابدأ بالعملاء الجدد أو بدون ملاحظات.` : "لا يوجد تراكم واضح عند مندوب محدد.";
+      } else if(q.includes("مصدر") || q.includes("حملة")){
+        answer = a.bestSource ? `أفضل مصدر حاليًا: ${a.bestSource.name}\nإجمالي العملاء: ${a.bestSource.metrics.total}\nجودة البيع: ${a.bestSource.metrics.salesQualityRate}%\nالمصدر الذي يحتاج مراجعة أكثر: ${a.weakSource?.name || "غير محدد"}.` : "لا توجد مصادر كافية للتحليل.";
+      } else if(q.includes("مشكلة") || q.includes("متابعة")){
+        answer = `أكبر مشكلة ظاهرة الآن:\n- ${m.stale} عميل يحتاج متابعة.\n- ${m.noNotes} عميل بدون ملاحظات.\n- ${m.missing} عميل ببيانات ناقصة.\nالتوصية: مراجعة يومية للفرص المتأخرة، وتسجيل ملاحظة بعد كل تواصل.`;
+      } else {
+        answer = `أهم حاجة تعملها اليوم لرفع المبيعات:\n1. تابع ${Math.min(m.stale, 20)} عميل متأخر فورًا.\n2. راجع العملاء بدون ملاحظات وعددهم ${m.noNotes}.\n3. ركّز على المصدر الأفضل: ${a.bestSource?.name || "غير محدد"}.\n4. فك التراكم من حالة: ${a.bottleneckStatus?.name || "غير محدد"}.\n5. راجع المندوب الأكثر تراكمًا: ${a.topStaleAgent?.name || "غير محدد"}.`;
+      }
+      el("agentAnswer").textContent = answer;
+      el("agentAnswer").classList.add("show");
+    }
+
+    function exportPdf(){
+      const area = el('agentPrintableArea');
+      const win = window.open('', '_blank', 'width=1400,height=1000');
+      if(!win || !area) return;
+      win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8" /><title>مساعد المبيعات الذكي</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1C1C1C}h1,h3{margin:0 0 14px}.agent-panel,.agent-section,.stat-card{border:1px solid #ddd;border-radius:12px;padding:12px;margin-bottom:14px;background:#fff}.agent-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.agent-grid,.agent-hero{display:grid;grid-template-columns:1fr;gap:12px}.filters-card,.ask-box,.pill-row button,button{display:none!important}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #ddd;padding:8px;text-align:right;vertical-align:top;font-size:12px}th{background:#f7f5f2}.insight-card,.recommendation,.diag-item,.pill{border:1px solid #ddd;border-radius:10px;padding:10px;margin-bottom:8px}</style></head><body><h1>مساعد المبيعات الذكي</h1>${area.innerHTML}</body></html>`);
+      win.document.close();
+      win.focus();
+      setTimeout(() => { try{ win.print(); }catch(e){} }, 400);
+    }
+
+    function init(){
+      if(initDone) return;
+      initDone = true;
+      if(unsubLeads) unsubLeads();
+      if(unsubUsers) unsubUsers();
+      if(unsubStatuses) unsubStatuses();
+
+      unsubLeads = onSnapshot(collection(db, 'leads'), snap => {
+        processLeadChanges(snap);
+        leads = [];
+        snap.forEach(d => leads.push({ id:d.id, ...d.data() }));
+        render();
+      }, err => {
+        console.error(err);
+        setWarning('تعذر تحميل collection leads. راجع Firestore Rules أو اسم المسار.');
+        toast('تعذر تحميل بيانات العملاء');
+      });
+
+      unsubUsers = onSnapshot(collection(db, 'users'), snap => {
+        users = [];
+        snap.forEach(d => users.push({ id:d.id, uid:d.id, ...d.data() }));
+        render();
+      }, err => console.warn(err));
+
+      unsubStatuses = onSnapshot(collection(db, 'client_statuses'), snap => {
+        statuses = [];
+        snap.forEach(d => statuses.push({ id:d.id, ...d.data() }));
+        render();
+      }, err => console.warn(err));
+
+      ['dateFrom','dateTo','departmentFilter','branchFilter','agentFilter','statusFilter','sourceFilter','searchInput'].forEach(id => {
+        el(id).addEventListener('input', render);
+        el(id).addEventListener('change', render);
+      });
+      el('refreshBtn').onclick = render;
+      el('printBtn').onclick = exportPdf;
+      el('clearAlertsBtn').onclick = () => { liveAlerts = []; render(); toast('تم مسح التنبيهات اللحظية'); };
+      el('pauseWatcherBtn').onclick = () => { watcherPaused = !watcherPaused; el('pauseWatcherBtn').textContent = watcherPaused ? 'تشغيل المراقبة' : 'إيقاف مؤقت'; render(); };
+      el('askBtn').onclick = () => askAgent(el('agentQuestion').value || 'إيه أهم حاجة أعملها النهارده علشان أزود المبيعات؟');
+      el('agentQuestion').addEventListener('keydown', e => { if(e.key === 'Enter') el('askBtn').click(); });
+      document.querySelectorAll('.quick-question').forEach(btn => btn.addEventListener('click', () => { el('agentQuestion').value = btn.dataset.q; askAgent(btn.dataset.q); }));
+    }
+
+    function setupAuth(pageInit){
+      onAuthStateChanged(auth, async (user) => {
+        if(!user){
+          currentUser = null;
+          currentProfile = null;
+          el('loginScreen').classList.remove('hidden');
+          el('app').classList.add('hidden');
+          return;
+        }
+        try{
+          currentUser = user;
+          currentProfile = await loadUserProfile(user);
+          isAdmin = isAdminProfile(currentProfile);
+          if(currentProfile.active === false){
+            await signOut(auth);
+            showLoginError('لا توجد صلاحية دخول لهذه الصفحة.');
+            return;
+          }
+          el('loginScreen').classList.add('hidden');
+          el('app').classList.remove('hidden');
+          el('userInfo').textContent = `${currentProfile.name || user.email} - ${currentProfile.role === 'sales_manager' ? 'مدير مبيعات' : (isAdmin ? 'إدارة عامة' : departmentLabel(currentProfile.department))}`;
+          renderAllowedNavigation(currentProfile);
+          if(!applyPagePermissions()) return;
+          pageInit();
+        } catch(err){
+          console.error(err);
+          showLoginError('تعذر تحميل صلاحيات المستخدم.');
+        }
+      });
+
+      el('loginForm').onsubmit = async (e) => {
+        e.preventDefault();
+        el('loginError').style.display = 'none';
+        try{ await signInWithEmailAndPassword(auth, el('loginEmail').value.trim(), el('loginPassword').value); }
+        catch(err){ console.error(err); showLoginError('بيانات الدخول غير صحيحة أو الحساب غير مفعل.'); }
+      };
+      el('logoutBtn').onclick = () => signOut(auth);
+    }
+
+    setupAuth(init);
+  </script>
+</body>
+</html>
