@@ -5,6 +5,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -370,47 +371,94 @@
     }
 
     function isBranchManagerProfile(profile){
-      const role = String(profile?.role || "").trim();
+      const role = normalizeValue(profile?.role);
+      const roleId = normalizeValue(profile?.roleId);
       return profile?.branchManagerReports === true
         || profile?.reportsBranchManager === true
         || profile?.canViewBranchReports === true
         || profile?.branchManager === true
         || profile?.isBranchManager === true
-        || ["branch_manager", "branchManager", "branch_admin", "branchAdmin", "manager_branch", "مدير فرع", "مدير_فرع"].includes(role);
+        || ["branch_manager", "branchManager", "branch_admin", "branchAdmin", "manager_branch", "مدير فرع", "مدير_فرع"].includes(role)
+        || ["branch_manager", "branchManager", "branch_admin", "branchAdmin", "manager_branch", "مدير فرع", "مدير_فرع"].includes(roleId);
     }
 
     function normalizeValue(value){
       return String(value ?? "").trim();
     }
 
-    function getProfileBranches(profile){
-      const list = [];
-      [profile?.branch, profile?.branchName, profile?.branchId, profile?.mainBranch].forEach(v => {
-        const text = normalizeValue(v);
-        if(text) list.push(text);
-      });
-      if(Array.isArray(profile?.branches)) profile.branches.forEach(v => {
-        const text = normalizeValue(v);
-        if(text) list.push(text);
-      });
-      if(Array.isArray(profile?.branchIds)) profile.branchIds.forEach(v => {
-        const text = normalizeValue(v);
-        if(text) list.push(text);
-      });
-      return [...new Set(list)];
+    function uniqueNormalizedValues(values){
+      return [...new Set((values || []).map(normalizeValue).filter(Boolean))];
+    }
+
+    function getProfileBranchValues(profile){
+      const values = [
+        profile?.branch,
+        profile?.branchId,
+        profile?.branchName,
+        profile?.branchLocationId,
+        profile?.branchLocationName,
+        profile?.locationId,
+        profile?.locationName,
+        profile?.officeBranchId,
+        profile?.officeBranchName,
+        profile?.mainBranch,
+        profile?.mainBranchId,
+        profile?.mainBranchName
+      ];
+      if(Array.isArray(profile?.branches)) values.push(...profile.branches);
+      if(Array.isArray(profile?.branchIds)) values.push(...profile.branchIds);
+      if(Array.isArray(profile?.branchNames)) values.push(...profile.branchNames);
+      if(Array.isArray(profile?.locations)) values.push(...profile.locations);
+      if(Array.isArray(profile?.locationIds)) values.push(...profile.locationIds);
+      if(Array.isArray(profile?.officeBranches)) values.push(...profile.officeBranches);
+      return uniqueNormalizedValues(values);
+    }
+
+    function getLeadBranchValues(lead){
+      return uniqueNormalizedValues([
+        lead?.branch,
+        lead?.branchId,
+        lead?.branchName,
+        lead?.branchLocationId,
+        lead?.branchLocationName,
+        lead?.locationId,
+        lead?.locationName,
+        lead?.officeBranchId,
+        lead?.officeBranchName,
+        lead?.mainBranch,
+        lead?.mainBranchId,
+        lead?.mainBranchName
+      ]);
+    }
+
+    function getDisplayBranchName(item){
+      return normalizeValue(
+        item?.branchName
+        || item?.branchLocationName
+        || item?.locationName
+        || item?.officeBranchName
+        || item?.branch
+        || item?.branchLocationId
+        || item?.locationId
+        || item?.officeBranchId
+        || item?.branchId
+      );
     }
 
     function leadMatchesProfileBranch(lead, profile){
-      const profileBranches = getProfileBranches(profile);
+      const profileBranches = getProfileBranchValues(profile);
       if(!profileBranches.length) return true;
-      const leadBranches = [lead?.branch, lead?.branchName, lead?.branchId].map(normalizeValue).filter(Boolean);
+      const leadBranches = getLeadBranchValues(lead);
       return leadBranches.some(branch => profileBranches.includes(branch));
     }
 
     function canManageLeadDepartment(lead, profile){
-      const profileDepartment = normalizeValue(profile?.department || profile?.managedDepartment || profile?.section || profile?.role);
-      if(!profileDepartment || profileDepartment === "branch_manager" || profileDepartment === "branchManager") return true;
-      return getLeadSectionKey(lead) === profileDepartment;
+      const profileDepartment = normalizeValue(profile?.department || profile?.managedDepartment || profile?.section);
+      const profileDeptKey = normalizeValue(profile?.deptKey);
+      const leadSection = getLeadSectionKey(lead);
+      const leadDeptKey = normalizeValue(lead?.deptKey);
+      if(!profileDepartment && !profileDeptKey) return true;
+      return leadSection === profileDepartment || (!!profileDeptKey && leadDeptKey === profileDeptKey);
     }
 
     function escapeHtml(str){
@@ -831,7 +879,7 @@
           <td>${escapeHtml(getCustomerPhone(lead))}</td>
           <td>${escapeHtml(getCarText(lead))}</td>
           <td>${escapeHtml(getSourceText(lead))}</td>
-          <td>${escapeHtml(lead.branch || "")}</td>
+          <td>${escapeHtml(getDisplayBranchName(lead))}</td>
           <td>${escapeHtml(formatRegistrationDate(lead))}</td>
           <td>${escapeHtml(formatDateTime(lead.lastUpdated || lead.updatedAt || lead.lastEventAt))}</td>
           <td>${updatesHtml}</td>
@@ -885,7 +933,7 @@
         const leadSection = getLeadSectionKey(lead);
         if(!SECTION_DEFS.some(sec => sec.key === leadSection)) return false;
         if(section && leadSection !== section) return false;
-        if(branch && String(lead.branch || "").trim() !== branch) return false;
+        if(branch && !getLeadBranchValues(lead).includes(branch)) return false;
         if(agent && getAgentUidForSection(lead, leadSection) !== agent) return false;
 
         const dt = leadDate(lead);
@@ -897,7 +945,7 @@
           const hay = [
             lead.customerName, lead.name, lead.displayName, lead.phone, lead.mobile, lead.phoneNumber,
             lead.carName, lead.carType, lead.carModel, lead.source, lead.sourceName, lead.leadSource,
-            lead.platform, lead.branch, lead.status, lead.clientStatus, getAgentNameForSection(lead, leadSection)
+            lead.platform, lead.branch, lead.branchName, lead.branchLocationName, lead.locationName, lead.officeBranchName, lead.status, lead.clientStatus, getAgentNameForSection(lead, leadSection)
           ].map(v => String(v || "").toLowerCase()).join(" ");
           if(!hay.includes(q)) return false;
         }
@@ -914,7 +962,8 @@
     }
 
     function refreshBranchOptions(){
-      fillSelectOptions(el("branchFilter"), "كل الفروع", uniqueValues(leads.filter(userCanSeeLead), "branch"));
+      const branchItems = uniqueNormalizedValues(leads.filter(userCanSeeLead).flatMap(getLeadBranchValues));
+      fillSelectOptions(el("branchFilter"), "كل الفروع", branchItems);
     }
 
     function refreshAgentOptions(){
