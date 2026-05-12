@@ -6,6 +6,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -181,6 +182,7 @@
               <thead>
                 <tr>
                   <th>القسم</th>
+                  <th>الفروع</th>
                   <th>إجمالي العملاء</th>
                   <th>جودة التسويق</th>
                   <th>غير مؤهل</th>
@@ -204,6 +206,7 @@
                 <tr>
                   <th>المندوب</th>
                   <th>القسم</th>
+                  <th>الفروع</th>
                   <th>إجمالي العملاء</th>
                   <th>جودة التسويق</th>
                   <th>غير مؤهل</th>
@@ -431,18 +434,51 @@
       ]);
     }
 
+    function isDepartmentLikeBranchValue(value){
+      const text = normalizeValue(value);
+      if(!text) return true;
+      const departmentValues = [
+        ...Object.keys(DEPARTMENTS),
+        ...Object.values(DEPARTMENTS),
+        ...SECTION_DEFS.map(sec => sec.label),
+        "cash_sales", "finance_sales", "customer_service", "call_center",
+        "cash", "finance", "customer_service", "callcenter",
+        "مبيعات الكاش", "مندوب مبيعات الكاش", "العملاء المحتملون - كاش",
+        "مبيعات التمويل", "مندوب مبيعات التمويل", "العملاء المحتملون - تمويل"
+      ].map(normalizeValue);
+      return departmentValues.includes(text);
+    }
+
     function getDisplayBranchName(item){
-      return normalizeValue(
-        item?.branchName
-        || item?.branchLocationName
-        || item?.locationName
-        || item?.officeBranchName
-        || item?.branch
-        || item?.branchLocationId
-        || item?.locationId
-        || item?.officeBranchId
-        || item?.branchId
-      );
+      const values = [
+        item?.branchLocationName,
+        item?.officeBranchName,
+        item?.locationName,
+        item?.branchName,
+        item?.branchLocationId,
+        item?.officeBranchId,
+        item?.locationId,
+        item?.branchId,
+        item?.branch
+      ].map(normalizeValue).filter(v => v && !isDepartmentLikeBranchValue(v));
+      return values[0] || "";
+    }
+
+    function getBranchLabelsFromRows(rows=[]){
+      return uniqueNormalizedValues((rows || []).map(getDisplayBranchName))
+        .filter(label => label && !isDepartmentLikeBranchValue(label));
+    }
+
+    function getReportBranchLabelForSection(sectionKey, rows=[]){
+      if(sectionKey === "finance_sales") return "الأونلاين";
+      const labels = getBranchLabelsFromRows(rows);
+      return labels.length ? labels.join("، ") : "غير محدد";
+    }
+
+    function getAgentBranchLabel(item){
+      if(String(item?.sectionKey || "").trim() === "finance_sales") return "الأونلاين";
+      const labels = getBranchLabelsFromRows(item?.rows || []);
+      return labels.length ? labels.join("، ") : "غير محدد";
     }
 
     function leadMatchesProfileBranch(lead, profile){
@@ -962,7 +998,8 @@
     }
 
     function refreshBranchOptions(){
-      const branchItems = uniqueNormalizedValues(leads.filter(userCanSeeLead).flatMap(getLeadBranchValues));
+      const branchItems = uniqueNormalizedValues(leads.filter(userCanSeeLead).flatMap(getLeadBranchValues))
+        .filter(value => !isDepartmentLikeBranchValue(value));
       fillSelectOptions(el("branchFilter"), "كل الفروع", branchItems);
     }
 
@@ -1010,9 +1047,10 @@
       const depRows = activeSections.map(sec => {
         const secRows = rows.filter(lead => getLeadSectionKey(lead) === sec.key);
         const m = computeMetrics(secRows);
-        return `<tr><td>${escapeHtml(sec.label)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.qualified}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
+        const branchLabel = getReportBranchLabelForSection(sec.key, secRows);
+        return `<tr><td>${escapeHtml(sec.label)}</td><td>${escapeHtml(branchLabel)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.qualified}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td></tr>`;
       });
-      el("departmentsReport").innerHTML = depRows.length ? depRows.join("") : '<tr><td colspan="9">لا توجد بيانات مطابقة للفلاتر الحالية.</td></tr>';
+      el("departmentsReport").innerHTML = depRows.length ? depRows.join("") : '<tr><td colspan="10">لا توجد بيانات مطابقة للفلاتر الحالية.</td></tr>';
 
       const customerServiceRows = rows.filter(lead => getLeadSectionKey(lead) === "customer_service");
       const customerServiceMetrics = computeCustomerServiceMetrics(customerServiceRows);
@@ -1025,7 +1063,7 @@
         const uid = getAgentUidForSection(lead, sec) || `na:${getAgentNameForSection(lead, sec)}`;
         const name = getAgentNameForSection(lead, sec);
         const key = `${sec}__${uid}`;
-        if(!agentMap.has(key)) agentMap.set(key, { key, name, section: departmentLabel(sec), rows: [] });
+        if(!agentMap.has(key)) agentMap.set(key, { key, name, section: departmentLabel(sec), sectionKey: sec, rows: [] });
         agentMap.get(key).rows.push(lead);
       });
 
@@ -1034,9 +1072,10 @@
 
       const agentRows = lastAgentGroups.map(item => {
           const m = computeMetrics(item.rows);
-          return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.qualified}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td><td><button class="secondary agent-details-btn" type="button" data-agent-key="${escapeHtml(item.key)}">تقارير العملاء</button></td></tr>`;
+          const branchLabel = getAgentBranchLabel(item);
+          return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.section)}</td><td>${escapeHtml(branchLabel)}</td><td>${m.total}</td><td>${m.marketingQualityRate}%</td><td>${m.waste}</td><td>${m.qualified}</td><td>${m.delayed}</td><td>${m.potential}</td><td>${m.sold}</td><td>${m.agentQualityRate}%</td><td><button class="secondary agent-details-btn" type="button" data-agent-key="${escapeHtml(item.key)}">تقارير العملاء</button></td></tr>`;
         });
-      el("agentsReport").innerHTML = agentRows.length ? agentRows.join("") : '<tr><td colspan="11">لا توجد بيانات للمندوبين.</td></tr>';
+      el("agentsReport").innerHTML = agentRows.length ? agentRows.join("") : '<tr><td colspan="12">لا توجد بيانات للمندوبين.</td></tr>';
 }
 
     function buildExportSheets(){
@@ -1057,6 +1096,7 @@
         const m = computeMetrics(rows.filter(lead => getLeadSectionKey(lead) === sec.key));
         return {
           "القسم": sec.label,
+          "الفروع": getReportBranchLabelForSection(sec.key, rows.filter(lead => getLeadSectionKey(lead) === sec.key)),
           "إجمالي العملاء": m.total,
           "جودة التسويق": `${m.marketingQualityRate}%`,
           "غير مؤهل": m.waste,
@@ -1085,18 +1125,19 @@
 
       const agentRows = Array.from(document.querySelectorAll('#agentsReport tr')).map(tr => {
         const cells = [...tr.children].map(td => td.textContent.trim());
-        if(cells.length < 10) return null;
+        if(cells.length < 11) return null;
         return {
           "المندوب": cells[0],
           "القسم": cells[1],
-          "إجمالي العملاء": cells[2],
-          "جودة التسويق": cells[3],
-          "غير مؤهل": cells[4],
-          "مؤهل": cells[5],
-          "مؤجل": cells[6],
-          "محتمل": cells[7],
-          "تم البيع": cells[8],
-          "جودة المندوب": cells[9]
+          "الفروع": cells[2],
+          "إجمالي العملاء": cells[3],
+          "جودة التسويق": cells[4],
+          "غير مؤهل": cells[5],
+          "مؤهل": cells[6],
+          "مؤجل": cells[7],
+          "محتمل": cells[8],
+          "تم البيع": cells[9],
+          "جودة المندوب": cells[10]
         };
       }).filter(Boolean);
 
