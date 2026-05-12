@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -196,6 +197,7 @@
     let isAdmin = false;
     let users = [];
     let leads = [];
+    let branches = [];
     let unsubLeads = null;
 
     const el = id => document.getElementById(id);
@@ -321,6 +323,71 @@
       if(dept === "customer_service") return { key:"cs", payment:"خدمة عملاء", department:"customer_service", branch:"خدمة العملاء", serviceKey:"cs" };
       return { key:"cash", payment:"كاش", department:"cash_sales", branch:"مبيعات الكاش", serviceKey:"cash" };
     }
+    function branchLabel(branch){
+      return branch.name || branch.branch || branch.branchName || branch.title || branch.label || branch.id || "";
+    }
+
+    function valuesFromBranchField(value){
+      if(value === undefined || value === null || value === false) return [];
+      if(Array.isArray(value)) return value.flatMap(valuesFromBranchField);
+      if(typeof value === "object"){
+        return [value.uid, value.id, value.userId, value.name, value.email, value.displayName, value.label, value.value].filter(Boolean).map(v => String(v).trim());
+      }
+      return String(value).split(/[،,|؛;\n]+/).map(v => v.trim()).filter(Boolean);
+    }
+
+    function branchDepartmentValues(branch, dept){
+      if(!branch) return [];
+      const keysByDept = {
+        cash_sales:["cashSalesUids", "cashSalesUid", "cashSalesNames", "cash", "cashSales", "cash_sales", "cashUsers", "cashRepresentatives", "cashSalesUsers", "كاش"],
+        finance_sales:["financeSalesUids", "financeSalesUid", "financeSalesNames", "finance", "financeSales", "finance_sales", "financeUsers", "financeRepresentatives", "financeSalesUsers", "تمويل"],
+        customer_service:["customerServiceUids", "customerServiceUid", "customerServiceNames", "customerService", "customer_service", "service", "customerUsers", "customerServiceUsers", "خدمة عملاء", "خدمة العملاء"],
+        call_center:["callCenterUids", "callCenterUid", "callCenterNames", "callCenter", "call_center", "callcenter", "callCenterUsers", "callCenterRepresentatives", "callCenterAgents", "كول سنتر", "الكول سنتر"]
+      };
+      const keys = keysByDept[dept] || [];
+      const values = [];
+      keys.forEach(k => values.push(...valuesFromBranchField(branch[k])));
+      if(branch.assignments) keys.forEach(k => values.push(...valuesFromBranchField(branch.assignments[k])));
+      if(branch.departments) keys.forEach(k => values.push(...valuesFromBranchField(branch.departments[k])));
+      return [...new Set(values)];
+    }
+
+    function branchUserMatches(user, value){
+      const wanted = String(value || "").trim().toLowerCase();
+      if(!wanted) return false;
+      return [user.uid, user.id, user.userId, user.name, user.email, user.displayName]
+        .filter(Boolean)
+        .some(v => String(v).trim().toLowerCase() === wanted);
+    }
+
+    function branchForUser(user, dept){
+      if(!user || !dept) return null;
+      return branches.find(b => branchDepartmentValues(b, dept).some(v => branchUserMatches(user, v))) || null;
+    }
+
+    function branchForName(name){
+      const wanted = String(name || "").trim();
+      if(!wanted) return null;
+      return branches.find(b => branchLabel(b) === wanted || b.id === wanted) || null;
+    }
+
+    function usersForBranchDepartment(branchName, dept){
+      const branch = branchForName(branchName);
+      const values = branchDepartmentValues(branch, dept);
+      if(!branch || !values.length) return [];
+      return usersForDepartment(dept).filter(u => values.some(v => branchUserMatches(u, v)));
+    }
+
+    function selectedSalesUser(){
+      return users.find(u => (u.uid || u.id) === currentUser?.uid) || { uid: currentUser.uid, name: currentProfile?.name || currentUser.email, email: currentUser.email, department: currentProfile?.department || "" };
+    }
+
+    function branchInfoForSalesUser(salesUser, cfg){
+      const branch = branchForUser(salesUser, cfg.department);
+      const label = branch ? branchLabel(branch) : cfg.branch;
+      return { branch, label, id: branch ? branch.id : label };
+    }
+
     function selectedPaymentConfig(){
       if(isAdmin){
         const v = el("adminPaymentType").value;
@@ -378,6 +445,9 @@
       const requestedPhone = normalizePhone(requestedPhoneRaw);
       const requestedSource = el("leadSource").value;
       const requestedNotes = el("leadNotes").value.trim();
+      const salesUser = selectedSalesUser();
+      const branchInfo = branchInfoForSalesUser(salesUser, cfg);
+      const cc = pickCallCenter(branchInfo.label);
       return {
         manualEntry:true,
         manualOnly:true,
@@ -397,10 +467,12 @@
         source:requestedSource,
         payment:cfg.payment,
         department:cfg.department, serviceKey:cfg.serviceKey, autoService:cfg.serviceKey,
-        branch:cfg.branch, branchId:cfg.branch, branchName:cfg.branch, sectionLabel:cfg.branch,
-        assignedTo:currentUser.uid, assignedName:currentProfile?.name || currentUser.email,
-        salesAssignedTo:currentUser.uid, salesAssignedName:currentProfile?.name || currentUser.email,
-        responsibleUid:currentUser.uid, responsibleName:currentProfile?.name || currentUser.email,
+        branch:branchInfo.label, branchId:branchInfo.id, branchName:branchInfo.label, sectionLabel:branchInfo.label,
+        assignedTo:salesUser.uid || salesUser.id || currentUser.uid, assignedName:userLabel(salesUser),
+        salesAssignedTo:salesUser.uid || salesUser.id || currentUser.uid, salesAssignedName:userLabel(salesUser),
+        responsibleUid:salesUser.uid || salesUser.id || currentUser.uid, responsibleName:userLabel(salesUser),
+        callCenterAssignedTo:cc ? (cc.uid || cc.id || "") : "", callCenterAssignedName:cc ? userLabel(cc) : "",
+        callCenterUid:cc ? (cc.uid || cc.id || "") : "", callCenterName:cc ? userLabel(cc) : "",
         requestedCustomerName:requestedName,
         requestedPhone:requestedPhoneRaw,
         requestedPhoneNormalized:requestedPhone,
@@ -437,11 +509,19 @@
         console.warn("users list unavailable for current account", err);
         users = [];
       }
+      try{
+        const branchSnap = await getDocs(collection(db, "branches"));
+        branches = [];
+        branchSnap.forEach(d => branches.push({ id:d.id, ...d.data() }));
+      }catch(err){
+        console.warn("branches list unavailable for current account", err);
+        branches = [];
+      }
     }
     function userLabel(u){ return u ? (u.name || u.email || u.uid || "") : ""; }
     function usersForDepartment(dept){ return users.filter(u => u.active !== false && u.department === dept); }
-    function pickCallCenter(){
-      const list = usersForDepartment("call_center");
+    function pickCallCenter(branchName=""){
+      const list = branchName ? usersForBranchDepartment(branchName, "call_center") : usersForDepartment("call_center");
       return list[Math.floor(Math.random() * list.length)] || null;
     }
 
@@ -453,8 +533,9 @@
       const source = el("leadSource").value;
       const notes = el("leadNotes").value.trim();
       const status = existing.status || existing.leadStatus || "عميل جديد";
-      const salesUser = assignee || { uid: currentUser.uid, name: currentProfile?.name || currentUser.email, email: currentUser.email };
-      const cc = existing.callCenterAssignedTo ? null : pickCallCenter();
+      const salesUser = assignee || selectedSalesUser();
+      const branchInfo = branchInfoForSalesUser(salesUser, cfg);
+      const cc = existing.callCenterAssignedTo ? null : pickCallCenter(branchInfo.label);
 
       const payload = {
         leadId,
@@ -462,7 +543,7 @@
         phone:phoneRaw, mobile:phoneRaw, phoneNumber:phoneRaw, phoneNormalized:phone,
         source, sourceName:source, sourceCode:"manual", platform:"manual", channel:"manual", channelCode:"manual", provider:"manual_entry",
         department:cfg.department, serviceKey:cfg.serviceKey, autoService:cfg.serviceKey,
-        branch:cfg.branch, branchId:cfg.branch, branchName:cfg.branch, sectionLabel:cfg.branch,
+        branch:branchInfo.label, branchId:branchInfo.id, branchName:branchInfo.label, sectionLabel:branchInfo.label,
         leadPayment:cfg.payment, payment:cfg.payment, paymentType:cfg.payment, payType:cfg.payment,
         status, statusLabel:status, leadStatus:status, currentStatus:status, currentStatusLabel:status,
         clientStatus:status, customerStatus:status, customerStatusLabel:status, pipelineStatus:status, pipelineStatusLabel:status,
@@ -631,9 +712,16 @@
         return;
       }
 
+      const dept = row.department || u.department || "cash_sales";
+      const cfg = paymentFromDepartment(dept);
+      const branchInfo = branchInfoForSalesUser(u, cfg);
+      const cc = pickCallCenter(branchInfo.label);
       const payload = {
         assignedTo:u.uid, assignedName:userLabel(u), salesAssignedTo:u.uid, salesAssignedName:userLabel(u),
         responsibleUid:u.uid, responsibleName:userLabel(u),
+        branch:branchInfo.label, branchId:branchInfo.id, branchName:branchInfo.label, sectionLabel:branchInfo.label,
+        callCenterAssignedTo:cc ? (cc.uid || cc.id || "") : "", callCenterAssignedName:cc ? userLabel(cc) : "",
+        callCenterUid:cc ? (cc.uid || cc.id || "") : "", callCenterName:cc ? userLabel(cc) : "",
         manualApprovalStatus:"approved", manualDuplicateRequest:false,
         manualApprovedBy:currentUser.uid, manualApprovedByName:currentProfile?.name || currentUser.email,
         approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
@@ -661,7 +749,9 @@
         const newDepartment = row.requestedDepartment || row.department || "";
         const newServiceKey = row.requestedServiceKey || row.serviceKey || row.autoService || "";
         const requestedCfg = newDepartment ? paymentFromDepartment(newDepartment) : {};
-        const newBranch = row.requestedBranch || row.branch || row.branchName || requestedCfg.branch || "";
+        const branchInfo = branchInfoForSalesUser(u, requestedCfg);
+        const newBranch = branchInfo.label || row.requestedBranch || row.branch || row.branchName || requestedCfg.branch || "";
+        const cc = pickCallCenter(newBranch);
         const newStatus = row.requestedStatus || "عميل جديد";
 
         const payload = {
@@ -689,7 +779,7 @@
           serviceKey:newServiceKey,
           autoService:newServiceKey,
           branch:newBranch,
-          branchId:newBranch,
+          branchId:branchInfo.id || newBranch,
           branchName:newBranch,
           sectionLabel:newBranch,
           status:newStatus,
@@ -711,6 +801,10 @@
           salesAssignedName:userLabel(u),
           responsibleUid:uid,
           responsibleName:userLabel(u),
+          callCenterAssignedTo:cc ? (cc.uid || cc.id || "") : "",
+          callCenterAssignedName:cc ? userLabel(cc) : "",
+          callCenterUid:cc ? (cc.uid || cc.id || "") : "",
+          callCenterName:cc ? userLabel(cc) : "",
           manualEntry:true,
           manualApprovalStatus:"approved",
           manualDuplicateRequest:false,
