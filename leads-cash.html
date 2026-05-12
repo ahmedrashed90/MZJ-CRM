@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -148,9 +149,11 @@
     let leads = [];
     let users = [];
     let statuses = [];
+    let branches = [];
     let unsubLeads = null;
     let unsubUsers = null;
     let unsubStatuses = null;
+    let unsubBranches = null;
 
     const el = id => document.getElementById(id);
 
@@ -342,13 +345,68 @@
       select.value = selected;
     }
 
+    function branchLabel(branch){
+      return branch.name || branch.branch || branch.branchName || branch.title || branch.label || branch.id || "";
+    }
+
+    function valuesFromBranchField(value){
+      if(value === undefined || value === null || value === false) return [];
+      if(Array.isArray(value)) return value.flatMap(valuesFromBranchField);
+      if(typeof value === "object"){
+        return [value.uid, value.id, value.userId, value.name, value.email, value.displayName, value.label, value.value].filter(Boolean).map(v => String(v).trim());
+      }
+      return String(value).split(/[،,|؛;\n]+/).map(v => v.trim()).filter(Boolean);
+    }
+
+    function branchDepartmentValues(branch, dept){
+      if(!branch) return [];
+      const keysByDept = {
+        cash_sales:["cashSalesUids", "cashSalesUid", "cashSalesNames", "cash", "cashSales", "cash_sales", "cashUsers", "cashRepresentatives", "cashSalesUsers", "كاش"],
+        finance_sales:["financeSalesUids", "financeSalesUid", "financeSalesNames", "finance", "financeSales", "finance_sales", "financeUsers", "financeRepresentatives", "financeSalesUsers", "تمويل"],
+        customer_service:["customerServiceUids", "customerServiceUid", "customerServiceNames", "customerService", "customer_service", "service", "customerUsers", "customerServiceUsers", "خدمة عملاء", "خدمة العملاء"],
+        call_center:["callCenterUids", "callCenterUid", "callCenterNames", "callCenter", "call_center", "callcenter", "callCenterUsers", "callCenterRepresentatives", "callCenterAgents", "كول سنتر", "الكول سنتر"]
+      };
+      const keys = keysByDept[dept] || [];
+      const values = [];
+      keys.forEach(k => values.push(...valuesFromBranchField(branch[k])));
+      if(branch.assignments) keys.forEach(k => values.push(...valuesFromBranchField(branch.assignments[k])));
+      if(branch.departments) keys.forEach(k => values.push(...valuesFromBranchField(branch.departments[k])));
+      return [...new Set(values)];
+    }
+
+    function branchUserMatches(user, value){
+      const wanted = String(value || "").trim().toLowerCase();
+      if(!wanted) return false;
+      return [user.uid, user.id, user.userId, user.name, user.email, user.displayName]
+        .filter(Boolean)
+        .some(v => String(v).trim().toLowerCase() === wanted);
+    }
+
+    function branchForUser(user, dept){
+      if(!user || !dept) return null;
+      return branches.find(b => branchDepartmentValues(b, dept).some(v => branchUserMatches(user, v))) || null;
+    }
+
+    function branchForName(name){
+      const wanted = String(name || "").trim();
+      if(!wanted) return null;
+      return branches.find(b => branchLabel(b) === wanted || b.id === wanted) || null;
+    }
+
     function usersForDepartment(dept){
       return users.filter(u => u.active !== false && (
         u.department === dept ||
-        u.role === dept ||
-        (dept === "call_center" && (u.department === "call_center" || u.role === "call_center" || u.department === "finance_sales"))
+        u.role === dept
       ));
     }
+
+    function usersForBranchDepartment(branchName, dept){
+      const branch = branchForName(branchName);
+      const values = branchDepartmentValues(branch, dept);
+      if(!branch || !values.length) return [];
+      return usersForDepartment(dept).filter(u => values.some(v => branchUserMatches(u, v)));
+    }
+
 
     function canSeeLead(lead){
       if(isAdmin) return true;
@@ -373,9 +431,28 @@
       };
 
       if(field === "responsible"){
+        const branch = branchForUser(user, PAGE_DEPARTMENT);
+        const branchName = branch ? branchLabel(branch) : (lead.branch || "");
         payload.responsibleUid = user.uid || user.id;
         payload.responsibleName = user.name || user.email || "";
+        if(branchName){
+          payload.branch = branchName;
+          payload.branchId = branch ? branch.id : branchName;
+          payload.branchName = branchName;
+          payload.sectionLabel = branchName;
+        }
+        const currentCallCenterOk = lead.callCenterUid && usersForBranchDepartment(branchName, "call_center").some(u => (u.uid || u.id) === lead.callCenterUid);
+        if(!currentCallCenterOk){
+          payload.callCenterUid = "";
+          payload.callCenterName = "";
+          payload.callCenterAssignedTo = "";
+          payload.callCenterAssignedName = "";
+        }
       } else {
+        const branchName = lead.branch || "";
+        if(branchName && !usersForBranchDepartment(branchName, "call_center").some(u => (u.uid || u.id) === (user.uid || user.id))){
+          return toast("الكول سنتر المختار لا يتبع فرع المندوب");
+        }
         payload.callCenterUid = user.uid || user.id;
         payload.callCenterName = user.name || user.email || "";
       }
@@ -384,9 +461,10 @@
       toast("تم التوزيع");
     }
 
-    function userOptions(dept, selectedUid=""){
+    function userOptions(dept, selectedUid="", branchName=""){
       const opts = ['<option value="">اختر</option>'];
-      usersForDepartment(dept).forEach(u => {
+      const list = branchName ? usersForBranchDepartment(branchName, dept) : usersForDepartment(dept);
+      list.forEach(u => {
         const uid = u.uid || u.id;
         opts.push(`<option value="${escapeHtml(uid)}" ${uid === selectedUid ? "selected" : ""}>${escapeHtml(u.name || u.email || uid)}</option>`);
       });
@@ -467,6 +545,7 @@
         if(unsubLeads) unsubLeads();
         if(unsubUsers) unsubUsers();
         if(unsubStatuses) unsubStatuses();
+        if(unsubBranches) unsubBranches();
 
         if(!user){
           currentUser = null;
@@ -523,6 +602,15 @@
         statuses = [];
         snap.forEach(d => statuses.push({ id:d.id, ...d.data() }));
         render();
+      });
+
+      unsubBranches = onSnapshot(collection(db, "branches"), snap => {
+        branches = [];
+        snap.forEach(d => branches.push({ id:d.id, ...d.data() }));
+        render();
+      }, err => {
+        console.error(err);
+        toast("تعذر تحميل الفروع");
       });
 
       unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy("lastUpdated", "desc")), snap => {
@@ -596,11 +684,15 @@
         const responsibleLocked = !!l.responsibleUid;
         const callCenterLocked = !!l.callCenterUid;
 
+        const responsibleUser = users.find(u => (u.uid || u.id) === l.responsibleUid);
+        const responsibleBranch = responsibleUser ? branchForUser(responsibleUser, PAGE_DEPARTMENT) : null;
+        const displayBranch = responsibleBranch ? branchLabel(responsibleBranch) : (l.branch || "");
+
         tr.innerHTML = `
           <td>${leadNameHtml(l)}</td>
           <td>${phoneLinkHtml(l.phone, l.customerName)}</td>
           <td>${escapeHtml(l.location)}</td>
-          <td>${escapeHtml(l.branch)}</td>
+          <td>${escapeHtml(displayBranch)}</td>
           <td>${escapeHtml(normalizeSourceLabel(l.source))}</td>
           <td>${escapeHtml(l.carName)}</td>
           <td>${escapeHtml(l.payment)}</td>
@@ -612,7 +704,7 @@
           </td>
           <td>
             <select data-assign="callCenter" data-id="${l.id}" ${callCenterLocked ? "disabled" : ""}>
-              ${userOptions("call_center", l.callCenterUid || "")}
+              ${userOptions("call_center", l.callCenterUid || "", displayBranch)}
             </select>
           </td>
           <td>${formatDate(l.lastUpdated || l.createdAt)}</td>
