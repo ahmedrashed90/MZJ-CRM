@@ -7,6 +7,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -404,6 +405,15 @@
       return base.filter(u => values.some(v => branchUserMatches(u, v)));
     }
 
+    function branchForUserDepartment(user, dept){
+      const normalizedDept = normalizeDepartment(dept);
+      if(!user || !normalizedDept) return null;
+      return branches
+        .filter(b => b.active !== false)
+        .sort((a,b) => branchLabel(a).localeCompare(branchLabel(b), "ar"))
+        .find(b => branchDepartmentValues(b, normalizedDept).some(v => branchUserMatches(user, v))) || null;
+    }
+
     function departmentHasBranchUsers(branchName, dept){
       const normalizedDept = normalizeDepartment(dept);
       if(!branchName || !normalizedDept) return false;
@@ -479,21 +489,26 @@
       const callCenterUser = callCenterUid ? users.find(u => (u.uid || u.id) === callCenterUid) : null;
       const selectedStatus = document.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="status"]`)?.value || lead.status || "";
 
-      if(!selectedBranchDoc) return toast("اختر فرع صحيح من الفروع المسجلة");
       if(!["cash_sales", "finance_sales", "customer_service"].includes(responsibleDepartment)) return toast("اختر قسم صحيح للمسؤول");
       if(responsibleUid && !responsibleUser) return toast("المسؤول غير موجود");
       if(callCenterUid && !callCenterUser) return toast("الكول سنتر غير موجود");
-      if(responsibleUser && !usersForBranchDepartment(selectedBranch, responsibleDepartment).some(u => (u.uid || u.id) === (responsibleUser.uid || responsibleUser.id))){
+
+      const responsibleBranchDoc = responsibleDepartment === "cash_sales" && responsibleUser ? branchForUserDepartment(responsibleUser, "cash_sales") : null;
+      const effectiveBranchDoc = responsibleBranchDoc || selectedBranchDoc;
+      const effectiveBranch = effectiveBranchDoc ? branchLabel(effectiveBranchDoc) : selectedBranch;
+
+      if(!effectiveBranchDoc) return toast("اختر فرع صحيح من الفروع المسجلة");
+      if(responsibleUser && !usersForBranchDepartment(effectiveBranch, responsibleDepartment).some(u => (u.uid || u.id) === (responsibleUser.uid || responsibleUser.id))){
         return toast("المسؤول المختار لا يتبع الفرع والقسم المحددين");
       }
-      if(callCenterUser && !usersForBranchDepartment(selectedBranch, "call_center").some(u => (u.uid || u.id) === (callCenterUser.uid || callCenterUser.id))){
+      if(callCenterUser && !usersForBranchDepartment(effectiveBranch, "call_center").some(u => (u.uid || u.id) === (callCenterUser.uid || callCenterUser.id))){
         return toast("الكول سنتر المختار لا يتبع الفرع المحدد");
       }
 
       const payload = {
-        branch: branchLabel(selectedBranchDoc),
-        branchId: selectedBranchDoc.id,
-        branchName: branchLabel(selectedBranchDoc),
+        branch: branchLabel(effectiveBranchDoc),
+        branchId: effectiveBranchDoc.id,
+        branchName: branchLabel(effectiveBranchDoc),
         department: responsibleDepartment,
         payment: PAGE_PAYMENTS[responsibleDepartment] || "",
         status: selectedStatus,
@@ -1136,6 +1151,23 @@
           if(statusSelect){
             statusSelect.innerHTML = statusOptions(select.value, "", false);
           }
+        };
+      });
+
+      body.querySelectorAll('[data-field="responsible"]').forEach(select => {
+        select.onchange = () => {
+          const leadId = select.dataset.leadId;
+          const departmentSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="responsibleDepartment"]`);
+          if(departmentSelect?.value !== "cash_sales") return;
+
+          const responsibleUser = users.find(u => (u.uid || u.id) === select.value);
+          const responsibleBranchDoc = branchForUserDepartment(responsibleUser, "cash_sales");
+          const responsibleBranch = responsibleBranchDoc ? branchLabel(responsibleBranchDoc) : "";
+          const branchSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="branch"]`);
+          const callCenterSelect = body.querySelector(`[data-lead-id="${CSS.escape(leadId)}"][data-field="callCenter"]`);
+
+          if(branchSelect && responsibleBranch) branchSelect.value = responsibleBranch;
+          if(callCenterSelect) callCenterSelect.innerHTML = userOptions("call_center", "", responsibleBranch);
         };
       });
 
