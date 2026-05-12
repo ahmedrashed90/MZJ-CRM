@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -101,6 +102,15 @@
     .kpi-table tbody tr:hover td{background:#f8fafc;}
     .day-box{transition:border-color .2s ease, box-shadow .2s ease;}
     .day-box:focus-within{border-color:#111827;box-shadow:0 8px 20px rgba(15,23,42,.08);}
+
+
+    .pdf-export-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:linear-gradient(180deg,#fff,#f8fafc);border:1px solid #e5e7eb;border-radius:18px;padding:12px 14px;margin:0 0 14px;box-shadow:0 8px 22px rgba(15,23,42,.035);}
+    .pdf-export-title{display:flex;flex-direction:column;gap:2px;}
+    .pdf-export-title strong{font-size:14px;color:#111827;}
+    .pdf-export-title span{font-size:12px;color:#64748b;font-weight:800;}
+    .pdf-export-actions{display:flex;gap:8px;flex-wrap:wrap;}
+    .pdf-export-actions button{padding:8px 11px;border-radius:12px;font-size:12px;}
+    .pdf-export-actions .pdf-full{background:#111827;color:#fff;}
 
     @media(max-width:1050px){.leads-page{grid-template-columns:1fr}.sidebar{position:relative}.filters-grid,.summary-grid,.grid-2,.grid-3,.grid-4,.calc-row,.modal-period-grid{grid-template-columns:1fr 1fr}.days-grid{grid-template-columns:repeat(3,1fr)}.week-days{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:680px){.filters-grid,.summary-grid,.grid-2,.grid-3,.grid-4,.calc-row,.days-grid,.week-days,.speed-total-panel,.modal-period-grid{grid-template-columns:1fr}.page-head{display:block}.actions{margin-top:12px}.modal{padding:8px}.modal-dialog{max-height:96vh}}
@@ -256,6 +266,19 @@
             <div class="field"><label>من تاريخ</label><input id="modalDateFromFilter" type="date" /></div>
             <div class="field"><label>إلى تاريخ</label><input id="modalDateToFilter" type="date" /></div>
             <div class="field"><label>عدد أيام العمل</label><input id="modalWorkDaysInput" type="number" readonly /></div>
+          </div>
+        </div>
+        <div class="pdf-export-toolbar">
+          <div class="pdf-export-title">
+            <strong>تصدير PDF</strong>
+            <span>صدر التبويب الحالي أو التقرير الكامل بتنسيق جاهز للطباعة</span>
+          </div>
+          <div class="pdf-export-actions">
+            <button class="secondary" type="button" data-export-pdf="speedTab">PDF السرعة</button>
+            <button class="secondary" type="button" data-export-pdf="efficiencyTab">PDF الكفاءة</button>
+            <button class="secondary" type="button" data-export-pdf="performanceTab">PDF الأداء اليومي</button>
+            <button class="secondary" type="button" data-export-pdf="resultTab">PDF النتيجة</button>
+            <button class="pdf-full" type="button" data-export-pdf="all">PDF كامل</button>
           </div>
         </div>
         <div class="tabs">
@@ -1256,6 +1279,202 @@
       toast("تم تفريغ المدخلات على الشاشة فقط");
     }
 
+
+    function tabTitleById(tabId){
+      const titles = {
+        speedTab:"تقييم السرعة - دقائق التأخير اليومية",
+        efficiencyTab:"تقييم الكفاءة",
+        performanceTab:"تحليل الأداء اليومي",
+        resultTab:"النتيجة المحسوبة",
+        all:"تقرير التقييم الكامل"
+      };
+      return titles[tabId] || "تقرير التقييم";
+    }
+
+    function tabIntroById(tabId){
+      const intros = {
+        speedTab:"يوضح هذا القسم أيام التأخير، إجمالي دقائق التأخير، متوسط التأخير، نسبة التأخير، ونسبة سرعة المندوب خلال الفترة.",
+        efficiencyTab:"يوضح هذا القسم عناصر كفاءة المندوب الشخصية والفنية، مع نتيجة السرعة ومتوسط كفاءة المندوب.",
+        performanceTab:"يوضح هذا القسم تحليل الأداء اليومي من حيث الحضور، الهيئة، السلوك، تقييم العملاء، وعدد المبيعات.",
+        resultTab:"يوضح هذا القسم ملخص النتيجة المحسوبة وإجمالي درجات المندوب خلال الفترة."
+      };
+      return intros[tabId] || "";
+    }
+
+    function cloneForPdf(node, tabId){
+      const clone = node.cloneNode(true);
+      const sourceInputs = node.querySelectorAll("input, textarea, select");
+      const clonedInputs = clone.querySelectorAll("input, textarea, select");
+      sourceInputs.forEach((input, index) => {
+        const cloned = clonedInputs[index];
+        if(!cloned) return;
+        if(input.tagName === "SELECT"){
+          [...cloned.options].forEach(opt => { opt.selected = opt.value === input.value; });
+        }else if(input.type === "checkbox" || input.type === "radio"){
+          cloned.checked = input.checked;
+          if(input.checked) cloned.setAttribute("checked", "checked");
+          else cloned.removeAttribute("checked");
+        }else{
+          cloned.value = input.value;
+          cloned.setAttribute("value", input.value);
+        }
+      });
+      clone.querySelectorAll(":scope > .section-title, :scope > .section-note").forEach(n => n.remove());
+      if(tabId === "performanceTab"){
+        mergePerformanceWeekFive(clone);
+      }
+      return clone;
+    }
+
+    function mergePerformanceWeekFive(root){
+      const weekCards = Array.from(root.querySelectorAll(".week-card"));
+      if(weekCards.length < 5) return;
+      const week4 = weekCards[3];
+      const week5 = weekCards[4];
+      const title4 = week4.querySelector(".week-title");
+      if(title4){
+        title4.innerHTML = 'الأسبوع 4 و 5 <span class="muted">السبت إلى الخميس - الجمعة لا تدخل في الحسبة</span>';
+      }
+      const days4 = week4.querySelector(".week-days");
+      const days5 = week5.querySelector(".week-days");
+      if(days4 && days5){
+        Array.from(days5.children).forEach(child => days4.appendChild(child));
+        week5.remove();
+      }
+    }
+
+    function buildPdfSection(tabId){
+      const panel = el(tabId);
+      if(!panel) return "";
+      const clone = cloneForPdf(panel, tabId);
+      clone.classList.add("active");
+      clone.style.display = "block";
+      const intro = tabIntroById(tabId);
+      return `
+        <section class="pdf-section pdf-${tabId}">
+          <div class="pdf-section-heading">
+            <div class="pdf-section-icon">${tabId === "speedTab" ? "01" : tabId === "efficiencyTab" ? "02" : tabId === "performanceTab" ? "03" : "04"}</div>
+            <div>
+              <h2>${escapeHtml(tabTitleById(tabId))}</h2>
+              ${intro ? `<p>${escapeHtml(intro)}</p>` : ""}
+            </div>
+          </div>
+          <div class="pdf-section-content">${clone.innerHTML}</div>
+        </section>`;
+    }
+
+    function buildPdfHtml(contentHtml, reportTitle, target){
+      const repName = selectedRep ? (selectedRep.name || selectedRep.displayName || selectedRep.email || "مندوب") : "مندوب";
+      const branchName = branchLabel(selectedBranch()) || "";
+      const deptName = selectedRep ? departmentLabel(selectedRep.kpiDepartment || selectedRep.department) : "";
+      const period = `${el("dateFromFilter").value || ""} إلى ${el("dateToFilter").value || ""}`;
+      const month = el("monthFilter").value || "";
+      const generatedAt = new Date().toLocaleString("ar-EG");
+      return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(reportTitle)} - ${escapeHtml(repName)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;background:#eef2f7;color:#111827;font-family:'Tajawal',Tahoma,Arial,sans-serif;direction:rtl;}
+  .pdf-page{width:100%;max-width:none;margin:0 auto;background:#fff;min-height:100vh;padding:4px;}
+  .pdf-cover{background:linear-gradient(135deg,#111827,#1f2937);color:#fff;border-radius:14px;padding:8px 12px;margin-bottom:6px;position:relative;overflow:hidden;}
+  .pdf-cover:after{content:"";position:absolute;inset:auto -45px -65px auto;width:145px;height:145px;background:rgba(255,255,255,.07);border-radius:50%;}
+  .pdf-brand{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
+  .pdf-brand-mark{width:38px;height:38px;border-radius:12px;background:#fff;color:#111827;display:grid;place-items:center;font-weight:900;letter-spacing:.5px;font-size:12px;}
+  .pdf-brand small{display:block;color:#cbd5e1;font-weight:800;margin-top:4px;}
+  .pdf-cover h1{margin:0;font-size:18px;line-height:1.25;}
+  .pdf-cover p{margin:3px 0 0;color:#dbeafe;font-weight:700;font-size:11px;}
+  .pdf-meta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:5px;}
+  .pdf-meta{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:5px 7px;}
+  .pdf-meta span{display:block;color:#cbd5e1;font-size:9px;font-weight:800;margin-bottom:2px;}
+  .pdf-meta strong{display:block;color:#fff;font-size:11px;}
+  .pdf-section{border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;margin:0 0 8px;background:#fff;page-break-inside:auto;box-shadow:0 5px 16px rgba(15,23,42,.035);}
+  .pdf-section-heading{display:flex;gap:8px;align-items:center;background:linear-gradient(180deg,#f8fafc,#eef2ff);border-bottom:1px solid #e5e7eb;padding:8px 10px;}
+  .pdf-section-icon{width:32px;height:32px;border-radius:10px;background:#111827;color:#fff;display:grid;place-items:center;font-weight:900;font-size:12px;flex:0 0 auto;}
+  .pdf-section-heading h2{margin:0;font-size:15px;color:#111827;}
+  .pdf-section-heading p{margin:2px 0 0;color:#64748b;font-size:9px;font-weight:700;line-height:1.35;}
+  .pdf-section-content{padding:8px;}
+  .section-title{font-size:16px;font-weight:900;margin:0 0 10px;color:#111827;}
+  .section-note,.muted{color:#64748b;font-size:10px;line-height:1.35;}
+  .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+  .kpi-card,.week-card,.calc-box,.speed-total-box,.inline-result-box,.rep-result-card,.modal-period-card{border:1px solid #e5e7eb;border-radius:10px;padding:6px;background:#fff;margin-bottom:6px;page-break-inside:avoid;break-inside:avoid;}
+  .week-title{font-weight:900;margin-bottom:5px;color:#111827;font-size:11px;}
+  .week-days{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;}
+  .day-box{border:1px solid #e5e7eb;border-radius:8px;padding:4px;background:#f8fafc;page-break-inside:avoid;break-inside:avoid;}
+  .day-name,.day-date,.input-label,.field label{display:block;color:#64748b;font-size:8.5px;font-weight:800;margin-bottom:2px;}
+  input,select,textarea{width:100%;border:1px solid #d1d5db;border-radius:6px;padding:3px 5px;background:#fff;font-family:inherit;color:#111827;font-size:10px;}
+  .speed-total-panel,.calc-row{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:6px;}
+  .speed-total-box,.calc-box,.inline-result-box{background:#f8fafc;}
+  .speed-total-box small,.calc-box small,.inline-result-box small{display:block;color:#64748b;font-weight:800;font-size:9px;}
+  .speed-total-box strong,.calc-box strong,.inline-result-box strong{display:block;font-size:14px;margin-top:3px;color:#111827;}
+  .result-scroll{overflow:visible;border:1px solid #e5e7eb;border-radius:12px;}
+  table{width:100%;border-collapse:collapse;background:#fff;}
+  th,td{border:1px solid #e5e7eb;padding:4px;text-align:center;font-weight:800;white-space:normal;font-size:9.5px;}
+  th{background:#f8fafc;color:#334155;}
+  .total-cell,.black,.dark{background:#111827!important;color:#fff!important;}
+  .rep-total{background:#eef2ff;color:#1e3a8a;}
+  .pill{display:inline-block;border-radius:999px;padding:4px 8px;background:#f1f5f9;color:#334155;font-weight:800;}
+  .hidden,.tabs,.pdf-export-toolbar,.modal-foot,.modal-backdrop,.modal-head button{display:none!important;}
+  .pdf-footer{margin-top:6px;border-top:1px solid #e5e7eb;padding-top:5px;color:#64748b;font-size:9px;font-weight:800;display:flex;justify-content:space-between;gap:10px;}
+  .pdf-full-report .pdf-section{min-height:auto;page-break-after:auto;break-after:auto;page-break-inside:auto;break-inside:auto;}
+  .pdf-full-report .pdf-section + .pdf-section{page-break-before:always;break-before:page;}
+  .pdf-full-report .pdf-section:first-of-type{page-break-before:auto;break-before:auto;}
+  .pdf-full-report .pdf-section:last-of-type{page-break-after:auto;break-after:auto;}
+  .pdf-single-report .pdf-section{min-height:auto;}
+  .pdf-section-content{overflow:visible;}
+  .pdf-performanceTab .week-card{padding:4px;margin-bottom:4px;}
+  .pdf-performanceTab .week-title{font-size:10px;margin-bottom:3px;}
+  .pdf-performanceTab .week-days{gap:3px;}
+  .pdf-performanceTab .day-box{padding:3px;}
+  .pdf-performanceTab .input-label,.pdf-performanceTab .day-name,.pdf-performanceTab .day-date{font-size:7.5px;margin-bottom:1px;}
+  .pdf-performanceTab input{font-size:8px;padding:2px 4px;border-radius:5px;}
+  @media print{body{background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact;} .pdf-page{max-width:none;padding:0;} .pdf-cover{page-break-inside:avoid;break-inside:avoid;} .pdf-section-heading,.week-card,.kpi-card,.result-summary-card{page-break-inside:avoid;break-inside:avoid;} @page{size:A4 landscape;margin:0;}}
+</style>
+</head>
+<body>
+  <main class="pdf-page ${target === "all" ? "pdf-full-report" : "pdf-single-report"}">
+    <header class="pdf-cover">
+      <div class="pdf-brand">
+        <div>
+          <h1>${escapeHtml(reportTitle)}</h1>
+          <p>${target === "all" ? "تقرير كامل لكل تبويبات تقييم المندوب" : "تقرير تفصيلي للتبويب المحدد"}</p>
+        </div>
+        <div class="pdf-brand-mark">MZJ</div>
+      </div>
+      <div class="pdf-meta-grid">
+        <div class="pdf-meta"><span>المندوب</span><strong>${escapeHtml(repName)}</strong></div>
+        <div class="pdf-meta"><span>القسم</span><strong>${escapeHtml(deptName)}</strong></div>
+        <div class="pdf-meta"><span>الفرع</span><strong>${escapeHtml(branchName)}</strong></div>
+        <div class="pdf-meta"><span>الشهر / الفترة</span><strong>${escapeHtml(month)} | ${escapeHtml(period)}</strong></div>
+      </div>
+    </header>
+    ${contentHtml}
+    <footer class="pdf-footer"><span>تم إنشاء التقرير من نظام MZJ CRM</span><span>${escapeHtml(generatedAt)}</span></footer>
+  </main>
+  <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 450); };<\/script>
+</body>
+</html>`;
+    }
+
+    function exportModalPdf(target="all"){
+      if(!selectedKpi){ toast("افتح تقييم مندوب أولاً"); return; }
+      calculateModal();
+      const tabIds = target === "all" ? ["speedTab","efficiencyTab","performanceTab","resultTab"] : [target];
+      const sections = tabIds.map(buildPdfSection).join("");
+      const title = target === "all" ? "تقرير التقييم الكامل" : "تقرير تقييم المندوب";
+      const html = buildPdfHtml(sections, title, target);
+      const win = window.open("", "_blank");
+      if(!win){ toast("المتصفح منع فتح نافذة التصدير. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى."); return; }
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    }
+
     function init(){
       el("monthFilter").value = defaultMonth();
       syncDateRangeFromMonth();
@@ -1291,6 +1510,9 @@
       el("saveDraftBtn").onclick = () => saveKpi("draft").catch(err => {console.error(err); toast("فشل حفظ التقييم");});
       el("finalSaveBtn").onclick = () => saveKpi("locked").catch(err => {console.error(err); toast("فشل حفظ تقييم الشهر");});
       el("deleteLocalBtn").onclick = clearModalInputs;
+      document.querySelectorAll("[data-export-pdf]").forEach(btn => {
+        btn.onclick = () => exportModalPdf(btn.dataset.exportPdf);
+      });
     }
 
     setupAuth(init);
