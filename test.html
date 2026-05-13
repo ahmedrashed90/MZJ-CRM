@@ -1,0 +1,1653 @@
+
+
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.png">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MZJ CRM - تحليل اداء المناديب KPi</title>
+  <link rel="stylesheet" href="./theme.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --kpi-primary:#111827;
+      --kpi-muted:#64748b;
+      --kpi-line:#e5e7eb;
+      --kpi-soft:#f8fafc;
+      --kpi-card:#ffffff;
+      --kpi-green:#16a34a;
+      --kpi-yellow:#ca8a04;
+      --kpi-red:#dc2626;
+      --kpi-blue:#2563eb;
+      --kpi-purple:#7c3aed;
+    }
+    html,body{margin:0;padding:0;min-height:100%;background:#f3f4f6;color:#111827;font-family:'Tajawal',Tahoma,Arial,sans-serif;}
+    *,*::before,*::after{box-sizing:border-box;}
+    .hidden{display:none!important;}
+    .login-screen{min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#0f172a,#1e293b);padding:20px;}
+    .login-card{width:min(440px,100%);background:#fff;border-radius:24px;padding:24px;box-shadow:0 18px 60px rgba(15,23,42,.25);}
+    .login-brand{display:flex;gap:14px;align-items:center;margin-bottom:18px;}
+    .logo-mark{width:48px;height:48px;border-radius:16px;background:#111827;color:#fff;display:grid;place-items:center;font-weight:800;letter-spacing:.5px;}
+    .login-brand h1{font-size:18px;margin:0 0 4px;}.login-brand p{margin:0;color:#64748b;font-size:13px;}
+    .login-form{display:grid;gap:12px;}.login-form input,.filters-grid input,.filters-grid select,.kpi-input,.kpi-select{border:1px solid #d1d5db;border-radius:14px;padding:11px 12px;background:#fff;font:inherit;outline:none;}
+    .login-error{display:none;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;padding:10px;border-radius:12px;font-size:13px;}
+    button{font:inherit;cursor:pointer;border:0;border-radius:14px;padding:10px 14px;font-weight:700;}
+    button.primary,.primary{background:#111827;color:#fff;} button.secondary,.secondary{background:#eef2ff;color:#1e3a8a;} button.danger{background:#fee2e2;color:#991b1b;} button.success{background:#dcfce7;color:#166534;}
+    button:disabled{opacity:.55;cursor:not-allowed;}
+    .leads-page{min-height:100vh;display:grid;grid-template-columns:285px minmax(0,1fr);}
+    .sidebar{background:#fff;border-left:1px solid var(--kpi-line);padding:18px;overflow:auto;}
+    .brand-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;}
+    .logo-box{display:flex;align-items:center;gap:10px;min-width:0;}.logo-box h1{font-size:14px;margin:0;line-height:1.45}.status-text{font-size:12px;color:#64748b;margin-top:4px;}
+    .nav-card{background:#f8fafc;border:1px solid #e5e7eb;border-radius:18px;padding:12px;}.menu-label{font-size:12px;color:#64748b;margin-bottom:10px;}
+    .nav-tabs{display:grid;gap:8px}.nav-tabs a{display:block;text-decoration:none;color:#1f2937;background:#fff;border:1px solid #e5e7eb;border-radius:13px;padding:10px 12px;font-size:13px;font-weight:700}.nav-tabs a.active{background:#111827;color:#fff;border-color:#111827;}
+    .leads-main{padding:18px;min-width:0;overflow:auto;}
+    .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
+    .page-head h2{margin:0 0 6px;font-size:24px}.page-head p{margin:0;color:#64748b}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+    .count-badge{background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:10px 14px;font-weight:800;}
+    .filters-card,.kpi-card,.table-wrap,.result-panel{background:#fff;border:1px solid #e5e7eb;border-radius:22px;padding:14px;box-shadow:0 8px 24px rgba(15,23,42,.04);margin-bottom:14px;}
+    .filters-card{padding:18px 14px 20px;overflow-x:auto;}
+    .filters-grid{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:10px;align-items:start;min-width:920px;}
+    .field{min-width:0;}
+    .field label{display:block;font-size:12px;color:#64748b;margin:0 0 8px;font-weight:800;}
+    .filters-grid input,.filters-grid select{height:48px;border-radius:14px;}
+    .filters-grid .date-range-note{line-height:1.5;min-height:18px;}
+    .filter-hidden-control{display:none!important;}
+    .summary-grid{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:12px;margin-bottom:14px;}.metric{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:14px;}.metric small{display:block;color:#64748b;font-weight:700}.metric strong{display:block;font-size:26px;margin-top:8px}.metric .hint{font-size:12px;color:#64748b;margin-top:6px;}
+    .table-wrap{overflow:auto;padding:0}.kpi-table{width:100%;border-collapse:separate;border-spacing:0;min-width:960px;}.kpi-table th,.kpi-table td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:right;vertical-align:middle;white-space:nowrap}.kpi-table th{position:sticky;top:0;background:#fff;z-index:2;color:#334155;font-size:13px}.kpi-table tr:last-child td{border-bottom:0}.rep-name{font-weight:800}.muted{color:#64748b;font-size:12px}.pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:6px 10px;font-weight:800;font-size:12px}.pill.green{background:#dcfce7;color:#166534}.pill.yellow{background:#fef9c3;color:#854d0e}.pill.red{background:#fee2e2;color:#991b1b}.pill.blue{background:#dbeafe;color:#1d4ed8}.pill.gray{background:#f1f5f9;color:#475569}.pill.purple{background:#ede9fe;color:#6d28d9}.row-actions{display:flex;gap:8px;}
+    .modal{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:18px;}.modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.55);}.modal-dialog{position:relative;background:#fff;border-radius:24px;width:min(1120px,100%);max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.28);}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px;border-bottom:1px solid #e5e7eb}.modal-head h3{margin:0 0 6px}.modal-head p{margin:0;color:#64748b}.modal-body{padding:16px;overflow:auto}.modal-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid #e5e7eb;background:#f8fafc;}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.tab-btn{background:#f1f5f9;color:#334155}.tab-btn.active{background:#111827;color:#fff}.tab-panel{display:none}.tab-panel.active{display:block}
+    .page-tabs{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px;background:#fff;border:1px solid #e5e7eb;border-radius:22px;padding:10px;box-shadow:0 8px 24px rgba(15,23,42,.04);}
+    .page-tab-btn{background:#f1f5f9;color:#334155;border:1px solid transparent;min-width:160px;}
+    .page-tab-btn.active{background:#111827;color:#fff;border-color:#111827;}
+    .page-tab-panel{display:none;}
+    .page-tab-panel.active{display:block;}.grid-2{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px}.grid-3{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:10px}.grid-4{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:10px}.days-grid{display:grid;grid-template-columns:repeat(7,minmax(105px,1fr));gap:8px}.day-box{border:1px solid #e5e7eb;border-radius:14px;padding:8px;background:#fff}.day-box label{display:block;font-size:11px;color:#64748b;font-weight:700;margin-bottom:4px}.day-box input{width:100%;border:1px solid #d1d5db;border-radius:10px;padding:7px;}.section-title{font-size:16px;font-weight:900;margin:0 0 10px}.section-note{color:#64748b;font-size:13px;margin:-3px 0 12px}.calc-row{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px}.calc-box{background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:12px}.calc-box small{display:block;color:#64748b;font-weight:700}.calc-box strong{display:block;font-size:22px;margin-top:6px}.toast{position:fixed;bottom:18px;left:18px;background:#111827;color:#fff;border-radius:14px;padding:12px 14px;display:none;z-index:80;box-shadow:0 10px 30px rgba(0,0,0,.22)}
+    .empty-state{padding:32px;text-align:center;color:#64748b}.lock-note{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:16px;padding:10px 12px;font-size:13px;margin-bottom:12px;}
+
+    .date-range-note{font-size:12px;color:#64748b;margin-top:6px;}
+    .week-card{border:1px solid #e5e7eb;border-radius:18px;padding:12px;background:#fff;margin-bottom:12px;}
+    .week-title{font-weight:900;margin:0 0 10px;color:#111827;}
+    .week-days{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:8px;}
+    .day-name{display:block;font-size:11px;color:#1e3a8a;font-weight:900;margin-bottom:2px;}
+    .day-date{display:block;font-size:11px;color:#64748b;font-weight:700;margin-bottom:6px;}
+    .speed-total-panel{margin-top:12px;display:grid;grid-template-columns:repeat(6,minmax(140px,1fr));gap:10px;}
+    .speed-total-box,.inline-result-box{background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:12px;}
+    .speed-total-box small,.inline-result-box small{display:block;color:#64748b;font-weight:800;}
+    .speed-total-box strong,.inline-result-box strong{display:block;font-size:22px;margin-top:6px;}
+    .branch-report-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+    .branch-report-title h3{margin:0;font-size:18px}.branch-report-title p{margin:4px 0 0;color:#64748b;font-size:13px}
+    .result-table{width:100%;border-collapse:separate;border-spacing:0;min-width:900px;background:#fff;border:1px solid #cbd5e1;border-radius:16px;overflow:hidden;}
+    .result-table th,.result-table td{border-left:1px solid #dbe3ee;border-bottom:1px solid #dbe3ee;padding:12px 14px;text-align:center;font-weight:800;white-space:nowrap;}
+    .result-table th:last-child,.result-table td:last-child{border-left:0;}
+    .result-table tr:last-child td{border-bottom:0;}
+    .result-table th{background:#f1f5f9;color:#334155;font-size:13px;border-bottom:1px solid #cbd5e1;}
+    .result-table tbody tr:hover td{background:#f8fafc;}
+    .result-table tbody tr:hover td.total-cell,
+    .result-table tbody tr:hover td.black,
+    .result-table tbody tr:hover td.dark{background:#111827!important;color:#fff!important;}
+    .result-table tbody tr:hover td.rep-total{background:#eef2ff!important;color:#1e3a8a!important;}
+    .result-table tbody tr:hover td.gray{background:#f1f5f9!important;color:#334155!important;}
+    .result-table .black,.result-table .dark{background:#111827!important;color:#fff!important;}
+    .result-table .gray{background:#f1f5f9;color:#334155;}
+    .result-table .red-text{color:#dc2626;}
+    .result-table .total-cell{background:#111827!important;color:#fff!important;font-size:18px;}
+    .result-table .rep-total{background:#eef2ff!important;color:#1e3a8a!important;font-size:18px;}
+    .result-scroll{overflow:auto;border-radius:18px;border:1px solid #cbd5e1;background:#fff;}
+
+    .branch-report-block{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:14px;margin:0 0 18px;box-shadow:0 8px 24px rgba(15,23,42,.035);}
+    .branch-report-block:last-child{margin-bottom:0;}
+    .branch-report-subtitle{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
+    .branch-report-subtitle h4{margin:0;font-size:18px;color:#111827;font-weight:900;}
+    .branch-report-subtitle p{margin:4px 0 0;color:#64748b;font-size:13px;font-weight:700;}
+    .rep-result-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:12px;margin-top:12px;}
+    .result-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:14px;margin-top:14px;}
+    .result-summary-card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:16px;box-shadow:0 8px 24px rgba(15,23,42,.04);}
+    .result-summary-card h4{margin:0 0 14px;font-size:18px;color:#111827;}
+    .summary-line{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #eef2f7;padding:12px 0;}
+    .summary-line:first-of-type{border-top:0;}
+    .summary-line small{display:block;color:#64748b;font-weight:800;font-size:12px;}
+    .summary-line strong{font-size:22px;color:#111827;}
+    .rating-scale{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px;}
+    .rating-scale div{background:#f8fafc;border:1px solid #e5e7eb;border-radius:14px;padding:10px;text-align:center;font-weight:800;}
+    .rating-scale span{display:block;color:#64748b;font-size:12px;margin-bottom:4px;}
+    .locked-input{background:#f1f5f9!important;color:#64748b!important;cursor:not-allowed;}
+    .input-label{display:block;font-size:11px;color:#64748b;font-weight:800;margin:6px 0 3px;}
+    .modal-period-card{background:linear-gradient(180deg,#ffffff,#f8fafc);border:1px solid #e5e7eb;border-radius:20px;padding:14px;margin-bottom:14px;box-shadow:0 8px 22px rgba(15,23,42,.035);}
+    .modal-period-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}
+    .modal-period-head h4{margin:0;font-size:15px;font-weight:900;color:#111827;}
+    .modal-period-head span{color:#64748b;font-size:12px;font-weight:800;}
+    .modal-period-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;}
+    .modal-period-grid input{width:100%;border:1px solid #d1d5db;border-radius:14px;padding:10px 12px;background:#fff;font:inherit;outline:none;}
+    .modal-period-grid input:focus,.filters-grid input:focus,.filters-grid select:focus,.kpi-input:focus,.day-box input:focus{border-color:#111827;box-shadow:0 0 0 3px rgba(17,24,39,.08);}
+    .filters-card,.kpi-card,.table-wrap,.result-panel,.metric{transition:box-shadow .2s ease, transform .2s ease;}
+    .metric:hover,.result-summary-card:hover{box-shadow:0 12px 30px rgba(15,23,42,.075);}
+    .kpi-table tbody tr:hover td{background:#f8fafc;}
+    .day-box{transition:border-color .2s ease, box-shadow .2s ease;}
+    .day-box:focus-within{border-color:#111827;box-shadow:0 8px 20px rgba(15,23,42,.08);}
+
+
+    .pdf-export-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:linear-gradient(180deg,#fff,#f8fafc);border:1px solid #e5e7eb;border-radius:18px;padding:12px 14px;margin:0 0 14px;box-shadow:0 8px 22px rgba(15,23,42,.035);}
+    .pdf-export-title{display:flex;flex-direction:column;gap:2px;}
+    .pdf-export-title strong{font-size:14px;color:#111827;}
+    .pdf-export-title span{font-size:12px;color:#64748b;font-weight:800;}
+    .pdf-export-actions{display:flex;gap:8px;flex-wrap:wrap;}
+    .pdf-export-actions button{padding:8px 11px;border-radius:12px;font-size:12px;}
+    .pdf-export-actions .pdf-full{background:#111827;color:#fff;}
+
+    @media(max-width:1050px){.leads-page{grid-template-columns:1fr}.sidebar{position:relative}.summary-grid,.grid-2,.grid-3,.grid-4,.calc-row,.modal-period-grid{grid-template-columns:1fr 1fr}.filters-grid{grid-template-columns:repeat(5,minmax(150px,1fr));min-width:920px}.days-grid{grid-template-columns:repeat(3,1fr)}.week-days{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:680px){.summary-grid,.grid-2,.grid-3,.grid-4,.calc-row,.days-grid,.week-days,.speed-total-panel,.modal-period-grid{grid-template-columns:1fr}.filters-grid{grid-template-columns:repeat(5,minmax(150px,1fr));min-width:920px}.page-head{display:block}.actions{margin-top:12px}.modal{padding:8px}.modal-dialog{max-height:96vh}}
+  </style>
+</head>
+<body>
+  <section class="login-screen hidden" id="loginScreen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="logo-mark">MZJ</div>
+        <div>
+          <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+          <p>تسجيل الدخول إلى نظام CRM</p>
+        </div>
+      </div>
+      <form class="login-form" id="loginForm">
+        <input id="loginEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required />
+        <input id="loginPassword" type="password" placeholder="كلمة المرور" autocomplete="current-password" required />
+        <div class="login-error" id="loginError"></div>
+        <button class="primary" type="submit">تسجيل الدخول</button>
+      </form>
+    </div>
+  </section>
+
+  <div class="leads-page hidden" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="logo-box">
+            <div class="logo-mark">MZJ</div>
+            <div>
+              <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+              <div class="status-text" id="userInfo"></div>
+            </div>
+          </div>
+          <button class="secondary" id="logoutBtn">خروج</button>
+        </div>
+        <div class="nav-card">
+          <div class="menu-label">التنقل بين صفحات النظام</div>
+          <div class="nav-tabs" id="navTabs"></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="leads-main">
+      <div class="page-head">
+        <div>
+          <h2>تحليل اداء المناديب KPi</h2>
+          <p>صفحة تحليل أداء المناديب، لإضافة التقييمات ومراجعة تقارير الفرع.</p>
+        </div>
+        <div class="actions">
+          <div class="count-badge" id="countBadge">0 مندوب</div>
+          <button class="secondary" id="refreshBtn" type="button">تحديث</button>
+        </div>
+      </div>
+
+      <div class="page-tabs" aria-label="تبويبات صفحة تحليل أداء المناديب">
+        <button type="button" class="page-tab-btn active" data-page-tab="addEvaluationTab">اضافة التقييم</button>
+        <button type="button" class="page-tab-btn" data-page-tab="reportsTab">التقارير</button>
+      </div>
+
+      <div class="filters-card">
+        <div class="filters-grid">
+          <div class="field">
+            <label>الشهر</label>
+            <input id="monthFilter" type="month" />
+            <div class="date-range-note">يتم ضبط التاريخ من / إلى تلقائيًا مع إمكانية التعديل.</div>
+          </div>
+          <div class="field">
+            <label>من تاريخ</label>
+            <input id="dateFromFilter" type="date" />
+          </div>
+          <div class="field">
+            <label>إلى تاريخ</label>
+            <input id="dateToFilter" type="date" />
+          </div>
+          <div class="field">
+            <label>الفرع</label>
+            <select id="branchFilter"><option value="">جاري تحميل الفروع...</option></select>
+          </div>
+          <div class="field">
+            <label>اسم المندوب</label>
+            <select id="repFilter"><option value="">كل المناديب</option></select>
+          </div>
+        </div>
+        <select id="departmentFilter" class="filter-hidden-control" aria-hidden="true">
+          <option value="" selected>كاش وتمويل</option>
+          <option value="cash_sales">مبيعات الكاش</option>
+          <option value="finance_sales">مبيعات التمويل</option>
+        </select>
+        <input id="workDaysInput" class="filter-hidden-control" type="number" min="1" max="31" value="26" readonly />
+      </div>
+
+      <section class="page-tab-panel active" id="addEvaluationTab">
+      <div class="table-wrap">
+        <table class="kpi-table">
+          <thead>
+            <tr>
+              <th>المندوب</th>
+              <th>القسم</th>
+              <th>الفرع</th>
+              <th>السرعة</th>
+              <th>الكفاءة</th>
+              <th>الأداء اليومي</th>
+              <th>KPI النهائي</th>
+              <th>الحالة</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="repsBody"><tr><td colspan="9" class="empty-state">جاري تحميل البيانات...</td></tr></tbody>
+        </table>
+      </div>
+      </section>
+
+      <section class="page-tab-panel" id="reportsTab">
+      <div class="summary-grid">
+        <div class="metric"><small>عدد المناديب</small><strong id="totalReps">0</strong><div class="hint">حسب الفرع والفلاتر</div></div>
+        <div class="metric"><small>متوسط السرعة</small><strong id="avgSpeed">0%</strong><div class="hint">من تأخير الحضور</div></div>
+        <div class="metric"><small>متوسط الكفاءة</small><strong id="avgEfficiency">0%</strong><div class="hint">شخصية + فنية + سرعة</div></div>
+        <div class="metric"><small>متوسط الانضباط</small><strong id="avgDiscipline">0%</strong><div class="hint">الحضور + الهيئة + السلوك</div></div>
+        <div class="metric"><small>متوسط القيمة</small><strong id="avgValue">0%</strong><div class="hint">تقييم العملاء + المبيعات</div></div>
+      </div>
+
+      <div class="result-panel">
+        <div class="branch-report-title">
+          <div>
+            <h3>تقرير نتيجة مدير الفرع / <span id="branchReportName">...</span></h3>
+            <p>تجميع درجات المناديب مثل شيت تحليل الأداء، والحسبة تستبعد أيام الجمعة.</p>
+          </div>
+          <div class="count-badge" id="branchReportPeriod">...</div>
+        </div>
+        <div class="result-scroll" id="branchResultWrap"></div>
+      </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal hidden" id="kpiModal">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="modalTitle">تقييم مندوب</h3>
+          <p id="modalMeta"></p>
+        </div>
+        <button class="secondary" type="button" data-close-modal>إغلاق</button>
+      </div>
+      <div class="modal-body">
+        <div class="lock-note hidden" id="lockNote">هذا التقييم معتمد. التعديل متاح للأدمن فقط.</div>
+        <div class="modal-period-card">
+          <div class="modal-period-head">
+            <h4>فترة تقييم المندوب</h4>
+            <span>اختار الشهر أو فترة محددة لعرض وحساب التقييم داخل المودال</span>
+          </div>
+          <div class="modal-period-grid">
+            <div class="field"><label>الشهر</label><input id="modalMonthFilter" type="month" /></div>
+            <div class="field"><label>من تاريخ</label><input id="modalDateFromFilter" type="date" /></div>
+            <div class="field"><label>إلى تاريخ</label><input id="modalDateToFilter" type="date" /></div>
+            <div class="field"><label>عدد أيام العمل</label><input id="modalWorkDaysInput" type="number" readonly /></div>
+          </div>
+        </div>
+        <div class="pdf-export-toolbar">
+          <div class="pdf-export-title">
+            <strong>تصدير PDF</strong>
+            <span>صدر التبويب الحالي أو التقرير الكامل بتنسيق جاهز للطباعة</span>
+          </div>
+          <div class="pdf-export-actions">
+            <button class="secondary" type="button" data-export-pdf="speedTab">PDF السرعة</button>
+            <button class="secondary" type="button" data-export-pdf="efficiencyTab">PDF الكفاءة</button>
+            <button class="secondary" type="button" data-export-pdf="performanceTab">PDF الأداء اليومي</button>
+            <button class="secondary" type="button" data-export-pdf="resultTab">PDF النتيجة</button>
+            <button class="pdf-full" type="button" data-export-pdf="all">PDF كامل</button>
+          </div>
+        </div>
+        <div class="tabs">
+          <button type="button" class="tab-btn active" data-tab="speedTab">السرعة</button>
+          <button type="button" class="tab-btn" data-tab="efficiencyTab">الكفاءة</button>
+          <button type="button" class="tab-btn" data-tab="performanceTab">الأداء اليومي</button>
+          <button type="button" class="tab-btn" data-tab="resultTab">النتيجة</button>
+        </div>
+
+        <section class="tab-panel active" id="speedTab">
+          <h4 class="section-title">تقييم السرعة - دقائق التأخير اليومية</h4>
+          <p class="section-note">أقصى دقائق مسموح بها يوميًا: 3 دقائق. اكتب عدد دقائق تأخير المندوب في كل يوم عمل.</p>
+          <div id="delayDaysGrid"></div>
+          <div class="speed-total-panel">
+            <div class="speed-total-box"><small>إجمالي دقائق التأخير</small><strong id="speedTotalDelay">0</strong></div>
+            <div class="speed-total-box"><small>عدد الأيام المدخلة في المتوسط</small><strong id="speedDelayDays">0</strong></div>
+            <div class="speed-total-box"><small>متوسط عدد دقائق التأخير</small><strong id="speedAvgNoZero">0</strong></div>
+            <div class="speed-total-box"><small>أقصى دقائق مسموح بها</small><strong id="speedMaxAllowedBox">3 دقائق</strong></div>
+            <div class="speed-total-box"><small>نسبة التأخير خلال الشهر</small><strong id="speedDelayRateBox">0%</strong></div>
+            <div class="speed-total-box"><small>نسبة سرعة المندوب خلال الشهر</small><strong id="speedResultBox">100%</strong></div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="efficiencyTab">
+          <h4 class="section-title">تقييم الكفاءة</h4>
+          <p class="section-note">كل عنصر من 0 إلى 100%.</p>
+          <div class="grid-2">
+            <div class="kpi-card">
+              <h4 class="section-title">الشخصية</h4>
+              <div class="field"><label>المصداقية في إعطاء العميل السيارة التي تناسبه</label><input class="kpi-input calc-field" id="customerFitHonesty" type="number" min="0" max="100" /></div>
+              <div class="field"><label>المصداقية فيما يتواجد من ملاحظات في السيارة</label><input class="kpi-input calc-field" id="carNotesHonesty" type="number" min="0" max="100" /></div>
+              <div class="inline-result-box"><small>نتيجة السرعة من تبويب السرعة</small><strong id="effSpeedMirror">100%</strong></div>
+            </div>
+            <div class="kpi-card">
+              <h4 class="section-title">الفنية</h4>
+              <div class="field"><label>حفظ الأسعار الحالية</label><input class="kpi-input calc-field" id="currentPrices" type="number" min="0" max="100" /></div>
+              <div class="field"><label>حفظ الأسعار السابقة</label><input class="kpi-input calc-field" id="oldPrices" type="number" min="0" max="100" /></div>
+              <div class="field"><label>المعرفة التفصيلية بمواصفات السيارة</label><input class="kpi-input calc-field" id="carSpecs" type="number" min="0" max="100" /></div>
+              <div class="field"><label>معرفة فروق السيارة مع البراندات الأخرى</label><input class="kpi-input calc-field" id="competitorsComparison" type="number" min="0" max="100" /></div>
+              <div class="field"><label>معرفة طرق وقنوات البيع كاش أو أقساط</label><input class="kpi-input calc-field" id="salesChannels" type="number" min="0" max="100" /></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="performanceTab">
+          <h4 class="section-title">تحليل الأداء اليومي</h4>
+          <p class="section-note">الدرجات من 0 إلى 3: 0 منعدم، 1 ضعيف، 2 متوسط، 3 جيد. عدد المبيعات رقم يومي.</p>
+          <div id="performanceDaysGrid"></div>
+        </section>
+
+        <section class="tab-panel" id="resultTab">
+          <h4 class="section-title">النتيجة المحسوبة</h4>
+          <div class="calc-row">
+            <div class="calc-box"><small>متوسط التأخير</small><strong id="calcDelay">0</strong></div>
+            <div class="calc-box"><small>نسبة السرعة</small><strong id="calcSpeed">100%</strong></div>
+            <div class="calc-box"><small>نسبة الكفاءة</small><strong id="calcEfficiency">0%</strong></div>
+            <div class="calc-box"><small>KPI النهائي</small><strong id="calcFinal">0%</strong></div>
+          </div>
+          <div class="calc-row" style="margin-top:10px">
+            <div class="calc-box"><small>تقييم الكفاءة</small><strong id="calcLevel">ضعيف</strong></div>
+            <div class="calc-box"><small>درجة المستوى</small><strong id="calcLevelScore">0</strong></div>
+            <div class="calc-box"><small>درجة الشهر</small><strong id="calcMonthlyScore">0</strong></div>
+            <div class="calc-box"><small>إجمالي المبيعات</small><strong id="calcSales">0</strong></div>
+          </div>
+          <div class="rep-result-card">
+            <h4 class="section-title">نتيجة المندوب في تحليل الأداء</h4>
+            <div class="result-scroll" id="repResultWrap"></div>
+          </div>
+        </section>
+      </div>
+      <div class="modal-foot">
+        <div class="actions">
+          <button class="secondary" type="button" id="saveDraftBtn">حفظ كمسودة</button>
+          <button class="success" type="button" id="finalSaveBtn">تم وحفظ تقييم الشهر</button>
+        </div>
+        <div class="actions">
+          <button class="danger" type="button" id="deleteLocalBtn">تفريغ المدخلات</button>
+          <button class="secondary" type="button" data-close-modal>إغلاق</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    const appFirebase = initializeApp(firebaseConfig);
+    try { getAnalytics(appFirebase); } catch(e) {}
+    const auth = getAuth(appFirebase);
+    const db = getFirestore(appFirebase);
+
+    const DEPARTMENTS = {
+      cash_sales:"مبيعات الكاش",
+      finance_sales:"مبيعات التمويل",
+      customer_service:"خدمة العملاء",
+      call_center:"الكول سنتر"
+    };
+
+    const DAY_NAMES = ["الأحد","الإثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+    const PERFORMANCE_FIELDS = [
+      {key:"attendance", label:"الحضور"},
+      {key:"appearance", label:"الهيئة"},
+      {key:"behavior", label:"السلوك"},
+      {key:"customerRating", label:"العملاء"},
+      {key:"salesCount", label:"المبيعات"}
+    ];
+
+    const NAV_ITEMS = [
+      { page:"inbox.html", label:"صندوق الوارد" },
+      { page:"callcenter.html", label:"الكول سنتر" },
+      { page:"leads-finance.html", label:"العملاء المحتملون - تمويل" },
+      { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
+      { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
+      { page:"database.html", label:"قاعدة البيانات" },
+      { page:"manual-leads.html", label:"إضافة العملاء" },
+      { page:"dashboard.html", label:"الداش بورد" },
+      { page:"reports.html", label:"التقارير" },
+      { page:"branches.html", label:"الفروع" },
+      { page:"statuses.html", label:"حالات العملاء" },
+      { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
+      { page:"kpi-sales-reps.html", label:"تقييم المناديب" },
+      { page:"admin.html", label:"الإدارة" }
+    ];
+
+    let currentUser = null;
+    let currentProfile = null;
+    let isAdmin = false;
+    let users = [];
+    let branches = [];
+    let kpis = [];
+    let availableBranches = [];
+    let selectedRep = null;
+    let selectedKpi = null;
+    let unsubUsers = null;
+    let unsubBranches = null;
+    let unsubKpis = null;
+
+    const el = id => document.getElementById(id);
+    const clamp = (n,min=0,max=100) => Math.max(min, Math.min(max, Number(n) || 0));
+    const round = n => Math.round((Number(n) || 0) * 10) / 10;
+    const roundPercent = n => Math.round(Number(n) || 0);
+    const fmtPercent = n => `${roundPercent(n)}%`;
+    const pad = n => String(n).padStart(2,"0");
+    const escapeHtml = str => String(str ?? "").replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+
+    function toast(msg){
+      const t = el("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(()=> t.style.display = "none", 2500);
+    }
+
+    function showLoginError(msg){
+      el("loginError").textContent = msg;
+      el("loginError").style.display = "block";
+    }
+
+    function defaultMonth(){
+      const d = new Date();
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+    }
+
+    function monthStartEnd(month){
+      const [y,m] = (month || defaultMonth()).split("-").map(Number);
+      return { from:`${y}-${pad(m)}-01`, to:`${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}` };
+    }
+
+    function syncDateRangeFromMonth(){
+      const range = monthStartEnd(el("monthFilter").value || defaultMonth());
+      el("dateFromFilter").value = range.from;
+      el("dateToFilter").value = range.to;
+      updateWorkDaysCount();
+    }
+
+    function parseDateKey(key){
+      const [y,m,d] = String(key || "").split("-").map(Number);
+      if(!y || !m || !d) return null;
+      return new Date(y, m - 1, d);
+    }
+
+    function dateKeyFromDate(d){
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    }
+
+    function periodDates(includeFridays=false){
+      let from = parseDateKey(el("dateFromFilter").value);
+      let to = parseDateKey(el("dateToFilter").value);
+      if(!from || !to || from > to){
+        const range = monthStartEnd(el("monthFilter").value || defaultMonth());
+        from = parseDateKey(range.from);
+        to = parseDateKey(range.to);
+      }
+      const dates = [];
+      for(const d = new Date(from); d <= to; d.setDate(d.getDate()+1)){
+        if(!includeFridays && d.getDay() === 5) continue;
+        dates.push({ key:dateKeyFromDate(d), day:d.getDate(), dayName:DAY_NAMES[d.getDay()], date:new Date(d) });
+      }
+      return dates;
+    }
+
+    function updateWorkDaysCount(){
+      const count = periodDates(false).length || 1;
+      el("workDaysInput").value = count;
+      return count;
+    }
+
+    function currentPeriodLabel(){
+      return `${el("dateFromFilter").value || "..."} إلى ${el("dateToFilter").value || "..."}`;
+    }
+
+    async function loadUserProfile(user){
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if(snap.exists()) return snap.data();
+      return { email:user.email, name:user.email, role:"user", department:"cash_sales", active:true };
+    }
+
+    function normalizeDepartment(value){
+      const raw = String(value || "").trim();
+      const low = raw.toLowerCase().replace(/\s+/g," ");
+      const aliases = {
+        "cash_sales":"cash_sales", "cash sales":"cash_sales", "مبيعات الكاش":"cash_sales", "كاش":"cash_sales", "الكاش":"cash_sales",
+        "finance_sales":"finance_sales", "finance sales":"finance_sales", "مبيعات التمويل":"finance_sales", "تمويل":"finance_sales", "التمويل":"finance_sales",
+        "customer_service":"customer_service", "customer service":"customer_service", "خدمة العملاء":"customer_service", "خدمة عملاء":"customer_service",
+        "call_center":"call_center", "call center":"call_center", "callcenter":"call_center", "الكول سنتر":"call_center", "كول سنتر":"call_center"
+      };
+      return aliases[raw] || aliases[low] || raw;
+    }
+
+    function departmentLabel(d){
+      const key = normalizeDepartment(d);
+      return DEPARTMENTS[key] || d || "";
+    }
+
+    function isAdminProfile(profile){
+      return profile?.role === "admin" || profile?.role === "sales_manager" || profile?.allDepartments === true;
+    }
+
+    function isBranchManagerProfile(profile){
+      return isAdminProfile(profile) || ["branch_manager","manager","مدير فرع"].includes(String(profile?.role || "").trim());
+    }
+
+    function branchLabel(branch){
+      return branch?.name || branch?.branch || branch?.branchName || branch?.title || branch?.label || branch?.id || "";
+    }
+
+    function valuesFromBranchField(value){
+      if(value === undefined || value === null || value === false) return [];
+      if(Array.isArray(value)) return value.flatMap(valuesFromBranchField);
+      if(typeof value === "object") return [value.uid, value.id, value.userId, value.name, value.email, value.displayName, value.label, value.value].filter(Boolean).map(v => String(v).trim());
+      return String(value).split(/[،,|؛;\n]+/).map(v => v.trim()).filter(Boolean);
+    }
+
+    function branchDepartmentValues(branch, dept){
+      if(!branch) return [];
+      const normalizedDept = normalizeDepartment(dept);
+      const keysByDept = {
+        cash_sales:["cashSalesUids", "cashSalesUid", "cashSalesNames", "cash", "cashSales", "cash_sales", "cashUsers", "cashRepresentatives", "cashSalesUsers", "كاش"],
+        finance_sales:["financeSalesUids", "financeSalesUid", "financeSalesNames", "finance", "financeSales", "finance_sales", "financeUsers", "financeRepresentatives", "financeSalesUsers", "تمويل"]
+      };
+      const keys = keysByDept[normalizedDept] || [];
+      const values = [];
+      keys.forEach(k => values.push(...valuesFromBranchField(branch[k])));
+      if(branch.assignments) keys.forEach(k => values.push(...valuesFromBranchField(branch.assignments[k])));
+      if(branch.departments) keys.forEach(k => values.push(...valuesFromBranchField(branch.departments[k])));
+      return [...new Set(values)];
+    }
+
+    function userMatchesValue(user, value){
+      const wanted = String(value || "").trim().toLowerCase();
+      if(!wanted) return false;
+      return [user.uid, user.id, user.userId, user.name, user.email, user.displayName]
+        .filter(Boolean)
+        .some(v => String(v).trim().toLowerCase() === wanted);
+    }
+
+    function usersForDepartment(dept){
+      const normalizedDept = normalizeDepartment(dept);
+      return users.filter(u => {
+        if(u.active === false || u.role === "admin" || u.allDepartments === true) return false;
+        const userDept = normalizeDepartment(u.department || u.role || u.section);
+        const userRole = normalizeDepartment(u.role);
+        return userDept === normalizedDept || userRole === normalizedDept;
+      });
+    }
+
+    function usersForBranchDepartment(branch, dept){
+      const base = usersForDepartment(dept);
+      if(!branch) return [];
+      const values = branchDepartmentValues(branch, dept);
+      if(values.length){
+        return base.filter(u => values.some(v => userMatchesValue(u, v)));
+      }
+      const label = branchLabel(branch);
+      return base.filter(u => {
+        const userBranchValues = [u.branchId, u.branchName, u.branch, u.branchTitle, ...(Array.isArray(u.branches) ? u.branches : [])].filter(Boolean);
+        return userBranchValues.some(v => String(v).trim() === branch.id || String(v).trim() === label);
+      });
+    }
+
+    function branchManagerValues(branch){
+      const keys = ["branchManagerUid","managerUid","managerUids","managers","branchManagers","branchManager","manager","admins","adminUids"];
+      const values = [];
+      keys.forEach(k => values.push(...valuesFromBranchField(branch?.[k])));
+      return [...new Set(values)];
+    }
+
+    function userManagesBranch(user, profile, branch){
+      if(!user || !branch) return false;
+      if(isAdminProfile(profile)) return true;
+      const managerValues = branchManagerValues(branch);
+      if(managerValues.some(v => userMatchesValue({uid:user.uid,email:user.email,name:profile?.name}, v))) return true;
+      const profileBranches = [profile?.branchId, profile?.branchName, profile?.branch, ...(Array.isArray(profile?.branches) ? profile.branches : [])].filter(Boolean);
+      return profileBranches.some(v => String(v).trim() === branch.id || String(v).trim() === branchLabel(branch));
+    }
+
+    function renderAllowedNavigation(){
+      const currentPage = "kpi-sales-reps.html";
+      const pages = Array.isArray(currentProfile?.pages) ? currentProfile.pages : [];
+      const unrestricted = !pages.length;
+      const nav = el("navTabs");
+      nav.innerHTML = NAV_ITEMS
+        .filter(item => unrestricted || pages.includes(item.page) || item.page === currentPage)
+        .map(item => `<a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">${item.label}</a>`)
+        .join("");
+    }
+
+    function setupAuth(pageInit){
+      onAuthStateChanged(auth, async user => {
+        if(unsubUsers) unsubUsers();
+        if(unsubBranches) unsubBranches();
+        if(unsubKpis) unsubKpis();
+        if(!user){
+          currentUser = null;
+          currentProfile = null;
+          el("loginScreen").classList.remove("hidden");
+          el("app").classList.add("hidden");
+          return;
+        }
+        try{
+          currentUser = user;
+          currentProfile = await loadUserProfile(user);
+          if(currentProfile.active === false){
+            await signOut(auth);
+            showLoginError("هذا الحساب غير مفعل.");
+            return;
+          }
+          isAdmin = isAdminProfile(currentProfile);
+          el("loginScreen").classList.add("hidden");
+          el("app").classList.remove("hidden");
+          el("userInfo").textContent = `${currentProfile.name || user.email} - ${isAdmin ? "إدارة عامة" : "مدير فرع"}`;
+          renderAllowedNavigation();
+          pageInit();
+        }catch(err){
+          console.error(err);
+          showLoginError("تعذر تحميل صلاحيات المستخدم.");
+        }
+      });
+
+      el("loginForm").onsubmit = async e => {
+        e.preventDefault();
+        el("loginError").style.display = "none";
+        try{
+          await signInWithEmailAndPassword(auth, el("loginEmail").value.trim(), el("loginPassword").value);
+        }catch(err){
+          console.error(err);
+          showLoginError("بيانات الدخول غير صحيحة أو الحساب غير مفعل.");
+        }
+      };
+      el("logoutBtn").onclick = () => signOut(auth);
+    }
+
+    function listenBase(){
+      unsubUsers = onSnapshot(collection(db,"users"), snap => {
+        users = [];
+        snap.forEach(d => users.push({id:d.id, uid:d.id, ...d.data()}));
+        render();
+      }, err => { console.error(err); toast("تعذر تحميل المستخدمين"); });
+
+      unsubBranches = onSnapshot(collection(db,"branches"), snap => {
+        branches = [];
+        snap.forEach(d => branches.push({id:d.id, ...d.data()}));
+        render();
+      }, err => { console.error(err); toast("تعذر تحميل الفروع"); });
+
+      unsubKpis = onSnapshot(collection(db,"sales_reps_kpis"), snap => {
+        kpis = [];
+        snap.forEach(d => kpis.push({id:d.id, ...d.data()}));
+        render();
+      }, err => { console.error(err); toast("تعذر تحميل تقييمات المناديب"); });
+    }
+
+    function fillBranches(){
+      const select = el("branchFilter");
+      const prev = select.value;
+      // عرض كل الفروع الموجودة في Firestore بدون فلترة حسب المدير أو حالة التفعيل.
+      availableBranches = branches
+        .slice()
+        .sort((a,b) => branchLabel(a).localeCompare(branchLabel(b), "ar"));
+      if(!availableBranches.length){
+        select.innerHTML = '<option value="">لا توجد فروع متاحة</option>';
+        return;
+      }
+      select.innerHTML = '<option value="__all__">كل الفروع</option>' + availableBranches.map(b => `<option value="${escapeHtml(b.id)}">${escapeHtml(branchLabel(b))}</option>`).join("");
+      if(prev === "__all__" || (prev && availableBranches.some(b => b.id === prev))) select.value = prev;
+      else select.value = "__all__";
+      select.disabled = false;
+    }
+
+    function selectedBranch(){
+      const value = el("branchFilter").value;
+      if(value === "__all__") return null;
+      return availableBranches.find(b => b.id === value) || null;
+    }
+
+    function branchForRep(rep){
+      if(rep?.kpiBranchId){
+        return availableBranches.find(b => b.id === rep.kpiBranchId) || {id:rep.kpiBranchId, name:rep.kpiBranchName || rep.branchName || rep.branch || rep.kpiBranchId};
+      }
+      return selectedBranch();
+    }
+
+    function repRowKey(rep){
+      return `${rep.uid || rep.id}@@${rep.kpiBranchId || selectedBranch()?.id || ""}`;
+    }
+
+    function kpiDocId(month, branchId, repUid){
+      return `${month}_${branchId}_${repUid}`.replace(/[^a-zA-Z0-9_\-]/g,"_");
+    }
+
+    function findKpiFor(rep){
+      const month = el("monthFilter").value || defaultMonth();
+      const branch = branchForRep(rep);
+      return kpis.find(k => k.month === month && k.repUid === (rep.uid || rep.id) && k.branchId === branch?.id) || null;
+    }
+
+    function levelFor(rate){
+      const r = Number(rate) || 0;
+      if(r >= 90) return {text:"ممتاز", score:3, cls:"green"};
+      if(r >= 75) return {text:"جيد", score:2, cls:"blue"};
+      if(r >= 60) return {text:"متوسط", score:1, cls:"yellow"};
+      return {text:"ضعيف", score:0, cls:"red"};
+    }
+
+    function statusPill(status){
+      if(status === "approved") return '<span class="pill green">معتمد</span>';
+      if(status === "completed") return '<span class="pill blue">مكتمل</span>';
+      if(status === "locked") return '<span class="pill purple">تم الحفظ</span>';
+      return '<span class="pill gray">مسودة</span>';
+    }
+
+    function calcFromData(data){
+      const workDays = Number(data.workDays || el("workDaysInput").value || updateWorkDaysCount() || 26) || 26;
+      const dailyDelays = data.speed?.dailyDelays || {};
+      const periodKeys = periodDates(false).map(d => d.key);
+      const explicitEnteredDates = Array.isArray(data.speed?.delayEnteredDates) ? data.speed.delayEnteredDates : null;
+      // نفس معادلة الشيت: متوسط عدد دقائق التأخير = AVERAGE(C4:C34)
+      // الخلايا الفاضية لا تدخل في المتوسط، لكن الخلية المكتوب فيها 0 تدخل في المتوسط.
+      const enteredKeys = explicitEnteredDates
+        ? periodKeys.filter(key => explicitEnteredDates.includes(key))
+        : periodKeys.filter(key => Object.prototype.hasOwnProperty.call(dailyDelays, key) && Number(dailyDelays[key]) > 0);
+      const enteredDelayValues = enteredKeys.map(key => Math.max(0, Number(dailyDelays[key]) || 0));
+      const positiveDelays = enteredDelayValues.filter(v => v > 0);
+      const totalDelay = round(enteredDelayValues.reduce((a,b)=>a+b,0));
+      const delayDays = positiveDelays.length;
+      const enteredDays = enteredDelayValues.length;
+      const avgDelay = enteredDays ? totalDelay / enteredDays : 0; // C36
+      const maxAllowedDelay = 3; // C37
+      const delayRate = clamp((avgDelay / maxAllowedDelay) * 100, 0, 100); // C39 = C36 / C37
+      const speedRate = clamp(100 - delayRate, 0, 100); // 100% - C39
+
+      const p = data.efficiency?.personality || {};
+      const t = data.efficiency?.technical || {};
+      const personalityRate = round((clamp(p.customerFitHonesty) + clamp(p.carNotesHonesty)) / 2);
+      const technicalRate = round((clamp(t.currentPrices) + clamp(t.oldPrices) + clamp(t.carSpecs) + clamp(t.competitorsComparison) + clamp(t.salesChannels)) / 5);
+      const finalEfficiencyRate = round((personalityRate + technicalRate + speedRate) / 3);
+      const level = levelFor(finalEfficiencyRate);
+      const monthlyEfficiencyScore = level.score * workDays;
+
+      const dailyPerformance = data.dailyPerformance || {};
+      const perfRows = Object.values(dailyPerformance);
+      const salesCount = perfRows.reduce((sum,row)=>sum + (Number(row.salesCount)||0), 0);
+      const attendanceScore = perfRows.reduce((sum,row)=>sum + clamp(row.attendance,0,3), 0);
+      const appearanceScore = perfRows.reduce((sum,row)=>sum + clamp(row.appearance,0,3), 0);
+      const behaviorScore = perfRows.reduce((sum,row)=>sum + clamp(row.behavior,0,3), 0);
+      const customerScore = perfRows.reduce((sum,row)=>sum + clamp(row.customerRating,0,3), 0);
+      const maxPerf = Math.max(1, workDays * 3 * 4);
+      const performanceRate = round(((attendanceScore + appearanceScore + behaviorScore + customerScore) / maxPerf) * 100);
+      const finalKpiRate = round((finalEfficiencyRate * .7) + (performanceRate * .3));
+      const finalLevel = levelFor(finalKpiRate);
+      const repTotalScore = attendanceScore + appearanceScore + behaviorScore + monthlyEfficiencyScore + customerScore + salesCount;
+
+      return { workDays, totalDelay, delayDays, enteredDays, maxAllowedDelay, avgDelay:round(avgDelay), delayRate:round(delayRate), speedRate:round(speedRate), personalityRate, technicalRate, finalEfficiencyRate, level, monthlyEfficiencyScore, attendanceScore, appearanceScore, behaviorScore, customerScore, performanceRate, finalKpiRate, finalLevel, salesCount, repTotalScore };
+    }
+
+    function weekGroups(){
+      const dates = periodDates(false);
+      const weeks = [];
+      let current = [];
+      dates.forEach(info => {
+        if(info.date.getDay() === 6 && current.length){ weeks.push(current); current = []; }
+        current.push(info);
+        if(info.date.getDay() === 4){ weeks.push(current); current = []; }
+      });
+      if(current.length) weeks.push(current);
+      return weeks;
+    }
+
+    function metricTotalsForKpi(kpi){
+      const calc = calcFromData(kpi || {});
+      return {
+        attendance: calc.attendanceScore,
+        appearance: calc.appearanceScore,
+        behavior: calc.behaviorScore,
+        efficiency: calc.monthlyEfficiencyScore,
+        customerRating: calc.customerScore,
+        salesCount: calc.salesCount,
+        total: calc.repTotalScore,
+        calc
+      };
+    }
+
+    function managerRatingFor(rate){
+      const r = Number(rate) || 0;
+      if(r >= 100) return "ممتاز";
+      if(r >= 90) return "جيد جداً";
+      if(r >= 80) return "جيد";
+      if(r >= 70) return "مقبول";
+      if(r >= 50) return "ضعيف";
+      return "غير مناسب";
+    }
+
+    function buildBranchResultHtml(reps, branchName=""){
+      const rows = [
+        {key:"attendance", label:"تقييم إنضباط الحضور", group:"إنضباط الفرع"},
+        {key:"appearance", label:"تقييم إنضباط الهيئة", group:"إنضباط الفرع"},
+        {key:"behavior", label:"تقييم إنضباط السلوك", group:"إنضباط الفرع"},
+        {key:"efficiency", label:'تقييم الكفاءة <span class="red-text">(التميز)</span>', group:"تميز الفرع"},
+        {key:"customerRating", label:"تقييم العملاء", group:"قيمة الفرع"},
+        {key:"salesCount", label:"عدد المبيعات", group:"قيمة الفرع"}
+      ];
+      const repData = reps
+        .map(rep => ({ rep, kpi:findKpiFor(rep) || blankKpi(rep) }))
+        .map(x => ({...x, totals:metricTotalsForKpi(x.kpi)}));
+      const totalAll = repData.reduce((sum,x)=>sum+x.totals.total,0);
+      const repCount = Math.max(1, reps.length);
+      const rowTotals = Object.fromEntries(rows.map(r => [r.key, repData.reduce((sum,x)=>sum+(Number(x.totals[r.key])||0),0)]));
+      // نفس معادلات شيت "تحليل أداء - المندوب":
+      // انضباط الفرع = SUM(الحضور + الهيئة + السلوك) / (225 * عدد المناديب)
+      // تميز الفرع = تقييم الكفاءة / (75 * عدد المناديب)
+      // قيمة الفرع = SUM(تقييم العملاء + عدد المبيعات) / (80 * عدد المناديب)
+      const reportWorkDays = Number(el("workDaysInput")?.value || updateWorkDaysCount() || 1) || 1;
+      const branchDisciplineRate = clamp(((rowTotals.attendance + rowTotals.appearance + rowTotals.behavior) / Math.max(1, repCount * reportWorkDays * 9)) * 100, 0, 100);
+      const branchExcellenceRate = clamp((rowTotals.efficiency / Math.max(1, 3 * reportWorkDays * repCount)) * 100, 0, 100);
+      const branchValueRate = clamp(((rowTotals.customerRating + rowTotals.salesCount) / Math.max(1, repCount * 80)) * 100, 0, 100);
+      let html = '<div class="result-scroll"><table class="result-table"><thead><tr><th>الإجمالي</th>';
+      repData.forEach((x, idx) => { html += `<th>مندوب ${idx+1}<br><small>${escapeHtml(x.rep.name || x.rep.displayName || x.rep.email || "")}</small></th>`; });
+      html += '<th>البند</th><th>النسبة</th><th>التصنيف</th></tr></thead><tbody>';
+      rows.forEach((r, rowIdx) => {
+        const rowTotal = rowTotals[r.key] || 0;
+        html += `<tr><td class="total-cell">${round(rowTotal)}</td>`;
+        repData.forEach(x => { html += `<td>${round(Number(x.totals[r.key]) || 0)}</td>`; });
+        html += `<td>${r.label}</td>`;
+        if(rowIdx === 0) html += `<td rowspan="3"><span class="pill blue">${fmtPercent(branchDisciplineRate)}</span></td>`;
+        if(rowIdx === 3) html += `<td><span class="pill blue">${fmtPercent(branchExcellenceRate)}</span></td>`;
+        if(rowIdx === 4) html += `<td rowspan="2"><span class="pill blue">${fmtPercent(branchValueRate)}</span></td>`;
+        if(rowIdx === 0) html += '<td rowspan="3" class="gray">إنضباط الفرع</td>';
+        if(rowIdx === 3) html += '<td class="gray">تميز الفرع</td>';
+        if(rowIdx === 4) html += '<td rowspan="2" class="gray">قيمة الفرع</td>';
+        html += '</tr>';
+      });
+      html += `<tr><td class="total-cell">${round(totalAll)}</td>`;
+      repData.forEach(x => { html += `<td class="rep-total">${round(x.totals.total)}</td>`; });
+      html += '<td colspan="3" class="gray">إجمالي درجات المناديب خلال الشهر</td></tr>';
+      html += '</tbody></table></div>';
+
+      const managerScore = round((branchDisciplineRate + branchExcellenceRate + branchValueRate) / 3);
+      const managerRating = managerRatingFor(managerScore);
+      const best = repData.length ? repData.slice().sort((a,b)=>{
+        const totalDiff = (Number(b.totals.total)||0) - (Number(a.totals.total)||0);
+        if(totalDiff) return totalDiff;
+        return (Number(b.totals.calc?.finalKpiRate)||0) - (Number(a.totals.calc?.finalKpiRate)||0);
+      })[0] : null;
+      const bestName = best?.rep?.name || best?.rep?.displayName || best?.rep?.email || "-";
+      const bestKpiRate = best ? fmtPercent(best.totals.calc?.finalKpiRate || 0) : "-";
+      const bestTotalPoints = best ? round(best.totals.total || 0) : "-";
+      const bestRating = best ? (best.totals.calc?.finalLevel?.text || levelFor(best.totals.calc?.finalKpiRate || 0).text) : "-";
+      html += `
+        <div class="result-summary-grid">
+          <div class="result-summary-card">
+            <h4>مندوب الفرع</h4>
+            <div class="summary-line"><small>اسم المندوب</small><strong>${escapeHtml(bestName)}</strong></div>
+            <div class="summary-line"><small>نسبة KPi</small><strong>${escapeHtml(bestKpiRate)}</strong></div>
+            <div class="summary-line"><small>اجمالي النقاط</small><strong>${escapeHtml(bestTotalPoints)}</strong></div>
+            <div class="summary-line"><small>التقييم</small><strong>${escapeHtml(bestRating)}</strong></div>
+          </div>
+          <div class="result-summary-card">
+            <h4>مدير الفرع${branchName ? ` - ${escapeHtml(branchName)}` : ""}</h4>
+            <div class="summary-line"><small>درجة مدير الفرع</small><strong>${fmtPercent(managerScore)}</strong></div>
+            <div class="summary-line"><small>تقييمه</small><strong>${escapeHtml(managerRating)}</strong></div>
+            <div class="rating-scale">
+              <div><span>أقل من 49%</span>غير مناسب</div>
+              <div><span>50%</span>ضعيف</div>
+              <div><span>70%</span>مقبول</div>
+              <div><span>80%</span>جيد</div>
+              <div><span>90%</span>جيد جداً</div>
+              <div><span>100%</span>ممتاز</div>
+            </div>
+            <p class="muted">درجة مدير الفرع = متوسط نسب إنضباط الفرع، تميز الفرع، وقيمة الفرع حسب المعادلات المحددة للفترة وعدد مناديب الفرع.</p>
+          </div>
+        </div>
+      `;
+      return html;
+    }
+
+    function renderBranchResult(reps){
+      const branch = selectedBranch();
+      el("branchReportName").textContent = branch ? branchLabel(branch) : "كل الفروع";
+      el("branchReportPeriod").textContent = currentPeriodLabel();
+      const wrap = el("branchResultWrap");
+      if(!reps.length){
+        wrap.innerHTML = '<div class="empty-state">لا يوجد مناديب لعرض تقرير النتيجة.</div>';
+        return;
+      }
+      if(!branch){
+        const grouped = new Map();
+        reps.forEach(rep => {
+          const repBranch = branchForRep(rep) || {id:"بدون فرع", name:"بدون فرع"};
+          const key = repBranch.id || branchLabel(repBranch) || "بدون فرع";
+          if(!grouped.has(key)) grouped.set(key, {branch:repBranch, reps:[]});
+          grouped.get(key).reps.push(rep);
+        });
+        wrap.innerHTML = Array.from(grouped.values()).map(group => {
+          const name = branchLabel(group.branch) || "بدون فرع";
+          return `
+            <section class="branch-report-block">
+              <div class="branch-report-subtitle">
+                <div>
+                  <h4>تقرير نتيجة مدير الفرع / ${escapeHtml(name)}</h4>
+                  <p>هذا التقرير خاص بفرع ${escapeHtml(name)} فقط.</p>
+                </div>
+                <span class="count-badge">${group.reps.length} مندوب</span>
+              </div>
+              ${buildBranchResultHtml(group.reps, name)}
+            </section>
+          `;
+        }).join("");
+        return;
+      }
+      wrap.innerHTML = buildBranchResultHtml(reps, branchLabel(branch));
+    }
+
+    function renderRepResult(){
+      const wrap = el("repResultWrap");
+      if(!selectedKpi){ wrap.innerHTML = ""; return; }
+      const totals = metricTotalsForKpi(selectedKpi);
+      wrap.innerHTML = `
+        <table class="result-table">
+          <thead><tr><th class="dark">البند</th><th>الدرجة</th></tr></thead>
+          <tbody>
+            <tr><td>تقييم إنضباط الحضور</td><td>${totals.attendance}</td></tr>
+            <tr><td>تقييم إنضباط الهيئة</td><td>${totals.appearance}</td></tr>
+            <tr><td>تقييم إنضباط السلوك</td><td>${totals.behavior}</td></tr>
+            <tr><td>تقييم الكفاءة <span class="red-text">(التميز)</span></td><td>${totals.efficiency}</td></tr>
+            <tr><td>تقييم العملاء</td><td>${totals.customerRating}</td></tr>
+            <tr><td>عدد المبيعات</td><td>${totals.salesCount}</td></tr>
+            <tr><td class="black">الإجمالي</td><td class="total-cell">${totals.total}</td></tr>
+          </tbody>
+        </table>
+      `;
+    }
+
+    function allRepsForSelectedBranch(){
+      const branch = selectedBranch();
+      const dept = el("departmentFilter") ? el("departmentFilter").value : "";
+      const targetBranches = branch ? [branch] : availableBranches;
+      if(!targetBranches.length) return [];
+      const depts = dept ? [dept] : ["cash_sales","finance_sales"];
+      const rows = [];
+      targetBranches.forEach(b => {
+        depts.forEach(d => usersForBranchDepartment(b, d).forEach(u => rows.push({
+          ...u,
+          kpiDepartment:d,
+          kpiBranchId:b.id,
+          kpiBranchName:branchLabel(b)
+        })));
+      });
+      const seen = new Set();
+      return rows.filter(u => {
+        const key = repRowKey(u);
+        if(seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).sort((a,b) => {
+        const branchCompare = String(a.kpiBranchName || "").localeCompare(String(b.kpiBranchName || ""), "ar");
+        if(branchCompare) return branchCompare;
+        return String(a.name || a.email).localeCompare(String(b.name || b.email), "ar");
+      });
+    }
+
+    function fillRepFilter(reps){
+      const select = el("repFilter");
+      if(!select) return;
+      const prev = select.value;
+      select.innerHTML = '<option value="">كل المناديب</option>' + reps.map(rep => {
+        const key = repRowKey(rep);
+        const uid = rep.uid || rep.id;
+        const name = rep.name || rep.displayName || rep.email || uid;
+        const branchName = rep.kpiBranchName ? ` - ${rep.kpiBranchName}` : "";
+        return `<option value="${escapeHtml(key)}">${escapeHtml(name + branchName)}</option>`;
+      }).join("");
+      select.value = prev && reps.some(rep => repRowKey(rep) === prev) ? prev : "";
+    }
+
+    function repsForSelectedBranch(){
+      const allReps = allRepsForSelectedBranch();
+      fillRepFilter(allReps);
+      const selectedKey = el("repFilter") ? el("repFilter").value : "";
+      if(!selectedKey) return allReps;
+      return allReps.filter(rep => repRowKey(rep) === selectedKey);
+    }
+
+    function render(){
+      if(!currentUser) return;
+      fillBranches();
+      const branch = selectedBranch();
+      updateWorkDaysCount();
+      const reps = repsForSelectedBranch();
+      renderBranchResult(reps);
+      el("countBadge").textContent = reps.length + " مندوب";
+      el("totalReps").textContent = reps.length;
+      const body = el("repsBody");
+      if(!availableBranches.length){
+        body.innerHTML = '<tr><td colspan="9" class="empty-state">لا توجد فروع مسجلة في النظام.</td></tr>';
+        return;
+      }
+      if(!reps.length){
+        body.innerHTML = '<tr><td colspan="9" class="empty-state">لا يوجد مناديب كاش أو تمويل مطابقين للفلاتر المحددة.</td></tr>';
+      }else{
+        body.innerHTML = reps.map(rep => {
+          const kpi = findKpiFor(rep);
+          const calc = calcFromData(kpi || {workDays:el("workDaysInput").value});
+          const speedLevel = levelFor(calc.speedRate);
+          const effLevel = levelFor(calc.finalEfficiencyRate);
+          const finalLevel = levelFor(calc.finalKpiRate);
+          return `
+            <tr>
+              <td><div class="rep-name">${escapeHtml(rep.name || rep.displayName || rep.email || rep.uid)}</div><div class="muted">${escapeHtml(rep.email || "")}</div></td>
+              <td>${escapeHtml(departmentLabel(rep.kpiDepartment || rep.department))}</td>
+              <td>${escapeHtml(rep.kpiBranchName || branchLabel(branchForRep(rep)) || "")}</td>
+              <td><span class="pill ${speedLevel.cls}">${fmtPercent(calc.speedRate)}</span></td>
+              <td><span class="pill ${effLevel.cls}">${fmtPercent(calc.finalEfficiencyRate)}</span></td>
+              <td><span class="pill gray">${fmtPercent(calc.performanceRate)}</span></td>
+              <td><span class="pill ${finalLevel.cls}">${fmtPercent(calc.finalKpiRate)} - ${finalLevel.text}</span></td>
+              <td>${statusPill(kpi?.status || "draft")}</td>
+              <td><div class="row-actions"><button class="primary" type="button" data-open-rep="${escapeHtml(repRowKey(rep))}">تقييم</button></div></td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      const existingKpis = reps.map(r => findKpiFor(r)).filter(Boolean);
+      const existing = existingKpis.map(k => calcFromData(k));
+      const avgSpeed = existing.length ? round(existing.reduce((s,c)=>s+c.speedRate,0)/existing.length) : 0;
+      const avgEff = existing.length ? round(existing.reduce((s,c)=>s+c.finalEfficiencyRate,0)/existing.length) : 0;
+      const totalsRows = existingKpis.map(k => metricTotalsForKpi(k));
+      const totalAttendance = totalsRows.reduce((sum,x)=>sum + (Number(x.attendance)||0), 0);
+      const totalAppearance = totalsRows.reduce((sum,x)=>sum + (Number(x.appearance)||0), 0);
+      const totalBehavior = totalsRows.reduce((sum,x)=>sum + (Number(x.behavior)||0), 0);
+      const totalCustomers = totalsRows.reduce((sum,x)=>sum + (Number(x.customerRating)||0), 0);
+      const totalSales = totalsRows.reduce((sum,x)=>sum + (Number(x.salesCount)||0), 0);
+      const evaluatedCount = Math.max(1, totalsRows.length);
+      const summaryWorkDays = Number(el("workDaysInput")?.value || updateWorkDaysCount() || 1) || 1;
+      const avgDiscipline = totalsRows.length ? clamp(((totalAttendance + totalAppearance + totalBehavior) / Math.max(1, evaluatedCount * summaryWorkDays * 9)) * 100, 0, 100) : 0;
+      const avgValue = totalsRows.length ? clamp(((totalCustomers + totalSales) / Math.max(1, evaluatedCount * 80)) * 100, 0, 100) : 0;
+      el("avgSpeed").textContent = fmtPercent(avgSpeed);
+      el("avgEfficiency").textContent = fmtPercent(avgEff);
+      el("avgDiscipline").textContent = fmtPercent(avgDiscipline);
+      el("avgValue").textContent = fmtPercent(avgValue);
+
+      body.querySelectorAll("[data-open-rep]").forEach(btn => {
+        btn.onclick = () => {
+          const rep = reps.find(r => repRowKey(r) === btn.dataset.openRep);
+          if(rep) openModal(rep);
+        };
+      });
+    }
+
+    function syncModalPeriodControls(){
+      if(!el("modalMonthFilter")) return;
+      el("modalMonthFilter").value = el("monthFilter").value || defaultMonth();
+      el("modalDateFromFilter").value = el("dateFromFilter").value || monthStartEnd(el("modalMonthFilter").value).from;
+      el("modalDateToFilter").value = el("dateToFilter").value || monthStartEnd(el("modalMonthFilter").value).to;
+      el("modalWorkDaysInput").value = updateWorkDaysCount();
+    }
+
+    function applyModalPeriodToPage(){
+      if(!el("modalMonthFilter")) return;
+      el("monthFilter").value = el("modalMonthFilter").value || defaultMonth();
+      el("dateFromFilter").value = el("modalDateFromFilter").value || monthStartEnd(el("monthFilter").value).from;
+      el("dateToFilter").value = el("modalDateToFilter").value || monthStartEnd(el("monthFilter").value).to;
+      el("modalWorkDaysInput").value = updateWorkDaysCount();
+    }
+
+    function reloadSelectedRepForModalPeriod(){
+      if(!selectedRep) return;
+      applyModalPeriodToPage();
+      selectedKpi = structuredClone(findKpiFor(selectedRep) || blankKpi(selectedRep));
+      selectedKpi.periodFrom = el("dateFromFilter").value || selectedKpi.periodFrom || monthStartEnd(el("monthFilter").value || defaultMonth()).from;
+      selectedKpi.periodTo = el("dateToFilter").value || selectedKpi.periodTo || monthStartEnd(el("monthFilter").value || defaultMonth()).to;
+      selectedKpi.workDays = updateWorkDaysCount();
+      buildDelayInputs();
+      buildPerformanceInputs();
+      fillEfficiencyInputs();
+      updateModalLockState();
+      calculateModal();
+      render();
+    }
+
+    function blankKpi(rep){
+      const branch = branchForRep(rep);
+      return {
+        branchId: branch?.id || "",
+        branchName: branchLabel(branch),
+        repUid: rep.uid || rep.id,
+        repName: rep.name || rep.displayName || rep.email || "",
+        repEmail: rep.email || "",
+        repDepartment: rep.kpiDepartment || normalizeDepartment(rep.department),
+        month: el("monthFilter").value || defaultMonth(),
+        periodFrom: el("dateFromFilter").value || monthStartEnd(el("monthFilter").value || defaultMonth()).from,
+        periodTo: el("dateToFilter").value || monthStartEnd(el("monthFilter").value || defaultMonth()).to,
+        workDays: updateWorkDaysCount(),
+        speed:{ maxAllowedMinutes:3, dailyDelays:{} },
+        efficiency:{
+          personality:{ customerFitHonesty:0, carNotesHonesty:0 },
+          technical:{ currentPrices:0, oldPrices:0, carSpecs:0, competitorsComparison:0, salesChannels:0 }
+        },
+        dailyPerformance:{},
+        status:"draft"
+      };
+    }
+
+    function openModal(rep){
+      selectedRep = rep;
+      selectedKpi = structuredClone(findKpiFor(rep) || blankKpi(rep));
+      selectedKpi.periodFrom = el("dateFromFilter").value || selectedKpi.periodFrom || monthStartEnd(el("monthFilter").value || defaultMonth()).from;
+      selectedKpi.periodTo = el("dateToFilter").value || selectedKpi.periodTo || monthStartEnd(el("monthFilter").value || defaultMonth()).to;
+      selectedKpi.workDays = updateWorkDaysCount();
+      syncModalPeriodControls();
+      el("modalTitle").textContent = `تقييم ${rep.name || rep.displayName || rep.email || "مندوب"}`;
+      el("modalMeta").textContent = `${departmentLabel(rep.kpiDepartment || rep.department)} - ${branchLabel(branchForRep(rep))} - ${el("monthFilter").value}`;
+      buildDelayInputs();
+      buildPerformanceInputs();
+      fillEfficiencyInputs();
+      updateModalLockState();
+      calculateModal();
+      el("kpiModal").classList.remove("hidden");
+    }
+
+    function updateModalLockState(){
+      const locked = ["approved","locked"].includes(selectedKpi?.status) && !isAdmin;
+      el("lockNote").classList.toggle("hidden", !locked);
+      el("saveDraftBtn").disabled = locked;
+      el("finalSaveBtn").disabled = locked;
+      document.querySelectorAll("#kpiModal input").forEach(i => { i.disabled = locked; i.classList.toggle("locked-input", locked); });
+    }
+
+    function closeModal(){
+      el("kpiModal").classList.add("hidden");
+      selectedRep = null;
+      selectedKpi = null;
+    }
+
+    function buildDelayInputs(){
+      const grid = el("delayDaysGrid");
+      const daily = selectedKpi.speed?.dailyDelays || {};
+      const explicitEnteredDates = Array.isArray(selectedKpi.speed?.delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : null;
+      const enteredSet = new Set(explicitEnteredDates || []);
+      const groups = weekGroups();
+      grid.innerHTML = groups.map((week, idx) => `
+        <div class="week-card">
+          <div class="week-title">الأسبوع ${idx + 1} <span class="muted">من السبت إلى الخميس - الجمعة مستبعدة</span></div>
+          <div class="week-days">
+            ${week.map(info => {
+              const hasOldAutoZero = !explicitEnteredDates && Object.prototype.hasOwnProperty.call(daily, info.key) && Number(daily[info.key]) === 0;
+              const shouldShowValue = explicitEnteredDates ? enteredSet.has(info.key) : (Object.prototype.hasOwnProperty.call(daily, info.key) && !hasOldAutoZero);
+              const value = shouldShowValue ? (daily[info.key] ?? 0) : '';
+              return `
+                <div class="day-box">
+                  <span class="day-name">${info.dayName}</span>
+                  <span class="day-date">${info.key}</span>
+                  <input class="delay-input" data-date="${info.key}" type="number" min="0" step="0.5" value="${value}">
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `).join("");
+      grid.querySelectorAll("input").forEach(input => input.oninput = () => { syncModalData(); calculateModal(); });
+    }
+
+    function buildPerformanceInputs(){
+      const grid = el("performanceDaysGrid");
+      const daily = selectedKpi.dailyPerformance || {};
+      const groups = weekGroups();
+      grid.innerHTML = groups.map((week, idx) => `
+        <div class="week-card">
+          <div class="week-title">الأسبوع ${idx + 1} <span class="muted">السبت إلى الخميس - الجمعة لا تدخل في الحسبة</span></div>
+          <div class="week-days">
+            ${week.map(info => {
+              const row = daily[info.key] || {};
+              return `
+                <div class="day-box">
+                  <span class="day-name">${info.dayName}</span>
+                  <span class="day-date">${info.key}</span>
+                  <label class="input-label">تقييم إنضباط الحضور</label><input class="perf-input" data-date="${info.key}" data-field="attendance" type="number" min="0" max="3" value="${row.attendance ?? 0}" title="تقييم إنضباط الحضور" placeholder="0 إلى 3">
+                  <label class="input-label">تقييم إنضباط الهيئة</label><input class="perf-input" data-date="${info.key}" data-field="appearance" type="number" min="0" max="3" value="${row.appearance ?? 0}" title="تقييم إنضباط الهيئة" placeholder="0 إلى 3">
+                  <label class="input-label">تقييم إنضباط السلوك</label><input class="perf-input" data-date="${info.key}" data-field="behavior" type="number" min="0" max="3" value="${row.behavior ?? 0}" title="تقييم إنضباط السلوك" placeholder="0 إلى 3">
+                  <label class="input-label">تقييم العملاء</label><input class="perf-input" data-date="${info.key}" data-field="customerRating" type="number" min="0" max="3" value="${row.customerRating ?? 0}" title="تقييم العملاء" placeholder="0 إلى 3">
+                  <label class="input-label">عدد المبيعات</label><input class="perf-input" data-date="${info.key}" data-field="salesCount" type="number" min="0" value="${row.salesCount ?? 0}" title="عدد المبيعات" placeholder="0">
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `).join("");
+      grid.querySelectorAll("input").forEach(input => input.oninput = () => { syncModalData(); calculateModal(); });
+    }
+
+    function fillEfficiencyInputs(){
+      const p = selectedKpi.efficiency?.personality || {};
+      const t = selectedKpi.efficiency?.technical || {};
+      el("customerFitHonesty").value = p.customerFitHonesty ?? 0;
+      el("carNotesHonesty").value = p.carNotesHonesty ?? 0;
+      el("currentPrices").value = t.currentPrices ?? 0;
+      el("oldPrices").value = t.oldPrices ?? 0;
+      el("carSpecs").value = t.carSpecs ?? 0;
+      el("competitorsComparison").value = t.competitorsComparison ?? 0;
+      el("salesChannels").value = t.salesChannels ?? 0;
+      document.querySelectorAll(".calc-field").forEach(input => input.oninput = () => { syncModalData(); calculateModal(); });
+    }
+
+    function syncModalData(){
+      if(!selectedKpi) return;
+      selectedKpi.periodFrom = el("dateFromFilter").value || selectedKpi.periodFrom || "";
+      selectedKpi.periodTo = el("dateToFilter").value || selectedKpi.periodTo || "";
+      selectedKpi.workDays = updateWorkDaysCount();
+      selectedKpi.speed = selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{}};
+      selectedKpi.speed.dailyDelays = {};
+      selectedKpi.speed.delayEnteredDates = [];
+      document.querySelectorAll(".delay-input").forEach(input => {
+        const raw = String(input.value ?? "").trim();
+        if(raw !== ""){
+          selectedKpi.speed.dailyDelays[input.dataset.date] = Number(raw) || 0;
+          selectedKpi.speed.delayEnteredDates.push(input.dataset.date);
+        }
+      });
+      selectedKpi.efficiency = selectedKpi.efficiency || {};
+      selectedKpi.efficiency.personality = {
+        customerFitHonesty: clamp(el("customerFitHonesty").value),
+        carNotesHonesty: clamp(el("carNotesHonesty").value)
+      };
+      selectedKpi.efficiency.technical = {
+        currentPrices: clamp(el("currentPrices").value),
+        oldPrices: clamp(el("oldPrices").value),
+        carSpecs: clamp(el("carSpecs").value),
+        competitorsComparison: clamp(el("competitorsComparison").value),
+        salesChannels: clamp(el("salesChannels").value)
+      };
+      selectedKpi.dailyPerformance = {};
+      document.querySelectorAll(".perf-input").forEach(input => {
+        const date = input.dataset.date;
+        const field = input.dataset.field;
+        selectedKpi.dailyPerformance[date] = selectedKpi.dailyPerformance[date] || {};
+        selectedKpi.dailyPerformance[date][field] = field === "salesCount" ? (Number(input.value)||0) : clamp(input.value,0,3);
+      });
+    }
+
+    function calculateModal(){
+      syncModalData();
+      const calc = calcFromData(selectedKpi || {});
+      el("calcDelay").textContent = calc.avgDelay + " دقيقة";
+      el("calcSpeed").textContent = fmtPercent(calc.speedRate);
+      el("speedTotalDelay").textContent = calc.totalDelay + " دقيقة";
+      el("speedDelayDays").textContent = calc.enteredDays;
+      el("speedAvgNoZero").textContent = calc.avgDelay + " دقيقة";
+      el("speedMaxAllowedBox").textContent = (calc.maxAllowedDelay || 3) + " دقائق";
+      el("speedDelayRateBox").textContent = fmtPercent(calc.delayRate);
+      el("speedResultBox").textContent = fmtPercent(calc.speedRate);
+      el("effSpeedMirror").textContent = fmtPercent(calc.speedRate);
+      el("calcEfficiency").textContent = fmtPercent(calc.finalEfficiencyRate);
+      el("calcFinal").textContent = fmtPercent(calc.finalKpiRate);
+      el("calcLevel").textContent = calc.level.text;
+      el("calcLevelScore").textContent = calc.level.score;
+      el("calcMonthlyScore").textContent = calc.monthlyEfficiencyScore;
+      el("calcSales").textContent = calc.salesCount;
+      selectedKpi.speed.averageDelayMinutes = calc.avgDelay;
+      selectedKpi.speed.delayRate = calc.delayRate;
+      selectedKpi.speed.speedRate = calc.speedRate;
+      selectedKpi.efficiency.personalityRate = calc.personalityRate;
+      selectedKpi.efficiency.technicalRate = calc.technicalRate;
+      selectedKpi.efficiency.speedRate = calc.speedRate;
+      selectedKpi.efficiency.finalEfficiencyRate = calc.finalEfficiencyRate;
+      selectedKpi.efficiency.levelText = calc.level.text;
+      selectedKpi.efficiency.levelScore = calc.level.score;
+      selectedKpi.efficiency.monthlyEfficiencyScore = calc.monthlyEfficiencyScore;
+      selectedKpi.finalKpi = {
+        rate: calc.finalKpiRate,
+        levelText: calc.finalLevel.text,
+        levelScore: calc.finalLevel.score,
+        performanceRate: calc.performanceRate,
+        totalSales: calc.salesCount,
+        attendanceScore: calc.attendanceScore,
+        appearanceScore: calc.appearanceScore,
+        behaviorScore: calc.behaviorScore,
+        customerScore: calc.customerScore,
+        repTotalScore: calc.repTotalScore
+      };
+      renderRepResult();
+    }
+
+    async function saveKpi(status="draft"){
+      if(!selectedRep || !selectedKpi) return;
+      if(["approved","locked"].includes(selectedKpi.status) && !isAdmin) return toast("لا يمكن تعديل تقييم تم حفظه نهائيًا إلا من الإدارة العامة");
+      applyModalPeriodToPage();
+      calculateModal();
+      const month = el("monthFilter").value || defaultMonth();
+      const branch = branchForRep(selectedRep);
+      if(!branch?.id) return toast("اختر فرع المندوب قبل الحفظ");
+      const id = kpiDocId(month, branch.id, selectedRep.uid || selectedRep.id);
+      const payload = {
+        ...selectedKpi,
+        id,
+        month,
+        periodFrom: el("dateFromFilter").value || "",
+        periodTo: el("dateToFilter").value || "",
+        workDays: updateWorkDaysCount(),
+        branchId: branch.id,
+        branchName: branchLabel(branch),
+        repUid: selectedRep.uid || selectedRep.id,
+        repName: selectedRep.name || selectedRep.displayName || selectedRep.email || "",
+        repEmail: selectedRep.email || "",
+        repDepartment: selectedRep.kpiDepartment || normalizeDepartment(selectedRep.department),
+        status,
+        updatedByUid: currentUser.uid,
+        updatedByName: currentProfile?.name || currentUser.email || "",
+        updatedAt: serverTimestamp()
+      };
+      if(!selectedKpi.createdAt){
+        payload.createdByUid = currentUser.uid;
+        payload.createdByName = currentProfile?.name || currentUser.email || "";
+        payload.createdAt = serverTimestamp();
+      }
+      if(["approved","locked"].includes(status)){
+        payload.approvedByUid = currentUser.uid;
+        payload.approvedByName = currentProfile?.name || currentUser.email || "";
+        payload.approvedAt = serverTimestamp();
+      }
+      await setDoc(doc(db,"sales_reps_kpis",id), payload, {merge:true});
+      selectedKpi.status = status;
+      toast(status === "locked" ? "تم حفظ تقييم الشهر وقفل التعديل" : "تم حفظ التقييم كمسودة");
+      updateModalLockState();
+      render();
+    }
+
+    function clearModalInputs(){
+      if(!selectedRep) return;
+      selectedKpi = blankKpi(selectedRep);
+      buildDelayInputs();
+      buildPerformanceInputs();
+      fillEfficiencyInputs();
+      calculateModal();
+      toast("تم تفريغ المدخلات على الشاشة فقط");
+    }
+
+
+    function tabTitleById(tabId){
+      const titles = {
+        speedTab:"تقييم السرعة - دقائق التأخير اليومية",
+        efficiencyTab:"تقييم الكفاءة",
+        performanceTab:"تحليل الأداء اليومي",
+        resultTab:"النتيجة المحسوبة",
+        all:"تقرير التقييم الكامل"
+      };
+      return titles[tabId] || "تقرير التقييم";
+    }
+
+    function tabIntroById(tabId){
+      const intros = {
+        speedTab:"يوضح هذا القسم أيام التأخير، إجمالي دقائق التأخير، متوسط التأخير، نسبة التأخير، ونسبة سرعة المندوب خلال الفترة.",
+        efficiencyTab:"يوضح هذا القسم عناصر كفاءة المندوب الشخصية والفنية، مع نتيجة السرعة ومتوسط كفاءة المندوب.",
+        performanceTab:"يوضح هذا القسم تحليل الأداء اليومي من حيث الحضور، الهيئة، السلوك، تقييم العملاء، وعدد المبيعات.",
+        resultTab:"يوضح هذا القسم ملخص النتيجة المحسوبة وإجمالي درجات المندوب خلال الفترة."
+      };
+      return intros[tabId] || "";
+    }
+
+    function cloneForPdf(node, tabId){
+      const clone = node.cloneNode(true);
+      const sourceInputs = node.querySelectorAll("input, textarea, select");
+      const clonedInputs = clone.querySelectorAll("input, textarea, select");
+      sourceInputs.forEach((input, index) => {
+        const cloned = clonedInputs[index];
+        if(!cloned) return;
+        if(input.tagName === "SELECT"){
+          [...cloned.options].forEach(opt => { opt.selected = opt.value === input.value; });
+        }else if(input.type === "checkbox" || input.type === "radio"){
+          cloned.checked = input.checked;
+          if(input.checked) cloned.setAttribute("checked", "checked");
+          else cloned.removeAttribute("checked");
+        }else{
+          cloned.value = input.value;
+          cloned.setAttribute("value", input.value);
+        }
+      });
+      clone.querySelectorAll(":scope > .section-title, :scope > .section-note").forEach(n => n.remove());
+      if(tabId === "performanceTab"){
+        mergePerformanceWeekFive(clone);
+      }
+      return clone;
+    }
+
+    function mergePerformanceWeekFive(root){
+      const weekCards = Array.from(root.querySelectorAll(".week-card"));
+      if(weekCards.length < 5) return;
+      const week4 = weekCards[3];
+      const week5 = weekCards[4];
+      const title4 = week4.querySelector(".week-title");
+      if(title4){
+        title4.innerHTML = 'الأسبوع 4 و 5 <span class="muted">السبت إلى الخميس - الجمعة لا تدخل في الحسبة</span>';
+      }
+      const days4 = week4.querySelector(".week-days");
+      const days5 = week5.querySelector(".week-days");
+      if(days4 && days5){
+        Array.from(days5.children).forEach(child => days4.appendChild(child));
+        week5.remove();
+      }
+    }
+
+    function buildPdfSection(tabId){
+      const panel = el(tabId);
+      if(!panel) return "";
+      const clone = cloneForPdf(panel, tabId);
+      clone.classList.add("active");
+      clone.style.display = "block";
+      const intro = tabIntroById(tabId);
+      return `
+        <section class="pdf-section pdf-${tabId}">
+          <div class="pdf-section-heading">
+            <div class="pdf-section-icon">${tabId === "speedTab" ? "01" : tabId === "efficiencyTab" ? "02" : tabId === "performanceTab" ? "03" : "04"}</div>
+            <div>
+              <h2>${escapeHtml(tabTitleById(tabId))}</h2>
+              ${intro ? `<p>${escapeHtml(intro)}</p>` : ""}
+            </div>
+          </div>
+          <div class="pdf-section-content">${clone.innerHTML}</div>
+        </section>`;
+    }
+
+    function buildPdfHtml(contentHtml, reportTitle, target){
+      const repName = selectedRep ? (selectedRep.name || selectedRep.displayName || selectedRep.email || "مندوب") : "مندوب";
+      const branchName = selectedRep ? (branchLabel(branchForRep(selectedRep)) || "") : (branchLabel(selectedBranch()) || "");
+      const deptName = selectedRep ? departmentLabel(selectedRep.kpiDepartment || selectedRep.department) : "";
+      const period = `${el("dateFromFilter").value || ""} إلى ${el("dateToFilter").value || ""}`;
+      const month = el("monthFilter").value || "";
+      const generatedAt = new Date().toLocaleString("ar-EG");
+      return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(reportTitle)} - ${escapeHtml(repName)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;background:#eef2f7;color:#111827;font-family:'Tajawal',Tahoma,Arial,sans-serif;direction:rtl;}
+  .pdf-page{width:100%;max-width:none;margin:0 auto;background:#fff;min-height:100vh;padding:4px;}
+  .pdf-cover{background:linear-gradient(135deg,#111827,#1f2937);color:#fff;border-radius:14px;padding:8px 12px;margin-bottom:6px;position:relative;overflow:hidden;}
+  .pdf-cover:after{content:"";position:absolute;inset:auto -45px -65px auto;width:145px;height:145px;background:rgba(255,255,255,.07);border-radius:50%;}
+  .pdf-brand{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
+  .pdf-brand-mark{width:38px;height:38px;border-radius:12px;background:#fff;color:#111827;display:grid;place-items:center;font-weight:900;letter-spacing:.5px;font-size:12px;}
+  .pdf-brand small{display:block;color:#cbd5e1;font-weight:800;margin-top:4px;}
+  .pdf-cover h1{margin:0;font-size:18px;line-height:1.25;}
+  .pdf-cover p{margin:3px 0 0;color:#dbeafe;font-weight:700;font-size:11px;}
+  .pdf-meta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:5px;}
+  .pdf-meta{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:5px 7px;}
+  .pdf-meta span{display:block;color:#cbd5e1;font-size:9px;font-weight:800;margin-bottom:2px;}
+  .pdf-meta strong{display:block;color:#fff;font-size:11px;}
+  .pdf-section{border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;margin:0 0 8px;background:#fff;page-break-inside:auto;box-shadow:0 5px 16px rgba(15,23,42,.035);}
+  .pdf-section-heading{display:flex;gap:8px;align-items:center;background:linear-gradient(180deg,#f8fafc,#eef2ff);border-bottom:1px solid #e5e7eb;padding:8px 10px;}
+  .pdf-section-icon{width:32px;height:32px;border-radius:10px;background:#111827;color:#fff;display:grid;place-items:center;font-weight:900;font-size:12px;flex:0 0 auto;}
+  .pdf-section-heading h2{margin:0;font-size:15px;color:#111827;}
+  .pdf-section-heading p{margin:2px 0 0;color:#64748b;font-size:9px;font-weight:700;line-height:1.35;}
+  .pdf-section-content{padding:8px;}
+  .section-title{font-size:16px;font-weight:900;margin:0 0 10px;color:#111827;}
+  .section-note,.muted{color:#64748b;font-size:10px;line-height:1.35;}
+  .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+  .kpi-card,.week-card,.calc-box,.speed-total-box,.inline-result-box,.rep-result-card,.modal-period-card{border:1px solid #e5e7eb;border-radius:10px;padding:6px;background:#fff;margin-bottom:6px;page-break-inside:avoid;break-inside:avoid;}
+  .week-title{font-weight:900;margin-bottom:5px;color:#111827;font-size:11px;}
+  .week-days{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;}
+  .day-box{border:1px solid #e5e7eb;border-radius:8px;padding:4px;background:#f8fafc;page-break-inside:avoid;break-inside:avoid;}
+  .day-name,.day-date,.input-label,.field label{display:block;color:#64748b;font-size:8.5px;font-weight:800;margin-bottom:2px;}
+  input,select,textarea{width:100%;border:1px solid #d1d5db;border-radius:6px;padding:3px 5px;background:#fff;font-family:inherit;color:#111827;font-size:10px;}
+  .speed-total-panel,.calc-row{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:6px;}
+  .speed-total-box,.calc-box,.inline-result-box{background:#f8fafc;}
+  .speed-total-box small,.calc-box small,.inline-result-box small{display:block;color:#64748b;font-weight:800;font-size:9px;}
+  .speed-total-box strong,.calc-box strong,.inline-result-box strong{display:block;font-size:14px;margin-top:3px;color:#111827;}
+  .result-scroll{overflow:visible;border:1px solid #e5e7eb;border-radius:12px;}
+  table{width:100%;border-collapse:collapse;background:#fff;}
+  th,td{border:1px solid #e5e7eb;padding:4px;text-align:center;font-weight:800;white-space:normal;font-size:9.5px;}
+  th{background:#f8fafc;color:#334155;}
+  .total-cell,.black,.dark{background:#111827!important;color:#fff!important;}
+  .rep-total{background:#eef2ff;color:#1e3a8a;}
+  .pill{display:inline-block;border-radius:999px;padding:4px 8px;background:#f1f5f9;color:#334155;font-weight:800;}
+  .hidden,.tabs,.pdf-export-toolbar,.modal-foot,.modal-backdrop,.modal-head button{display:none!important;}
+  .pdf-footer{margin-top:6px;border-top:1px solid #e5e7eb;padding-top:5px;color:#64748b;font-size:9px;font-weight:800;display:flex;justify-content:space-between;gap:10px;}
+  .pdf-full-report .pdf-section{min-height:auto;page-break-after:auto;break-after:auto;page-break-inside:auto;break-inside:auto;}
+  .pdf-full-report .pdf-section + .pdf-section{page-break-before:always;break-before:page;}
+  .pdf-full-report .pdf-section:first-of-type{page-break-before:auto;break-before:auto;}
+  .pdf-full-report .pdf-section:last-of-type{page-break-after:auto;break-after:auto;}
+  .pdf-single-report .pdf-section{min-height:auto;}
+  .pdf-section-content{overflow:visible;}
+  .pdf-performanceTab .week-card{padding:4px;margin-bottom:4px;}
+  .pdf-performanceTab .week-title{font-size:10px;margin-bottom:3px;}
+  .pdf-performanceTab .week-days{gap:3px;}
+  .pdf-performanceTab .day-box{padding:3px;}
+  .pdf-performanceTab .input-label,.pdf-performanceTab .day-name,.pdf-performanceTab .day-date{font-size:7.5px;margin-bottom:1px;}
+  .pdf-performanceTab input{font-size:8px;padding:2px 4px;border-radius:5px;}
+  @media print{body{background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact;} .pdf-page{max-width:none;padding:0;} .pdf-cover{page-break-inside:avoid;break-inside:avoid;} .pdf-section-heading,.week-card,.kpi-card,.result-summary-card{page-break-inside:avoid;break-inside:avoid;} @page{size:A4 landscape;margin:0;}}
+</style>
+</head>
+<body>
+  <main class="pdf-page ${target === "all" ? "pdf-full-report" : "pdf-single-report"}">
+    <header class="pdf-cover">
+      <div class="pdf-brand">
+        <div>
+          <h1>${escapeHtml(reportTitle)}</h1>
+          <p>${target === "all" ? "تقرير كامل لكل تبويبات تقييم المندوب" : "تقرير تفصيلي للتبويب المحدد"}</p>
+        </div>
+        <div class="pdf-brand-mark">MZJ</div>
+      </div>
+      <div class="pdf-meta-grid">
+        <div class="pdf-meta"><span>المندوب</span><strong>${escapeHtml(repName)}</strong></div>
+        <div class="pdf-meta"><span>القسم</span><strong>${escapeHtml(deptName)}</strong></div>
+        <div class="pdf-meta"><span>الفرع</span><strong>${escapeHtml(branchName)}</strong></div>
+        <div class="pdf-meta"><span>الشهر / الفترة</span><strong>${escapeHtml(month)} | ${escapeHtml(period)}</strong></div>
+      </div>
+    </header>
+    ${contentHtml}
+    <footer class="pdf-footer"><span>تم إنشاء التقرير من نظام MZJ CRM</span><span>${escapeHtml(generatedAt)}</span></footer>
+  </main>
+  <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 450); };<\/script>
+</body>
+</html>`;
+    }
+
+    function exportModalPdf(target="all"){
+      if(!selectedKpi){ toast("افتح تقييم مندوب أولاً"); return; }
+      calculateModal();
+      const tabIds = target === "all" ? ["speedTab","efficiencyTab","performanceTab","resultTab"] : [target];
+      const sections = tabIds.map(buildPdfSection).join("");
+      const title = target === "all" ? "تقرير التقييم الكامل" : "تقرير تقييم المندوب";
+      const html = buildPdfHtml(sections, title, target);
+      const win = window.open("", "_blank");
+      if(!win){ toast("المتصفح منع فتح نافذة التصدير. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى."); return; }
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    }
+
+    function init(){
+      el("monthFilter").value = defaultMonth();
+      syncDateRangeFromMonth();
+      listenBase();
+      el("monthFilter").addEventListener("change", () => { syncDateRangeFromMonth(); render(); });
+      ["dateFromFilter","dateToFilter"].forEach(id => {
+        el(id).addEventListener("change", () => { updateWorkDaysCount(); render(); });
+      });
+      el("modalMonthFilter").addEventListener("change", () => {
+        const range = monthStartEnd(el("modalMonthFilter").value || defaultMonth());
+        el("modalDateFromFilter").value = range.from;
+        el("modalDateToFilter").value = range.to;
+        reloadSelectedRepForModalPeriod();
+      });
+      ["modalDateFromFilter","modalDateToFilter"].forEach(id => {
+        el(id).addEventListener("change", reloadSelectedRepForModalPeriod);
+      });
+      ["branchFilter","repFilter"].forEach(id => {
+        el(id).addEventListener("input", render);
+        el(id).addEventListener("change", render);
+      });
+      el("refreshBtn").onclick = render;
+      document.querySelectorAll("[data-close-modal]").forEach(btn => btn.onclick = closeModal);
+      document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.onclick = () => {
+          document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+          document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+          btn.classList.add("active");
+          el(btn.dataset.tab).classList.add("active");
+          calculateModal();
+        };
+      });
+      el("saveDraftBtn").onclick = () => saveKpi("draft").catch(err => {console.error(err); toast("فشل حفظ التقييم");});
+      el("finalSaveBtn").onclick = () => saveKpi("locked").catch(err => {console.error(err); toast("فشل حفظ تقييم الشهر");});
+      el("deleteLocalBtn").onclick = clearModalInputs;
+      document.querySelectorAll("[data-export-pdf]").forEach(btn => {
+        btn.onclick = () => exportModalPdf(btn.dataset.exportPdf);
+      });
+    }
+
+    function initPageTabs(){
+      document.querySelectorAll(".page-tab-btn").forEach(btn => {
+        btn.onclick = () => {
+          document.querySelectorAll(".page-tab-btn").forEach(b => b.classList.remove("active"));
+          document.querySelectorAll(".page-tab-panel").forEach(p => p.classList.remove("active"));
+          btn.classList.add("active");
+          const panel = el(btn.dataset.pageTab);
+          if(panel) panel.classList.add("active");
+          render();
+        };
+      });
+    }
+
+    initPageTabs();
+    setupAuth(init);
+  </script>
+</body>
+</html>
