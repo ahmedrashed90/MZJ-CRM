@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -854,6 +855,16 @@
       return "غير مناسب";
     }
 
+    function repKpiRatingFor(rate){
+      const r = Number(rate) || 0;
+      if(r >= 100) return "ممتاز";
+      if(r >= 90) return "جيد جداً";
+      if(r >= 80) return "جيد";
+      if(r >= 60) return "مقبول";
+      if(r >= 50) return "ضعيف";
+      return "غير مناسب";
+    }
+
     function buildBranchResultHtml(reps, branchName=""){
       const rows = [
         {key:"attendance", label:"تقييم إنضباط الحضور", group:"إنضباط الفرع"},
@@ -908,7 +919,7 @@
       const bestName = best?.rep?.name || best?.rep?.displayName || best?.rep?.email || "-";
       const bestKpiRate = best ? fmtPercent(best.totals.calc?.finalKpiRate || 0) : "-";
       const bestTotalPoints = best ? round(best.totals.total || 0) : "-";
-      const bestRating = best ? (best.totals.calc?.finalLevel?.text || levelFor(best.totals.calc?.finalKpiRate || 0).text) : "-";
+      const bestRating = best ? repKpiRatingFor(best.totals.calc?.finalKpiRate || 0) : "-";
       html += `
         <div class="result-summary-grid">
           <div class="result-summary-card">
@@ -1083,20 +1094,20 @@
         }).join("");
       }
 
+      const branchRepCount = Math.max(1, reps.length);
       const existingKpis = reps.map(r => findKpiFor(r)).filter(Boolean);
       const existing = existingKpis.map(k => calcFromData(k));
-      const avgSpeed = existing.length ? round(existing.reduce((s,c)=>s+c.speedRate,0)/existing.length) : 0;
-      const avgEff = existing.length ? round(existing.reduce((s,c)=>s+c.finalEfficiencyRate,0)/existing.length) : 0;
+      const avgSpeed = reps.length ? round(existing.reduce((s,c)=>s+c.speedRate,0) / branchRepCount) : 0;
+      const avgEff = reps.length ? round(existing.reduce((s,c)=>s+c.finalEfficiencyRate,0) / branchRepCount) : 0;
       const totalsRows = existingKpis.map(k => metricTotalsForKpi(k));
       const totalAttendance = totalsRows.reduce((sum,x)=>sum + (Number(x.attendance)||0), 0);
       const totalAppearance = totalsRows.reduce((sum,x)=>sum + (Number(x.appearance)||0), 0);
       const totalBehavior = totalsRows.reduce((sum,x)=>sum + (Number(x.behavior)||0), 0);
       const totalCustomers = totalsRows.reduce((sum,x)=>sum + (Number(x.customerRating)||0), 0);
       const totalSales = totalsRows.reduce((sum,x)=>sum + (Number(x.salesCount)||0), 0);
-      const evaluatedCount = Math.max(1, totalsRows.length);
       const summaryWorkDays = Number(el("workDaysInput")?.value || updateWorkDaysCount() || 1) || 1;
-      const avgDiscipline = totalsRows.length ? clamp(((totalAttendance + totalAppearance + totalBehavior) / Math.max(1, evaluatedCount * summaryWorkDays * 9)) * 100, 0, 100) : 0;
-      const avgValue = totalsRows.length ? clamp(((totalCustomers + totalSales) / Math.max(1, evaluatedCount * 80)) * 100, 0, 100) : 0;
+      const avgDiscipline = reps.length ? clamp(((totalAttendance + totalAppearance + totalBehavior) / Math.max(1, branchRepCount * summaryWorkDays * 9)) * 100, 0, 100) : 0;
+      const avgValue = reps.length ? clamp(((totalCustomers + totalSales) / Math.max(1, branchRepCount * 80)) * 100, 0, 100) : 0;
       el("avgSpeed").textContent = fmtPercent(avgSpeed);
       el("avgEfficiency").textContent = fmtPercent(avgEff);
       el("avgDiscipline").textContent = fmtPercent(avgDiscipline);
