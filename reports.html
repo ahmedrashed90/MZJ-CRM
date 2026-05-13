@@ -8,6 +8,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -326,7 +327,7 @@
     const SUMMARY_EXCLUDED_SECTIONS = new Set(["customer_service"]);
 
     const SOURCE_REPORT_PRESETS = [
-      "فيسبوك", "إنستجرام", "تيك توك", "مرسال",
+      "فيسبوك", "إنستجرام", "تيك توك", "تيك توك ليد", "واتساب",
       "موقع حراج", "موقع آخر", "موقع اخر",
       "خلال الفرع", "صديق", "اتصال الرقم الموحد", "غير محدد"
     ];
@@ -807,8 +808,9 @@
 
       if(["facebook", "fb", "فيس بوك", "فيسبوك", "فايسبوك"].includes(text)) return "فيسبوك";
       if(["instagram", "insta", "ig", "انستجرام", "إنستجرام", "انستغرام", "إنستغرام"].includes(text)) return "إنستجرام";
+      if(["tiktok lead", "tik tok lead", "tiktok leads", "tik tok leads", "تيك توك ليد", "تيكتوك ليد", "تيك توك lead"].includes(text)) return "تيك توك ليد";
       if(["tiktok", "tik tok", "تيك توك", "تيكتوك"].includes(text)) return "تيك توك";
-      if(["mrsal", "mirsal", "mersal", "مرسال"].includes(text)) return "مرسال";
+      if(["whatsapp", "whats app", "واتساب", "واتس اب", "واتس آب", "mrsal", "mirsal", "mersal", "مرسال"].includes(text)) return "واتساب";
       if(["haraj", "حراج", "موقع حراج"].includes(text)) return "موقع حراج";
       if(["other website", "website other", "موقع اخر", "موقع آخر"].includes(text)) return "موقع آخر";
       if(["branch", "from branch", "داخل الفرع", "خلال الفرع", "عن طريق الفرع"].includes(text)) return "خلال الفرع";
