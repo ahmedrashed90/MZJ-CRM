@@ -2,6 +2,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -114,6 +115,13 @@
     .rating-scale{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px;}
     .rating-scale div{background:#f8fafc;border:1px solid #e5e7eb;border-radius:14px;padding:10px;text-align:center;font-weight:800;}
     .rating-scale span{display:block;color:#64748b;font-size:12px;margin-bottom:4px;}
+    .tab-filter-row{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:0 0 12px;}
+    .tab-filter-row .field{min-width:220px;}
+    .tab-result-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin-top:12px;}
+    .tab-result-box{background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:12px;}
+    .tab-result-box small{display:block;color:#64748b;font-weight:800;}
+    .tab-result-box strong{display:block;font-size:22px;margin-top:6px;}
+    .filter-hidden{display:none!important;}
     .locked-input{background:#f1f5f9!important;color:#64748b!important;cursor:not-allowed;}
     .input-label{display:block;font-size:11px;color:#64748b;font-weight:800;margin:6px 0 3px;}
     .modal-period-card{background:linear-gradient(180deg,#ffffff,#f8fafc);border:1px solid #e5e7eb;border-radius:20px;padding:14px;margin-bottom:14px;box-shadow:0 8px 22px rgba(15,23,42,.035);}
@@ -235,14 +243,14 @@
         <table class="kpi-table">
           <thead>
             <tr>
-              <th>المندوب</th>
-              <th>القسم</th>
               <th>الفرع</th>
+              <th>المندوب</th>
               <th>السرعة</th>
               <th>الكفاءة</th>
-              <th>الأداء اليومي</th>
-              <th>KPI النهائي</th>
-              <th>الحالة</th>
+              <th>الانضباط</th>
+              <th>القيمة</th>
+              <th>نسبة KPi</th>
+              <th>التقييم</th>
               <th>إجراءات</th>
             </tr>
           </thead>
@@ -306,7 +314,8 @@
           <div class="pdf-export-actions">
             <button class="secondary" type="button" data-export-pdf="speedTab">PDF السرعة</button>
             <button class="secondary" type="button" data-export-pdf="efficiencyTab">PDF الكفاءة</button>
-            <button class="secondary" type="button" data-export-pdf="performanceTab">PDF الأداء اليومي</button>
+            <button class="secondary" type="button" data-export-pdf="performanceTab">PDF الانضباط</button>
+            <button class="secondary" type="button" data-export-pdf="valueTab">PDF القيمة</button>
             <button class="secondary" type="button" data-export-pdf="resultTab">PDF النتيجة</button>
             <button class="pdf-full" type="button" data-export-pdf="all">PDF كامل</button>
           </div>
@@ -314,7 +323,8 @@
         <div class="tabs">
           <button type="button" class="tab-btn active" data-tab="speedTab">السرعة</button>
           <button type="button" class="tab-btn" data-tab="efficiencyTab">الكفاءة</button>
-          <button type="button" class="tab-btn" data-tab="performanceTab">الأداء اليومي</button>
+          <button type="button" class="tab-btn" data-tab="performanceTab">الانضباط</button>
+          <button type="button" class="tab-btn" data-tab="valueTab">القيمة</button>
           <button type="button" class="tab-btn" data-tab="resultTab">النتيجة</button>
         </div>
 
@@ -324,7 +334,7 @@
           <div id="delayDaysGrid"></div>
           <div class="speed-total-panel">
             <div class="speed-total-box"><small>إجمالي دقائق التأخير</small><strong id="speedTotalDelay">0</strong></div>
-            <div class="speed-total-box"><small>عدد الأيام المدخلة في المتوسط</small><strong id="speedDelayDays">0</strong></div>
+            <div class="speed-total-box"><small>عدد الطلبات</small><strong id="speedDelayDays">0</strong></div>
             <div class="speed-total-box"><small>متوسط عدد دقائق التأخير</small><strong id="speedAvgNoZero">0</strong></div>
             <div class="speed-total-box"><small>أقصى دقائق مسموح بها</small><strong id="speedMaxAllowedBox">3 دقائق</strong></div>
             <div class="speed-total-box"><small>نسبة التأخير خلال الشهر</small><strong id="speedDelayRateBox">0%</strong></div>
@@ -351,27 +361,71 @@
               <div class="field"><label>معرفة طرق وقنوات البيع كاش أو أقساط</label><input class="kpi-input calc-field" id="salesChannels" type="number" min="0" max="100" /></div>
             </div>
           </div>
+          <div class="tab-result-grid">
+            <div class="tab-result-box"><small>متوسط الكفاءة الشخصية</small><strong id="effPersonalityAvg">0%</strong></div>
+            <div class="tab-result-box"><small>متوسط الكفاءة الفنية</small><strong id="effTechnicalAvg">0%</strong></div>
+            <div class="tab-result-box"><small>متوسط الكفاءة للمندوب</small><strong id="effRepAvg">0%</strong></div>
+            <div class="tab-result-box"><small>تحويل الكفاءة إلى عدد نقاط</small><strong id="effPointsBox">0</strong></div>
+          </div>
         </section>
 
         <section class="tab-panel" id="performanceTab">
-          <h4 class="section-title">تحليل الأداء اليومي</h4>
-          <p class="section-note">الدرجات من 0 إلى 3: 0 منعدم، 1 ضعيف، 2 متوسط، 3 جيد. عدد المبيعات رقم يومي.</p>
+          <h4 class="section-title">الانضباط</h4>
+          <p class="section-note">اختر البند المطلوب من الفلتر، والدرجات من 0 إلى 3 لكل يوم عمل.</p>
+          <div class="tab-filter-row">
+            <div class="field">
+              <label>فلتر الانضباط</label>
+              <select id="disciplineFilter" class="kpi-select">
+                <option value="all">كل البنود</option>
+                <option value="attendance">الحضور</option>
+                <option value="appearance">الهيئة</option>
+                <option value="behavior">السلوك</option>
+              </select>
+            </div>
+          </div>
           <div id="performanceDaysGrid"></div>
+          <div class="tab-result-grid">
+            <div class="tab-result-box"><small>إجمالي نقاط الحضور</small><strong id="disciplineAttendanceTotal">0</strong></div>
+            <div class="tab-result-box"><small>إجمالي نقاط الهيئة</small><strong id="disciplineAppearanceTotal">0</strong></div>
+            <div class="tab-result-box"><small>إجمالي نقاط السلوك</small><strong id="disciplineBehaviorTotal">0</strong></div>
+            <div class="tab-result-box"><small>نسبة الانضباط</small><strong id="disciplineRateBox">0%</strong></div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="valueTab">
+          <h4 class="section-title">القيمة</h4>
+          <p class="section-note">اختر البند المطلوب من الفلتر، وأدخل تقييم العملاء من 0 إلى 3 وعدد المبيعات لكل يوم عمل.</p>
+          <div class="tab-filter-row">
+            <div class="field">
+              <label>فلتر القيمة</label>
+              <select id="valueFilter" class="kpi-select">
+                <option value="all">كل البنود</option>
+                <option value="customerRating">تقييم العملاء</option>
+                <option value="salesCount">عدد المبيعات</option>
+              </select>
+            </div>
+          </div>
+          <div id="valueDaysGrid"></div>
+          <div class="tab-result-grid">
+            <div class="tab-result-box"><small>إجمالي نقاط تقييم العملاء</small><strong id="valueCustomerTotal">0</strong></div>
+            <div class="tab-result-box"><small>إجمالي عدد المبيعات</small><strong id="valueSalesTotal">0</strong></div>
+            <div class="tab-result-box"><small>نسبة القيمة</small><strong id="valueRateBox">0%</strong></div>
+          </div>
         </section>
 
         <section class="tab-panel" id="resultTab">
           <h4 class="section-title">النتيجة المحسوبة</h4>
           <div class="calc-row">
-            <div class="calc-box"><small>متوسط التأخير</small><strong id="calcDelay">0</strong></div>
             <div class="calc-box"><small>نسبة السرعة</small><strong id="calcSpeed">100%</strong></div>
             <div class="calc-box"><small>نسبة الكفاءة</small><strong id="calcEfficiency">0%</strong></div>
-            <div class="calc-box"><small>KPI النهائي</small><strong id="calcFinal">0%</strong></div>
+            <div class="calc-box"><small>نسبة الانضباط</small><strong id="calcDiscipline">0%</strong></div>
+            <div class="calc-box"><small>نسبة القيمة</small><strong id="calcValue">0%</strong></div>
           </div>
           <div class="calc-row" style="margin-top:10px">
-            <div class="calc-box"><small>تقييم الكفاءة</small><strong id="calcLevel">ضعيف</strong></div>
-            <div class="calc-box"><small>درجة المستوى</small><strong id="calcLevelScore">0</strong></div>
-            <div class="calc-box"><small>درجة الشهر</small><strong id="calcMonthlyScore">0</strong></div>
-            <div class="calc-box"><small>إجمالي المبيعات</small><strong id="calcSales">0</strong></div>
+            <div class="calc-box"><small>نسبة KPi</small><strong id="calcFinal">0%</strong></div>
+            <div class="calc-box"><small>اجمالي النقاط</small><strong id="calcTotalPoints">0</strong></div>
+            <div class="calc-box"><small>التقييم</small><strong id="calcRating">غير مناسب</strong></div>
+            <div class="calc-box"><small>تحويل الكفاءة إلى عدد نقاط</small><strong id="calcMonthlyScore">0</strong></div>
           </div>
           <div class="rep-result-card">
             <h4 class="section-title">نتيجة المندوب في تحليل الأداء</h4>
@@ -779,8 +833,6 @@
       const dailyDelays = data.speed?.dailyDelays || {};
       const periodKeys = periodDates(false).map(d => d.key);
       const explicitEnteredDates = Array.isArray(data.speed?.delayEnteredDates) ? data.speed.delayEnteredDates : null;
-      // نفس معادلة الشيت: متوسط عدد دقائق التأخير = AVERAGE(C4:C34)
-      // الخلايا الفاضية لا تدخل في المتوسط، لكن الخلية المكتوب فيها 0 تدخل في المتوسط.
       const enteredKeys = explicitEnteredDates
         ? periodKeys.filter(key => explicitEnteredDates.includes(key))
         : periodKeys.filter(key => Object.prototype.hasOwnProperty.call(dailyDelays, key) && Number(dailyDelays[key]) > 0);
@@ -789,10 +841,10 @@
       const totalDelay = round(enteredDelayValues.reduce((a,b)=>a+b,0));
       const delayDays = positiveDelays.length;
       const enteredDays = enteredDelayValues.length;
-      const avgDelay = enteredDays ? totalDelay / enteredDays : 0; // C36
-      const maxAllowedDelay = 3; // C37
-      const delayRate = clamp((avgDelay / maxAllowedDelay) * 100, 0, 100); // C39 = C36 / C37
-      const speedRate = clamp(100 - delayRate, 0, 100); // 100% - C39
+      const avgDelay = enteredDays ? totalDelay / enteredDays : 0;
+      const maxAllowedDelay = 3;
+      const delayRate = clamp((avgDelay / maxAllowedDelay) * 100, 0, 100);
+      const speedRate = clamp(100 - delayRate, 0, 100);
 
       const p = data.efficiency?.personality || {};
       const t = data.efficiency?.technical || {};
@@ -809,13 +861,15 @@
       const appearanceScore = perfRows.reduce((sum,row)=>sum + clamp(row.appearance,0,3), 0);
       const behaviorScore = perfRows.reduce((sum,row)=>sum + clamp(row.behavior,0,3), 0);
       const customerScore = perfRows.reduce((sum,row)=>sum + clamp(row.customerRating,0,3), 0);
-      const maxPerf = Math.max(1, workDays * 3 * 4);
-      const performanceRate = round(((attendanceScore + appearanceScore + behaviorScore + customerScore) / maxPerf) * 100);
-      const finalKpiRate = round((finalEfficiencyRate * .7) + (performanceRate * .3));
-      const finalLevel = levelFor(finalKpiRate);
+      const disciplineRate = clamp(((attendanceScore + appearanceScore + behaviorScore) / Math.max(1, workDays * 9)) * 100, 0, 100);
+      const valueRate = clamp(((customerScore + salesCount) / 80) * 100, 0, 100);
+      const performanceRate = disciplineRate;
+      // KPI = متوسط (نسبة الكفاءة + نسبة الانضباط) ثم متوسط الناتج مع نسبة القيمة.
+      const finalKpiRate = round((((finalEfficiencyRate + disciplineRate) / 2) + valueRate) / 2);
+      const finalLevel = {text:repKpiRatingFor(finalKpiRate), score:levelFor(finalKpiRate).score, cls:classForRate(finalKpiRate)};
       const repTotalScore = attendanceScore + appearanceScore + behaviorScore + monthlyEfficiencyScore + customerScore + salesCount;
 
-      return { workDays, totalDelay, delayDays, enteredDays, maxAllowedDelay, avgDelay:round(avgDelay), delayRate:round(delayRate), speedRate:round(speedRate), personalityRate, technicalRate, finalEfficiencyRate, level, monthlyEfficiencyScore, attendanceScore, appearanceScore, behaviorScore, customerScore, performanceRate, finalKpiRate, finalLevel, salesCount, repTotalScore };
+      return { workDays, totalDelay, delayDays, enteredDays, maxAllowedDelay, avgDelay:round(avgDelay), delayRate:round(delayRate), speedRate:round(speedRate), personalityRate, technicalRate, finalEfficiencyRate, level, monthlyEfficiencyScore, attendanceScore, appearanceScore, behaviorScore, customerScore, disciplineRate:round(disciplineRate), valueRate:round(valueRate), performanceRate:round(performanceRate), finalKpiRate, finalLevel, salesCount, repTotalScore };
     }
 
     function weekGroups(){
@@ -862,7 +916,16 @@
       if(r >= 80) return "جيد";
       if(r >= 60) return "مقبول";
       if(r >= 50) return "ضعيف";
+      if(r >= 40) return "غير مناسب";
       return "غير مناسب";
+    }
+
+    function classForRate(rate){
+      const r = Number(rate) || 0;
+      if(r >= 90) return "green";
+      if(r >= 80) return "blue";
+      if(r >= 60) return "yellow";
+      return "red";
     }
 
     function buildBranchResultHtml(reps, branchName=""){
@@ -989,17 +1052,18 @@
       const wrap = el("repResultWrap");
       if(!selectedKpi){ wrap.innerHTML = ""; return; }
       const totals = metricTotalsForKpi(selectedKpi);
+      const calc = totals.calc;
       wrap.innerHTML = `
         <table class="result-table">
-          <thead><tr><th class="dark">البند</th><th>الدرجة</th></tr></thead>
+          <thead><tr><th class="dark">البند</th><th>النتيجة</th></tr></thead>
           <tbody>
-            <tr><td>تقييم إنضباط الحضور</td><td>${totals.attendance}</td></tr>
-            <tr><td>تقييم إنضباط الهيئة</td><td>${totals.appearance}</td></tr>
-            <tr><td>تقييم إنضباط السلوك</td><td>${totals.behavior}</td></tr>
-            <tr><td>تقييم الكفاءة <span class="red-text">(التميز)</span></td><td>${totals.efficiency}</td></tr>
-            <tr><td>تقييم العملاء</td><td>${totals.customerRating}</td></tr>
-            <tr><td>عدد المبيعات</td><td>${totals.salesCount}</td></tr>
-            <tr><td class="black">الإجمالي</td><td class="total-cell">${totals.total}</td></tr>
+            <tr><td>نسبة السرعة</td><td>${fmtPercent(calc.speedRate)}</td></tr>
+            <tr><td>نسبة الكفاءة</td><td>${fmtPercent(calc.finalEfficiencyRate)}</td></tr>
+            <tr><td>نسبة الانضباط</td><td>${fmtPercent(calc.disciplineRate)}</td></tr>
+            <tr><td>نسبة القيمة</td><td>${fmtPercent(calc.valueRate)}</td></tr>
+            <tr><td>نسبة KPi</td><td>${fmtPercent(calc.finalKpiRate)}</td></tr>
+            <tr><td>اجمالي النقاط</td><td>${round(totals.total)}</td></tr>
+            <tr><td class="black">التقييم</td><td class="total-cell">${escapeHtml(repKpiRatingFor(calc.finalKpiRate))}</td></tr>
           </tbody>
         </table>
       `;
@@ -1077,17 +1141,21 @@
           const calc = calcFromData(kpi || {workDays:el("workDaysInput").value});
           const speedLevel = levelFor(calc.speedRate);
           const effLevel = levelFor(calc.finalEfficiencyRate);
-          const finalLevel = levelFor(calc.finalKpiRate);
+          const disciplineRate = calc.disciplineRate;
+          const valueRate = calc.valueRate;
+          const disciplineLevel = {cls:classForRate(disciplineRate)};
+          const valueLevel = {cls:classForRate(valueRate)};
+          const finalLevel = {cls:classForRate(calc.finalKpiRate), text:repKpiRatingFor(calc.finalKpiRate)};
           return `
             <tr>
-              <td><div class="rep-name">${escapeHtml(rep.name || rep.displayName || rep.email || rep.uid)}</div><div class="muted">${escapeHtml(rep.email || "")}</div></td>
-              <td>${escapeHtml(departmentLabel(rep.kpiDepartment || rep.department))}</td>
               <td>${escapeHtml(rep.kpiBranchName || branchLabel(branchForRep(rep)) || "")}</td>
+              <td><div class="rep-name">${escapeHtml(rep.name || rep.displayName || rep.email || rep.uid)}</div><div class="muted">${escapeHtml(rep.email || "")}</div></td>
               <td><span class="pill ${speedLevel.cls}">${fmtPercent(calc.speedRate)}</span></td>
               <td><span class="pill ${effLevel.cls}">${fmtPercent(calc.finalEfficiencyRate)}</span></td>
-              <td><span class="pill gray">${fmtPercent(calc.performanceRate)}</span></td>
-              <td><span class="pill ${finalLevel.cls}">${fmtPercent(calc.finalKpiRate)} - ${finalLevel.text}</span></td>
-              <td>${statusPill(kpi?.status || "draft")}</td>
+              <td><span class="pill ${disciplineLevel.cls}">${fmtPercent(disciplineRate)}</span></td>
+              <td><span class="pill ${valueLevel.cls}">${fmtPercent(valueRate)}</span></td>
+              <td><span class="pill ${finalLevel.cls}">${fmtPercent(calc.finalKpiRate)}</span></td>
+              <td><span class="pill ${finalLevel.cls}">${escapeHtml(finalLevel.text)}</span></td>
               <td><div class="row-actions"><button class="primary" type="button" data-open-rep="${escapeHtml(repRowKey(rep))}">تقييم</button></div></td>
             </tr>
           `;
@@ -1235,7 +1303,15 @@
     }
 
     function buildPerformanceInputs(){
+      buildDisciplineInputs();
+      buildValueInputs();
+      applyDisciplineFilter();
+      applyValueFilter();
+    }
+
+    function buildDisciplineInputs(){
       const grid = el("performanceDaysGrid");
+      if(!grid) return;
       const daily = selectedKpi.dailyPerformance || {};
       const groups = weekGroups();
       grid.innerHTML = groups.map((week, idx) => `
@@ -1248,11 +1324,9 @@
                 <div class="day-box">
                   <span class="day-name">${info.dayName}</span>
                   <span class="day-date">${info.key}</span>
-                  <label class="input-label">تقييم إنضباط الحضور</label><input class="perf-input" data-date="${info.key}" data-field="attendance" type="number" min="0" max="3" value="${row.attendance ?? 0}" title="تقييم إنضباط الحضور" placeholder="0 إلى 3">
-                  <label class="input-label">تقييم إنضباط الهيئة</label><input class="perf-input" data-date="${info.key}" data-field="appearance" type="number" min="0" max="3" value="${row.appearance ?? 0}" title="تقييم إنضباط الهيئة" placeholder="0 إلى 3">
-                  <label class="input-label">تقييم إنضباط السلوك</label><input class="perf-input" data-date="${info.key}" data-field="behavior" type="number" min="0" max="3" value="${row.behavior ?? 0}" title="تقييم إنضباط السلوك" placeholder="0 إلى 3">
-                  <label class="input-label">تقييم العملاء</label><input class="perf-input" data-date="${info.key}" data-field="customerRating" type="number" min="0" max="3" value="${row.customerRating ?? 0}" title="تقييم العملاء" placeholder="0 إلى 3">
-                  <label class="input-label">عدد المبيعات</label><input class="perf-input" data-date="${info.key}" data-field="salesCount" type="number" min="0" value="${row.salesCount ?? 0}" title="عدد المبيعات" placeholder="0">
+                  <div class="discipline-field" data-discipline-field="attendance"><label class="input-label">الحضور</label><input class="perf-input" data-date="${info.key}" data-field="attendance" type="number" min="0" max="3" value="${row.attendance ?? 0}" title="الحضور" placeholder="0 إلى 3"></div>
+                  <div class="discipline-field" data-discipline-field="appearance"><label class="input-label">الهيئة</label><input class="perf-input" data-date="${info.key}" data-field="appearance" type="number" min="0" max="3" value="${row.appearance ?? 0}" title="الهيئة" placeholder="0 إلى 3"></div>
+                  <div class="discipline-field" data-discipline-field="behavior"><label class="input-label">السلوك</label><input class="perf-input" data-date="${info.key}" data-field="behavior" type="number" min="0" max="3" value="${row.behavior ?? 0}" title="السلوك" placeholder="0 إلى 3"></div>
                 </div>
               `;
             }).join("")}
@@ -1260,6 +1334,50 @@
         </div>
       `).join("");
       grid.querySelectorAll("input").forEach(input => input.oninput = () => { syncModalData(); calculateModal(); });
+      const filter = el("disciplineFilter");
+      if(filter) filter.onchange = applyDisciplineFilter;
+    }
+
+    function buildValueInputs(){
+      const grid = el("valueDaysGrid");
+      if(!grid) return;
+      const daily = selectedKpi.dailyPerformance || {};
+      const groups = weekGroups();
+      grid.innerHTML = groups.map((week, idx) => `
+        <div class="week-card">
+          <div class="week-title">الأسبوع ${idx + 1} <span class="muted">السبت إلى الخميس - الجمعة لا تدخل في الحسبة</span></div>
+          <div class="week-days">
+            ${week.map(info => {
+              const row = daily[info.key] || {};
+              return `
+                <div class="day-box">
+                  <span class="day-name">${info.dayName}</span>
+                  <span class="day-date">${info.key}</span>
+                  <div class="value-field" data-value-field="customerRating"><label class="input-label">تقييم العملاء</label><input class="perf-input" data-date="${info.key}" data-field="customerRating" type="number" min="0" max="3" value="${row.customerRating ?? 0}" title="تقييم العملاء" placeholder="0 إلى 3"></div>
+                  <div class="value-field" data-value-field="salesCount"><label class="input-label">عدد المبيعات</label><input class="perf-input" data-date="${info.key}" data-field="salesCount" type="number" min="0" value="${row.salesCount ?? 0}" title="عدد المبيعات" placeholder="0"></div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `).join("");
+      grid.querySelectorAll("input").forEach(input => input.oninput = () => { syncModalData(); calculateModal(); });
+      const filter = el("valueFilter");
+      if(filter) filter.onchange = applyValueFilter;
+    }
+
+    function applyDisciplineFilter(){
+      const value = el("disciplineFilter")?.value || "all";
+      document.querySelectorAll(".discipline-field").forEach(box => {
+        box.classList.toggle("filter-hidden", value !== "all" && box.dataset.disciplineField !== value);
+      });
+    }
+
+    function applyValueFilter(){
+      const value = el("valueFilter")?.value || "all";
+      document.querySelectorAll(".value-field").forEach(box => {
+        box.classList.toggle("filter-hidden", value !== "all" && box.dataset.valueField !== value);
+      });
     }
 
     function fillEfficiencyInputs(){
@@ -1314,21 +1432,37 @@
     function calculateModal(){
       syncModalData();
       const calc = calcFromData(selectedKpi || {});
-      el("calcDelay").textContent = calc.avgDelay + " دقيقة";
-      el("calcSpeed").textContent = fmtPercent(calc.speedRate);
-      el("speedTotalDelay").textContent = calc.totalDelay + " دقيقة";
-      el("speedDelayDays").textContent = calc.enteredDays;
-      el("speedAvgNoZero").textContent = calc.avgDelay + " دقيقة";
-      el("speedMaxAllowedBox").textContent = (calc.maxAllowedDelay || 3) + " دقائق";
-      el("speedDelayRateBox").textContent = fmtPercent(calc.delayRate);
-      el("speedResultBox").textContent = fmtPercent(calc.speedRate);
-      el("effSpeedMirror").textContent = fmtPercent(calc.speedRate);
-      el("calcEfficiency").textContent = fmtPercent(calc.finalEfficiencyRate);
-      el("calcFinal").textContent = fmtPercent(calc.finalKpiRate);
-      el("calcLevel").textContent = calc.level.text;
-      el("calcLevelScore").textContent = calc.level.score;
-      el("calcMonthlyScore").textContent = calc.monthlyEfficiencyScore;
-      el("calcSales").textContent = calc.salesCount;
+      const safeSet = (id, value) => { const node = el(id); if(node) node.textContent = value; };
+      safeSet("calcDelay", calc.avgDelay + " دقيقة");
+      safeSet("calcSpeed", fmtPercent(calc.speedRate));
+      safeSet("speedTotalDelay", calc.totalDelay + " دقيقة");
+      safeSet("speedDelayDays", calc.enteredDays);
+      safeSet("speedAvgNoZero", calc.avgDelay + " دقيقة");
+      safeSet("speedMaxAllowedBox", (calc.maxAllowedDelay || 3) + " دقائق");
+      safeSet("speedDelayRateBox", fmtPercent(calc.delayRate));
+      safeSet("speedResultBox", fmtPercent(calc.speedRate));
+      safeSet("effSpeedMirror", fmtPercent(calc.speedRate));
+      safeSet("effPersonalityAvg", fmtPercent(calc.personalityRate));
+      safeSet("effTechnicalAvg", fmtPercent(calc.technicalRate));
+      safeSet("effRepAvg", fmtPercent(calc.finalEfficiencyRate));
+      safeSet("effPointsBox", calc.monthlyEfficiencyScore);
+      safeSet("calcEfficiency", fmtPercent(calc.finalEfficiencyRate));
+      safeSet("calcDiscipline", fmtPercent(calc.disciplineRate));
+      safeSet("calcValue", fmtPercent(calc.valueRate));
+      safeSet("calcFinal", fmtPercent(calc.finalKpiRate));
+      safeSet("calcTotalPoints", round(calc.repTotalScore));
+      safeSet("calcRating", repKpiRatingFor(calc.finalKpiRate));
+      safeSet("calcLevel", calc.level.text);
+      safeSet("calcLevelScore", calc.level.score);
+      safeSet("calcMonthlyScore", calc.monthlyEfficiencyScore);
+      safeSet("calcSales", calc.salesCount);
+      safeSet("disciplineAttendanceTotal", calc.attendanceScore);
+      safeSet("disciplineAppearanceTotal", calc.appearanceScore);
+      safeSet("disciplineBehaviorTotal", calc.behaviorScore);
+      safeSet("disciplineRateBox", fmtPercent(calc.disciplineRate));
+      safeSet("valueCustomerTotal", calc.customerScore);
+      safeSet("valueSalesTotal", calc.salesCount);
+      safeSet("valueRateBox", fmtPercent(calc.valueRate));
       selectedKpi.speed.averageDelayMinutes = calc.avgDelay;
       selectedKpi.speed.delayRate = calc.delayRate;
       selectedKpi.speed.speedRate = calc.speedRate;
@@ -1341,9 +1475,11 @@
       selectedKpi.efficiency.monthlyEfficiencyScore = calc.monthlyEfficiencyScore;
       selectedKpi.finalKpi = {
         rate: calc.finalKpiRate,
-        levelText: calc.finalLevel.text,
+        levelText: repKpiRatingFor(calc.finalKpiRate),
         levelScore: calc.finalLevel.score,
         performanceRate: calc.performanceRate,
+        disciplineRate: calc.disciplineRate,
+        valueRate: calc.valueRate,
         totalSales: calc.salesCount,
         attendanceScore: calc.attendanceScore,
         appearanceScore: calc.appearanceScore,
@@ -1413,7 +1549,8 @@
       const titles = {
         speedTab:"تقييم السرعة - دقائق التأخير اليومية",
         efficiencyTab:"تقييم الكفاءة",
-        performanceTab:"تحليل الأداء اليومي",
+        performanceTab:"الانضباط",
+        valueTab:"القيمة",
         resultTab:"النتيجة المحسوبة",
         all:"تقرير التقييم الكامل"
       };
@@ -1424,7 +1561,8 @@
       const intros = {
         speedTab:"يوضح هذا القسم أيام التأخير، إجمالي دقائق التأخير، متوسط التأخير، نسبة التأخير، ونسبة سرعة المندوب خلال الفترة.",
         efficiencyTab:"يوضح هذا القسم عناصر كفاءة المندوب الشخصية والفنية، مع نتيجة السرعة ومتوسط كفاءة المندوب.",
-        performanceTab:"يوضح هذا القسم تحليل الأداء اليومي من حيث الحضور، الهيئة، السلوك، تقييم العملاء، وعدد المبيعات.",
+        performanceTab:"يوضح هذا القسم الانضباط من حيث الحضور، الهيئة، والسلوك.",
+        valueTab:"يوضح هذا القسم القيمة من حيث تقييم العملاء وعدد المبيعات.",
         resultTab:"يوضح هذا القسم ملخص النتيجة المحسوبة وإجمالي درجات المندوب خلال الفترة."
       };
       return intros[tabId] || "";
@@ -1482,7 +1620,7 @@
       return `
         <section class="pdf-section pdf-${tabId}">
           <div class="pdf-section-heading">
-            <div class="pdf-section-icon">${tabId === "speedTab" ? "01" : tabId === "efficiencyTab" ? "02" : tabId === "performanceTab" ? "03" : "04"}</div>
+            <div class="pdf-section-icon">${tabId === "speedTab" ? "01" : tabId === "efficiencyTab" ? "02" : tabId === "performanceTab" ? "03" : tabId === "valueTab" ? "04" : "05"}</div>
             <div>
               <h2>${escapeHtml(tabTitleById(tabId))}</h2>
               ${intro ? `<p>${escapeHtml(intro)}</p>` : ""}
@@ -1593,7 +1731,7 @@
     function exportModalPdf(target="all"){
       if(!selectedKpi){ toast("افتح تقييم مندوب أولاً"); return; }
       calculateModal();
-      const tabIds = target === "all" ? ["speedTab","efficiencyTab","performanceTab","resultTab"] : [target];
+      const tabIds = target === "all" ? ["speedTab","efficiencyTab","performanceTab","valueTab","resultTab"] : [target];
       const sections = tabIds.map(buildPdfSection).join("");
       const title = target === "all" ? "تقرير التقييم الكامل" : "تقرير تقييم المندوب";
       const html = buildPdfHtml(sections, title, target);
