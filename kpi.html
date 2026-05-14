@@ -910,10 +910,37 @@
       return `${month}_${branchId}_${repUid}`.replace(/[^a-zA-Z0-9_\-]/g,"_");
     }
 
+    function normalizeKpiMatchText(value){
+      return String(value || "")
+        .trim()
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+    }
+
+    function kpiBelongsToBranch(kpi, branch){
+      if(!kpi || !branch) return false;
+      const kpiBranchId = String(kpi.branchId || "").trim();
+      const branchId = String(branch.id || "").trim();
+      if(kpiBranchId && branchId && kpiBranchId === branchId) return true;
+      const kpiBranchName = normalizeKpiMatchText(kpi.branchName || kpi.kpiBranchName || kpi.branch || kpi.branchTitle);
+      const currentBranchName = normalizeKpiMatchText(branchLabel(branch));
+      return !!kpiBranchName && !!currentBranchName && kpiBranchName === currentBranchName;
+    }
+
     function findKpiFor(rep){
       const month = el("monthFilter").value || defaultMonth();
       const branch = branchForRep(rep);
-      return kpis.find(k => k.month === month && k.repUid === (rep.uid || rep.id) && k.branchId === branch?.id) || null;
+      const repUid = rep.uid || rep.id;
+      const repMonthKpis = kpis.filter(k => k.month === month && k.repUid === repUid);
+      const exactBranchMatch = repMonthKpis.find(k => k.branchId === branch?.id);
+      if(exactBranchMatch) return exactBranchMatch;
+      const branchNameMatch = repMonthKpis.find(k => kpiBelongsToBranch(k, branch));
+      if(branchNameMatch) return branchNameMatch;
+      return repMonthKpis.length === 1 ? repMonthKpis[0] : null;
     }
 
     function levelFor(rate){
