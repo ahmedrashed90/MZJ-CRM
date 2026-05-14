@@ -18,6 +18,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1684,6 +1685,91 @@
       return false;
     }
 
+
+    function messageAttachmentUrl(m){
+      return String(
+        m.mediaUrl || m.fileUrl || m.attachmentUrl || m.imageUrl || m.documentUrl ||
+        m.url || m.link || m.href || ""
+      ).trim();
+    }
+
+    function messageAttachmentName(m){
+      const type = String(m.attachmentType || m.type || "").toLowerCase();
+      const fallback =
+        type === "image" ? "تحميل الصورة" :
+        type === "audio" ? "تحميل الصوت" :
+        type === "video" ? "تحميل الفيديو" :
+        type === "sticker" ? "تحميل الملصق" :
+        "تحميل المرفق";
+
+      return String(m.fileName || m.filename || m.name || m.originalName || fallback).trim();
+    }
+
+    function messageAttachmentMime(m){
+      return String(m.mimeType || m.mime_type || m.contentType || "").toLowerCase();
+    }
+
+    function messageAttachmentType(m){
+      const explicit = String(m.attachmentType || m.type || m.messageType || "").toLowerCase();
+      const mime = messageAttachmentMime(m);
+      const url = messageAttachmentUrl(m).toLowerCase();
+      const name = messageAttachmentName(m).toLowerCase();
+
+      if(explicit === "image" || mime.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|#|$)/i.test(url) || /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(name)) return "image";
+      if(explicit === "audio" || explicit === "voice" || mime.startsWith("audio/") || /\.(mp3|m4a|aac|ogg|oga|wav|webm)(\?|#|$)/i.test(url) || /\.(mp3|m4a|aac|ogg|oga|wav|webm)$/i.test(name)) return "audio";
+      if(explicit === "video" || mime.startsWith("video/") || /\.(mp4|mov|m4v|webm|avi|mkv)(\?|#|$)/i.test(url) || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(name)) return "video";
+      if(explicit === "sticker") return "sticker";
+      return url ? "file" : "";
+    }
+
+    function messageAttachmentHtml(m){
+      const url = messageAttachmentUrl(m);
+      if(!url) return "";
+
+      const name = messageAttachmentName(m);
+      const type = messageAttachmentType(m);
+      const safeUrl = escapeHtml(url);
+      const safeName = escapeHtml(name);
+
+      if(type === "image" || type === "sticker"){
+        return `
+          <div class="dash-msg-attachment">
+            <a href="${safeUrl}" target="_blank" rel="noopener" title="فتح المرفق">
+              <img src="${safeUrl}" alt="${safeName}" class="dash-msg-attachment-img" loading="lazy">
+            </a>
+            <a class="dash-msg-download" href="${safeUrl}" target="_blank" download rel="noopener">تحميل الصورة</a>
+          </div>
+        `;
+      }
+
+      if(type === "audio"){
+        return `
+          <div class="dash-msg-attachment dash-msg-attachment-audio">
+            <audio controls src="${safeUrl}" preload="metadata"></audio>
+            <a class="dash-msg-download" href="${safeUrl}" target="_blank" download rel="noopener">${safeName}</a>
+          </div>
+        `;
+      }
+
+      if(type === "video"){
+        return `
+          <div class="dash-msg-attachment">
+            <video controls src="${safeUrl}" class="dash-msg-video" preload="metadata"></video>
+            <a class="dash-msg-download" href="${safeUrl}" target="_blank" download rel="noopener">${safeName}</a>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="dash-msg-attachment">
+          <a class="dash-msg-file" href="${safeUrl}" target="_blank" download rel="noopener">
+            <span class="dash-msg-file-icon">📎</span>
+            <span class="dash-msg-file-name">${safeName}</span>
+          </a>
+        </div>
+      `;
+    }
+
     function renderDashboardMessages(messages){
       const box = el("chatMessages");
       if(!messages.length){
@@ -1693,11 +1779,13 @@
       const ordered = messages.slice().sort((a,b) => messageSortTime(a) - messageSortTime(b));
       box.innerHTML = ordered.map(m => {
         const outgoing = isDashboardOutgoingMessage(m);
-        const text = messageText(m) || "رسالة";
+        const attachmentHtml = messageAttachmentHtml(m);
+        const text = messageText(m) || (attachmentHtml ? "" : "رسالة");
         return `
           <div class="dash-msg-row ${outgoing ? "out" : "in"}">
             <div class="dash-msg ${outgoing ? "out" : "in"}">
-              <div class="dash-msg-text">${escapeHtml(text)}</div>
+              ${text ? `<div class="dash-msg-text">${escapeHtml(text)}</div>` : ""}
+              ${attachmentHtml}
               <small>${escapeHtml(formatMessageTime(m.createdAt || m.sentAt || m.receivedAt || m.timestamp || m.time || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
             </div>
           </div>
@@ -3288,6 +3376,74 @@
           #dashboardChatModal #chatMessages .dash-msg-row .dash-msg{
             max-width:86% !important;
           }
+        }
+
+        /* V63 media attachments inside dashboard chat */
+        #dashboardChatModal #chatMessages .dash-msg-attachment{
+          display:flex !important;
+          flex-direction:column !important;
+          gap:8px !important;
+          margin-top:8px !important;
+          max-width:min(360px, 100%) !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-attachment-img{
+          display:block !important;
+          width:auto !important;
+          max-width:min(320px, 100%) !important;
+          max-height:300px !important;
+          border-radius:14px !important;
+          border:1px solid #ead4c8 !important;
+          object-fit:contain !important;
+          background:#fff !important;
+          box-shadow:0 6px 16px rgba(80,32,24,.08) !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-video{
+          display:block !important;
+          width:min(360px, 100%) !important;
+          max-height:300px !important;
+          border-radius:14px !important;
+          border:1px solid #ead4c8 !important;
+          background:#000 !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-attachment audio{
+          display:block !important;
+          width:min(320px, 100%) !important;
+          height:38px !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-download,
+        #dashboardChatModal #chatMessages .dash-msg-file{
+          display:inline-flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          gap:7px !important;
+          width:max-content !important;
+          max-width:min(320px, 100%) !important;
+          min-height:34px !important;
+          padding:7px 11px !important;
+          border-radius:12px !important;
+          background:#fff7f1 !important;
+          border:1px solid #ead4c8 !important;
+          color:#7b2d22 !important;
+          font-weight:900 !important;
+          font-size:12px !important;
+          text-decoration:none !important;
+          line-height:1.4 !important;
+          white-space:normal !important;
+          overflow-wrap:anywhere !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-download:hover,
+        #dashboardChatModal #chatMessages .dash-msg-file:hover{
+          background:#7b2d22 !important;
+          color:#fff !important;
+          border-color:#7b2d22 !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-file-icon{
+          font-size:16px !important;
+          line-height:1 !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-file-name{
+          overflow-wrap:anywhere !important;
+          word-break:break-word !important;
         }
 
       `;
