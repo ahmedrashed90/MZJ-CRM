@@ -543,7 +543,7 @@
       { page:"branches.html", label:"الفروع" },
       { page:"statuses.html", label:"حالات العملاء" },
       { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
-      { page:"kpi-sales-reps.html", label:"تقييم المناديب" },
+      { page:"kpi.html", label:"تقييم المناديب" },
       { page:"admin.html", label:"الإدارة" }
     ];
 
@@ -553,6 +553,8 @@
     let users = [];
     let branches = [];
     let kpis = [];
+    let kpiLoadSignature = "";
+    let kpiLoadInProgress = "";
     let availableBranches = [];
     let selectedRep = null;
     let selectedKpi = null;
@@ -668,7 +670,7 @@
     }
 
     function isBranchManagerProfile(profile){
-      return isAdminProfile(profile) || ["branch_manager","manager","مدير فرع"].includes(String(profile?.role || "").trim());
+      return isAdminProfile(profile) || ["sales_manager","branch_manager","manager","مدير فرع"].includes(String(profile?.role || "").trim());
     }
 
     function branchLabel(branch){
@@ -730,51 +732,71 @@
     }
 
     function branchManagerValues(branch){
-      const keys = [
-        "branchManagerUid","managerUid","managerUids","managers","branchManagers","branchManager","manager","admins","adminUids",
-        "cashManagerUid","cashManagerUids","cashSalesManagerUid","cashSalesManagerUids","cashManagers","cashSalesManagers",
-        "financeManagerUid","financeManagerUids","financeSalesManagerUid","financeSalesManagerUids","financeManagers","financeSalesManagers"
-      ];
+      const keys = ["branchManagerUid","managerUid","managerUids","managers","branchManagers","branchManager","manager","admins","adminUids"];
       const values = [];
       keys.forEach(k => values.push(...valuesFromBranchField(branch?.[k])));
       return [...new Set(values)];
     }
 
-    function profileBranchValues(profile){
-      return [profile?.branchId, profile?.branchName, profile?.branch, profile?.kpiBranchId, profile?.kpiBranchName, ...(Array.isArray(profile?.branches) ? profile.branches : [])].filter(Boolean);
+    function currentUserIdentity(){
+      return {
+        uid:currentUser?.uid,
+        id:currentUser?.uid,
+        userId:currentUser?.uid,
+        email:currentUser?.email,
+        name:currentProfile?.name,
+        displayName:currentProfile?.displayName
+      };
     }
 
-    function currentUserKpiDepartments(){
-      if(isAdminProfile(currentProfile)) return ["cash_sales", "finance_sales"];
-      const values = [currentProfile?.department, currentProfile?.role, currentProfile?.section, currentProfile?.kpiDepartment].map(normalizeDepartment);
-      const allowed = values.filter(v => ["cash_sales", "finance_sales"].includes(v));
-      return [...new Set(allowed.length ? allowed : ["cash_sales", "finance_sales"])];
+    function currentProfileDepartment(){
+      return normalizeDepartment(currentProfile?.department || currentProfile?.section || currentProfile?.dept || "");
     }
 
-    function userBelongsToBranchDepartment(user, profile, branch, dept){
-      if(!user || !branch) return false;
-      const identity = {uid:user.uid, id:user.uid, email:user.email, name:profile?.name, displayName:profile?.displayName};
-      const values = branchDepartmentValues(branch, dept);
-      if(values.some(v => userMatchesValue(identity, v))) return true;
-      const label = branchLabel(branch);
-      return profileBranchValues(profile).some(v => String(v).trim() === branch.id || String(v).trim() === label);
+    function branchContainsCurrentUserInDept(branch, dept){
+      const normalizedDept = normalizeDepartment(dept);
+      if(!branch || !["cash_sales","finance_sales"].includes(normalizedDept)) return false;
+      return branchDepartmentValues(branch, normalizedDept).some(v => userMatchesValue(currentUserIdentity(), v));
     }
 
-    function userCanAccessBranch(user, profile, branch){
-      if(!user || !branch) return false;
-      if(isAdminProfile(profile)) return true;
-      const managerValues = branchManagerValues(branch);
-      const identity = {uid:user.uid, id:user.uid, email:user.email, name:profile?.name, displayName:profile?.displayName};
-      if(managerValues.some(v => userMatchesValue(identity, v))) return true;
-      return currentUserKpiDepartments().some(dept => userBelongsToBranchDepartment(user, profile, branch, dept));
+    function profileBranchMatches(branch){
+      if(!branch) return false;
+      const profileBranches = [currentProfile?.branchId, currentProfile?.branchName, currentProfile?.branch, ...(Array.isArray(currentProfile?.branches) ? currentProfile.branches : [])].filter(Boolean);
+      return profileBranches.some(v => String(v).trim() === branch.id || String(v).trim() === branchLabel(branch));
     }
 
     function userManagesBranch(user, profile, branch){
-      return userCanAccessBranch(user, profile, branch);
+      if(!user || !branch) return false;
+      if(isAdminProfile(profile)) return true;
+      const managerValues = branchManagerValues(branch);
+      if(managerValues.some(v => userMatchesValue({uid:user.uid,email:user.email,name:profile?.name,displayName:profile?.displayName}, v))) return true;
+      const profileBranches = [profile?.branchId, profile?.branchName, profile?.branch, ...(Array.isArray(profile?.branches) ? profile.branches : [])].filter(Boolean);
+      return profileBranches.some(v => String(v).trim() === branch.id || String(v).trim() === branchLabel(branch));
+    }
+
+    function userCanAccessBranchKpi(branch){
+      if(isAdminProfile(currentProfile)) return true;
+      const profileDept = currentProfileDepartment();
+      if(branchContainsCurrentUserInDept(branch, profileDept)) return true;
+      if(userManagesBranch(currentUser, currentProfile, branch)) return true;
+      return profileBranchMatches(branch);
+    }
+
+    function allowedKpiDepartmentsForCurrentUser(){
+      if(isAdminProfile(currentProfile)) return ["cash_sales", "finance_sales"];
+      const profileDept = currentProfileDepartment();
+      if(["cash_sales","finance_sales"].includes(profileDept)) return [profileDept];
+      const fromBranches = new Set();
+      availableBranches.forEach(b => {
+        ["cash_sales","finance_sales"].forEach(d => {
+          if(branchContainsCurrentUserInDept(b, d)) fromBranches.add(d);
+        });
+      });
+      return [...fromBranches];
     }
 
     function renderAllowedNavigation(){
-      const currentPage = "kpi-sales-reps.html";
+      const currentPage = "kpi.html";
       const pages = Array.isArray(currentProfile?.pages) ? currentProfile.pages : [];
       const unrestricted = !pages.length;
       const nav = el("navTabs");
@@ -789,6 +811,8 @@
         if(unsubUsers) unsubUsers();
         if(unsubBranches) unsubBranches();
         if(unsubKpis) unsubKpis();
+        kpiLoadSignature = "";
+        kpiLoadInProgress = "";
         if(!user){
           currentUser = null;
           currentProfile = null;
@@ -842,43 +866,34 @@
         render();
       }, err => { console.error(err); toast("تعذر تحميل الفروع"); });
 
-      unsubKpis = onSnapshot(collection(db,"sales_reps_kpis"), snap => {
-        kpis = [];
-        snap.forEach(d => kpis.push({id:d.id, ...d.data()}));
-        render();
-      }, err => { console.error(err); toast("تعذر تحميل تقييمات المناديب"); });
+      // لا نفتح listener عام على كل تقييمات المناديب حتى لا تصطدم بقواعد Firebase.
+      // يتم تحميل تقييمات المناديب الظاهرين فقط بأسماء مستندات محددة من داخل render.
+      kpis = [];
+      kpiLoadSignature = "";
     }
 
     function fillBranches(){
       const select = el("branchFilter");
       const prev = select.value;
-      const sortedBranches = branches
+      const allBranches = branches
         .slice()
         .sort((a,b) => branchLabel(a).localeCompare(branchLabel(b), "ar"));
-      availableBranches = isAdminProfile(currentProfile)
-        ? sortedBranches
-        : sortedBranches.filter(b => userCanAccessBranch(currentUser, currentProfile, b));
+      // الأدمن فقط يرى كل الفروع. مدير/مندوب الفرع يرى الفروع المرتبط بها فقط.
+      availableBranches = isAdminProfile(currentProfile) ? allBranches : allBranches.filter(userCanAccessBranchKpi);
       if(!availableBranches.length){
         select.innerHTML = '<option value="">لا توجد فروع متاحة</option>';
-        select.disabled = true;
         return;
       }
-      const options = availableBranches.map(b => `<option value="${escapeHtml(b.id)}">${escapeHtml(branchLabel(b))}</option>`).join("");
-      select.innerHTML = isAdminProfile(currentProfile) ? '<option value="__all__">كل الفروع</option>' + options : options;
-      if(isAdminProfile(currentProfile)){
-        if(prev === "__all__" || (prev && availableBranches.some(b => b.id === prev))) select.value = prev;
-        else select.value = "__all__";
-      }else{
-        if(prev && prev !== "__all__" && availableBranches.some(b => b.id === prev)) select.value = prev;
-        else select.value = availableBranches[0]?.id || "";
-      }
-      select.disabled = !isAdminProfile(currentProfile) && availableBranches.length <= 1;
+      select.innerHTML = '<option value="__all__">كل الفروع</option>' + availableBranches.map(b => `<option value="${escapeHtml(b.id)}">${escapeHtml(branchLabel(b))}</option>`).join("");
+      if(prev === "__all__" || (prev && availableBranches.some(b => b.id === prev))) select.value = prev;
+      else select.value = availableBranches.length === 1 ? availableBranches[0].id : "__all__";
+      select.disabled = false;
     }
 
     function selectedBranch(){
       const value = el("branchFilter").value;
-      if(value === "__all__" && isAdminProfile(currentProfile)) return null;
-      return availableBranches.find(b => b.id === value) || (!isAdminProfile(currentProfile) ? availableBranches[0] : null);
+      if(value === "__all__") return null;
+      return availableBranches.find(b => b.id === value) || null;
     }
 
     function branchForRep(rep){
@@ -896,10 +911,101 @@
       return `${month}_${branchId}_${repUid}`.replace(/[^a-zA-Z0-9_\-]/g,"_");
     }
 
+    function candidateKpiDocIds(month, branch, repUid){
+      const ids = new Set();
+      [branch?.id, branchLabel(branch), branch?.name, branch?.branchName, branch?.branch].filter(Boolean).forEach(v => {
+        ids.add(kpiDocId(month, v, repUid));
+      });
+      return [...ids];
+    }
+
+    async function loadKpisForVisibleReps(reps){
+      const month = el("monthFilter").value || defaultMonth();
+      const requests = [];
+      const seenIds = new Set();
+      reps.forEach(rep => {
+        const branch = branchForRep(rep);
+        const repUid = rep.uid || rep.id;
+        candidateKpiDocIds(month, branch, repUid).forEach(id => {
+          if(!seenIds.has(id)){
+            seenIds.add(id);
+            requests.push({id, repUid});
+          }
+        });
+      });
+      const signature = `${month}|${[...seenIds].sort().join("|")}`;
+      if(!requests.length){
+        if(kpis.length){ kpis = []; render(); }
+        return;
+      }
+      if(signature === kpiLoadSignature || signature === kpiLoadInProgress) return;
+      kpiLoadInProgress = signature;
+      try{
+        const loaded = [];
+        const snaps = await Promise.all(requests.map(item =>
+          getDoc(doc(db,"sales_reps_kpis", item.id))
+            .then(snap => snap.exists() ? {id:snap.id, ...snap.data()} : null)
+            .catch(err => { console.warn("تعذر تحميل تقييم محدد", item.id, err); return null; })
+        ));
+        snaps.filter(Boolean).forEach(kpi => {
+          if(!loaded.some(x => x.id === kpi.id)) loaded.push(kpi);
+        });
+        const visibleRepUids = new Set(reps.map(rep => rep.uid || rep.id));
+        kpis = kpis.filter(k => !(k.month === month && visibleRepUids.has(k.repUid)));
+        loaded.forEach(kpi => {
+          if(!kpis.some(x => x.id === kpi.id)) kpis.push(kpi);
+        });
+        kpiLoadSignature = signature;
+        render();
+      }finally{
+        if(kpiLoadInProgress === signature) kpiLoadInProgress = "";
+      }
+    }
+
+    function normalizeKpiMatchText(value){
+      return String(value || "")
+        .trim()
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+    }
+
+    function kpiBelongsToBranch(kpi, branch){
+      if(!kpi || !branch) return false;
+      const kpiBranchId = String(kpi.branchId || "").trim();
+      const branchId = String(branch.id || "").trim();
+      if(kpiBranchId && branchId && kpiBranchId === branchId) return true;
+      const kpiBranchName = normalizeKpiMatchText(kpi.branchName || kpi.kpiBranchName || kpi.branch || kpi.branchTitle);
+      const currentBranchName = normalizeKpiMatchText(branchLabel(branch));
+      return !!kpiBranchName && !!currentBranchName && kpiBranchName === currentBranchName;
+    }
+
     function findKpiFor(rep){
       const month = el("monthFilter").value || defaultMonth();
       const branch = branchForRep(rep);
-      return kpis.find(k => k.month === month && k.repUid === (rep.uid || rep.id) && k.branchId === branch?.id) || null;
+      const repUid = rep.uid || rep.id;
+      const repMonthKpis = kpis.filter(k => k.month === month && k.repUid === repUid);
+      const exactBranchMatch = repMonthKpis.find(k => k.branchId === branch?.id);
+      if(exactBranchMatch) return exactBranchMatch;
+      const branchNameMatch = repMonthKpis.find(k => kpiBelongsToBranch(k, branch));
+      if(branchNameMatch) return branchNameMatch;
+      return repMonthKpis.length === 1 ? repMonthKpis[0] : null;
+    }
+
+    function upsertLocalKpiCache(kpi){
+      if(!kpi) return;
+      const idx = kpis.findIndex(x =>
+        x.id === kpi.id ||
+        (x.month === kpi.month && x.repUid === kpi.repUid && String(x.branchId || "") === String(kpi.branchId || ""))
+      );
+      if(idx >= 0) kpis[idx] = {...kpis[idx], ...kpi};
+      else kpis.push(kpi);
+      // بعد الحفظ مباشرة نفضي التوقيع حتى لا يمنع إعادة تحميل/عرض التقييم الجديد.
+      kpiLoadSignature = "";
+      kpiLoadInProgress = "";
     }
 
     function levelFor(rate){
@@ -940,8 +1046,8 @@
       const enteredDays = enteredDelayValues.length;
       const avgDelay = enteredDays ? totalDelay / enteredDays : 0;
       const maxAllowedDelay = 3;
-      const delayRate = enteredDays ? clamp((avgDelay / maxAllowedDelay) * 100, 0, 100) : 0;
-      const speedRate = enteredDays ? clamp(100 - delayRate, 0, 100) : 0;
+      const delayRate = clamp((avgDelay / maxAllowedDelay) * 100, 0, 100);
+      const speedRate = clamp(100 - delayRate, 0, 100);
 
       const p = data.efficiency?.personality || {};
       const t = data.efficiency?.technical || {};
@@ -1171,9 +1277,12 @@
     function allRepsForSelectedBranch(){
       const branch = selectedBranch();
       const dept = el("departmentFilter") ? el("departmentFilter").value : "";
-      const targetBranches = branch ? [branch] : (isAdminProfile(currentProfile) ? availableBranches : availableBranches.filter(b => userCanAccessBranch(currentUser, currentProfile, b)));
+      const targetBranches = branch ? [branch].filter(userCanAccessBranchKpi) : availableBranches;
       if(!targetBranches.length) return [];
-      const depts = dept ? [dept] : currentUserKpiDepartments();
+      const allowedDepts = allowedKpiDepartmentsForCurrentUser();
+      const requestedDepts = dept ? [normalizeDepartment(dept)] : allowedDepts;
+      const depts = isAdminProfile(currentProfile) ? requestedDepts : requestedDepts.filter(d => allowedDepts.includes(d));
+      if(!depts.length) return [];
       const rows = [];
       targetBranches.forEach(b => {
         depts.forEach(d => usersForBranchDepartment(b, d).forEach(u => rows.push({
@@ -1224,6 +1333,7 @@
       const branch = selectedBranch();
       updateWorkDaysCount();
       const reps = repsForSelectedBranch();
+      loadKpisForVisibleReps(reps);
       renderBranchResult(reps);
       el("countBadge").textContent = reps.length + " مندوب";
       el("totalReps").textContent = reps.length;
@@ -1338,7 +1448,8 @@
           technical:{ currentPrices:0, oldPrices:0, carSpecs:0, competitorsComparison:0, salesChannels:0 }
         },
         dailyPerformance:{},
-        status:"draft"
+        status:"new",
+        lockedDates:[]
       };
     }
 
@@ -1359,13 +1470,36 @@
       el("kpiModal").classList.remove("hidden");
     }
 
+    function savedLockedDateSet(kpi=selectedKpi){
+      const dates = new Set(Array.isArray(kpi?.lockedDates) ? kpi.lockedDates : []);
+      if(!dates.size && ["completed","locked","approved"].includes(kpi?.status)){
+        (Array.isArray(kpi?.speed?.delayEnteredDates) ? kpi.speed.delayEnteredDates : []).forEach(d => dates.add(d));
+        Object.keys(kpi?.dailyPerformance || {}).forEach(d => dates.add(d));
+      }
+      return dates;
+    }
+
+    function isDailyDateLocked(dateKey){
+      return !isAdmin && savedLockedDateSet().has(dateKey);
+    }
+
+    function collectLockedDatesForSave(){
+      const dates = savedLockedDateSet();
+      document.querySelectorAll(".delay-input, .perf-input").forEach(input => {
+        const raw = String(input.value ?? "").trim();
+        if(raw !== "" && input.dataset.date) dates.add(input.dataset.date);
+      });
+      return [...dates].sort();
+    }
+
     function updateModalLockState(){
-      const locked = ["approved","locked"].includes(selectedKpi?.status) && !isAdmin;
+      const locked = selectedKpi?.status === "approved" && !isAdmin;
       el("lockNote").classList.toggle("hidden", !locked);
-      const saveDraftBtn = el("saveDraftBtn");
-      if(saveDraftBtn) saveDraftBtn.disabled = locked;
-      el("finalSaveBtn").disabled = locked;
-      document.querySelectorAll("#kpiModal input").forEach(i => { i.disabled = locked; i.classList.toggle("locked-input", locked); });
+      const finalBtn = el("finalSaveBtn");
+      if(finalBtn) finalBtn.disabled = locked;
+      if(locked){
+        document.querySelectorAll("#kpiModal input").forEach(i => { i.disabled = true; i.classList.add("locked-input"); });
+      }
     }
 
     function closeModal(){
@@ -1388,11 +1522,12 @@
               const hasOldAutoZero = !explicitEnteredDates && Object.prototype.hasOwnProperty.call(daily, info.key) && Number(daily[info.key]) === 0;
               const shouldShowValue = explicitEnteredDates ? enteredSet.has(info.key) : (Object.prototype.hasOwnProperty.call(daily, info.key) && !hasOldAutoZero);
               const value = shouldShowValue ? (daily[info.key] ?? 0) : '';
+              const locked = isDailyDateLocked(info.key);
               return `
                 <div class="day-box">
                   <span class="day-name">${info.dayName}</span>
                   <span class="day-date">${info.key}</span>
-                  <input class="delay-input" data-date="${info.key}" type="number" min="0" step="0.5" value="${value}">
+                  <input class="delay-input${locked ? " locked-input" : ""}" data-date="${info.key}" type="number" min="0" step="0.5" value="${value}" ${locked ? "disabled" : ""}>
                 </div>
               `;
             }).join("")}
@@ -1420,13 +1555,14 @@
           <div class="week-days">
             ${week.map(info => {
               const row = daily[info.key] || {};
+              const locked = isDailyDateLocked(info.key);
               return `
                 <div class="day-box">
                   <span class="day-name">${info.dayName}</span>
                   <span class="day-date">${info.key}</span>
-                  <div class="discipline-field" data-discipline-field="attendance"><label class="input-label">الحضور</label><input class="perf-input" data-date="${info.key}" data-field="attendance" type="number" min="0" max="3" value="${row.attendance ?? 0}" title="الحضور" placeholder="0 إلى 3"></div>
-                  <div class="discipline-field" data-discipline-field="appearance"><label class="input-label">الهيئة</label><input class="perf-input" data-date="${info.key}" data-field="appearance" type="number" min="0" max="3" value="${row.appearance ?? 0}" title="الهيئة" placeholder="0 إلى 3"></div>
-                  <div class="discipline-field" data-discipline-field="behavior"><label class="input-label">السلوك</label><input class="perf-input" data-date="${info.key}" data-field="behavior" type="number" min="0" max="3" value="${row.behavior ?? 0}" title="السلوك" placeholder="0 إلى 3"></div>
+                  <div class="discipline-field" data-discipline-field="attendance"><label class="input-label">الحضور</label><input class="perf-input${locked ? " locked-input" : ""}" data-date="${info.key}" data-field="attendance" type="number" min="0" max="3" value="${row.attendance ?? ''}" title="الحضور" placeholder="0 إلى 3" ${locked ? "disabled" : ""}></div>
+                  <div class="discipline-field" data-discipline-field="appearance"><label class="input-label">الهيئة</label><input class="perf-input${locked ? " locked-input" : ""}" data-date="${info.key}" data-field="appearance" type="number" min="0" max="3" value="${row.appearance ?? ''}" title="الهيئة" placeholder="0 إلى 3" ${locked ? "disabled" : ""}></div>
+                  <div class="discipline-field" data-discipline-field="behavior"><label class="input-label">السلوك</label><input class="perf-input${locked ? " locked-input" : ""}" data-date="${info.key}" data-field="behavior" type="number" min="0" max="3" value="${row.behavior ?? ''}" title="السلوك" placeholder="0 إلى 3" ${locked ? "disabled" : ""}></div>
                 </div>
               `;
             }).join("")}
@@ -1449,12 +1585,13 @@
           <div class="week-days">
             ${week.map(info => {
               const row = daily[info.key] || {};
+              const locked = isDailyDateLocked(info.key);
               return `
                 <div class="day-box">
                   <span class="day-name">${info.dayName}</span>
                   <span class="day-date">${info.key}</span>
-                  <div class="value-field" data-value-field="customerRating"><label class="input-label">تقييم العملاء</label><input class="perf-input" data-date="${info.key}" data-field="customerRating" type="number" min="0" max="3" value="${row.customerRating ?? 0}" title="تقييم العملاء" placeholder="0 إلى 3"></div>
-                  <div class="value-field" data-value-field="salesCount"><label class="input-label">عدد المبيعات</label><input class="perf-input" data-date="${info.key}" data-field="salesCount" type="number" min="0" value="${row.salesCount ?? 0}" title="عدد المبيعات" placeholder="0"></div>
+                  <div class="value-field" data-value-field="customerRating"><label class="input-label">تقييم العملاء</label><input class="perf-input${locked ? " locked-input" : ""}" data-date="${info.key}" data-field="customerRating" type="number" min="0" max="3" value="${row.customerRating ?? ''}" title="تقييم العملاء" placeholder="0 إلى 3" ${locked ? "disabled" : ""}></div>
+                  <div class="value-field" data-value-field="salesCount"><label class="input-label">عدد المبيعات</label><input class="perf-input${locked ? " locked-input" : ""}" data-date="${info.key}" data-field="salesCount" type="number" min="0" value="${row.salesCount ?? ''}" title="عدد المبيعات" placeholder="0" ${locked ? "disabled" : ""}></div>
                 </div>
               `;
             }).join("")}
@@ -1502,16 +1639,36 @@
       selectedKpi.periodFrom = el("dateFromFilter").value || selectedKpi.periodFrom || "";
       selectedKpi.periodTo = el("dateToFilter").value || selectedKpi.periodTo || "";
       selectedKpi.workDays = updateWorkDaysCount();
-      selectedKpi.speed = selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{}};
-      selectedKpi.speed.dailyDelays = {};
-      selectedKpi.speed.delayEnteredDates = [];
-      document.querySelectorAll(".delay-input").forEach(input => {
-        const raw = String(input.value ?? "").trim();
-        if(raw !== ""){
-          selectedKpi.speed.dailyDelays[input.dataset.date] = Number(raw) || 0;
-          selectedKpi.speed.delayEnteredDates.push(input.dataset.date);
+
+      const lockedSet = savedLockedDateSet(selectedKpi);
+      const oldSpeed = selectedKpi.speed?.dailyDelays || {};
+      const oldEnteredDates = Array.isArray(selectedKpi.speed?.delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys(oldSpeed);
+      const nextDailyDelays = {};
+      const nextEnteredDates = new Set();
+
+      // نحافظ على الأيام المقفولة كما هي، ونضيف عليها الأيام الجديدة فقط.
+      oldEnteredDates.forEach(dateKey => {
+        if(lockedSet.has(dateKey) && Object.prototype.hasOwnProperty.call(oldSpeed, dateKey)){
+          nextDailyDelays[dateKey] = Number(oldSpeed[dateKey]) || 0;
+          nextEnteredDates.add(dateKey);
         }
       });
+
+      document.querySelectorAll(".delay-input").forEach(input => {
+        const dateKey = input.dataset.date;
+        if(!dateKey) return;
+        if(lockedSet.has(dateKey)) return;
+        const raw = String(input.value ?? "").trim();
+        if(raw !== ""){
+          nextDailyDelays[dateKey] = Number(raw) || 0;
+          nextEnteredDates.add(dateKey);
+        }
+      });
+
+      selectedKpi.speed = selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{}};
+      selectedKpi.speed.dailyDelays = nextDailyDelays;
+      selectedKpi.speed.delayEnteredDates = [...nextEnteredDates].sort();
+
       selectedKpi.efficiency = selectedKpi.efficiency || {};
       selectedKpi.efficiency.personality = {
         customerFitHonesty: clamp(el("customerFitHonesty").value),
@@ -1524,13 +1681,23 @@
         competitorsComparison: clamp(el("competitorsComparison").value),
         salesChannels: clamp(el("salesChannels").value)
       };
-      selectedKpi.dailyPerformance = {};
+
+      const oldPerformance = selectedKpi.dailyPerformance || {};
+      const nextPerformance = {};
+      Object.entries(oldPerformance).forEach(([dateKey, row]) => {
+        if(lockedSet.has(dateKey)) nextPerformance[dateKey] = {...row};
+      });
+
       document.querySelectorAll(".perf-input").forEach(input => {
         const date = input.dataset.date;
         const field = input.dataset.field;
-        selectedKpi.dailyPerformance[date] = selectedKpi.dailyPerformance[date] || {};
-        selectedKpi.dailyPerformance[date][field] = field === "salesCount" ? (Number(input.value)||0) : clamp(input.value,0,3);
+        if(!date || !field || lockedSet.has(date)) return;
+        const raw = String(input.value ?? "").trim();
+        if(raw === "") return;
+        nextPerformance[date] = nextPerformance[date] || {};
+        nextPerformance[date][field] = field === "salesCount" ? (Number(raw)||0) : clamp(raw,0,3);
       });
+      selectedKpi.dailyPerformance = nextPerformance;
     }
 
     function calculateModal(){
@@ -1606,16 +1773,17 @@
       renderRepResult();
     }
 
-    async function saveKpi(status="draft"){
+    async function saveKpi(status="completed"){
       if(!selectedRep || !selectedKpi) return;
-      if(["approved","locked"].includes(selectedKpi.status) && !isAdmin) return toast("لا يمكن تعديل تقييم تم حفظه نهائيًا إلا من الإدارة العامة");
+      if(selectedKpi.status === "approved" && !isAdmin) return toast("لا يمكن تعديل تقييم معتمد إلا من الإدارة العامة");
       applyModalPeriodToPage();
       calculateModal();
+      const lockedDates = collectLockedDatesForSave();
       const month = el("monthFilter").value || defaultMonth();
       const branch = branchForRep(selectedRep);
       if(!branch?.id) return toast("اختر فرع المندوب قبل الحفظ");
       const id = kpiDocId(month, branch.id, selectedRep.uid || selectedRep.id);
-      const payload = {
+      const basePayload = {
         ...selectedKpi,
         id,
         month,
@@ -1629,23 +1797,42 @@
         repEmail: selectedRep.email || "",
         repDepartment: selectedRep.kpiDepartment || normalizeDepartment(selectedRep.department),
         status,
+        lockedDates,
         updatedByUid: currentUser.uid,
-        updatedByName: currentProfile?.name || currentUser.email || "",
+        updatedByName: currentProfile?.name || currentUser.email || ""
+      };
+      const payload = {
+        ...basePayload,
         updatedAt: serverTimestamp()
+      };
+      const localPayload = {
+        ...basePayload,
+        updatedAt: new Date().toISOString()
       };
       if(!selectedKpi.createdAt){
         payload.createdByUid = currentUser.uid;
         payload.createdByName = currentProfile?.name || currentUser.email || "";
         payload.createdAt = serverTimestamp();
+        localPayload.createdByUid = currentUser.uid;
+        localPayload.createdByName = currentProfile?.name || currentUser.email || "";
+        localPayload.createdAt = new Date().toISOString();
       }
-      if(["approved","locked"].includes(status)){
+      if(status === "approved"){
         payload.approvedByUid = currentUser.uid;
         payload.approvedByName = currentProfile?.name || currentUser.email || "";
         payload.approvedAt = serverTimestamp();
+        localPayload.approvedByUid = currentUser.uid;
+        localPayload.approvedByName = currentProfile?.name || currentUser.email || "";
+        localPayload.approvedAt = new Date().toISOString();
       }
       await setDoc(doc(db,"sales_reps_kpis",id), payload, {merge:true});
-      selectedKpi.status = status;
-      toast(status === "locked" ? "تم حفظ تقييم الشهر وقفل التعديل" : "تم حفظ التقييم كمسودة");
+      selectedKpi = structuredClone(localPayload);
+      upsertLocalKpiCache(localPayload);
+      buildDelayInputs();
+      buildPerformanceInputs();
+      fillEfficiencyInputs();
+      calculateModal();
+      toast("تم حفظ التقييم، والأيام التي تم إدخالها لا يمكن تعديلها مرة أخرى");
       updateModalLockState();
       render();
     }
@@ -1890,7 +2077,7 @@
           calculateModal();
         };
       });
-      el("finalSaveBtn").onclick = () => saveKpi("locked").catch(err => {console.error(err); toast("فشل حفظ تقييم الشهر");});
+      el("finalSaveBtn").onclick = () => saveKpi("completed").catch(err => {console.error(err); toast("فشل حفظ التقييم");});
       document.querySelectorAll("[data-export-pdf]").forEach(btn => {
         btn.onclick = () => exportModalPdf(btn.dataset.exportPdf);
       });
