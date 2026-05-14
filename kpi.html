@@ -995,6 +995,19 @@
       return repMonthKpis.length === 1 ? repMonthKpis[0] : null;
     }
 
+    function upsertLocalKpiCache(kpi){
+      if(!kpi) return;
+      const idx = kpis.findIndex(x =>
+        x.id === kpi.id ||
+        (x.month === kpi.month && x.repUid === kpi.repUid && String(x.branchId || "") === String(kpi.branchId || ""))
+      );
+      if(idx >= 0) kpis[idx] = {...kpis[idx], ...kpi};
+      else kpis.push(kpi);
+      // بعد الحفظ مباشرة نفضي التوقيع حتى لا يمنع إعادة تحميل/عرض التقييم الجديد.
+      kpiLoadSignature = "";
+      kpiLoadInProgress = "";
+    }
+
     function levelFor(rate){
       const r = Number(rate) || 0;
       if(r >= 90) return {text:"ممتاز", score:3, cls:"green"};
@@ -1742,7 +1755,7 @@
       const branch = branchForRep(selectedRep);
       if(!branch?.id) return toast("اختر فرع المندوب قبل الحفظ");
       const id = kpiDocId(month, branch.id, selectedRep.uid || selectedRep.id);
-      const payload = {
+      const basePayload = {
         ...selectedKpi,
         id,
         month,
@@ -1758,22 +1771,39 @@
         status,
         lockedDates,
         updatedByUid: currentUser.uid,
-        updatedByName: currentProfile?.name || currentUser.email || "",
+        updatedByName: currentProfile?.name || currentUser.email || ""
+      };
+      const payload = {
+        ...basePayload,
         updatedAt: serverTimestamp()
+      };
+      const localPayload = {
+        ...basePayload,
+        updatedAt: new Date().toISOString()
       };
       if(!selectedKpi.createdAt){
         payload.createdByUid = currentUser.uid;
         payload.createdByName = currentProfile?.name || currentUser.email || "";
         payload.createdAt = serverTimestamp();
+        localPayload.createdByUid = currentUser.uid;
+        localPayload.createdByName = currentProfile?.name || currentUser.email || "";
+        localPayload.createdAt = new Date().toISOString();
       }
       if(status === "approved"){
         payload.approvedByUid = currentUser.uid;
         payload.approvedByName = currentProfile?.name || currentUser.email || "";
         payload.approvedAt = serverTimestamp();
+        localPayload.approvedByUid = currentUser.uid;
+        localPayload.approvedByName = currentProfile?.name || currentUser.email || "";
+        localPayload.approvedAt = new Date().toISOString();
       }
       await setDoc(doc(db,"sales_reps_kpis",id), payload, {merge:true});
-      selectedKpi.status = status;
-      selectedKpi.lockedDates = lockedDates;
+      selectedKpi = structuredClone(localPayload);
+      upsertLocalKpiCache(localPayload);
+      buildDelayInputs();
+      buildPerformanceInputs();
+      fillEfficiencyInputs();
+      calculateModal();
       toast("تم حفظ التقييم، والأيام التي تم إدخالها لا يمكن تعديلها مرة أخرى");
       updateModalLockState();
       render();
