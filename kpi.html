@@ -482,11 +482,9 @@
       </div>
       <div class="modal-foot">
         <div class="actions">
-          <button class="secondary" type="button" id="saveDraftBtn">حفظ كمسودة</button>
           <button class="success" type="button" id="finalSaveBtn">تم وحفظ تقييم الشهر</button>
         </div>
         <div class="actions">
-          <button class="danger" type="button" id="deleteLocalBtn">تفريغ المدخلات</button>
           <button class="secondary" type="button" data-close-modal>إغلاق</button>
         </div>
       </div>
@@ -1364,7 +1362,8 @@
     function updateModalLockState(){
       const locked = ["approved","locked"].includes(selectedKpi?.status) && !isAdmin;
       el("lockNote").classList.toggle("hidden", !locked);
-      el("saveDraftBtn").disabled = locked;
+      const saveDraftBtn = el("saveDraftBtn");
+      if(saveDraftBtn) saveDraftBtn.disabled = locked;
       el("finalSaveBtn").disabled = locked;
       document.querySelectorAll("#kpiModal input").forEach(i => { i.disabled = locked; i.classList.toggle("locked-input", locked); });
     }
@@ -1891,9 +1890,7 @@
           calculateModal();
         };
       });
-      el("saveDraftBtn").onclick = () => saveKpi("draft").catch(err => {console.error(err); toast("فشل حفظ التقييم");});
       el("finalSaveBtn").onclick = () => saveKpi("locked").catch(err => {console.error(err); toast("فشل حفظ تقييم الشهر");});
-      el("deleteLocalBtn").onclick = clearModalInputs;
       document.querySelectorAll("[data-export-pdf]").forEach(btn => {
         btn.onclick = () => exportModalPdf(btn.dataset.exportPdf);
       });
