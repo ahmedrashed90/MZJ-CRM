@@ -7,6 +7,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1484,7 +1485,9 @@
     }
 
     function collectLockedDatesForSave(){
-      const dates = savedLockedDateSet();
+      // الأدمن يستطيع تفريغ يوم محفوظ؛ عند تفريغ كل مدخلات اليوم يتم حذف اليوم من lockedDates
+      // وبذلك يستطيع المندوب إدخاله مرة أخرى لاحقًا.
+      const dates = isAdmin ? new Set() : savedLockedDateSet();
       document.querySelectorAll(".delay-input, .perf-input").forEach(input => {
         const raw = String(input.value ?? "").trim();
         if(raw !== "" && input.dataset.date) dates.add(input.dataset.date);
@@ -1640,7 +1643,8 @@
       selectedKpi.periodTo = el("dateToFilter").value || selectedKpi.periodTo || "";
       selectedKpi.workDays = updateWorkDaysCount();
 
-      const lockedSet = savedLockedDateSet(selectedKpi);
+      // قفل الأيام يطبق على غير الأدمن فقط. الأدمن يقدر يعدل أو يمسح القيم المحفوظة.
+      const lockedSet = isAdmin ? new Set() : savedLockedDateSet(selectedKpi);
       const oldSpeed = selectedKpi.speed?.dailyDelays || {};
       const oldEnteredDates = Array.isArray(selectedKpi.speed?.delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys(oldSpeed);
       const nextDailyDelays = {};
@@ -1775,6 +1779,27 @@
 
     function mergeSavedKpiIntoCurrent(savedKpi){
       if(!savedKpi || !selectedKpi) return;
+
+      // في حالة الأدمن: لا ندمج القيم اليومية القديمة مع القيم الحالية.
+      // هذا يسمح بحذف أي قيمة محفوظة فعليًا من Firestore بدل ما ترجع تلقائيًا أثناء الحفظ.
+      if(isAdmin){
+        selectedKpi = {
+          ...savedKpi,
+          ...selectedKpi,
+          createdAt: selectedKpi.createdAt || savedKpi.createdAt,
+          createdByUid: selectedKpi.createdByUid || savedKpi.createdByUid,
+          createdByName: selectedKpi.createdByName || savedKpi.createdByName,
+          speed:{
+            ...(selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{}}),
+            dailyDelays:{...((selectedKpi.speed || {}).dailyDelays || {})},
+            delayEnteredDates:[...(Array.isArray((selectedKpi.speed || {}).delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys((selectedKpi.speed || {}).dailyDelays || {}))].sort()
+          },
+          dailyPerformance:{...((selectedKpi || {}).dailyPerformance || {})},
+          lockedDates:[...(Array.isArray(selectedKpi.lockedDates) ? selectedKpi.lockedDates : [])].sort()
+        };
+        return;
+      }
+
       const existingSpeed = savedKpi.speed || {};
       const currentSpeed = selectedKpi.speed || {};
       const mergedDelayEnteredDates = new Set([
@@ -1859,7 +1884,9 @@
         localPayload.approvedByName = currentProfile?.name || currentUser.email || "";
         localPayload.approvedAt = new Date().toISOString();
       }
-      await setDoc(doc(db,"sales_reps_kpis",id), payload, {merge:true});
+      // الأدمن يحفظ المستند كاملًا بدون merge حتى يتم حذف الحقول التي قام بتفريغها فعليًا.
+      // غير الأدمن يستمر بالدمج للحفاظ على القيم المقفولة السابقة.
+      await setDoc(doc(db,"sales_reps_kpis",id), payload, isAdmin ? {} : {merge:true});
       selectedKpi = structuredClone(localPayload);
       upsertLocalKpiCache(localPayload);
       buildDelayInputs();
