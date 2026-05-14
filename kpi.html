@@ -1639,16 +1639,36 @@
       selectedKpi.periodFrom = el("dateFromFilter").value || selectedKpi.periodFrom || "";
       selectedKpi.periodTo = el("dateToFilter").value || selectedKpi.periodTo || "";
       selectedKpi.workDays = updateWorkDaysCount();
-      selectedKpi.speed = selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{}};
-      selectedKpi.speed.dailyDelays = {};
-      selectedKpi.speed.delayEnteredDates = [];
-      document.querySelectorAll(".delay-input").forEach(input => {
-        const raw = String(input.value ?? "").trim();
-        if(raw !== ""){
-          selectedKpi.speed.dailyDelays[input.dataset.date] = Number(raw) || 0;
-          selectedKpi.speed.delayEnteredDates.push(input.dataset.date);
+
+      const lockedSet = savedLockedDateSet(selectedKpi);
+      const oldSpeed = selectedKpi.speed?.dailyDelays || {};
+      const oldEnteredDates = Array.isArray(selectedKpi.speed?.delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys(oldSpeed);
+      const nextDailyDelays = {};
+      const nextEnteredDates = new Set();
+
+      // نحافظ على الأيام المقفولة كما هي، ونضيف عليها الأيام الجديدة فقط.
+      oldEnteredDates.forEach(dateKey => {
+        if(lockedSet.has(dateKey) && Object.prototype.hasOwnProperty.call(oldSpeed, dateKey)){
+          nextDailyDelays[dateKey] = Number(oldSpeed[dateKey]) || 0;
+          nextEnteredDates.add(dateKey);
         }
       });
+
+      document.querySelectorAll(".delay-input").forEach(input => {
+        const dateKey = input.dataset.date;
+        if(!dateKey) return;
+        if(lockedSet.has(dateKey)) return;
+        const raw = String(input.value ?? "").trim();
+        if(raw !== ""){
+          nextDailyDelays[dateKey] = Number(raw) || 0;
+          nextEnteredDates.add(dateKey);
+        }
+      });
+
+      selectedKpi.speed = selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{}};
+      selectedKpi.speed.dailyDelays = nextDailyDelays;
+      selectedKpi.speed.delayEnteredDates = [...nextEnteredDates].sort();
+
       selectedKpi.efficiency = selectedKpi.efficiency || {};
       selectedKpi.efficiency.personality = {
         customerFitHonesty: clamp(el("customerFitHonesty").value),
@@ -1661,15 +1681,23 @@
         competitorsComparison: clamp(el("competitorsComparison").value),
         salesChannels: clamp(el("salesChannels").value)
       };
-      selectedKpi.dailyPerformance = {};
+
+      const oldPerformance = selectedKpi.dailyPerformance || {};
+      const nextPerformance = {};
+      Object.entries(oldPerformance).forEach(([dateKey, row]) => {
+        if(lockedSet.has(dateKey)) nextPerformance[dateKey] = {...row};
+      });
+
       document.querySelectorAll(".perf-input").forEach(input => {
-        const raw = String(input.value ?? "").trim();
-        if(raw === "") return;
         const date = input.dataset.date;
         const field = input.dataset.field;
-        selectedKpi.dailyPerformance[date] = selectedKpi.dailyPerformance[date] || {};
-        selectedKpi.dailyPerformance[date][field] = field === "salesCount" ? (Number(raw)||0) : clamp(raw,0,3);
+        if(!date || !field || lockedSet.has(date)) return;
+        const raw = String(input.value ?? "").trim();
+        if(raw === "") return;
+        nextPerformance[date] = nextPerformance[date] || {};
+        nextPerformance[date][field] = field === "salesCount" ? (Number(raw)||0) : clamp(raw,0,3);
       });
+      selectedKpi.dailyPerformance = nextPerformance;
     }
 
     function calculateModal(){
