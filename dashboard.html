@@ -184,15 +184,20 @@
       "https://mersal-crm.next-erp-mzj.workers.dev"
     ).replace(/\/+$/, "");
 
+    const MERSAL_SEND_ENDPOINT =
+      window.MERSAL_SEND_ENDPOINT ||
+      localStorage.getItem("MERSAL_SEND_ENDPOINT") ||
+      `${MERSAL_API_BASE}/send/mersal`;
+
     const MERSAL_SEND_MESSAGE_ENDPOINT =
       window.MERSAL_SEND_MESSAGE_ENDPOINT ||
       localStorage.getItem("MERSAL_SEND_MESSAGE_ENDPOINT") ||
-      `${MERSAL_API_BASE}/api/wpbox/sendmessage`;
+      MERSAL_SEND_ENDPOINT;
 
     const MERSAL_SEND_TEMPLATE_MESSAGE_ENDPOINT =
       window.MERSAL_SEND_TEMPLATE_MESSAGE_ENDPOINT ||
       localStorage.getItem("MERSAL_SEND_TEMPLATE_MESSAGE_ENDPOINT") ||
-      `${MERSAL_API_BASE}/api/wpbox/sendtemplatemessage`;
+      MERSAL_SEND_ENDPOINT;
 
     let dashboardChatState = {
       lead:null,
@@ -1832,13 +1837,13 @@
             channel:"تيك توك",
             channelCode:"tiktok",
             provider:"manychat"
-          }).catch(console.warn);
+          });
           await setDoc(doc(db, cfg.conversations, convId), {
             lastMessage:text,
             lastMessageText:text,
             updatedAt:serverTimestamp(),
             lastUpdated:serverTimestamp()
-          }, { merge:true }).catch(console.warn);
+          }, { merge:true });
         } else if(platform === "whatsapp") {
           await sendDashboardMersalDirect({ phone:phoneOfLead(lead) || convId, text, selectedTemplate });
 
@@ -1852,13 +1857,13 @@
             sentByEmail:currentUser?.email || '',
             createdAt:serverTimestamp(),
             status:"sent"
-          }).catch(console.warn);
+          });
           await setDoc(doc(db, cfg.conversations, convId), {
             lastMessage:text,
             lastMessageText:text,
             updatedAt:serverTimestamp(),
             lastUpdated:serverTimestamp()
-          }, { merge:true }).catch(console.warn);
+          }, { merge:true });
 
           if(cfg.outbox){
             await addDoc(collection(db, cfg.outbox), {
