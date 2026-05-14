@@ -1046,8 +1046,8 @@
       const enteredDays = enteredDelayValues.length;
       const avgDelay = enteredDays ? totalDelay / enteredDays : 0;
       const maxAllowedDelay = 3;
-      const delayRate = clamp((avgDelay / maxAllowedDelay) * 100, 0, 100);
-      const speedRate = clamp(100 - delayRate, 0, 100);
+      const delayRate = enteredDays ? clamp((avgDelay / maxAllowedDelay) * 100, 0, 100) : 0;
+      const speedRate = enteredDays ? clamp(100 - delayRate, 0, 100) : 0;
 
       const p = data.efficiency?.personality || {};
       const t = data.efficiency?.technical || {};
@@ -1773,16 +1773,50 @@
       renderRepResult();
     }
 
+    function mergeSavedKpiIntoCurrent(savedKpi){
+      if(!savedKpi || !selectedKpi) return;
+      const existingSpeed = savedKpi.speed || {};
+      const currentSpeed = selectedKpi.speed || {};
+      const mergedDelayEnteredDates = new Set([
+        ...(Array.isArray(existingSpeed.delayEnteredDates) ? existingSpeed.delayEnteredDates : Object.keys(existingSpeed.dailyDelays || {})),
+        ...(Array.isArray(currentSpeed.delayEnteredDates) ? currentSpeed.delayEnteredDates : Object.keys(currentSpeed.dailyDelays || {}))
+      ]);
+      selectedKpi = {
+        ...savedKpi,
+        ...selectedKpi,
+        speed:{
+          ...existingSpeed,
+          ...currentSpeed,
+          dailyDelays:{...(existingSpeed.dailyDelays || {}), ...(currentSpeed.dailyDelays || {})},
+          delayEnteredDates:[...mergedDelayEnteredDates].sort()
+        },
+        efficiency:{
+          ...(savedKpi.efficiency || {}),
+          ...(selectedKpi.efficiency || {}),
+          personality:{...((savedKpi.efficiency || {}).personality || {}), ...((selectedKpi.efficiency || {}).personality || {})},
+          technical:{...((savedKpi.efficiency || {}).technical || {}), ...((selectedKpi.efficiency || {}).technical || {})}
+        },
+        dailyPerformance:{...(savedKpi.dailyPerformance || {}), ...(selectedKpi.dailyPerformance || {})},
+        lockedDates:[...new Set([...(Array.isArray(savedKpi.lockedDates) ? savedKpi.lockedDates : []), ...(Array.isArray(selectedKpi.lockedDates) ? selectedKpi.lockedDates : [])])].sort()
+      };
+    }
+
     async function saveKpi(status="completed"){
       if(!selectedRep || !selectedKpi) return;
       if(selectedKpi.status === "approved" && !isAdmin) return toast("لا يمكن تعديل تقييم معتمد إلا من الإدارة العامة");
       applyModalPeriodToPage();
-      calculateModal();
-      const lockedDates = collectLockedDatesForSave();
       const month = el("monthFilter").value || defaultMonth();
       const branch = branchForRep(selectedRep);
       if(!branch?.id) return toast("اختر فرع المندوب قبل الحفظ");
       const id = kpiDocId(month, branch.id, selectedRep.uid || selectedRep.id);
+      try{
+        const savedSnap = await getDoc(doc(db,"sales_reps_kpis",id));
+        if(savedSnap.exists()) mergeSavedKpiIntoCurrent({id:savedSnap.id, ...savedSnap.data()});
+      }catch(err){
+        console.warn("تعذر تحميل التقييم السابق قبل الحفظ", err);
+      }
+      calculateModal();
+      const lockedDates = collectLockedDatesForSave();
       const basePayload = {
         ...selectedKpi,
         id,
