@@ -16,6 +16,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -176,10 +177,21 @@
       localStorage.getItem("TIKTOK_SEND_ENDPOINT") ||
       "https://test.next-erp-mzj.workers.dev/crm/send";
 
-    const MERSAL_SEND_ENDPOINT =
-      window.MERSAL_SEND_ENDPOINT ||
-      localStorage.getItem("MERSAL_SEND_ENDPOINT") ||
-      "https://mersal-crm.next-erp-mzj.workers.dev/send/mersal";
+    const MERSAL_API_BASE = String(
+      window.MERSAL_API_ENDPOINT ||
+      localStorage.getItem("MERSAL_API_ENDPOINT") ||
+      "https://mersal-crm.next-erp-mzj.workers.dev"
+    ).replace(/\/+$/, "");
+
+    const MERSAL_SEND_MESSAGE_ENDPOINT =
+      window.MERSAL_SEND_MESSAGE_ENDPOINT ||
+      localStorage.getItem("MERSAL_SEND_MESSAGE_ENDPOINT") ||
+      `${MERSAL_API_BASE}/api/wpbox/sendmessage`;
+
+    const MERSAL_SEND_TEMPLATE_MESSAGE_ENDPOINT =
+      window.MERSAL_SEND_TEMPLATE_MESSAGE_ENDPOINT ||
+      localStorage.getItem("MERSAL_SEND_TEMPLATE_MESSAGE_ENDPOINT") ||
+      `${MERSAL_API_BASE}/api/wpbox/sendtemplatemessage`;
 
     let dashboardChatState = {
       lead:null,
@@ -1346,13 +1358,19 @@
       return [];
     }
 
+    function dashboardMersalTemplateName(t){
+      return String(t?.template_name || t?.templateName || t?.template?.name || "").trim();
+    }
+
+    function dashboardMersalIsTemplate(t){
+      return !!t && String(t?.type || "").toLowerCase() === "mersal" && !!dashboardMersalTemplateName(t);
+    }
+
     function dashboardMersalPayload(t, phone, text){
-      const type = String(t?.type || "").toLowerCase();
-      const templateName = String(t?.template_name || t?.templateName || t?.name || t?.template?.name || "").trim();
-      if(type === "mersal" && templateName){
+      if(dashboardMersalIsTemplate(t)){
         return {
           phone,
-          template_name:templateName,
+          template_name:dashboardMersalTemplateName(t),
           template_language:String(t?.template_language || t?.templateLang || t?.lang || t?.template?.lang || "ar").trim() || "ar",
           params:dashboardTemplateParams(t),
           components:Array.isArray(t?.components) ? t.components : undefined,
@@ -1363,8 +1381,10 @@
     }
 
     async function sendDashboardMersalDirect({ phone, text, selectedTemplate }){
+      const isTemplate = dashboardMersalIsTemplate(selectedTemplate);
+      const endpoint = isTemplate ? MERSAL_SEND_TEMPLATE_MESSAGE_ENDPOINT : MERSAL_SEND_MESSAGE_ENDPOINT;
       const payload = dashboardMersalPayload(selectedTemplate, phone, text);
-      const res = await fetch(MERSAL_SEND_ENDPOINT, {
+      const res = await fetch(endpoint, {
         method:"POST",
         headers:{ "content-type":"application/json" },
         body:JSON.stringify(payload)
