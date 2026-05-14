@@ -1,1 +1,1007 @@
 
+
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.png">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MZJ CRM - إضافة عميل</title>
+  <link rel="stylesheet" href="./theme.css" />
+</head>
+<body>
+  <section class="login-screen hidden" id="loginScreen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="logo-mark">MZJ</div>
+        <div>
+          <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+          <p>تسجيل الدخول إلى نظام CRM</p>
+        </div>
+      </div>
+      <form class="login-form" id="loginForm">
+        <input id="loginEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required />
+        <input id="loginPassword" type="password" placeholder="كلمة المرور" autocomplete="current-password" required />
+        <div class="login-error" id="loginError"></div>
+        <button class="primary" type="submit">تسجيل الدخول</button>
+      </form>
+    </div>
+  </section>
+
+  <div class="management-page hidden" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="logo-box">
+            <div class="logo-mark">MZJ</div>
+            <div>
+              <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+              <div class="status-text" id="userInfo"></div>
+            </div>
+          </div>
+          <button class="secondary" id="logoutBtn">خروج</button>
+        </div>
+        <div class="nav-card">
+          <div class="menu-label">التنقل بين صفحات النظام</div>
+          <div class="nav-tabs"></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="management-main">
+      <div class="page-head">
+        <div>
+          <h2>إضافة العملاء</h2>
+          <p>إدخال عميل جديد يدويًا كليد داخل السيستم، ويتسجل باسم المندوب الذي أضافه.</p>
+        </div>
+        <span class="count-badge" id="paymentBadge">الدفع</span>
+      </div>
+
+      <div class="manual-tabs">
+        <button class="chip active" id="addTabBtn" type="button">إضافة عميل</button>
+        <button class="chip hidden" id="adminListTabBtn" type="button">عرض العملاء المسجلة</button>
+      </div>
+
+      <section class="manual-section" id="addTab">
+        <div class="card manual-card">
+          <h3>بيانات العميل</h3>
+          <form id="manualLeadForm">
+            <input type="hidden" id="editingLeadId" />
+            <div class="form-grid three">
+              <div class="field">
+                <label>اسم العميل</label>
+                <input id="customerName" required placeholder="اسم العميل" />
+              </div>
+              <div class="field">
+                <label>رقم الجوال</label>
+                <input id="customerPhone" required placeholder="05xxxxxxxx" inputmode="tel" />
+              </div>
+              <div class="field">
+                <label>المصدر</label>
+                <select id="leadSource" required>
+                  <option value="موقع حراج">موقع حراج</option>
+                  <option value="موقع اخر">موقع اخر</option>
+                  <option value="خلال الفرع">خلال الفرع</option>
+                  <option value="صديق">صديق</option>
+                  <option value="اتصال الرقم الموحد">اتصال الرقم الموحد</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid three">
+              <div class="field admin-payment-field hidden" id="adminPaymentBox">
+                <label>الدفع / القسم</label>
+                <select id="adminPaymentType">
+                  <option value="finance">تمويل</option>
+                  <option value="cash">كاش</option>
+                  <option value="cs">خدمة عملاء</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>الدفع حسب المندوب</label>
+                <input id="paymentReadonly" disabled />
+              </div>
+              <div class="field">
+                <label>ملاحظات</label>
+                <input id="leadNotes" placeholder="اختياري" />
+              </div>
+            </div>
+            <div class="actions">
+              <button class="primary" type="submit" id="saveLeadBtn">حفظ العميل</button>
+              <button class="secondary" type="button" id="resetLeadBtn">جديد</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="manual-section hidden" id="adminListTab">
+        <div class="filters-card">
+          <div class="filters-grid database">
+            <input id="searchInput" placeholder="بحث بالاسم أو الرقم" />
+            <select id="sourceFilter"><option value="all">كل المصادر</option></select>
+            <select id="paymentFilter"><option value="all">كل الأقسام</option><option value="كاش">كاش</option><option value="تمويل">تمويل</option><option value="خدمة عملاء">خدمة عملاء</option></select>
+            <button class="secondary" id="refreshBtn" type="button">تحديث</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="leads-table">
+            <thead>
+              <tr>
+                <th>العميل</th>
+                <th>الجوال</th>
+                <th>المصدر</th>
+                <th>الدفع</th>
+                <th>المندوب المسؤول</th>
+                <th>الكول سنتر</th>
+                <th>آخر تحديث</th>
+                <th>حالة الموافقة</th>
+                <th>موافقة</th>
+                <th>تعديل</th>
+                <th>مسح</th>
+              </tr>
+            </thead>
+            <tbody id="manualLeadsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    const appFirebase = initializeApp(firebaseConfig);
+    try { getAnalytics(appFirebase); } catch(e) {}
+    const auth = getAuth(appFirebase);
+    const db = getFirestore(appFirebase);
+
+    const DEPARTMENTS = {
+      cash_sales:"مبيعات الكاش",
+      finance_sales:"مبيعات التمويل",
+      customer_service:"خدمة العملاء",
+      call_center:"الكول سنتر"
+    };
+
+    const NAV_ITEMS = [
+      { page:"inbox.html", label:"صندوق الوارد" },
+      { page:"callcenter.html", label:"الكول سنتر" },
+      { page:"leads-finance.html", label:"العملاء المحتملون - تمويل" },
+      { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
+      { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
+      { page:"database.html", label:"قاعدة البيانات" },
+      { page:"manual-leads.html", label:"إضافة العملاء" },
+      { page:"dashboard.html", label:"الداش بورد" },
+      { page:"reports.html", label:"التقارير" },
+      { page:"branches.html", label:"الفروع" },
+      { page:"statuses.html", label:"حالات العملاء" },
+      { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
+      { page:"admin.html", label:"الإدارة" }
+    ];
+
+    let currentUser = null;
+    let currentProfile = null;
+    let isAdmin = false;
+    let users = [];
+    let leads = [];
+    let branches = [];
+    let unsubLeads = null;
+
+    const el = id => document.getElementById(id);
+
+    function toast(msg){
+      const t = el("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(()=> t.style.display = "none", 2500);
+    }
+
+    function escapeHtml(str){
+      return String(str ?? "").replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    }
+
+    function showLoginError(msg){
+      el("loginError").textContent = msg;
+      el("loginError").style.display = "block";
+    }
+
+    function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
+
+    async function loadUserProfile(user){
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if(snap.exists()) return snap.data();
+      return { email:user.email, name:user.email, role:"user", department:"cash_sales", active:true };
+    }
+
+    function isSalesManagerProfile(profile){ return profile?.role === "sales_manager"; }
+    function isAdminProfile(profile){ return profile?.role === "admin" || isSalesManagerProfile(profile) || profile?.allDepartments === true; }
+    function currentPageName(){ return location.pathname.split("/").pop() || "manual-leads.html"; }
+    function allowedPagesForCurrentUser(){ return Array.isArray(currentProfile?.pages) ? currentProfile.pages : []; }
+    function hasPageAccess(page){
+      const pages = allowedPagesForCurrentUser();
+      const salesManager = isSalesManagerProfile(currentProfile);
+      const unrestricted = !pages.length || (!salesManager && (isAdmin || currentProfile?.allDepartments === true));
+      return unrestricted || pages.includes(page) || page === "dashboard.html";
+    }
+    function renderAllowedNavigation(profile=currentProfile, adminFlag=isAdmin){
+      const currentPage = currentPageName();
+      const pages = Array.isArray(profile?.pages) ? profile.pages : [];
+      const salesManager = isSalesManagerProfile(profile);
+      const unrestricted = !pages.length || (!salesManager && (adminFlag || profile?.allDepartments === true));
+      const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
+      const nav = document.querySelector(".nav-tabs");
+      if(!nav) return;
+      nav.innerHTML = allowed.map(item => `<a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">${item.label}</a>`).join("");
+    }
+    function applyPagePermissions(){
+      if(!hasPageAccess(currentPageName())){
+        sessionStorage.setItem("mzj_no_permission_page", currentPageName());
+        window.location.replace("./dashboard.html");
+        return false;
+      }
+      return true;
+    }
+
+    function normalizePhone(phone){
+      let p = String(phone || "").trim().replace(/[^\d+]/g, "").replace(/^00/, "").replace(/^\+/, "");
+      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) return "966" + p;
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0, 12);
+      return p;
+    }
+
+    function openWhatsappInboxByPhone(phone, name=""){
+      const p = normalizePhone(phone);
+      if(!p) return toast("لا يوجد رقم جوال صالح");
+      const params = new URLSearchParams({
+        platform:"whatsapp",
+        phone:p,
+        conversationId:p,
+        name:name || "",
+        department:(currentProfile?.department || "")
+      });
+      window.location.href = `./inbox.html?${params.toString()}`;
+    }
+
+    function phoneLinkHtml(phone, name=""){
+      const p = normalizePhone(phone);
+      const display = escapeHtml(phone || p || "—");
+      if(!p) return `<span class="lead-static-pill lead-phone-pill"><span class="lead-pill-icon">☎</span><span class="lead-pill-text">${display}</span></span>`;
+      return `<button type="button" class="phone-open-chat lead-action-pill lead-phone-pill" data-phone="${escapeHtml(p)}" data-name="${escapeHtml(name || "")}"><span class="lead-pill-icon">☎</span><span class="lead-pill-text">${display}</span></button>`;
+    }
+
+    function manualNameHtml(row){
+      const name = row.customerName || row.name || "عميل بدون اسم";
+      const phone = row.phone || row.mobile || row.phoneNumber || "";
+      return `<button type="button" class="manual-name-open-chat lead-action-pill lead-name-pill" data-phone="${escapeHtml(normalizePhone(phone))}" data-name="${escapeHtml(name)}"><span class="lead-pill-text">${escapeHtml(name)}</span></button>`;
+    }
+
+    function tsToDate(v){
+      if(!v) return null;
+      if(v.toDate) return v.toDate();
+      if(typeof v === "number") return new Date(v < 9999999999 ? v * 1000 : v);
+      const d = new Date(v);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function formatDate(v){
+      const d = tsToDate(v);
+      if(!d) return "";
+      return d.toLocaleString("ar-EG", { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+    }
+
+    function approvalLabel(row){
+      const s = row.manualApprovalStatus || (row.manualDuplicateRequest ? "pending" : "approved");
+      if(s === "pending") return "بانتظار موافقة الإدارة";
+      if(s === "approved") return "تمت الموافقة";
+      if(s === "rejected") return "مرفوض";
+      return s || "";
+    }
+
+    function approvalClass(row){
+      const s = row.manualApprovalStatus || (row.manualDuplicateRequest ? "pending" : "approved");
+      return s === "pending" ? "warning" : (s === "rejected" ? "danger" : "success");
+    }
+
+    function safeDocId(value){ return String(value || "").replace(/[\/#[\].]/g, "_").replace(/\s+/g, "_").slice(0,120); }
+
+    function paymentFromDepartment(dept){
+      if(dept === "finance_sales") return { key:"finance", payment:"تمويل", department:"finance_sales", branch:"مبيعات التمويل", serviceKey:"finance" };
+      if(dept === "customer_service") return { key:"cs", payment:"خدمة عملاء", department:"customer_service", branch:"خدمة العملاء", serviceKey:"cs" };
+      return { key:"cash", payment:"كاش", department:"cash_sales", branch:"مبيعات الكاش", serviceKey:"cash" };
+    }
+    function branchLabel(branch){
+      return branch.name || branch.branch || branch.branchName || branch.title || branch.label || branch.id || "";
+    }
+
+    function valuesFromBranchField(value){
+      if(value === undefined || value === null || value === false) return [];
+      if(Array.isArray(value)) return value.flatMap(valuesFromBranchField);
+      if(typeof value === "object"){
+        return [value.uid, value.id, value.userId, value.name, value.email, value.displayName, value.label, value.value].filter(Boolean).map(v => String(v).trim());
+      }
+      return String(value).split(/[،,|؛;\n]+/).map(v => v.trim()).filter(Boolean);
+    }
+
+    function branchDepartmentValues(branch, dept){
+      if(!branch) return [];
+      const keysByDept = {
+        cash_sales:["cashSalesUids", "cashSalesUid", "cashSalesNames", "cash", "cashSales", "cash_sales", "cashUsers", "cashRepresentatives", "cashSalesUsers", "كاش"],
+        finance_sales:["financeSalesUids", "financeSalesUid", "financeSalesNames", "finance", "financeSales", "finance_sales", "financeUsers", "financeRepresentatives", "financeSalesUsers", "تمويل"],
+        customer_service:["customerServiceUids", "customerServiceUid", "customerServiceNames", "customerService", "customer_service", "service", "customerUsers", "customerServiceUsers", "خدمة عملاء", "خدمة العملاء"],
+        call_center:["callCenterUids", "callCenterUid", "callCenterNames", "callCenter", "call_center", "callcenter", "callCenterUsers", "callCenterRepresentatives", "callCenterAgents", "كول سنتر", "الكول سنتر"]
+      };
+      const keys = keysByDept[dept] || [];
+      const values = [];
+      keys.forEach(k => values.push(...valuesFromBranchField(branch[k])));
+      if(branch.assignments) keys.forEach(k => values.push(...valuesFromBranchField(branch.assignments[k])));
+      if(branch.departments) keys.forEach(k => values.push(...valuesFromBranchField(branch.departments[k])));
+      return [...new Set(values)];
+    }
+
+    function branchUserMatches(user, value){
+      const wanted = String(value || "").trim().toLowerCase();
+      if(!wanted) return false;
+      return [user.uid, user.id, user.userId, user.name, user.email, user.displayName]
+        .filter(Boolean)
+        .some(v => String(v).trim().toLowerCase() === wanted);
+    }
+
+    function branchForUser(user, dept){
+      if(!user || !dept) return null;
+      return branches.find(b => branchDepartmentValues(b, dept).some(v => branchUserMatches(user, v))) || null;
+    }
+
+    function branchForName(name){
+      const wanted = String(name || "").trim();
+      if(!wanted) return null;
+      return branches.find(b => branchLabel(b) === wanted || b.id === wanted) || null;
+    }
+
+    function usersForBranchDepartment(branchName, dept){
+      const branch = branchForName(branchName);
+      const values = branchDepartmentValues(branch, dept);
+      if(!branch || !values.length) return [];
+      return usersForDepartment(dept).filter(u => values.some(v => branchUserMatches(u, v)));
+    }
+
+    function selectedSalesUser(){
+      return users.find(u => (u.uid || u.id) === currentUser?.uid) || { uid: currentUser.uid, name: currentProfile?.name || currentUser.email, email: currentUser.email, department: currentProfile?.department || "" };
+    }
+
+    function branchInfoForSalesUser(salesUser, cfg){
+      const branch = branchForUser(salesUser, cfg.department);
+      const label = branch ? branchLabel(branch) : cfg.branch;
+      return { branch, label, id: branch ? branch.id : label };
+    }
+
+    function selectedPaymentConfig(){
+      if(isAdmin){
+        const v = el("adminPaymentType").value;
+        if(v === "finance") return paymentFromDepartment("finance_sales");
+        if(v === "cs") return paymentFromDepartment("customer_service");
+        return paymentFromDepartment("cash_sales");
+      }
+      return paymentFromDepartment(currentProfile?.department || "cash_sales");
+    }
+    function refreshPaymentView(){
+      const cfg = selectedPaymentConfig();
+      el("paymentReadonly").value = cfg.payment;
+      el("paymentBadge").textContent = `الدفع: ${cfg.payment}`;
+    }
+
+    async function findExistingLeadByPhone(phone){
+      const normalized = normalizePhone(phone);
+      if(!normalized) return null;
+      const manualId = `manual_${safeDocId(normalized)}`;
+      try{
+        const byId = await getDoc(doc(db, "leads", manualId));
+        if(byId.exists()) return { id:byId.id, ...byId.data() };
+      }catch(e){ console.warn("manual id duplicate check skipped", e); }
+
+      const checks = [
+        ["phoneNormalized", normalized],
+        ["requestedPhoneNormalized", normalized],
+        ["phone", phone],
+        ["mobile", phone],
+        ["phoneNumber", phone]
+      ];
+      for(const [field, value] of checks){
+        if(!value) continue;
+        try{
+          const snap = await getDocs(query(collection(db, "leads"), where(field, "==", value), limit(1)));
+          let found = null;
+          snap.forEach(d => {
+            const data = { id:d.id, ...d.data() };
+            // لا نعتبر طلبات الموافقة السابقة عميلًا أصليًا، حتى لا يتكرر العميل عند الموافقة.
+            if(data.manualOnly === true || data.manualDuplicateRequest === true || data.manualRequestType === "duplicate_phone") return;
+            if(!found) found = data;
+          });
+          if(found) return found;
+        }catch(e){
+          console.warn(`${field} duplicate check skipped`, e);
+        }
+      }
+      return null;
+    }
+
+    function buildDuplicateRequestPayload(existing={}){
+      const cfg = selectedPaymentConfig();
+      const requestedName = el("customerName").value.trim();
+      const requestedPhoneRaw = el("customerPhone").value.trim();
+      const requestedPhone = normalizePhone(requestedPhoneRaw);
+      const requestedSource = el("leadSource").value;
+      const requestedNotes = el("leadNotes").value.trim();
+      const salesUser = selectedSalesUser();
+      const branchInfo = branchInfoForSalesUser(salesUser, cfg);
+      const cc = pickCallCenter(branchInfo.label);
+      return {
+        manualEntry:true,
+        manualOnly:true,
+        manualDuplicateRequest:true,
+        manualApprovalStatus:"pending",
+        manualRequestType:"duplicate_phone",
+        duplicateLeadId: existing.id || existing.leadId || "",
+        existingCustomerName: existing.customerName || existing.name || "",
+        existingPhone: existing.phone || existing.mobile || existing.phoneNumber || "",
+        existingAssignedTo: existing.assignedTo || existing.responsibleUid || existing.salesAssignedTo || "",
+        existingAssignedName: existing.assignedName || existing.responsibleName || existing.salesAssignedName || "",
+        proposedAssignedTo: currentUser.uid,
+        proposedAssignedName: currentProfile?.name || currentUser.email,
+        customerName:requestedName,
+        phone:requestedPhoneRaw,
+        phoneNormalized:requestedPhone,
+        waId:requestedPhone,
+        convId:requestedPhone,
+        conversationId:requestedPhone,
+        platform:"whatsapp",
+        channel:"whatsapp",
+        channelCode:"wa",
+        source:requestedSource,
+        payment:cfg.payment,
+        department:cfg.department, serviceKey:cfg.serviceKey, autoService:cfg.serviceKey,
+        branch:branchInfo.label, branchId:branchInfo.id, branchName:branchInfo.label, sectionLabel:branchInfo.label,
+        assignedTo:salesUser.uid || salesUser.id || currentUser.uid, assignedName:userLabel(salesUser),
+        salesAssignedTo:salesUser.uid || salesUser.id || currentUser.uid, salesAssignedName:userLabel(salesUser),
+        responsibleUid:salesUser.uid || salesUser.id || currentUser.uid, responsibleName:userLabel(salesUser),
+        callCenterAssignedTo:cc ? (cc.uid || cc.id || "") : "", callCenterAssignedName:cc ? userLabel(cc) : "",
+        callCenterUid:cc ? (cc.uid || cc.id || "") : "", callCenterName:cc ? userLabel(cc) : "",
+        requestedCustomerName:requestedName,
+        requestedPhone:requestedPhoneRaw,
+        requestedPhoneNormalized:requestedPhone,
+        requestedSource,
+        requestedNotes,
+        requestedPayment:cfg.payment,
+        requestedDepartment:cfg.department,
+        requestedServiceKey:cfg.serviceKey,
+        requestedBy:currentUser.uid,
+        requestedByUid:currentUser.uid,
+        requestedByName:currentProfile?.name || currentUser.email,
+        requestedByEmail:currentUser.email,
+        createdBy:currentUser.uid,
+        createdByName:currentProfile?.name || currentUser.email,
+        createdByEmail:currentUser.email,
+        createdAt:serverTimestamp(),
+        duplicateRequestedAt:serverTimestamp(),
+        requestLastUpdated:serverTimestamp(),
+        updatedBy:currentUser.uid,
+        updatedByName:currentProfile?.name || currentUser.email,
+        updatedByEmail:currentUser.email,
+        lastUpdateSource:"manual_duplicate_request",
+        updatedAt:serverTimestamp(),
+        lastUpdated:serverTimestamp()
+      };
+    }
+
+    async function loadUsers(){
+      try{
+        const snap = await getDocs(collection(db, "users"));
+        users = [];
+        snap.forEach(d => users.push({ uid:d.id, ...d.data() }));
+      }catch(err){
+        console.warn("users list unavailable for current account", err);
+        users = [];
+      }
+      try{
+        const branchSnap = await getDocs(collection(db, "branches"));
+        branches = [];
+        branchSnap.forEach(d => branches.push({ id:d.id, ...d.data() }));
+      }catch(err){
+        console.warn("branches list unavailable for current account", err);
+        branches = [];
+      }
+    }
+    function userLabel(u){ return u ? (u.name || u.email || u.uid || "") : ""; }
+    function usersForDepartment(dept){ return users.filter(u => u.active !== false && u.department === dept); }
+    function pickCallCenter(branchName=""){
+      const list = branchName ? usersForBranchDepartment(branchName, "call_center") : usersForDepartment("call_center");
+      return list[Math.floor(Math.random() * list.length)] || null;
+    }
+
+    async function syncManualWhatsappConversation(leadId, payload = {}){
+      const phone = normalizePhone(payload.phoneNormalized || payload.phone || payload.mobile || payload.phoneNumber || "");
+      if(!phone) return;
+      await setDoc(doc(db, "wa_conversations", phone), {
+        leadId:leadId || payload.leadId || "",
+        customerName:payload.customerName || payload.fullName || payload.name || "",
+        fullName:payload.fullName || payload.customerName || payload.name || "",
+        name:payload.name || payload.customerName || payload.fullName || "",
+        displayName:payload.displayName || payload.customerName || payload.name || "",
+        phone:payload.phone || phone,
+        mobile:payload.mobile || payload.phone || phone,
+        phoneNumber:payload.phoneNumber || payload.phone || phone,
+        phoneNormalized:phone,
+        waId:phone,
+        convId:phone,
+        conversationId:phone,
+        platform:"whatsapp",
+        channel:"whatsapp",
+        channelCode:"wa",
+        provider:"manual_entry",
+        source:payload.source || "",
+        sourceName:payload.sourceName || payload.source || "",
+        department:payload.department || "",
+        serviceKey:payload.serviceKey || "",
+        autoService:payload.autoService || "",
+        branch:payload.branch || "",
+        branchId:payload.branchId || "",
+        branchName:payload.branchName || "",
+        sectionLabel:payload.sectionLabel || "",
+        responsibleUid:payload.responsibleUid || "",
+        responsibleName:payload.responsibleName || "",
+        assignedTo:payload.assignedTo || "",
+        assignedName:payload.assignedName || "",
+        salesAssignedTo:payload.salesAssignedTo || "",
+        salesAssignedName:payload.salesAssignedName || "",
+        callCenterAssignedTo:payload.callCenterAssignedTo || "",
+        callCenterAssignedName:payload.callCenterAssignedName || "",
+        callCenterUid:payload.callCenterUid || "",
+        callCenterName:payload.callCenterName || "",
+        status:payload.status || payload.currentStatus || "عميل جديد",
+        clientStatus:payload.clientStatus || payload.status || "عميل جديد",
+        customerStatus:payload.customerStatus || payload.status || "عميل جديد",
+        lastMessageText:payload.lastMessageText || "",
+        updatedAt:serverTimestamp(),
+        lastUpdated:serverTimestamp()
+      }, { merge:true });
+    }
+
+    function buildLeadPayload({ leadId, existing={}, assignee=null }){
+      const cfg = selectedPaymentConfig();
+      const name = el("customerName").value.trim();
+      const phoneRaw = el("customerPhone").value.trim();
+      const phone = normalizePhone(phoneRaw);
+      const source = el("leadSource").value;
+      const notes = el("leadNotes").value.trim();
+      const status = existing.status || existing.leadStatus || "عميل جديد";
+      const salesUser = assignee || selectedSalesUser();
+      const branchInfo = branchInfoForSalesUser(salesUser, cfg);
+      const cc = existing.callCenterAssignedTo ? null : pickCallCenter(branchInfo.label);
+
+      const payload = {
+        leadId,
+        customerName:name, fullName:name, name, displayName:name,
+        phone:phoneRaw, mobile:phoneRaw, phoneNumber:phoneRaw, phoneNormalized:phone,
+        waId:phone, convId:phone, conversationId:phone,
+        source, sourceName:source, sourceCode:"manual", platform:"whatsapp", channel:"whatsapp", channelCode:"wa", provider:"manual_entry",
+        department:cfg.department, serviceKey:cfg.serviceKey, autoService:cfg.serviceKey,
+        branch:branchInfo.label, branchId:branchInfo.id, branchName:branchInfo.label, sectionLabel:branchInfo.label,
+        leadPayment:cfg.payment, payment:cfg.payment, paymentType:cfg.payment, payType:cfg.payment,
+        status, statusLabel:status, leadStatus:status, currentStatus:status, currentStatusLabel:status,
+        clientStatus:status, customerStatus:status, customerStatusLabel:status, pipelineStatus:status, pipelineStatusLabel:status,
+        stage:status, stageLabel:status,
+        notes, inCustomersBase:true,
+        manualEntry:true, manualSource:"manual_page",
+        manualApprovalStatus: existing.manualApprovalStatus || "approved",
+        manualDuplicateRequest: existing.manualDuplicateRequest || false,
+        lastUpdateSource:"manual_page",
+        createdBy: existing.createdBy || currentUser.uid,
+        createdByName: existing.createdByName || (currentProfile?.name || currentUser.email),
+        createdByEmail: existing.createdByEmail || currentUser.email,
+        updatedBy: currentUser.uid,
+        updatedByName: currentProfile?.name || currentUser.email,
+        updatedAt: serverTimestamp(), lastUpdated: serverTimestamp()
+      };
+
+      if(!existing.createdAt) payload.createdAt = serverTimestamp();
+
+      payload.assignedTo = salesUser.uid || salesUser.id || "";
+      payload.assignedName = userLabel(salesUser);
+      payload.salesAssignedTo = payload.assignedTo;
+      payload.salesAssignedName = payload.assignedName;
+      payload.responsibleUid = payload.assignedTo;
+      payload.responsibleName = payload.assignedName;
+      payload.assignedBy = existing.assignedBy || "manual_entry";
+      payload.assignedAt = existing.assignedAt || serverTimestamp();
+
+      if(existing.callCenterAssignedTo){
+        ["callCenterAssignedTo","callCenterAssignedName","callCenterUid","callCenterName","callCenterAssignedAt"].forEach(k => payload[k] = existing[k]);
+      }else if(cc){
+        payload.callCenterAssignedTo = cc.uid || cc.id || "";
+        payload.callCenterAssignedName = userLabel(cc);
+        payload.callCenterUid = payload.callCenterAssignedTo;
+        payload.callCenterName = payload.callCenterAssignedName;
+        payload.callCenterAssignedAt = serverTimestamp();
+      }
+      return payload;
+    }
+
+    async function saveManualLead(e){
+      e.preventDefault();
+      const phone = normalizePhone(el("customerPhone").value);
+      if(!el("customerName").value.trim()) return toast("اكتب اسم العميل");
+      if(!phone) return toast("اكتب رقم الجوال");
+      const editingId = el("editingLeadId").value.trim();
+      try{
+        if(!editingId){
+          const duplicate = await findExistingLeadByPhone(phone);
+          if(duplicate && !duplicate.manualOnly){
+            const requestRef = doc(collection(db, "leads"));
+            await setDoc(requestRef, { ...buildDuplicateRequestPayload(duplicate), leadId:requestRef.id });
+            toast("رقم العميل مسجل قبل كده، تم إرساله للإدارة العامة للموافقة وتحديث المندوب");
+            resetForm();
+            if(isAdmin) showTab("list");
+            return;
+          }
+        }
+
+        if(editingId){
+          const ref = doc(db, "leads", editingId);
+          const oldSnap = await getDoc(ref).catch(()=>null);
+          const existing = oldSnap?.exists() ? { id:editingId, ...oldSnap.data() } : { id:editingId };
+          const payload = buildLeadPayload({ leadId:editingId, existing });
+          await setDoc(ref, payload, { merge:true });
+          await syncManualWhatsappConversation(editingId, payload);
+          toast("تم تحديث العميل");
+        }else{
+          const newRef = doc(collection(db, "leads"));
+          const payload = buildLeadPayload({ leadId:newRef.id, existing:{} });
+          await setDoc(newRef, payload);
+          await syncManualWhatsappConversation(newRef.id, payload);
+          toast("تم حفظ العميل");
+        }
+        resetForm();
+      }catch(err){
+        console.error("manual lead save failed", err);
+        const code = err?.code ? ` (${err.code})` : "";
+        toast("تعذر حفظ العميل" + code + " - راجع صلاحية صفحة إضافة العملاء أو قواعد Firestore");
+      }
+    }
+
+    function resetForm(){
+      el("editingLeadId").value = "";
+      el("customerName").value = "";
+      el("customerPhone").value = "";
+      el("leadSource").value = "موقع حراج";
+      el("leadNotes").value = "";
+      el("saveLeadBtn").textContent = "حفظ العميل";
+      refreshPaymentView();
+    }
+
+    function showTab(tab){
+      el("addTab").classList.toggle("hidden", tab !== "add");
+      el("adminListTab").classList.toggle("hidden", tab !== "list");
+      el("addTabBtn").classList.toggle("active", tab === "add");
+      el("adminListTabBtn").classList.toggle("active", tab === "list");
+    }
+
+    function renderFilters(){
+      const selected = el("sourceFilter").value || "all";
+      const sources = ["all", ...new Set(leads.map(l => l.source || l.requestedSource).filter(Boolean))];
+      el("sourceFilter").innerHTML = sources.map(s => `<option value="${escapeHtml(s)}">${s === "all" ? "كل المصادر" : escapeHtml(s)}</option>`).join("");
+      el("sourceFilter").value = sources.includes(selected) ? selected : "all";
+    }
+
+    function renderManualLeads(){
+      if(!isAdmin) return;
+      const q = el("searchInput").value.trim().toLowerCase();
+      const sf = el("sourceFilter").value || "all";
+      const pf = el("paymentFilter").value || "all";
+      const rows = leads
+        .filter(l => {
+          const approval = l.manualApprovalStatus || (l.manualDuplicateRequest ? "pending" : "approved");
+          if(l.manualDuplicateRequest === true || l.manualOnly === true || l.manualRequestType === "duplicate_phone") return approval === "pending";
+          return l.manualEntry === true || l.provider === "manual_entry" || approval === "pending";
+        })
+        .filter(l => {
+          const hay = `${l.customerName||l.name||""} ${l.requestedCustomerName||""} ${l.phone||l.mobile||l.phoneNumber||""} ${l.requestedPhone||""}`.toLowerCase();
+          const src = l.source || l.requestedSource || "";
+          const pay = l.payment || l.paymentType || l.payType || l.requestedPayment || "";
+          return (!q || hay.includes(q)) && (sf === "all" || src === sf) && (pf === "all" || pay === pf);
+        });
+      el("manualLeadsBody").innerHTML = rows.map(l => {
+        const dept = l.requestedDepartment || l.department || paymentFromDepartment("cash_sales").department;
+        const reps = usersForDepartment(dept);
+        const selectedUid = l.proposedAssignedTo || l.requestedByUid || l.requestedBy || l.assignedTo || l.responsibleUid || "";
+        const opts = reps.map(u => `<option value="${escapeHtml(u.uid)}" ${u.uid === selectedUid ? "selected" : ""}>${escapeHtml(userLabel(u))}</option>`).join("");
+        const oldRep = l.duplicateLeadId ? (l.existingAssignedName || l.assignedName || l.responsibleName || "غير محدد") : "";
+        const pending = (l.manualApprovalStatus || (l.manualDuplicateRequest ? "pending" : "approved")) === "pending";
+        const updatedBy = l.updatedByName || l.requestedByName || l.createdByName || "";
+        const displayName = l.requestedCustomerName || l.customerName || l.name || "";
+        const displayPhone = l.requestedPhone || l.phone || l.mobile || l.phoneNumber || "";
+        const displaySource = l.requestedSource || l.source || "";
+        const displayPayment = l.requestedPayment || l.payment || l.paymentType || l.payType || "";
+        return `<tr class="${pending ? "manual-pending-row" : ""}">
+          <td>${manualNameHtml({ ...l, customerName:displayName, phone:displayPhone })}</td>
+          <td>${phoneLinkHtml(displayPhone, displayName)}</td>
+          <td>${escapeHtml(displaySource)}</td>
+          <td>${escapeHtml(displayPayment)}</td>
+          <td>${oldRep ? `<div class="small-note">المندوب القديم: ${escapeHtml(oldRep)}</div>` : ""}<select data-lead-id="${escapeHtml(l.id)}" class="rep-select"><option value="">اختر المندوب الجديد</option>${opts}</select></td>
+          <td>${escapeHtml(l.callCenterAssignedName || l.callCenterName || "")}</td>
+          <td><span>${escapeHtml(formatDate(l.lastUpdated || l.updatedAt || l.requestLastUpdated || l.createdAt))}</span><br><small>${escapeHtml(updatedBy)}</small></td>
+          <td><span class="approval-badge ${approvalClass(l)}">${escapeHtml(approvalLabel(l))}</span>${l.duplicateLeadId ? `<br><small>رقم موجود سابقًا</small>` : ""}</td>
+          <td>${pending ? `<button class="primary approve-btn" data-lead-id="${escapeHtml(l.id)}" type="button">موافقة</button>` : "-"}</td>
+          <td><button class="secondary edit-btn" data-lead-id="${escapeHtml(l.id)}" type="button">تعديل</button></td>
+          <td><button class="danger delete-btn" data-lead-id="${escapeHtml(l.id)}" type="button">مسح</button></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="11" class="empty">لا توجد عملاء مسجلة أو طلبات موافقة</td></tr>`;
+    }
+
+    async function changeRep(leadId, uid){
+      if(!uid) return;
+      const u = users.find(x => x.uid === uid);
+      if(!u) return;
+      const row = leads.find(x => x.id === leadId) || {};
+
+      // لو ده طلب رقم مكرر: اختيار المندوب الجديد لا يعمل موافقة ولا يكرر العميل.
+      // الموافقة فقط هي التي تحدث العميل الأصلي ثم تحذف طلب الموافقة.
+      if(row.duplicateLeadId || row.manualDuplicateRequest === true || row.manualOnly === true){
+        await updateDoc(doc(db, "leads", leadId), {
+          proposedAssignedTo:u.uid,
+          proposedAssignedName:userLabel(u),
+          updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(), requestLastUpdated:serverTimestamp(),
+          updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
+          lastUpdateSource:"manual_admin_proposed_rep"
+        });
+        toast("تم اختيار المندوب الجديد، اضغط موافقة لتحديث العميل الأصلي");
+        return;
+      }
+
+      const dept = row.department || u.department || "cash_sales";
+      const cfg = paymentFromDepartment(dept);
+      const branchInfo = branchInfoForSalesUser(u, cfg);
+      const cc = pickCallCenter(branchInfo.label);
+      const payload = {
+        assignedTo:u.uid, assignedName:userLabel(u), salesAssignedTo:u.uid, salesAssignedName:userLabel(u),
+        responsibleUid:u.uid, responsibleName:userLabel(u),
+        branch:branchInfo.label, branchId:branchInfo.id, branchName:branchInfo.label, sectionLabel:branchInfo.label,
+        callCenterAssignedTo:cc ? (cc.uid || cc.id || "") : "", callCenterAssignedName:cc ? userLabel(cc) : "",
+        callCenterUid:cc ? (cc.uid || cc.id || "") : "", callCenterName:cc ? userLabel(cc) : "",
+        manualApprovalStatus:"approved", manualDuplicateRequest:false,
+        manualApprovedBy:currentUser.uid, manualApprovedByName:currentProfile?.name || currentUser.email,
+        approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
+        updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
+        lastUpdateSource:"manual_admin_rep_update"
+      };
+      await updateDoc(doc(db, "leads", leadId), payload);
+      toast("تم تغيير المندوب");
+    }
+
+    async function approveLead(leadId){
+      const row = leads.find(x => x.id === leadId) || {};
+      const targetId = row.duplicateLeadId || leadId;
+
+      // رقم موجود قبل كده: لا ننشئ عميل جديد. نحدث العميل الأصلي فقط ثم نحذف طلب الموافقة.
+      if(row.duplicateLeadId){
+        const uid = row.proposedAssignedTo || row.requestedByUid || row.requestedBy || row.assignedTo || row.responsibleUid || "";
+        if(!uid) return toast("اختر المندوب الجديد قبل الموافقة");
+        const u = users.find(x => x.uid === uid) || { uid, name:row.proposedAssignedName || row.requestedByName || uid, email:row.requestedByEmail || "" };
+        const newName = row.requestedCustomerName || row.customerName || row.name || "";
+        const newPhoneRaw = row.requestedPhone || row.phone || row.mobile || row.phoneNumber || "";
+        const newPhoneNormalized = row.requestedPhoneNormalized || row.phoneNormalized || normalizePhone(newPhoneRaw);
+        const newSource = row.requestedSource || row.source || "";
+        const newPayment = row.requestedPayment || row.payment || row.paymentType || row.payType || "";
+        const newDepartment = row.requestedDepartment || row.department || "";
+        const newServiceKey = row.requestedServiceKey || row.serviceKey || row.autoService || "";
+        const requestedCfg = newDepartment ? paymentFromDepartment(newDepartment) : {};
+        const branchInfo = branchInfoForSalesUser(u, requestedCfg);
+        const newBranch = branchInfo.label || row.requestedBranch || row.branch || row.branchName || requestedCfg.branch || "";
+        const cc = pickCallCenter(newBranch);
+        const newStatus = row.requestedStatus || "عميل جديد";
+
+        const payload = {
+          // موافقة طلب رقم موجود = تحديث بيانات العميل الأصلي بنفس البيانات الجديدة
+          customerName:newName,
+          fullName:newName,
+          name:newName,
+          displayName:newName,
+          phone:newPhoneRaw,
+          mobile:newPhoneRaw,
+          phoneNumber:newPhoneRaw,
+          phoneNormalized:newPhoneNormalized,
+          source:newSource,
+          sourceName:newSource,
+          sourceCode:"manual",
+          waId:newPhoneNormalized,
+          convId:newPhoneNormalized,
+          conversationId:newPhoneNormalized,
+          platform:"whatsapp",
+          channel:"whatsapp",
+          channelCode:"wa",
+          provider:"manual_entry",
+          leadPayment:newPayment,
+          payment:newPayment,
+          paymentType:newPayment,
+          payType:newPayment,
+          department:newDepartment,
+          serviceKey:newServiceKey,
+          autoService:newServiceKey,
+          branch:newBranch,
+          branchId:branchInfo.id || newBranch,
+          branchName:newBranch,
+          sectionLabel:newBranch,
+          status:newStatus,
+          statusLabel:newStatus,
+          leadStatus:newStatus,
+          currentStatus:newStatus,
+          currentStatusLabel:newStatus,
+          clientStatus:newStatus,
+          customerStatus:newStatus,
+          customerStatusLabel:newStatus,
+          pipelineStatus:newStatus,
+          pipelineStatusLabel:newStatus,
+          stage:newStatus,
+          stageLabel:newStatus,
+          notes:row.requestedNotes || row.notes || "",
+          assignedTo:uid,
+          assignedName:userLabel(u),
+          salesAssignedTo:uid,
+          salesAssignedName:userLabel(u),
+          responsibleUid:uid,
+          responsibleName:userLabel(u),
+          callCenterAssignedTo:cc ? (cc.uid || cc.id || "") : "",
+          callCenterAssignedName:cc ? userLabel(cc) : "",
+          callCenterUid:cc ? (cc.uid || cc.id || "") : "",
+          callCenterName:cc ? userLabel(cc) : "",
+          manualEntry:true,
+          manualApprovalStatus:"approved",
+          manualDuplicateRequest:false,
+          manualApprovedBy:currentUser.uid,
+          manualApprovedByName:currentProfile?.name || currentUser.email,
+          approvedAt:serverTimestamp(),
+          updatedAt:serverTimestamp(),
+          lastUpdated:serverTimestamp(),
+          updatedBy:currentUser.uid,
+          updatedByName:currentProfile?.name || currentUser.email,
+          updatedByEmail:currentUser.email,
+          lastUpdateSource:"manual_admin_duplicate_approved",
+          lastManualRequestId:leadId,
+          lastManualRequestedName:newName,
+          lastManualRequestedPhone:newPhoneRaw,
+          lastManualRequestedSource:newSource,
+          lastManualRequestedPayment:newPayment,
+          lastManualRequestedDepartment:newDepartment
+        };
+        await updateDoc(doc(db, "leads", targetId), payload);
+        await syncManualWhatsappConversation(targetId, { leadId:targetId, ...payload });
+        try{
+          await deleteDoc(doc(db, "leads", leadId));
+        }catch(deleteErr){
+          console.warn("duplicate request delete failed, archiving instead", deleteErr);
+          await updateDoc(doc(db, "leads", leadId), {
+            manualApprovalStatus:"approved",
+            manualDuplicateRequest:false,
+            manualRequestArchived:true,
+            approvedTargetLeadId:targetId,
+            approvedAssignedTo:uid,
+            approvedAssignedName:userLabel(u),
+            approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
+            updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
+            lastUpdateSource:"manual_admin_request_archived"
+          });
+        }
+        toast("تمت الموافقة وتحديث العميل الأصلي بدون تكرار");
+        return;
+      }
+
+      const payload = {
+        manualApprovalStatus:"approved", manualDuplicateRequest:false,
+        manualApprovedBy:currentUser.uid, manualApprovedByName:currentProfile?.name || currentUser.email,
+        approvedAt:serverTimestamp(), updatedAt:serverTimestamp(), lastUpdated:serverTimestamp(),
+        updatedBy:currentUser.uid, updatedByName:currentProfile?.name || currentUser.email, updatedByEmail:currentUser.email,
+        lastUpdateSource:"manual_admin_approval"
+      };
+      await updateDoc(doc(db, "leads", targetId), payload);
+      toast("تمت الموافقة");
+    }
+
+    async function deleteManualLead(leadId){
+      if(!confirm("متأكد من مسح هذا السجل؟")) return;
+      try{
+        await deleteDoc(doc(db, "leads", leadId));
+        toast("تم مسح السجل");
+      }catch(err){
+        console.error(err);
+        toast("تعذر مسح السجل");
+      }
+    }
+
+    function editLead(leadId){
+      const l = leads.find(x => x.id === leadId);
+      if(!l) return;
+      el("editingLeadId").value = l.id;
+      el("customerName").value = l.requestedCustomerName || l.customerName || l.name || "";
+      el("customerPhone").value = l.requestedPhone || l.phone || l.mobile || l.phoneNumber || "";
+      el("leadSource").value = l.requestedSource || l.source || "موقع حراج";
+      el("leadNotes").value = l.requestedNotes || l.notes || "";
+      if(isAdmin){
+        const p = l.payment || l.paymentType || l.payType || "";
+        el("adminPaymentType").value = p === "تمويل" ? "finance" : (p === "خدمة عملاء" ? "cs" : "cash");
+      }
+      refreshPaymentView();
+      el("saveLeadBtn").textContent = "تحديث العميل";
+      showTab("add");
+      window.scrollTo({ top:0, behavior:"smooth" });
+    }
+
+    function subscribeManualLeads(){
+      if(!isAdmin) return;
+      if(unsubLeads) unsubLeads();
+      unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy("updatedAt", "desc")), snap => {
+        leads = [];
+        snap.forEach(d => leads.push({ id:d.id, ...d.data() }));
+        renderFilters();
+        renderManualLeads();
+      });
+    }
+
+    async function init(){
+      renderAllowedNavigation();
+      if(!applyPagePermissions()) return;
+      el("userInfo").textContent = `${currentProfile.name || currentUser.email} - ${isSalesManagerProfile(currentProfile) ? "مدير مبيعات" : (isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department))}`;
+      el("adminListTabBtn").classList.toggle("hidden", !isAdmin);
+      el("adminPaymentBox").classList.toggle("hidden", !isAdmin);
+      await loadUsers();
+      refreshPaymentView();
+      subscribeManualLeads();
+    }
+
+    el("loginForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      try{ await signInWithEmailAndPassword(auth, el("loginEmail").value, el("loginPassword").value); }
+      catch(err){ showLoginError("بيانات الدخول غير صحيحة"); }
+    });
+    el("logoutBtn").onclick = () => signOut(auth);
+    el("manualLeadForm").onsubmit = saveManualLead;
+    el("resetLeadBtn").onclick = resetForm;
+    el("addTabBtn").onclick = () => showTab("add");
+    el("adminListTabBtn").onclick = () => showTab("list");
+    el("adminPaymentType").onchange = refreshPaymentView;
+    el("refreshBtn").onclick = renderManualLeads;
+    ["searchInput","sourceFilter","paymentFilter"].forEach(id => el(id).addEventListener("input", renderManualLeads));
+    document.addEventListener("change", e => { if(e.target.classList.contains("rep-select")) changeRep(e.target.dataset.leadId, e.target.value); });
+    document.addEventListener("click", e => { if(e.target.classList.contains("approve-btn")) approveLead(e.target.dataset.leadId); });
+    document.addEventListener("click", e => { if(e.target.classList.contains("edit-btn")) editLead(e.target.dataset.leadId); });
+    document.addEventListener("click", e => { if(e.target.classList.contains("delete-btn")) deleteManualLead(e.target.dataset.leadId); });
+    document.addEventListener("click", e => { const btn = e.target.closest(".phone-open-chat, .manual-name-open-chat"); if(!btn) return; openWhatsappInboxByPhone(btn.dataset.phone, btn.dataset.name); });
+
+    onAuthStateChanged(auth, async user => {
+      if(!user){
+        currentUser = null; currentProfile = null;
+        el("loginScreen").classList.remove("hidden"); el("app").classList.add("hidden");
+        return;
+      }
+      currentUser = user;
+      currentProfile = await loadUserProfile(user);
+      if(currentProfile.active === false){ await signOut(auth); return; }
+      isAdmin = isAdminProfile(currentProfile);
+      el("loginScreen").classList.add("hidden"); el("app").classList.remove("hidden");
+      await init();
+    });
+  </script>
+</body>
+</html>
