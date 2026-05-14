@@ -544,7 +544,7 @@
       { page:"branches.html", label:"الفروع" },
       { page:"statuses.html", label:"حالات العملاء" },
       { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
-      { page:"kpi-sales-reps.html", label:"تقييم المناديب" },
+      { page:"kpi.html", label:"تقييم المناديب" },
       { page:"admin.html", label:"الإدارة" }
     ];
 
@@ -747,7 +747,7 @@
     }
 
     function renderAllowedNavigation(){
-      const currentPage = "kpi-sales-reps.html";
+      const currentPage = "kpi.html";
       const pages = Array.isArray(currentProfile?.pages) ? currentProfile.pages : [];
       const unrestricted = !pages.length;
       const nav = el("navTabs");
