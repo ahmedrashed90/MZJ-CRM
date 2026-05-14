@@ -17,6 +17,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1831,13 +1832,13 @@
             channel:"تيك توك",
             channelCode:"tiktok",
             provider:"manychat"
-          });
+          }).catch(console.warn);
           await setDoc(doc(db, cfg.conversations, convId), {
             lastMessage:text,
             lastMessageText:text,
             updatedAt:serverTimestamp(),
             lastUpdated:serverTimestamp()
-          }, { merge:true });
+          }, { merge:true }).catch(console.warn);
         } else if(platform === "whatsapp") {
           await sendDashboardMersalDirect({ phone:phoneOfLead(lead) || convId, text, selectedTemplate });
 
@@ -1851,13 +1852,13 @@
             sentByEmail:currentUser?.email || '',
             createdAt:serverTimestamp(),
             status:"sent"
-          });
+          }).catch(console.warn);
           await setDoc(doc(db, cfg.conversations, convId), {
             lastMessage:text,
             lastMessageText:text,
             updatedAt:serverTimestamp(),
             lastUpdated:serverTimestamp()
-          }, { merge:true });
+          }, { merge:true }).catch(console.warn);
 
           if(cfg.outbox){
             await addDoc(collection(db, cfg.outbox), {
