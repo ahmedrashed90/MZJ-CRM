@@ -4,6 +4,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -119,7 +120,7 @@
     .tab-filter-row{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:0 0 12px;}
     .tab-filter-row .field{min-width:220px;}
     .tab-result-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin-top:12px;}
-    .efficiency-summary-grid{grid-template-columns:repeat(3,minmax(180px,1fr));direction:rtl;}
+    .efficiency-summary-grid{grid-template-columns:repeat(4,minmax(160px,1fr));direction:rtl;}
     .efficiency-summary-grid .eff-points-metric{grid-column:auto;}
     .tab-result-box{background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:12px;}
     .tab-result-box small{display:block;color:#64748b;font-weight:800;}
@@ -379,6 +380,7 @@
           <div class="tab-result-grid efficiency-summary-grid">
             <div class="tab-result-box"><small>متوسط الكفاءة الشخصية</small><strong id="effPersonalityAvg">0%</strong></div>
             <div class="tab-result-box"><small>متوسط الكفاءة الفنية</small><strong id="effTechnicalAvg">0%</strong></div>
+            <div class="tab-result-box"><small>متوسط الكفاءة</small><strong id="effAverageBox">0%</strong></div>
             <div class="tab-result-box eff-points-metric"><small>تحويل الكفاءة إلى عدد نقاط</small><strong id="effPointsBox">0</strong></div>
           </div>
           <div class="efficiency-level-card">
@@ -909,6 +911,7 @@
       // متوسط الكفاءة الشخصية = متوسط: المصداقية في إعطاء العميل السيارة التي تناسبه + المصداقية فيما يتواجد من ملاحظات في السيارة + نتيجة السرعة.
       const personalityRate = round((clamp(p.customerFitHonesty) + clamp(p.carNotesHonesty) + speedRate) / 3);
       const technicalRate = round((clamp(t.currentPrices) + clamp(t.oldPrices) + clamp(t.carSpecs) + clamp(t.competitorsComparison) + clamp(t.salesChannels)) / 5);
+      // متوسط الكفاءة = (متوسط الكفاءة الشخصية + متوسط الكفاءة الفنية) / 2
       const finalEfficiencyRate = round((personalityRate + technicalRate) / 2);
       const level = levelFor(finalEfficiencyRate);
       const monthlyEfficiencyScore = level.score * workDays;
@@ -1507,6 +1510,7 @@
       safeSet("effSpeedMirror", fmtPercent(calc.speedRate));
       safeSet("effPersonalityAvg", fmtPercent(calc.personalityRate));
       safeSet("effTechnicalAvg", fmtPercent(calc.technicalRate));
+      safeSet("effAverageBox", fmtPercent(calc.finalEfficiencyRate));
       safeSet("effPointsBox", calc.monthlyEfficiencyScore);
       const currentEffRange = efficiencyRangeKey(calc.finalEfficiencyRate);
       const effPointMap = {weak:0, average:1 * calc.workDays, good:2 * calc.workDays, excellent:3 * calc.workDays};
