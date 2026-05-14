@@ -666,7 +666,7 @@
     }
 
     function isAdminProfile(profile){
-      return profile?.role === "admin" || profile?.role === "sales_manager" || profile?.allDepartments === true;
+      return profile?.role === "admin" || profile?.allDepartments === true;
     }
 
     function isBranchManagerProfile(profile){
@@ -732,19 +732,47 @@
     }
 
     function branchManagerValues(branch){
-      const keys = ["branchManagerUid","managerUid","managerUids","managers","branchManagers","branchManager","manager","admins","adminUids"];
+      const keys = [
+        "branchManagerUid","managerUid","managerUids","managers","branchManagers","branchManager","manager","admins","adminUids",
+        "cashManagerUid","cashManagerUids","cashSalesManagerUid","cashSalesManagerUids","cashManagers","cashSalesManagers",
+        "financeManagerUid","financeManagerUids","financeSalesManagerUid","financeSalesManagerUids","financeManagers","financeSalesManagers"
+      ];
       const values = [];
       keys.forEach(k => values.push(...valuesFromBranchField(branch?.[k])));
       return [...new Set(values)];
     }
 
-    function userManagesBranch(user, profile, branch){
+    function profileBranchValues(profile){
+      return [profile?.branchId, profile?.branchName, profile?.branch, profile?.kpiBranchId, profile?.kpiBranchName, ...(Array.isArray(profile?.branches) ? profile.branches : [])].filter(Boolean);
+    }
+
+    function currentUserKpiDepartments(){
+      if(isAdminProfile(currentProfile)) return ["cash_sales", "finance_sales"];
+      const values = [currentProfile?.department, currentProfile?.role, currentProfile?.section, currentProfile?.kpiDepartment].map(normalizeDepartment);
+      const allowed = values.filter(v => ["cash_sales", "finance_sales"].includes(v));
+      return [...new Set(allowed.length ? allowed : ["cash_sales", "finance_sales"])];
+    }
+
+    function userBelongsToBranchDepartment(user, profile, branch, dept){
+      if(!user || !branch) return false;
+      const identity = {uid:user.uid, id:user.uid, email:user.email, name:profile?.name, displayName:profile?.displayName};
+      const values = branchDepartmentValues(branch, dept);
+      if(values.some(v => userMatchesValue(identity, v))) return true;
+      const label = branchLabel(branch);
+      return profileBranchValues(profile).some(v => String(v).trim() === branch.id || String(v).trim() === label);
+    }
+
+    function userCanAccessBranch(user, profile, branch){
       if(!user || !branch) return false;
       if(isAdminProfile(profile)) return true;
       const managerValues = branchManagerValues(branch);
-      if(managerValues.some(v => userMatchesValue({uid:user.uid,email:user.email,name:profile?.name}, v))) return true;
-      const profileBranches = [profile?.branchId, profile?.branchName, profile?.branch, ...(Array.isArray(profile?.branches) ? profile.branches : [])].filter(Boolean);
-      return profileBranches.some(v => String(v).trim() === branch.id || String(v).trim() === branchLabel(branch));
+      const identity = {uid:user.uid, id:user.uid, email:user.email, name:profile?.name, displayName:profile?.displayName};
+      if(managerValues.some(v => userMatchesValue(identity, v))) return true;
+      return currentUserKpiDepartments().some(dept => userBelongsToBranchDepartment(user, profile, branch, dept));
+    }
+
+    function userManagesBranch(user, profile, branch){
+      return userCanAccessBranch(user, profile, branch);
     }
 
     function renderAllowedNavigation(){
@@ -826,24 +854,33 @@
     function fillBranches(){
       const select = el("branchFilter");
       const prev = select.value;
-      // عرض كل الفروع الموجودة في Firestore بدون فلترة حسب المدير أو حالة التفعيل.
-      availableBranches = branches
+      const sortedBranches = branches
         .slice()
         .sort((a,b) => branchLabel(a).localeCompare(branchLabel(b), "ar"));
+      availableBranches = isAdminProfile(currentProfile)
+        ? sortedBranches
+        : sortedBranches.filter(b => userCanAccessBranch(currentUser, currentProfile, b));
       if(!availableBranches.length){
         select.innerHTML = '<option value="">لا توجد فروع متاحة</option>';
+        select.disabled = true;
         return;
       }
-      select.innerHTML = '<option value="__all__">كل الفروع</option>' + availableBranches.map(b => `<option value="${escapeHtml(b.id)}">${escapeHtml(branchLabel(b))}</option>`).join("");
-      if(prev === "__all__" || (prev && availableBranches.some(b => b.id === prev))) select.value = prev;
-      else select.value = "__all__";
-      select.disabled = false;
+      const options = availableBranches.map(b => `<option value="${escapeHtml(b.id)}">${escapeHtml(branchLabel(b))}</option>`).join("");
+      select.innerHTML = isAdminProfile(currentProfile) ? '<option value="__all__">كل الفروع</option>' + options : options;
+      if(isAdminProfile(currentProfile)){
+        if(prev === "__all__" || (prev && availableBranches.some(b => b.id === prev))) select.value = prev;
+        else select.value = "__all__";
+      }else{
+        if(prev && prev !== "__all__" && availableBranches.some(b => b.id === prev)) select.value = prev;
+        else select.value = availableBranches[0]?.id || "";
+      }
+      select.disabled = !isAdminProfile(currentProfile) && availableBranches.length <= 1;
     }
 
     function selectedBranch(){
       const value = el("branchFilter").value;
-      if(value === "__all__") return null;
-      return availableBranches.find(b => b.id === value) || null;
+      if(value === "__all__" && isAdminProfile(currentProfile)) return null;
+      return availableBranches.find(b => b.id === value) || (!isAdminProfile(currentProfile) ? availableBranches[0] : null);
     }
 
     function branchForRep(rep){
@@ -1136,9 +1173,9 @@
     function allRepsForSelectedBranch(){
       const branch = selectedBranch();
       const dept = el("departmentFilter") ? el("departmentFilter").value : "";
-      const targetBranches = branch ? [branch] : availableBranches;
+      const targetBranches = branch ? [branch] : (isAdminProfile(currentProfile) ? availableBranches : availableBranches.filter(b => userCanAccessBranch(currentUser, currentProfile, b)));
       if(!targetBranches.length) return [];
-      const depts = dept ? [dept] : ["cash_sales","finance_sales"];
+      const depts = dept ? [dept] : currentUserKpiDepartments();
       const rows = [];
       targetBranches.forEach(b => {
         depts.forEach(d => usersForBranchDepartment(b, d).forEach(u => rows.push({
