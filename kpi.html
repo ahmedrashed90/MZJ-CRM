@@ -482,11 +482,9 @@
       </div>
       <div class="modal-foot">
         <div class="actions">
-          <button class="secondary" type="button" id="saveDraftBtn">حفظ كمسودة</button>
           <button class="success" type="button" id="finalSaveBtn">تم وحفظ تقييم الشهر</button>
         </div>
         <div class="actions">
-          <button class="danger" type="button" id="deleteLocalBtn">تفريغ المدخلات</button>
           <button class="secondary" type="button" data-close-modal>إغلاق</button>
         </div>
       </div>
@@ -555,6 +553,8 @@
     let users = [];
     let branches = [];
     let kpis = [];
+    let kpiLoadSignature = "";
+    let kpiLoadInProgress = "";
     let availableBranches = [];
     let selectedRep = null;
     let selectedKpi = null;
@@ -811,6 +811,8 @@
         if(unsubUsers) unsubUsers();
         if(unsubBranches) unsubBranches();
         if(unsubKpis) unsubKpis();
+        kpiLoadSignature = "";
+        kpiLoadInProgress = "";
         if(!user){
           currentUser = null;
           currentProfile = null;
@@ -864,11 +866,10 @@
         render();
       }, err => { console.error(err); toast("تعذر تحميل الفروع"); });
 
-      unsubKpis = onSnapshot(collection(db,"sales_reps_kpis"), snap => {
-        kpis = [];
-        snap.forEach(d => kpis.push({id:d.id, ...d.data()}));
-        render();
-      }, err => { console.error(err); toast("تعذر تحميل تقييمات المناديب"); });
+      // لا نفتح listener عام على كل تقييمات المناديب حتى لا تصطدم بقواعد Firebase.
+      // يتم تحميل تقييمات المناديب الظاهرين فقط بأسماء مستندات محددة من داخل render.
+      kpis = [];
+      kpiLoadSignature = "";
     }
 
     function fillBranches(){
@@ -908,6 +909,57 @@
 
     function kpiDocId(month, branchId, repUid){
       return `${month}_${branchId}_${repUid}`.replace(/[^a-zA-Z0-9_\-]/g,"_");
+    }
+
+    function candidateKpiDocIds(month, branch, repUid){
+      const ids = new Set();
+      [branch?.id, branchLabel(branch), branch?.name, branch?.branchName, branch?.branch].filter(Boolean).forEach(v => {
+        ids.add(kpiDocId(month, v, repUid));
+      });
+      return [...ids];
+    }
+
+    async function loadKpisForVisibleReps(reps){
+      const month = el("monthFilter").value || defaultMonth();
+      const requests = [];
+      const seenIds = new Set();
+      reps.forEach(rep => {
+        const branch = branchForRep(rep);
+        const repUid = rep.uid || rep.id;
+        candidateKpiDocIds(month, branch, repUid).forEach(id => {
+          if(!seenIds.has(id)){
+            seenIds.add(id);
+            requests.push({id, repUid});
+          }
+        });
+      });
+      const signature = `${month}|${[...seenIds].sort().join("|")}`;
+      if(!requests.length){
+        if(kpis.length){ kpis = []; render(); }
+        return;
+      }
+      if(signature === kpiLoadSignature || signature === kpiLoadInProgress) return;
+      kpiLoadInProgress = signature;
+      try{
+        const loaded = [];
+        const snaps = await Promise.all(requests.map(item =>
+          getDoc(doc(db,"sales_reps_kpis", item.id))
+            .then(snap => snap.exists() ? {id:snap.id, ...snap.data()} : null)
+            .catch(err => { console.warn("تعذر تحميل تقييم محدد", item.id, err); return null; })
+        ));
+        snaps.filter(Boolean).forEach(kpi => {
+          if(!loaded.some(x => x.id === kpi.id)) loaded.push(kpi);
+        });
+        const visibleRepUids = new Set(reps.map(rep => rep.uid || rep.id));
+        kpis = kpis.filter(k => !(k.month === month && visibleRepUids.has(k.repUid)));
+        loaded.forEach(kpi => {
+          if(!kpis.some(x => x.id === kpi.id)) kpis.push(kpi);
+        });
+        kpiLoadSignature = signature;
+        render();
+      }finally{
+        if(kpiLoadInProgress === signature) kpiLoadInProgress = "";
+      }
     }
 
     function normalizeKpiMatchText(value){
@@ -1268,6 +1320,7 @@
       const branch = selectedBranch();
       updateWorkDaysCount();
       const reps = repsForSelectedBranch();
+      loadKpisForVisibleReps(reps);
       renderBranchResult(reps);
       el("countBadge").textContent = reps.length + " مندوب";
       el("totalReps").textContent = reps.length;
@@ -1382,7 +1435,8 @@
           technical:{ currentPrices:0, oldPrices:0, carSpecs:0, competitorsComparison:0, salesChannels:0 }
         },
         dailyPerformance:{},
-        status:"draft"
+        status:"new",
+        lockedDates:[]
       };
     }
 
@@ -1403,12 +1457,36 @@
       el("kpiModal").classList.remove("hidden");
     }
 
+    function savedLockedDateSet(kpi=selectedKpi){
+      const dates = new Set(Array.isArray(kpi?.lockedDates) ? kpi.lockedDates : []);
+      if(!dates.size && ["completed","locked","approved"].includes(kpi?.status)){
+        (Array.isArray(kpi?.speed?.delayEnteredDates) ? kpi.speed.delayEnteredDates : []).forEach(d => dates.add(d));
+        Object.keys(kpi?.dailyPerformance || {}).forEach(d => dates.add(d));
+      }
+      return dates;
+    }
+
+    function isDailyDateLocked(dateKey){
+      return !isAdmin && savedLockedDateSet().has(dateKey);
+    }
+
+    function collectLockedDatesForSave(){
+      const dates = savedLockedDateSet();
+      document.querySelectorAll(".delay-input, .perf-input").forEach(input => {
+        const raw = String(input.value ?? "").trim();
+        if(raw !== "" && input.dataset.date) dates.add(input.dataset.date);
+      });
+      return [...dates].sort();
+    }
+
     function updateModalLockState(){
-      const locked = ["approved","locked"].includes(selectedKpi?.status) && !isAdmin;
+      const locked = selectedKpi?.status === "approved" && !isAdmin;
       el("lockNote").classList.toggle("hidden", !locked);
-      el("saveDraftBtn").disabled = locked;
-      el("finalSaveBtn").disabled = locked;
-      document.querySelectorAll("#kpiModal input").forEach(i => { i.disabled = locked; i.classList.toggle("locked-input", locked); });
+      const finalBtn = el("finalSaveBtn");
+      if(finalBtn) finalBtn.disabled = locked;
+      if(locked){
+        document.querySelectorAll("#kpiModal input").forEach(i => { i.disabled = true; i.classList.add("locked-input"); });
+      }
     }
 
     function closeModal(){
@@ -1431,11 +1509,12 @@
               const hasOldAutoZero = !explicitEnteredDates && Object.prototype.hasOwnProperty.call(daily, info.key) && Number(daily[info.key]) === 0;
               const shouldShowValue = explicitEnteredDates ? enteredSet.has(info.key) : (Object.prototype.hasOwnProperty.call(daily, info.key) && !hasOldAutoZero);
               const value = shouldShowValue ? (daily[info.key] ?? 0) : '';
+              const locked = isDailyDateLocked(info.key);
               return `
                 <div class="day-box">
                   <span class="day-name">${info.dayName}</span>
                   <span class="day-date">${info.key}</span>
-                  <input class="delay-input" data-date="${info.key}" type="number" min="0" step="0.5" value="${value}">
+                  <input class="delay-input${locked ? " locked-input" : ""}" data-date="${info.key}" type="number" min="0" step="0.5" value="${value}" ${locked ? "disabled" : ""}>
                 </div>
               `;
             }).join("")}
@@ -1463,13 +1542,14 @@
           <div class="week-days">
             ${week.map(info => {
               const row = daily[info.key] || {};
+              const locked = isDailyDateLocked(info.key);
               return `
                 <div class="day-box">
                   <span class="day-name">${info.dayName}</span>
                   <span class="day-date">${info.key}</span>
-                  <div class="discipline-field" data-discipline-field="attendance"><label class="input-label">الحضور</label><input class="perf-input" data-date="${info.key}" data-field="attendance" type="number" min="0" max="3" value="${row.attendance ?? 0}" title="الحضور" placeholder="0 إلى 3"></div>
-                  <div class="discipline-field" data-discipline-field="appearance"><label class="input-label">الهيئة</label><input class="perf-input" data-date="${info.key}" data-field="appearance" type="number" min="0" max="3" value="${row.appearance ?? 0}" title="الهيئة" placeholder="0 إلى 3"></div>
-                  <div class="discipline-field" data-discipline-field="behavior"><label class="input-label">السلوك</label><input class="perf-input" data-date="${info.key}" data-field="behavior" type="number" min="0" max="3" value="${row.behavior ?? 0}" title="السلوك" placeholder="0 إلى 3"></div>
+                  <div class="discipline-field" data-discipline-field="attendance"><label class="input-label">الحضور</label><input class="perf-input${locked ? " locked-input" : ""}" data-date="${info.key}" data-field="attendance" type="number" min="0" max="3" value="${row.attendance ?? ''}" title="الحضور" placeholder="0 إلى 3" ${locked ? "disabled" : ""}></div>
+                  <div class="discipline-field" data-discipline-field="appearance"><label class="input-label">الهيئة</label><input class="perf-input${locked ? " locked-input" : ""}" data-date="${info.key}" data-field="appearance" type="number" min="0" max="3" value="${row.appearance ?? ''}" title="الهيئة" placeholder="0 إلى 3" ${locked ? "disabled" : ""}></div>
+                  <div class="discipline-field" data-discipline-field="behavior"><label class="input-label">السلوك</label><input class="perf-input${locked ? " locked-input" : ""}" data-date="${info.key}" data-field="behavior" type="number" min="0" max="3" value="${row.behavior ?? ''}" title="السلوك" placeholder="0 إلى 3" ${locked ? "disabled" : ""}></div>
                 </div>
               `;
             }).join("")}
@@ -1492,12 +1572,13 @@
           <div class="week-days">
             ${week.map(info => {
               const row = daily[info.key] || {};
+              const locked = isDailyDateLocked(info.key);
               return `
                 <div class="day-box">
                   <span class="day-name">${info.dayName}</span>
                   <span class="day-date">${info.key}</span>
-                  <div class="value-field" data-value-field="customerRating"><label class="input-label">تقييم العملاء</label><input class="perf-input" data-date="${info.key}" data-field="customerRating" type="number" min="0" max="3" value="${row.customerRating ?? 0}" title="تقييم العملاء" placeholder="0 إلى 3"></div>
-                  <div class="value-field" data-value-field="salesCount"><label class="input-label">عدد المبيعات</label><input class="perf-input" data-date="${info.key}" data-field="salesCount" type="number" min="0" value="${row.salesCount ?? 0}" title="عدد المبيعات" placeholder="0"></div>
+                  <div class="value-field" data-value-field="customerRating"><label class="input-label">تقييم العملاء</label><input class="perf-input${locked ? " locked-input" : ""}" data-date="${info.key}" data-field="customerRating" type="number" min="0" max="3" value="${row.customerRating ?? ''}" title="تقييم العملاء" placeholder="0 إلى 3" ${locked ? "disabled" : ""}></div>
+                  <div class="value-field" data-value-field="salesCount"><label class="input-label">عدد المبيعات</label><input class="perf-input${locked ? " locked-input" : ""}" data-date="${info.key}" data-field="salesCount" type="number" min="0" value="${row.salesCount ?? ''}" title="عدد المبيعات" placeholder="0" ${locked ? "disabled" : ""}></div>
                 </div>
               `;
             }).join("")}
@@ -1569,10 +1650,12 @@
       };
       selectedKpi.dailyPerformance = {};
       document.querySelectorAll(".perf-input").forEach(input => {
+        const raw = String(input.value ?? "").trim();
+        if(raw === "") return;
         const date = input.dataset.date;
         const field = input.dataset.field;
         selectedKpi.dailyPerformance[date] = selectedKpi.dailyPerformance[date] || {};
-        selectedKpi.dailyPerformance[date][field] = field === "salesCount" ? (Number(input.value)||0) : clamp(input.value,0,3);
+        selectedKpi.dailyPerformance[date][field] = field === "salesCount" ? (Number(raw)||0) : clamp(raw,0,3);
       });
     }
 
@@ -1649,11 +1732,12 @@
       renderRepResult();
     }
 
-    async function saveKpi(status="draft"){
+    async function saveKpi(status="completed"){
       if(!selectedRep || !selectedKpi) return;
-      if(["approved","locked"].includes(selectedKpi.status) && !isAdmin) return toast("لا يمكن تعديل تقييم تم حفظه نهائيًا إلا من الإدارة العامة");
+      if(selectedKpi.status === "approved" && !isAdmin) return toast("لا يمكن تعديل تقييم معتمد إلا من الإدارة العامة");
       applyModalPeriodToPage();
       calculateModal();
+      const lockedDates = collectLockedDatesForSave();
       const month = el("monthFilter").value || defaultMonth();
       const branch = branchForRep(selectedRep);
       if(!branch?.id) return toast("اختر فرع المندوب قبل الحفظ");
@@ -1672,6 +1756,7 @@
         repEmail: selectedRep.email || "",
         repDepartment: selectedRep.kpiDepartment || normalizeDepartment(selectedRep.department),
         status,
+        lockedDates,
         updatedByUid: currentUser.uid,
         updatedByName: currentProfile?.name || currentUser.email || "",
         updatedAt: serverTimestamp()
@@ -1681,14 +1766,15 @@
         payload.createdByName = currentProfile?.name || currentUser.email || "";
         payload.createdAt = serverTimestamp();
       }
-      if(["approved","locked"].includes(status)){
+      if(status === "approved"){
         payload.approvedByUid = currentUser.uid;
         payload.approvedByName = currentProfile?.name || currentUser.email || "";
         payload.approvedAt = serverTimestamp();
       }
       await setDoc(doc(db,"sales_reps_kpis",id), payload, {merge:true});
       selectedKpi.status = status;
-      toast(status === "locked" ? "تم حفظ تقييم الشهر وقفل التعديل" : "تم حفظ التقييم كمسودة");
+      selectedKpi.lockedDates = lockedDates;
+      toast("تم حفظ التقييم، والأيام التي تم إدخالها لا يمكن تعديلها مرة أخرى");
       updateModalLockState();
       render();
     }
@@ -1933,9 +2019,7 @@
           calculateModal();
         };
       });
-      el("saveDraftBtn").onclick = () => saveKpi("draft").catch(err => {console.error(err); toast("فشل حفظ التقييم");});
-      el("finalSaveBtn").onclick = () => saveKpi("locked").catch(err => {console.error(err); toast("فشل حفظ تقييم الشهر");});
-      el("deleteLocalBtn").onclick = clearModalInputs;
+      el("finalSaveBtn").onclick = () => saveKpi("completed").catch(err => {console.error(err); toast("فشل حفظ التقييم");});
       document.querySelectorAll("[data-export-pdf]").forEach(btn => {
         btn.onclick = () => exportModalPdf(btn.dataset.exportPdf);
       });
