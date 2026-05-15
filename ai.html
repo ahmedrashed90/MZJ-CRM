@@ -34,6 +34,8 @@
     .management-table td.wrap{white-space:normal;min-width:240px;line-height:1.8;}
     .action-mini{display:inline-flex;gap:6px;flex-wrap:wrap;}
     .action-mini button{padding:7px 10px;border-radius:10px;font-size:12px;}
+    .danger-mini{border-color:#ffcdd2!important;background:#fff5f5!important;color:#b71c1c!important;}
+    .route-hint{background:#fff8e1;border:1px solid #ffe0a3;border-radius:14px;padding:10px 12px;color:#6d4c41;font-size:13px;line-height:1.8;margin-bottom:12px;}
     .notice-card{border:1px solid #d7ccc8;background:#fffaf4;border-radius:16px;padding:14px;color:#5d4037;line-height:1.85;font-size:13px;}
     .notice-card.warning{background:#fff8e1;border-color:#ffe0b2;color:#7a4f00;}
     .notice-card.good{background:#e8f5e9;border-color:#c8e6c9;color:#1b5e20;}
@@ -189,6 +191,9 @@
             <div id="branchesPanel" class="tab-panel hidden-panel">
               <h3>مديرو الفروع والتصعيد</h3>
               <p class="muted">اختر مدير كل قسم ورقم جواله. لو العميل لم يختر مبيعات كاش أو مبيعات تمويل أو خدمة عملاء، استخدم الصف: <b>قبل اختيار القسم / غير محدد</b>.</p>
+              <div class="route-hint">
+                <b>مهم:</b> اختيار <b>قبل اختيار القسم / غير محدد</b> يتم حفظه بالمفتاح <b>__unassigned__</b>، وهو الذي يستخدمه الوركر للتصعيد قبل أن يختار العميل كاش / تمويل / خدمة عملاء.
+              </div>
               <div class="branch-editor">
                 <label>الفرع / القسم / حالة ما قبل الاختيار
                   <select id="branchSelect"></select>
@@ -297,7 +302,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import { getFirestore, collection, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getFirestore, collection, doc, getDoc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
@@ -500,12 +505,30 @@
         const key = branchKeyFromLead(lead);
         if(key && !map.has(key)) map.set(key, branchLabelFromLead(lead) || key);
       });
-      return Array.from(map.entries()).map(([key,label]) => ({ key, label })).sort((a,b)=>String(a.label).localeCompare(String(b.label), "ar"));
+      const rows = Array.from(map.entries()).map(([key,label]) => ({ key, label }));
+      const unassigned = rows.filter(x => x.key === "__unassigned__");
+      const rest = rows.filter(x => x.key !== "__unassigned__").sort((a,b)=>String(a.label).localeCompare(String(b.label), "ar"));
+      return [...unassigned, ...rest];
     }
     function refreshBranchSelect(){
-      const current = el("branchSelect").value;
-      el("branchSelect").innerHTML = availableBranches().map(b => `<option value="${escapeHtml(b.key)}">${escapeHtml(b.label)} (${escapeHtml(b.key)})</option>`).join("");
-      if([...el("branchSelect").options].some(o => o.value === current)) el("branchSelect").value = current;
+      const select = el("branchSelect");
+      const current = select.value || "__unassigned__";
+      select.innerHTML = availableBranches().map(b => `<option value="${escapeHtml(b.key)}">${escapeHtml(b.label)} (${escapeHtml(b.key)})</option>`).join("");
+      if([...select.options].some(o => o.value === current)) select.value = current;
+      else select.value = "__unassigned__";
+    }
+    function loadManagerForSelectedBranch(){
+      const branchId = el("branchSelect").value || "__unassigned__";
+      const m = managers.find(x => (x.branchId || x.id) === branchId);
+      if(m){
+        el("managerName").value = m.managerName || "";
+        el("managerPhone").value = m.managerPhone || "";
+        el("managerEnabled").value = (m.enabled === false || m.escalationEnabled === false) ? "false" : "true";
+      } else {
+        el("managerName").value = "";
+        el("managerPhone").value = "";
+        el("managerEnabled").value = "true";
+      }
     }
     function renderManagers(){
       const rows = managers.sort((a,b)=>String(a.branchName || a.branchId).localeCompare(String(b.branchName || b.branchId), "ar")).map(m => `
@@ -515,7 +538,10 @@
           <td>${escapeHtml(m.managerPhone || "-")}</td>
           <td>${m.enabled === false || m.escalationEnabled === false ? '<span class="status-pill off"><span class="status-dot"></span>متوقف</span>' : '<span class="status-pill on"><span class="status-dot"></span>مفعل</span>'}</td>
           <td>${escapeHtml(formatDateTime(m.updatedAt))}</td>
-          <td><div class="action-mini"><button class="secondary" data-edit-manager="${escapeHtml(m.id)}" type="button">تعديل</button></div></td>
+          <td><div class="action-mini">
+            <button class="secondary" data-edit-manager="${escapeHtml(m.id)}" type="button">تعديل</button>
+            <button class="secondary danger-mini" data-delete-manager="${escapeHtml(m.id)}" type="button">مسح</button>
+          </div></td>
         </tr>`);
       el("managersBody").innerHTML = rows.length ? rows.join("") : '<tr><td colspan="6">لا توجد إعدادات مديرين بعد.</td></tr>';
       renderKpis();
@@ -555,6 +581,21 @@
       el("managerEnabled").value = (m.enabled === false || m.escalationEnabled === false) ? "false" : "true";
       document.querySelector('[data-tab="branchesPanel"]').click();
       toast("تم تحميل بيانات المدير للتعديل.");
+    }
+
+    async function deleteManager(id){
+      if(!isAdminProfile(currentProfile)) return toast("لا توجد صلاحية للمسح.");
+      const m = managers.find(x => x.id === id);
+      const label = m?.branchName || m?.branchId || id;
+      const ok = confirm(`هل تريد مسح إعداد التصعيد لـ ${label}؟`);
+      if(!ok) return;
+      await deleteDoc(doc(db, "branch_agent_managers", id));
+      if((el("branchSelect").value || "") === id){
+        el("managerName").value = "";
+        el("managerPhone").value = "";
+        el("managerEnabled").value = "true";
+      }
+      toast("تم مسح إعداد المدير.");
     }
 
     function renderLogs(){
@@ -622,6 +663,7 @@
         managers = [];
         snap.forEach(d => managers.push({ id:d.id, ...d.data() }));
         renderManagers();
+        loadManagerForSelectedBranch();
       }, err => { console.error(err); toast("تعذر تحميل مديرين الفروع."); });
 
       unsubLogs = onSnapshot(collection(db, "inbox_agent_logs"), snap => {
@@ -634,18 +676,22 @@
         leads = [];
         snap.forEach(d => leads.push({ id:d.id, ...d.data() }));
         refreshBranchSelect();
+        loadManagerForSelectedBranch();
       }, err => { console.error(err); refreshBranchSelect(); });
     }
     function bindEvents(){
       initTabs();
       el("saveSettingsBtn").onclick = saveSettings;
       el("addManagerBtn").onclick = addOrUpdateManager;
+      el("branchSelect").onchange = loadManagerForSelectedBranch;
       el("reloadBtn").onclick = () => { startListeners(); toast("تم تحديث البيانات."); };
       el("logFilter").onchange = renderLogs;
       el("previewConfigBtn").onclick = previewConfig;
       el("managersBody").addEventListener("click", e => {
-        const btn = e.target.closest("[data-edit-manager]");
-        if(btn) editManager(btn.dataset.editManager);
+        const editBtn = e.target.closest("[data-edit-manager]");
+        if(editBtn) return editManager(editBtn.dataset.editManager);
+        const deleteBtn = e.target.closest("[data-delete-manager]");
+        if(deleteBtn) return deleteManager(deleteBtn.dataset.deleteManager);
       });
     }
     function setupAuth(){
