@@ -1776,50 +1776,21 @@
 
     function mergeSavedKpiIntoCurrent(savedKpi){
       if(!savedKpi || !selectedKpi) return;
-
-      // فتح التعديل مؤقتًا لأي مستخدم: لا ندمج القيم اليومية القديمة مع القيم الحالية.
-      // هذا يسمح لأي مستخدم بتعديل أو حذف أي قيمة محفوظة فعليًا من Firestore.
-      if(true){
-        selectedKpi = {
-          ...savedKpi,
-          ...selectedKpi,
-          createdAt: selectedKpi.createdAt || savedKpi.createdAt,
-          createdByUid: selectedKpi.createdByUid || savedKpi.createdByUid,
-          createdByName: selectedKpi.createdByName || savedKpi.createdByName,
-          speed:{
-            ...(selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{}}),
-            dailyDelays:{...((selectedKpi.speed || {}).dailyDelays || {})},
-            delayEnteredDates:[...(Array.isArray((selectedKpi.speed || {}).delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys((selectedKpi.speed || {}).dailyDelays || {}))].sort()
-          },
-          dailyPerformance:{...((selectedKpi || {}).dailyPerformance || {})},
-          lockedDates:[...(Array.isArray(selectedKpi.lockedDates) ? selectedKpi.lockedDates : [])].sort()
-        };
-        return;
-      }
-
-      const existingSpeed = savedKpi.speed || {};
-      const currentSpeed = selectedKpi.speed || {};
-      const mergedDelayEnteredDates = new Set([
-        ...(Array.isArray(existingSpeed.delayEnteredDates) ? existingSpeed.delayEnteredDates : Object.keys(existingSpeed.dailyDelays || {})),
-        ...(Array.isArray(currentSpeed.delayEnteredDates) ? currentSpeed.delayEnteredDates : Object.keys(currentSpeed.dailyDelays || {}))
-      ]);
+      // فتح التعديل والحفظ لأي مستخدم: القيم الموجودة على الشاشة هي مصدر الحقيقة.
+      // لا ندمج القيم اليومية القديمة حتى لا ترجع قيم اتحذفت أو تتصفر بعد الحفظ.
       selectedKpi = {
         ...savedKpi,
         ...selectedKpi,
+        createdAt: selectedKpi.createdAt || savedKpi.createdAt,
+        createdByUid: selectedKpi.createdByUid || savedKpi.createdByUid,
+        createdByName: selectedKpi.createdByName || savedKpi.createdByName,
         speed:{
-          ...existingSpeed,
-          ...currentSpeed,
-          dailyDelays:{...(existingSpeed.dailyDelays || {}), ...(currentSpeed.dailyDelays || {})},
-          delayEnteredDates:[...mergedDelayEnteredDates].sort()
+          ...(selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{}}),
+          dailyDelays:{...((selectedKpi.speed || {}).dailyDelays || {})},
+          delayEnteredDates:[...(Array.isArray((selectedKpi.speed || {}).delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys((selectedKpi.speed || {}).dailyDelays || {}))].sort()
         },
-        efficiency:{
-          ...(savedKpi.efficiency || {}),
-          ...(selectedKpi.efficiency || {}),
-          personality:{...((savedKpi.efficiency || {}).personality || {}), ...((selectedKpi.efficiency || {}).personality || {})},
-          technical:{...((savedKpi.efficiency || {}).technical || {}), ...((selectedKpi.efficiency || {}).technical || {})}
-        },
-        dailyPerformance:{...(savedKpi.dailyPerformance || {}), ...(selectedKpi.dailyPerformance || {})},
-        lockedDates:[...new Set([...(Array.isArray(savedKpi.lockedDates) ? savedKpi.lockedDates : []), ...(Array.isArray(selectedKpi.lockedDates) ? selectedKpi.lockedDates : [])])].sort()
+        dailyPerformance:{...((selectedKpi || {}).dailyPerformance || {})},
+        lockedDates:[]
       };
     }
 
@@ -1831,12 +1802,8 @@
       const branch = branchForRep(selectedRep);
       if(!branch?.id) return toast("اختر فرع المندوب قبل الحفظ");
       const id = kpiDocId(month, branch.id, selectedRep.uid || selectedRep.id);
-      try{
-        const savedSnap = await getDoc(doc(db,"sales_reps_kpis",id));
-        if(savedSnap.exists()) mergeSavedKpiIntoCurrent({id:savedSnap.id, ...savedSnap.data()});
-      }catch(err){
-        console.warn("تعذر تحميل التقييم السابق قبل الحفظ", err);
-      }
+      // لا نحتاج قراءة/دمج المستند القديم قبل الحفظ، خصوصًا بعد تفريغ collection من Firebase.
+      // القيم الحالية داخل المودال هي التي سيتم حفظها كما هي.
       calculateModal();
       const lockedDates = collectLockedDatesForSave();
       const basePayload = {
@@ -1881,15 +1848,25 @@
         localPayload.approvedByName = currentProfile?.name || currentUser.email || "";
         localPayload.approvedAt = new Date().toISOString();
       }
-      // فتح التعديل مؤقتًا لأي مستخدم: حفظ المستند كاملًا بدون merge حتى تنعكس التعديلات والحذف.
+      // حفظ مباشر لأي مستخدم لديه صلاحية فتح الصفحة.
+      // setDoc ينشئ المستند لو collection sales_reps_kpis كانت ممسوحة، ويستبدل المستند كاملًا عند التعديل.
       await setDoc(doc(db,"sales_reps_kpis",id), payload, {});
-      selectedKpi = structuredClone(localPayload);
-      upsertLocalKpiCache(localPayload);
+      let confirmedPayload = localPayload;
+      try{
+        const confirmSnap = await getDoc(doc(db,"sales_reps_kpis",id));
+        if(confirmSnap.exists()) confirmedPayload = {id:confirmSnap.id, ...confirmSnap.data()};
+      }catch(confirmErr){
+        console.warn("تم الحفظ لكن تعذر تأكيد القراءة بعد الحفظ", confirmErr);
+      }
+      selectedKpi = structuredClone(confirmedPayload);
+      upsertLocalKpiCache(confirmedPayload);
+      kpiLoadSignature = "";
+      kpiLoadInProgress = "";
       buildDelayInputs();
       buildPerformanceInputs();
       fillEfficiencyInputs();
       calculateModal();
-      toast("تم حفظ التقييم، والتعديل مفتوح مؤقتًا لأي مستخدم");
+      toast("تم حفظ التقييم في Firebase بنجاح");
       updateModalLockState();
       render();
     }
