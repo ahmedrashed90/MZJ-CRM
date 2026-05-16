@@ -532,6 +532,58 @@
       return "";
     }
 
+    const DASHBOARD_TRANSFER_BRANCHES = {
+      cash_sales:[
+        { id:"فرع_الصالة", name:"فرع الصالة" },
+        { id:"فرع_القادسية", name:"فرع القادسية" },
+        { id:"فرع_الملتقى", name:"فرع الملتقى" }
+      ],
+      finance_sales:[
+        { id:"فرع_الاونلاين", name:"فرع الاونلاين" }
+      ],
+      customer_service:[
+        { id:"فرع_خدمة_العملاء", name:"فرع خدمة العملاء" }
+      ]
+    };
+
+    function dashboardNormalizeBranchKey(value){
+      return String(value || "")
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/[_\-]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+
+    function dashboardPickTransferBranch(targetDepartment){
+      const branches = DASHBOARD_TRANSFER_BRANCHES[targetDepartment] || [];
+      if(!branches.length) return null;
+      return branches[Math.floor(Math.random() * branches.length)];
+    }
+
+    function dashboardUserMatchesBranch(user = {}, branch = null){
+      if(!branch) return true;
+      const branchKeys = [branch.id, branch.name].map(dashboardNormalizeBranchKey).filter(Boolean);
+      const userKeys = [user.branchId, user.branchLocationId, user.branchName, user.branchLocationName]
+        .map(dashboardNormalizeBranchKey)
+        .filter(Boolean);
+      if(!branchKeys.length || !userKeys.length) return false;
+      return userKeys.some(v => branchKeys.includes(v));
+    }
+
+    function dashboardTransferBranchPayload(branch = null){
+      if(!branch) return {};
+      return {
+        branchId: branch.id,
+        branchLocationId: branch.id,
+        branchName: branch.name,
+        branchLocationName: branch.name
+      };
+    }
+
     function dashboardRepDepartment(user = {}){
       return dashboardCanonicalDepartment(user.department || user.dept || user.section || user.roleDepartment || "");
     }
@@ -543,13 +595,9 @@
       return true;
     }
 
-    function dashboardRepBranchRank(user = {}, lead = {}){
-      const branchValues = [lead.branchId, lead.branchLocationId, lead.branchName, lead.branchLocationName]
-        .map(v => String(v || "").trim()).filter(Boolean);
-      if(!branchValues.length) return 0;
-      const userValues = [user.branchId, user.branchLocationId, user.branchName, user.branchLocationName]
-        .map(v => String(v || "").trim()).filter(Boolean);
-      return userValues.some(v => branchValues.includes(v)) ? 2 : 1;
+    function dashboardRepBranchRank(user = {}, branch = null){
+      if(!branch) return 0;
+      return dashboardUserMatchesBranch(user, branch) ? 2 : 1;
     }
 
     function dashboardRepName(user = {}, uid = ""){
@@ -565,7 +613,7 @@
       ].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
     }
 
-    async function dashboardPickTransferRepresentative(targetDepartment, lead = {}){
+    async function dashboardPickTransferRepresentative(targetDepartment, lead = {}, targetBranch = null){
       const snap = await getDocs(collection(db, "users"));
       const currentKeys = new Set(dashboardCurrentLeadAssigneeKeys(lead));
       const reps = [];
@@ -575,21 +623,21 @@
         const name = dashboardRepName(data, d.id);
         const keys = [d.id, data.uid, data.userId, data.email, name].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
         const sameCurrent = keys.some(k => currentKeys.has(k));
-        reps.push({ id:d.id, data, name, sameCurrent, rank:dashboardRepBranchRank(data, lead) });
+        reps.push({ id:d.id, data, name, sameCurrent, rank:dashboardRepBranchRank(data, targetBranch) });
       });
-      const preferred = reps.filter(r => !r.sameCurrent);
-      const pool = preferred.length ? preferred : reps;
+      const sameBranchReps = targetBranch ? reps.filter(r => r.rank === 2) : reps;
+      const branchPool = sameBranchReps.length ? sameBranchReps : reps;
+      const preferred = branchPool.filter(r => !r.sameCurrent);
+      const pool = preferred.length ? preferred : branchPool;
       if(!pool.length) return null;
-      pool.sort((a,b) => (b.rank - a.rank) || a.name.localeCompare(b.name, "ar"));
-      const topRank = pool[0].rank;
-      const top = pool.filter(r => r.rank === topRank);
-      return top[Math.floor(Math.random() * top.length)];
+      return pool[Math.floor(Math.random() * pool.length)];
     }
 
     async function dashboardBuildTransferPayload(lead = {}, targetDepartment = ""){
       const currentDepartment = leadDepartment(lead);
       if(!targetDepartment || targetDepartment === currentDepartment) return null;
-      const rep = await dashboardPickTransferRepresentative(targetDepartment, lead);
+      const targetBranch = dashboardPickTransferBranch(targetDepartment);
+      const rep = await dashboardPickTransferRepresentative(targetDepartment, lead, targetBranch);
       if(!rep) throw new Error("لا يوجد مندوب متاح في القسم المختار");
       const repData = rep.data || {};
       const repUid = repData.uid || rep.id;
@@ -600,6 +648,7 @@
         departmentLabel: departmentLabel(targetDepartment),
         serviceKey: dashboardDepartmentServiceKey(targetDepartment),
         autoService: dashboardDepartmentServiceKey(targetDepartment),
+        ...dashboardTransferBranchPayload(targetBranch),
         responsibleUid: repUid,
         responsibleUserId: repUid,
         responsibleName: repName,
@@ -621,6 +670,8 @@
         agentName: repName,
         transferredFromDepartment: currentDepartment,
         transferredToDepartment: targetDepartment,
+        transferredToBranchId: targetBranch?.id || "",
+        transferredToBranchName: targetBranch?.name || "",
         transferredByUid: currentUser?.uid || "",
         transferredByEmail: currentUser?.email || "",
         transferredAt: serverTimestamp(),
@@ -1485,14 +1536,13 @@
       if(normalizeDashboardStatusKey(status) === normalizeDashboardStatusKey(getLeadStatus(lead))) return;
 
       const payload = {
-        status: effectiveStatus,
-        statusLabel: effectiveStatus,
-        leadStatus: effectiveStatus,
-        currentStatus: effectiveStatus,
-        currentStatusLabel: effectiveStatus,
-        clientStatus: effectiveStatus,
-        customerStatus: effectiveStatus,
-        ...(transferPayload || {}),
+        status,
+        statusLabel: status,
+        leadStatus: status,
+        currentStatus: status,
+        currentStatusLabel: status,
+        clientStatus: status,
+        customerStatus: status,
         updatedByUid: currentUser?.uid || "",
         updatedByEmail: currentUser?.email || "",
         updatedAt: serverTimestamp(),
@@ -2216,13 +2266,14 @@
         followUpDate: el("chatFollowupDate")?.value || "",
         nextFollowupDate: el("chatFollowupDate")?.value || "",
         appointmentDate: el("chatFollowupDate")?.value || "",
-        status,
-        statusLabel: status,
-        leadStatus: status,
-        currentStatus: status,
-        currentStatusLabel: status,
-        clientStatus: status,
-        customerStatus: status,
+        status: effectiveStatus,
+        statusLabel: effectiveStatus,
+        leadStatus: effectiveStatus,
+        currentStatus: effectiveStatus,
+        currentStatusLabel: effectiveStatus,
+        clientStatus: effectiveStatus,
+        customerStatus: effectiveStatus,
+        ...(transferPayload || {}),
         updatedAt: serverTimestamp(),
         lastUpdated: serverTimestamp()
       };
