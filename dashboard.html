@@ -20,6 +20,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -123,7 +124,7 @@
       getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
-      getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, addDoc, updateDoc, setDoc, serverTimestamp
+      getFirestore, collection, doc, getDoc, getDocs, onSnapshot, query, orderBy, addDoc, updateDoc, setDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -524,6 +525,127 @@
       return "";
     }
 
+    function dashboardDepartmentServiceKey(department){
+      if(department === "cash_sales") return "cash";
+      if(department === "finance_sales") return "finance";
+      if(department === "customer_service") return "cs";
+      return "";
+    }
+
+    function dashboardRepDepartment(user = {}){
+      return dashboardCanonicalDepartment(user.department || user.dept || user.section || user.roleDepartment || "");
+    }
+
+    function dashboardIsAssignableRep(user = {}, targetDepartment = ""){
+      if(user.active === false || user.canReceiveLeads === false) return false;
+      if(user.role === "admin" || user.role === "sales_manager" || user.allDepartments === true) return false;
+      if(dashboardRepDepartment(user) !== targetDepartment) return false;
+      return true;
+    }
+
+    function dashboardRepBranchRank(user = {}, lead = {}){
+      const branchValues = [lead.branchId, lead.branchLocationId, lead.branchName, lead.branchLocationName]
+        .map(v => String(v || "").trim()).filter(Boolean);
+      if(!branchValues.length) return 0;
+      const userValues = [user.branchId, user.branchLocationId, user.branchName, user.branchLocationName]
+        .map(v => String(v || "").trim()).filter(Boolean);
+      return userValues.some(v => branchValues.includes(v)) ? 2 : 1;
+    }
+
+    function dashboardRepName(user = {}, uid = ""){
+      return String(user.name || user.displayName || user.fullName || user.email || uid || "").trim();
+    }
+
+    function dashboardCurrentLeadAssigneeKeys(lead = {}){
+      return [
+        lead.responsibleUid, lead.responsibleUserId, lead.responsibleEmail, lead.responsibleName, lead.responsible,
+        lead.assignedToUid, lead.assignedUid, lead.assignedUserId, lead.assignedEmail, lead.assignedName,
+        lead.salesUid, lead.salesUserId, lead.salesName, lead.salesRepUid, lead.salesRepName,
+        lead.agentUid, lead.agentName, lead.ownerUid, lead.ownerName
+      ].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
+    }
+
+    async function dashboardPickTransferRepresentative(targetDepartment, lead = {}){
+      const snap = await getDocs(collection(db, "users"));
+      const currentKeys = new Set(dashboardCurrentLeadAssigneeKeys(lead));
+      const reps = [];
+      snap.forEach(d => {
+        const data = d.data() || {};
+        if(!dashboardIsAssignableRep(data, targetDepartment)) return;
+        const name = dashboardRepName(data, d.id);
+        const keys = [d.id, data.uid, data.userId, data.email, name].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
+        const sameCurrent = keys.some(k => currentKeys.has(k));
+        reps.push({ id:d.id, data, name, sameCurrent, rank:dashboardRepBranchRank(data, lead) });
+      });
+      const preferred = reps.filter(r => !r.sameCurrent);
+      const pool = preferred.length ? preferred : reps;
+      if(!pool.length) return null;
+      pool.sort((a,b) => (b.rank - a.rank) || a.name.localeCompare(b.name, "ar"));
+      const topRank = pool[0].rank;
+      const top = pool.filter(r => r.rank === topRank);
+      return top[Math.floor(Math.random() * top.length)];
+    }
+
+    async function dashboardBuildTransferPayload(lead = {}, targetDepartment = ""){
+      const currentDepartment = leadDepartment(lead);
+      if(!targetDepartment || targetDepartment === currentDepartment) return null;
+      const rep = await dashboardPickTransferRepresentative(targetDepartment, lead);
+      if(!rep) throw new Error("لا يوجد مندوب متاح في القسم المختار");
+      const repData = rep.data || {};
+      const repUid = repData.uid || rep.id;
+      const repName = dashboardRepName(repData, rep.id);
+      const repEmail = repData.email || "";
+      const payload = {
+        department: targetDepartment,
+        departmentLabel: departmentLabel(targetDepartment),
+        serviceKey: dashboardDepartmentServiceKey(targetDepartment),
+        autoService: dashboardDepartmentServiceKey(targetDepartment),
+        responsibleUid: repUid,
+        responsibleUserId: repUid,
+        responsibleName: repName,
+        responsibleEmail: repEmail,
+        responsible: repName,
+        assignedToUid: repUid,
+        assignedUid: repUid,
+        assignedUserId: repUid,
+        assignedToName: repName,
+        assignedName: repName,
+        assignedToEmail: repEmail,
+        assignedEmail: repEmail,
+        salesUid: repUid,
+        salesUserId: repUid,
+        salesName: repName,
+        salesRepUid: repUid,
+        salesRepName: repName,
+        agentUid: repUid,
+        agentName: repName,
+        transferredFromDepartment: currentDepartment,
+        transferredToDepartment: targetDepartment,
+        transferredByUid: currentUser?.uid || "",
+        transferredByEmail: currentUser?.email || "",
+        transferredAt: serverTimestamp(),
+        status: "عميل جديد",
+        statusLabel: "عميل جديد",
+        leadStatus: "عميل جديد",
+        currentStatus: "عميل جديد",
+        currentStatusLabel: "عميل جديد",
+        clientStatus: "عميل جديد",
+        customerStatus: "عميل جديد"
+      };
+      if(targetDepartment !== "finance_sales"){
+        Object.assign(payload, {
+          callCenterUid:"",
+          callCenterUserId:"",
+          callCenterName:"",
+          callCenterEmail:"",
+          callCenter:"",
+          callCenterAssigned:false,
+          callCenterStatus:""
+        });
+      }
+      return payload;
+    }
+
     function dashboardNormalizeAssigneeValue(value){
       return String(value || "").trim().toLowerCase();
     }
@@ -847,6 +969,12 @@
                   <label>المصدر<input id="chatSource" readonly></label>
                   <label>القسم<input id="chatDepartment" readonly></label>
                 </div>
+                <label>تحويل لقسم آخر<select id="chatTransferDepartment">
+                  <option value="">بدون تحويل</option>
+                  <option value="cash_sales">مبيعات الكاش</option>
+                  <option value="finance_sales">مبيعات التمويل</option>
+                  <option value="customer_service">خدمة العملاء</option>
+                </select></label>
                 <label id="chatFollowupDateBox" class="followup-date-box hidden">موعد المتابعة<input id="chatFollowupDate" type="datetime-local"></label>
                 <label>اسم العميل<input id="chatName"></label>
                 <div class="two">
@@ -1357,13 +1485,14 @@
       if(normalizeDashboardStatusKey(status) === normalizeDashboardStatusKey(getLeadStatus(lead))) return;
 
       const payload = {
-        status,
-        statusLabel: status,
-        leadStatus: status,
-        currentStatus: status,
-        currentStatusLabel: status,
-        clientStatus: status,
-        customerStatus: status,
+        status: effectiveStatus,
+        statusLabel: effectiveStatus,
+        leadStatus: effectiveStatus,
+        currentStatus: effectiveStatus,
+        currentStatusLabel: effectiveStatus,
+        clientStatus: effectiveStatus,
+        customerStatus: effectiveStatus,
+        ...(transferPayload || {}),
         updatedByUid: currentUser?.uid || "",
         updatedByEmail: currentUser?.email || "",
         updatedAt: serverTimestamp(),
@@ -1546,6 +1675,14 @@
       fillDashboardChatStatusOptions(lead);
       el("chatSource").value = getLeadField(lead, ["sourceName","source","leadSource","campaignSource","platform","channel"], "");
       el("chatDepartment").value = departmentLabel(leadDepartment(lead));
+      if(el("chatTransferDepartment")){
+        const currentDept = leadDepartment(lead);
+        el("chatTransferDepartment").value = "";
+        Array.from(el("chatTransferDepartment").options).forEach(opt => {
+          if(!opt.value) return;
+          opt.disabled = opt.value === currentDept;
+        });
+      }
       el("chatName").value = customerName(lead) === "عميل بدون اسم" ? "" : customerName(lead);
       el("chatPhone").value = phoneOfLead(lead) || "";
       el("chatAge").value = getLeadField(lead, ["age","customerAge"]);
@@ -2044,6 +2181,11 @@
       if(!lead?.__id) return toast("لا يوجد ليد محدد للحفظ");
 
       const status = el("chatStatus").value;
+      const transferDepartment = el("chatTransferDepartment")?.value || "";
+      const transferPayload = await dashboardBuildTransferPayload(lead, transferDepartment);
+      const effectiveDepartment = transferPayload?.department || leadDepartment(lead);
+      const effectiveStatus = transferPayload?.status || status;
+
       const payload = {
         customerName: el("chatName").value.trim(),
         fullName: el("chatName").value.trim(),
@@ -2068,7 +2210,7 @@
         financeType: el("chatPayment").value || getLeadField(lead, ["financeType","financePercent","financePercentage","downPaymentPercent"], ""),
         source: getLeadField(lead, ["source","sourceName","leadSource"], ""),
         sourceName: getLeadField(lead, ["sourceName","source","leadSource"], ""),
-        department: leadDepartment(lead),
+        department: effectiveDepartment,
         notes: el("chatNotes").value.trim(),
         followupDate: el("chatFollowupDate")?.value || "",
         followUpDate: el("chatFollowupDate")?.value || "",
@@ -2106,7 +2248,8 @@
         });
         renderDashboard();
         fillDashboardChatCustomerForm(lead);
-        toast("تم حفظ بيانات العميل");
+        if(el("chatTransferDepartment")) el("chatTransferDepartment").value = "";
+        toast(transferPayload ? "تم تحويل العميل وتوزيعه على مندوب جديد" : "تم حفظ بيانات العميل");
       }catch(err){
         console.error(err);
         try{
@@ -2116,7 +2259,8 @@
             await Promise.allSettled(convIds.map(id => setDoc(doc(db, cfg.conversations, id), { ...payload, ...(dashboardPayloadHasCustomerData(payload) ? dashboardCustomerNestedPayload(payload) : {}) }, { merge:true })));
             Object.assign(lead, payload);
             fillDashboardChatCustomerForm(lead);
-            toast("تم حفظ بيانات العميل في المحادثة");
+            if(el("chatTransferDepartment")) el("chatTransferDepartment").value = "";
+            toast(transferPayload ? "تم تحويل العميل في المحادثة" : "تم حفظ بيانات العميل في المحادثة");
             return;
           }
         }catch(e2){ console.error(e2); }
