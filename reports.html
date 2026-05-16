@@ -10,6 +10,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -329,7 +330,7 @@
     const SUMMARY_EXCLUDED_SECTIONS = new Set(["customer_service"]);
 
     const SOURCE_REPORT_PRESETS = [
-      "فيسبوك", "إنستجرام", "تيك توك", "تيك توك ليد", "واتساب",
+      "فيسبوك", "إنستجرام", "سناب شات", "تيك توك", "تيك توك ليد", "واتساب",
       "موقع حراج", "موقع آخر", "موقع اخر",
       "خلال الفرع", "صديق", "اتصال الرقم الموحد", "غير محدد"
     ];
@@ -811,6 +812,7 @@
 
       if(["facebook", "fb", "فيس بوك", "فيسبوك", "فايسبوك"].includes(text)) return "فيسبوك";
       if(["instagram", "insta", "ig", "انستجرام", "إنستجرام", "انستغرام", "إنستغرام"].includes(text)) return "إنستجرام";
+      if(["snapchat", "snap chat", "snap", "سناب شات", "سناب", "سناب شات ليد", "سناب ليد"].includes(text)) return "سناب شات";
       if(["tiktok lead", "tik tok lead", "tiktok leads", "tik tok leads", "تيك توك ليد", "تيكتوك ليد", "تيك توك lead"].includes(text)) return "تيك توك ليد";
       if(["tiktok", "tik tok", "تيك توك", "تيكتوك"].includes(text)) return "تيك توك";
       if(["whatsapp", "whats app", "واتساب", "واتس اب", "واتس آب", "mrsal", "mirsal", "mersal", "مرسال"].includes(text)) return "واتساب";
