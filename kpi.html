@@ -8,6 +8,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -951,10 +952,12 @@
         snaps.filter(Boolean).forEach(kpi => {
           if(!loaded.some(x => x.id === kpi.id)) loaded.push(kpi);
         });
-        const visibleRepUids = new Set(reps.map(rep => rep.uid || rep.id));
-        kpis = kpis.filter(k => !(k.month === month && visibleRepUids.has(k.repUid)));
+        // لا نمسح الكاش المحلي لو القراءة رجعت فاضية/اترفضت بعد الحفظ.
+        // كده التقييم الذي تم حفظه للتو لا يرجع 0 على الشاشة بسبب تأخير أو صلاحيات قراءة Firebase.
         loaded.forEach(kpi => {
-          if(!kpis.some(x => x.id === kpi.id)) kpis.push(kpi);
+          const idx = kpis.findIndex(x => x.id === kpi.id);
+          if(idx >= 0) kpis[idx] = {...kpis[idx], ...kpi};
+          else kpis.push(kpi);
         });
         kpiLoadSignature = signature;
         render();
@@ -1640,8 +1643,9 @@
       selectedKpi.periodTo = el("dateToFilter").value || selectedKpi.periodTo || "";
       selectedKpi.workDays = updateWorkDaysCount();
 
-      // قفل الأيام يطبق على غير الأدمن فقط. الأدمن يقدر يعدل أو يمسح القيم المحفوظة.
-      const lockedSet = isAdmin ? new Set() : savedLockedDateSet(selectedKpi);
+      // فتح التعديل والحفظ مؤقتًا لأي مستخدم لديه صلاحية دخول الصفحة.
+      // مهم: لا نعتبر الأيام المحفوظة مقفولة، حتى لا يتم تجاهل المدخلات الجديدة أو ترجع القيم 0 بعد الحفظ.
+      const lockedSet = new Set();
       const oldSpeed = selectedKpi.speed?.dailyDelays || {};
       const oldEnteredDates = Array.isArray(selectedKpi.speed?.delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys(oldSpeed);
       const nextDailyDelays = {};
@@ -2111,7 +2115,10 @@
           calculateModal();
         };
       });
-      el("finalSaveBtn").onclick = () => saveKpi("completed").catch(err => {console.error(err); toast("فشل حفظ التقييم");});
+      el("finalSaveBtn").onclick = () => saveKpi("completed").catch(err => {
+        console.error(err);
+        toast("فشل حفظ التقييم: تأكد من صلاحيات Firebase للكتابة في sales_reps_kpis");
+      });
       document.querySelectorAll("[data-export-pdf]").forEach(btn => {
         btn.onclick = () => exportModalPdf(btn.dataset.exportPdf);
       });
