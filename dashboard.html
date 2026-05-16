@@ -19,6 +19,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -676,12 +677,40 @@
       return nameText.includes(term) || (!!digits && phoneDigits.includes(digits)) || phoneText.toLowerCase().includes(term);
     }
 
+    function dashboardLeadTextForPlatform(l = {}){
+      return String([
+        l.platform, l.channel, l.channelCode, l.sourceCode,
+        l.source, l.sourceName, l.sourceLabel, l.provider, l.leadId
+      ].filter(Boolean).join(" ")).toLowerCase();
+    }
+
+    function dashboardLeadHasNativeTiktokRecipient(l = {}){
+      return [l.participantId, l.tiktokId, l.manychatContactId, l.subscriberId, l.subscriber_id]
+        .some(v => String(v || "").trim());
+    }
+
+    function dashboardLeadShouldSendViaWhatsapp(l = {}){
+      const raw = dashboardLeadTextForPlatform(l);
+      const phone = normalizeKsaPhone(phoneOfLead(l));
+      if(!phone) return false;
+
+      const isSnapchat = raw.includes("snapchat") || raw.includes("snap") || raw.includes("سناب");
+      const isTiktok = raw.includes("tiktok") || raw.includes("tik") || raw.includes("تيك");
+
+      if(isSnapchat) return true;
+      if(isTiktok && !dashboardLeadHasNativeTiktokRecipient(l)) return true;
+      return false;
+    }
+
     function platformOf(l){
+      if(dashboardLeadShouldSendViaWhatsapp(l)) return "whatsapp";
+
       const p = String(l.platform || l.channel || l.channelCode || "").toLowerCase();
       if(p.includes("wa") || p.includes("whatsapp") || p.includes("واتساب")) return "whatsapp";
       if(p.includes("insta") || p.includes("ig") || p.includes("انست")) return "instagram";
       if(p.includes("face") || p.includes("fb") || p.includes("فيس")) return "facebook";
       if(p.includes("tiktok") || p.includes("tik") || p.includes("تيك")) return "tiktok";
+      if(p.includes("snapchat") || p.includes("snap") || p.includes("سناب")) return "whatsapp";
       return p || "whatsapp";
     }
 
