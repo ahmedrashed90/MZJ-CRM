@@ -9,6 +9,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1037,11 +1038,23 @@
       return SECTION_DEFS.filter(sec => !DEPARTMENT_REPORT_EXCLUDED_SECTIONS.has(sec.key));
     }
 
+    const HIDDEN_BRANCH_DROPDOWN_VALUES = new Set([
+      "فرع_الملتقى",
+      "فرع_القادسية",
+      "فرع_الاونلاين",
+      "فرع_الصالة",
+      "branch_1778437132317",
+      "branch_1777930778285",
+      "branch_1777930716465",
+      "branch_1777929907322"
+    ]);
+
     function refreshBranchOptions(){
       const leadBranches = leads.filter(userCanSeeLead).flatMap(getLeadBranchValues);
       const userBranches = users.filter(userMatchesCurrentReportScope).flatMap(getUserBranchValues);
       const branchItems = uniqueNormalizedValues([...leadBranches, ...userBranches])
-        .filter(value => !isDepartmentLikeBranchValue(value));
+        .filter(value => !isDepartmentLikeBranchValue(value))
+        .filter(value => !HIDDEN_BRANCH_DROPDOWN_VALUES.has(value));
       fillSelectOptions(el("branchFilter"), "كل الفروع", branchItems);
     }
 
