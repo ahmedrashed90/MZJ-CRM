@@ -413,14 +413,12 @@
     let isAdmin = false;
     let unsub = null;
     let leads = [];
-    let dashboardInitialLeadsLoaded = false;
-    let dashboardNotifiedNewLeadKeys = new Set();
-    let dashboardNotificationAudioCtx = null;
-    let dashboardNotificationSoundUnlocked = false;
-    let dashboardNewLeadNoticeTimer = null;
-    let dashboardLatestAlertLeadId = "";
     let selectedSectionKey = "";
     let dashboardLeadSearchTerm = "";
+    let dashboardKnownNewLeadIds = new Set();
+    let dashboardNewLeadBaselineReady = false;
+    let dashboardNewLeadAlertTimer = null;
+    let dashboardAlertAudioCtx = null;
 
     const el = id => document.getElementById(id);
 
@@ -823,6 +821,130 @@
       return items.length;
     }
 
+    function dashboardNewLeadTargetKey(lead = {}){
+      const dept = leadDepartment(lead);
+      const status = normalizeDashboardStatusKey(getLeadStatus(lead));
+      if(dept === "cash_sales" && status === normalizeDashboardStatusKey("عميل جديد")) return "cash";
+      if(dept === "customer_service" && status === normalizeDashboardStatusKey("عميل جديد")) return "cs";
+      if(dept === "finance_sales" && (status === normalizeDashboardStatusKey("عميل جديد") || status === normalizeDashboardStatusKey("الكول سنتر"))) return "finance";
+      return "";
+    }
+
+    function dashboardNewLeadVisibleItems(){
+      return leads.filter(lead => {
+        const key = dashboardNewLeadTargetKey(lead);
+        if(!key) return false;
+        const def = SECTION_DEFS[key];
+        if(!def) return false;
+        if(isAdmin || currentProfile?.allDepartments === true) return leadDepartment(lead) === def.department;
+        return leadDepartment(lead) === def.department && leadAssignedToCurrentRepresentative(lead);
+      });
+    }
+
+    function dashboardNewLeadId(lead = {}){
+      return String(lead.__id || lead.id || lead.conversationId || lead.convId || phoneOfLead(lead) || "").trim();
+    }
+
+    function dashboardPrimeAlertAudio(){
+      try{
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if(!AudioContextClass) return;
+        if(!dashboardAlertAudioCtx) dashboardAlertAudioCtx = new AudioContextClass();
+        if(dashboardAlertAudioCtx.state === "suspended") dashboardAlertAudioCtx.resume().catch(() => {});
+      }catch(e){ console.warn("dashboard alert audio prime skipped", e); }
+    }
+
+    function playDashboardShortBeep(){
+      try{
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if(!AudioContextClass) return;
+        const ctx = dashboardAlertAudioCtx || new AudioContextClass();
+        dashboardAlertAudioCtx = ctx;
+        if(ctx.state === "suspended") ctx.resume().catch(() => {});
+
+        const start = ctx.currentTime + 0.01;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(1450, start);
+        osc.frequency.setValueAtTime(1180, start + 0.07);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.75, start + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.17);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.18);
+      }catch(e){ console.warn("dashboard alert sound skipped", e); }
+      try{
+        if(navigator.vibrate) navigator.vibrate([120, 40, 120]);
+      }catch(e){}
+    }
+
+    function hideDashboardNewLeadAlert(){
+      clearTimeout(dashboardNewLeadAlertTimer);
+      const alert = document.getElementById("dashboardNewLeadAlert");
+      if(alert) alert.classList.remove("show");
+    }
+
+    function showDashboardNewLeadAlert(lead){
+      const id = dashboardNewLeadId(lead);
+      if(!id) return;
+      let alert = document.getElementById("dashboardNewLeadAlert");
+      if(!alert){
+        alert = document.createElement("div");
+        alert.id = "dashboardNewLeadAlert";
+        alert.className = "dashboard-new-lead-alert";
+        alert.innerHTML = `
+          <button type="button" class="dashboard-new-lead-close" aria-label="إغلاق">×</button>
+          <div class="dashboard-new-lead-icon">!</div>
+          <div>
+            <b id="dashboardNewLeadTitle">عميل جديد</b>
+            <p id="dashboardNewLeadText">وصل عميل جديد في السيستم.</p>
+          </div>
+        `;
+        document.body.appendChild(alert);
+        alert.addEventListener("mouseenter", hideDashboardNewLeadAlert);
+        alert.addEventListener("mousemove", hideDashboardNewLeadAlert);
+        alert.addEventListener("click", (e) => {
+          hideDashboardNewLeadAlert();
+          if(e.target?.classList?.contains("dashboard-new-lead-close")) return;
+          const selectedLead = leads.find(l => dashboardNewLeadId(l) === alert.dataset.leadId);
+          if(selectedLead) openLeadConversation(selectedLead);
+        });
+      }
+
+      const title = document.getElementById("dashboardNewLeadTitle");
+      const body = document.getElementById("dashboardNewLeadText");
+      const customer = customerName(lead);
+      const meta = customerMeta(lead);
+      alert.dataset.leadId = id;
+      if(title) title.textContent = "عميل جديد";
+      if(body) body.textContent = customer + (meta ? " - " + meta : "");
+      alert.classList.add("show");
+      playDashboardShortBeep();
+      clearTimeout(dashboardNewLeadAlertTimer);
+      dashboardNewLeadAlertTimer = setTimeout(hideDashboardNewLeadAlert, 15000);
+    }
+
+    function checkDashboardNewLeadAlerts(){
+      const visibleTargets = dashboardNewLeadVisibleItems();
+      const currentIds = new Set(visibleTargets.map(dashboardNewLeadId).filter(Boolean));
+
+      if(!dashboardNewLeadBaselineReady){
+        dashboardKnownNewLeadIds = currentIds;
+        dashboardNewLeadBaselineReady = true;
+        return;
+      }
+
+      const fresh = visibleTargets.filter(lead => {
+        const id = dashboardNewLeadId(lead);
+        return id && !dashboardKnownNewLeadIds.has(id);
+      });
+      dashboardKnownNewLeadIds = currentIds;
+      if(fresh.length) showDashboardNewLeadAlert(fresh[fresh.length - 1]);
+    }
+
     function renderSectionCards(){
       const box = el("sectionCards");
       const cards = [SECTION_DEFS.cash, SECTION_DEFS.finance, SECTION_DEFS.cs];
@@ -1023,7 +1145,7 @@
     }
 
     function openLeadConversation(lead){
-      hideDashboardNewLeadNotice();
+      hideDashboardNewLeadAlert();
       openLeadChatPopup(lead);
     }
 
@@ -2435,146 +2557,6 @@
       if(selectedSectionKey) renderStatusCards();
     }
 
-    function dashboardNewLeadAlertKey(lead = {}){
-      return String(lead.__id || lead.id || lead.leadId || lead.phoneNormalized || lead.phone || lead.mobile || "").trim();
-    }
-
-    function dashboardLeadIsNewAlertTarget(lead = {}){
-      const dept = leadDepartment(lead);
-      const status = normalizeDashboardStatusKey(getLeadStatus(lead));
-      const newStatus = normalizeDashboardStatusKey("عميل جديد");
-      const callCenterStatus = normalizeDashboardStatusKey("الكول سنتر");
-
-      if(dept === "cash_sales") return status === newStatus;
-      if(dept === "customer_service") return status === newStatus;
-      if(dept === "finance_sales") return status === newStatus || status === callCenterStatus;
-      return false;
-    }
-
-    function dashboardVisibleNewAlertLeads(){
-      return leads.filter(lead => {
-        if(!dashboardLeadIsNewAlertTarget(lead)) return false;
-        if(isAdmin || currentProfile?.allDepartments === true) return true;
-        return leadAssignedToCurrentRepresentative(lead);
-      });
-    }
-
-    function dashboardUnlockNotificationSound(){
-      if(dashboardNotificationSoundUnlocked) return;
-      try{
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if(!AudioCtx) return;
-        dashboardNotificationAudioCtx = dashboardNotificationAudioCtx || new AudioCtx();
-        if(dashboardNotificationAudioCtx.state === "suspended") dashboardNotificationAudioCtx.resume().catch(() => {});
-        dashboardNotificationSoundUnlocked = true;
-      }catch(e){
-        console.warn("notification sound unlock skipped", e);
-      }
-    }
-
-    function playDashboardNewLeadSound(){
-      try{
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if(!AudioCtx) return;
-        const ctx = dashboardNotificationAudioCtx || new AudioCtx();
-        dashboardNotificationAudioCtx = ctx;
-        if(ctx.state === "suspended") ctx.resume().catch(() => {});
-
-        const now = ctx.currentTime;
-        const master = ctx.createGain();
-        master.gain.setValueAtTime(0.0001, now);
-        master.gain.exponentialRampToValueAtTime(0.34, now + 0.025);
-        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.72);
-        master.connect(ctx.destination);
-
-        [
-          { delay:0.00, from:470, to:350 },
-          { delay:0.24, from:470, to:350 }
-        ].forEach(note => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = "triangle";
-          osc.frequency.setValueAtTime(note.from, now + note.delay);
-          osc.frequency.exponentialRampToValueAtTime(note.to, now + note.delay + 0.16);
-          gain.gain.setValueAtTime(0.0001, now + note.delay);
-          gain.gain.exponentialRampToValueAtTime(1, now + note.delay + 0.012);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + note.delay + 0.19);
-          osc.connect(gain);
-          gain.connect(master);
-          osc.start(now + note.delay);
-          osc.stop(now + note.delay + 0.21);
-        });
-      }catch(e){
-        console.warn("new lead sound skipped", e);
-      }
-    }
-
-    function hideDashboardNewLeadNotice(){
-      const box = document.getElementById("dashboardNewLeadNotice");
-      if(box) box.classList.remove("show");
-      if(dashboardNewLeadNoticeTimer) clearTimeout(dashboardNewLeadNoticeTimer);
-      dashboardNewLeadNoticeTimer = null;
-    }
-
-    function showDashboardNewLeadNotice(message, freshLeads = []){
-      let box = document.getElementById("dashboardNewLeadNotice");
-      if(!box){
-        box = document.createElement("div");
-        box.id = "dashboardNewLeadNotice";
-        box.className = "dashboard-new-lead-notice";
-        box.innerHTML = `
-          <div class="dashboard-new-lead-icon">🔔</div>
-          <div class="dashboard-new-lead-text">
-            <b>تنبيه عميل جديد</b>
-            <span id="dashboardNewLeadNoticeMessage"></span>
-          </div>
-          <button type="button" id="dashboardNewLeadNoticeClose" aria-label="إغلاق">×</button>
-        `;
-        document.body.appendChild(box);
-        box.addEventListener("mouseenter", hideDashboardNewLeadNotice);
-        box.addEventListener("mousemove", hideDashboardNewLeadNotice);
-        box.querySelector("#dashboardNewLeadNoticeClose").onclick = hideDashboardNewLeadNotice;
-        box.onclick = (e) => {
-          if(e.target?.id === "dashboardNewLeadNoticeClose") return;
-          const lead = leads.find(l => dashboardNewLeadAlertKey(l) === dashboardLatestAlertLeadId) || freshLeads[0];
-          hideDashboardNewLeadNotice();
-          if(lead) openLeadConversation(lead);
-        };
-      }
-      const msgEl = box.querySelector("#dashboardNewLeadNoticeMessage");
-      if(msgEl) msgEl.textContent = message;
-      dashboardLatestAlertLeadId = dashboardNewLeadAlertKey(freshLeads[0] || {}) || "";
-      box.classList.add("show");
-      if(dashboardNewLeadNoticeTimer) clearTimeout(dashboardNewLeadNoticeTimer);
-      dashboardNewLeadNoticeTimer = setTimeout(hideDashboardNewLeadNotice, 15000);
-    }
-
-    function notifyDashboardNewLeadsIfNeeded(){
-      const targets = dashboardVisibleNewAlertLeads();
-      const currentKeys = new Set(targets.map(dashboardNewLeadAlertKey).filter(Boolean));
-
-      if(!dashboardInitialLeadsLoaded){
-        dashboardNotifiedNewLeadKeys = currentKeys;
-        dashboardInitialLeadsLoaded = true;
-        return;
-      }
-
-      const freshLeads = targets.filter(lead => {
-        const key = dashboardNewLeadAlertKey(lead);
-        return key && !dashboardNotifiedNewLeadKeys.has(key);
-      });
-      dashboardNotifiedNewLeadKeys = currentKeys;
-      if(!freshLeads.length) return;
-
-      const count = freshLeads.length;
-      const names = freshLeads.slice(0, 3).map(customerName).filter(Boolean).join("، ");
-      const msg = count === 1
-        ? `عميل جديد دخل السيستم: ${names || "عميل جديد"}`
-        : `دخل ${count} عملاء جدد في السيستم${names ? ": " + names : ""}`;
-      playDashboardNewLeadSound();
-      showDashboardNewLeadNotice(msg, freshLeads);
-    }
-
     function injectDashboardStyles(){
       if(document.getElementById("dashboardV18Styles")) return;
       const style = document.createElement("style");
@@ -3429,93 +3411,6 @@
           white-space:nowrap !important;
         }
 
-        /* V64 new lead voice + visible alert */
-        .dashboard-new-lead-notice{
-          position:fixed !important;
-          top:22px !important;
-          left:22px !important;
-          z-index:100000 !important;
-          width:min(420px, calc(100vw - 32px)) !important;
-          display:flex !important;
-          align-items:center !important;
-          gap:12px !important;
-          padding:14px 16px !important;
-          border-radius:20px !important;
-          border:2px solid #7b2d22 !important;
-          background:linear-gradient(135deg,#7b2d22,#a84735) !important;
-          color:#fff !important;
-          box-shadow:0 22px 55px rgba(45,20,16,.30) !important;
-          transform:translateY(-20px) scale(.98) !important;
-          opacity:0 !important;
-          pointer-events:none !important;
-          transition:.22s ease !important;
-          direction:rtl !important;
-          cursor:pointer !important;
-        }
-        .dashboard-new-lead-notice.show{
-          transform:translateY(0) scale(1) !important;
-          opacity:1 !important;
-          pointer-events:auto !important;
-        }
-        .dashboard-new-lead-icon{
-          width:46px !important;
-          height:46px !important;
-          border-radius:16px !important;
-          display:flex !important;
-          align-items:center !important;
-          justify-content:center !important;
-          background:rgba(255,255,255,.18) !important;
-          border:1px solid rgba(255,255,255,.28) !important;
-          font-size:23px !important;
-          flex:0 0 auto !important;
-          animation:dashboardNoticeBell .8s ease infinite !important;
-        }
-        .dashboard-new-lead-text{
-          display:flex !important;
-          flex-direction:column !important;
-          gap:3px !important;
-          min-width:0 !important;
-          flex:1 !important;
-        }
-        .dashboard-new-lead-text b{
-          font-size:16px !important;
-          font-weight:900 !important;
-          line-height:1.4 !important;
-        }
-        .dashboard-new-lead-text span{
-          font-size:13px !important;
-          line-height:1.6 !important;
-          opacity:.95 !important;
-          overflow-wrap:anywhere !important;
-        }
-        #dashboardNewLeadNoticeClose{
-          width:30px !important;
-          height:30px !important;
-          border:0 !important;
-          border-radius:999px !important;
-          background:rgba(255,255,255,.18) !important;
-          color:#fff !important;
-          font-size:22px !important;
-          line-height:1 !important;
-          cursor:pointer !important;
-          flex:0 0 auto !important;
-        }
-        @keyframes dashboardNoticeBell{
-          0%,100%{ transform:rotate(0deg); }
-          20%{ transform:rotate(10deg); }
-          40%{ transform:rotate(-10deg); }
-          60%{ transform:rotate(6deg); }
-          80%{ transform:rotate(-6deg); }
-        }
-        @media(max-width:700px){
-          .dashboard-new-lead-notice{
-            top:12px !important;
-            left:12px !important;
-            right:12px !important;
-            width:auto !important;
-          }
-        }
-
         .chat-credit-limit-result{
           border:1px solid #ead4c8 !important;
           border-radius:14px !important;
@@ -3930,6 +3825,82 @@
           word-break:break-word !important;
         }
 
+        /* New lead notification */
+        .dashboard-new-lead-alert{
+          position:fixed !important;
+          top:22px !important;
+          left:22px !important;
+          z-index:100000 !important;
+          min-width:320px !important;
+          max-width:min(440px, calc(100vw - 32px)) !important;
+          display:flex !important;
+          align-items:center !important;
+          gap:12px !important;
+          padding:14px 16px !important;
+          border-radius:18px !important;
+          border:1px solid #ead4c8 !important;
+          background:#fff !important;
+          color:#3d160f !important;
+          box-shadow:0 20px 55px rgba(45,20,16,.22) !important;
+          transform:translateY(-18px) !important;
+          opacity:0 !important;
+          pointer-events:none !important;
+          transition:.22s ease !important;
+          direction:rtl !important;
+        }
+        .dashboard-new-lead-alert.show{
+          transform:translateY(0) !important;
+          opacity:1 !important;
+          pointer-events:auto !important;
+        }
+        .dashboard-new-lead-icon{
+          width:42px !important;
+          height:42px !important;
+          border-radius:14px !important;
+          display:flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          background:#7b2d22 !important;
+          color:#fff !important;
+          font-size:24px !important;
+          font-weight:900 !important;
+          flex:0 0 auto !important;
+        }
+        .dashboard-new-lead-alert b{
+          display:block !important;
+          font-size:17px !important;
+          font-weight:900 !important;
+          margin-bottom:3px !important;
+        }
+        .dashboard-new-lead-alert p{
+          margin:0 !important;
+          color:#8f7065 !important;
+          font-size:13px !important;
+          line-height:1.6 !important;
+        }
+        .dashboard-new-lead-close{
+          position:absolute !important;
+          top:8px !important;
+          left:8px !important;
+          width:24px !important;
+          height:24px !important;
+          border:0 !important;
+          border-radius:999px !important;
+          background:#fff7f1 !important;
+          color:#7b2d22 !important;
+          font-weight:900 !important;
+          cursor:pointer !important;
+        }
+        @media(max-width:700px){
+          .dashboard-new-lead-alert{
+            left:12px !important;
+            right:12px !important;
+            top:12px !important;
+            min-width:0 !important;
+            max-width:none !important;
+          }
+        }
+
       `;
       document.head.appendChild(style);
     }
@@ -3937,6 +3908,8 @@
     function init(){
       injectDashboardStyles();
       renderNoPermissionNotice();
+      document.addEventListener("pointerdown", dashboardPrimeAlertAudio, { once:true, passive:true });
+      document.addEventListener("keydown", dashboardPrimeAlertAudio, { once:true });
       listenDashboardTemplates();
       listenDashboardClientStatuses();
       const searchField = el("dashboardLeadSearch");
@@ -3953,15 +3926,14 @@
         el("dashboardBoard").classList.add("hidden");
         renderSectionCards();
       };
-      ["click","keydown","touchstart"].forEach(evt => {
-        document.addEventListener(evt, dashboardUnlockNotificationSound, { once:true, passive:true });
-      });
       if(unsub) unsub();
+      dashboardNewLeadBaselineReady = false;
+      dashboardKnownNewLeadIds = new Set();
       unsub = onSnapshot(collection(db, "leads"), snap => {
         leads = [];
         snap.forEach(d => leads.push({ __id:d.id, id:d.id, ...d.data() }));
         renderDashboard();
-        notifyDashboardNewLeadsIfNeeded();
+        checkDashboardNewLeadAlerts();
       }, err => {
         console.error(err);
         toast("تعذر تحميل بيانات الداش بورد");
