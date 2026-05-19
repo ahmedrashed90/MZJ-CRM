@@ -24,6 +24,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -552,15 +553,15 @@
 
     const DASHBOARD_TRANSFER_BRANCHES = {
       cash_sales:[
-        { id:"فرع_الصالة", name:"فرع الصالة" },
-        { id:"فرع_القادسية", name:"فرع القادسية" },
-        { id:"فرع_الملتقى", name:"فرع الملتقى" }
+        { id:"فرع_الصالة", name:"فرع الصالة", aliases:["فرع الصالة"] },
+        { id:"فرع_القادسية", name:"فرع القادسية", aliases:["فرع القادسية"] },
+        { id:"فرع_الملتقى", name:"فرع الملتقى", aliases:["فرع الملتقى"] }
       ],
       finance_sales:[
-        { id:"فرع_الاونلاين", name:"فرع الاونلاين" }
+        { id:"فرع_الاونلاين", name:"فرع الاونلاين", aliases:["فرع الاونلاين","فرع الأونلاين","فرع اونلاين","فرع أونلاين"] }
       ],
       customer_service:[
-        { id:"خدمة العملاء", name:"خدمة العملاء" }
+        { id:"خدمة العملاء", name:"خدمة العملاء", aliases:["خدمة عملاء","خدمة العملاء"] }
       ]
     };
 
@@ -582,12 +583,20 @@
       return branches[Math.floor(Math.random() * branches.length)];
     }
 
-    function dashboardUserMatchesBranch(user = {}, branch = null){
-      if(!branch) return true;
-      const branchKeys = [branch.id, branch.name].map(dashboardNormalizeBranchKey).filter(Boolean);
-      const userKeys = [user.branchId, user.branchLocationId, user.branchName, user.branchLocationName]
+    function dashboardTransferBranchKeys(branch = null){
+      if(!branch) return [];
+      return [branch.id, branch.name, ...(Array.isArray(branch.aliases) ? branch.aliases : [])]
         .map(dashboardNormalizeBranchKey)
         .filter(Boolean);
+    }
+
+    function dashboardUserMatchesBranch(user = {}, branch = null){
+      if(!branch) return true;
+      const branchKeys = dashboardTransferBranchKeys(branch);
+      const userKeys = [
+        user.branchId, user.branchLocationId, user.branchName, user.branchLocationName,
+        user.branch, user.branchLocation, user.branchLabel, user.branchDisplayName
+      ].map(dashboardNormalizeBranchKey).filter(Boolean);
       if(!branchKeys.length || !userKeys.length) return false;
       return userKeys.some(v => branchKeys.includes(v));
     }
@@ -614,7 +623,7 @@
     }
 
     function dashboardRepDepartment(user = {}){
-      return dashboardCanonicalDepartment(user.department || user.dept || user.section || user.roleDepartment || "");
+      return dashboardCanonicalDepartment(user.department || user.dept || user.section || user.roleDepartment || user.salesDepartment || user.team || "");
     }
 
     function dashboardIsAssignableRep(user = {}, targetDepartment = ""){
@@ -672,10 +681,11 @@
 
     function dashboardBranchDocMatchesTransferBranch(branchData = {}, branch = null){
       if(!branch) return true;
-      const branchKeys = [branch.id, branch.name].map(dashboardNormalizeBranchKey).filter(Boolean);
+      const branchKeys = dashboardTransferBranchKeys(branch);
       const dataKeys = [
-        branchData.id, branchData.branchId, branchData.branchLocationId, branchData.branchCode,
-        branchData.branchName, branchData.branchLocationName, branchData.name, branchData.title
+        branchData.__id, branchData.id, branchData.branchId, branchData.branchLocationId, branchData.branchCode,
+        branchData.branchName, branchData.branchLocationName, branchData.name, branchData.title,
+        branchData.branch, branchData.branchLabel, branchData.branchDisplayName
       ].map(dashboardNormalizeBranchKey).filter(Boolean);
       if(!branchKeys.length || !dataKeys.length) return false;
       return dataKeys.some(v => branchKeys.includes(v));
@@ -688,18 +698,24 @@
       const snap = await getDocs(collection(db, "branches"));
       const reps = [];
       snap.forEach(d => {
-        const data = d.data() || {};
-        if(data.active === false || !dashboardBranchDocMatchesTransferBranch(data, targetBranch)) return;
+        const data = { __id:d.id, ...(d.data() || {}) };
+        if(data.active === false || data.enabled === false || !dashboardBranchDocMatchesTransferBranch(data, targetBranch)) return;
         const uidValues = fields.uids.flatMap(key => dashboardArrayFromBranchValue(data[key]));
         const nameValues = fields.names.flatMap(key => dashboardArrayFromBranchValue(data[key]));
         const max = Math.max(uidValues.length, nameValues.length);
         for(let i = 0; i < max; i++){
-          const id = String(uidValues[i] || nameValues[i] || "").trim();
-          const name = String(nameValues[i] || uidValues[i] || "").trim();
+          const id = String(uidValues[i] || "").trim();
+          const name = String(nameValues[i] || id || "").trim();
           if(!id && !name) continue;
           const keys = [id, name].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
           const sameCurrent = keys.some(k => currentKeys.has(k));
-          reps.push({ id:id || name, data:{ uid:id || "", name, department:targetDepartment }, name:name || id, sameCurrent, rank:2 });
+          reps.push({
+            id:id || name,
+            data:{ uid:id || "", userId:id || "", name, displayName:name, department:targetDepartment, branchId:targetBranch?.id || "", branchName:targetBranch?.name || "" },
+            name:name || id,
+            sameCurrent,
+            rank:2
+          });
         }
       });
       const preferred = reps.filter(r => !r.sameCurrent);
@@ -709,8 +725,8 @@
     }
 
     function dashboardChooseTransferRepresentative(reps = [], targetBranch = null){
-      const sameBranchReps = targetBranch ? reps.filter(r => r.rank === 2) : reps;
-      const branchPool = sameBranchReps.length ? sameBranchReps : reps;
+      // التحويل لازم يختار مندوب من نفس الفرع الذي تم اختياره للتحويل، وليس أي مندوب من نفس القسم.
+      const branchPool = targetBranch ? reps.filter(r => r.rank === 2) : reps;
       const preferred = branchPool.filter(r => !r.sameCurrent);
       const pool = preferred.length ? preferred : branchPool;
       if(!pool.length) return null;
@@ -718,6 +734,14 @@
     }
 
     async function dashboardPickTransferRepresentative(targetDepartment, lead = {}, targetBranch = null){
+      // الأولوية لبيانات صفحة الفروع لأنها هي التي تربط كل قسم بمناديبه داخل نفس الفرع.
+      try{
+        const pickedFromBranches = await dashboardPickTransferRepresentativeFromBranches(targetDepartment, lead, targetBranch);
+        if(pickedFromBranches) return pickedFromBranches;
+      }catch(err){
+        console.warn("branches transfer pool skipped", err);
+      }
+
       const currentKeys = new Set(dashboardCurrentLeadAssigneeKeys(lead));
       const reps = [];
       try{
@@ -725,24 +749,18 @@
         snap.forEach(d => {
           const data = d.data() || {};
           if(!dashboardIsAssignableRep(data, targetDepartment)) return;
+          const rank = dashboardRepBranchRank(data, targetBranch);
+          if(targetBranch && rank !== 2) return;
           const name = dashboardRepName(data, d.id);
           const keys = [d.id, data.uid, data.userId, data.email, name].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
           const sameCurrent = keys.some(k => currentKeys.has(k));
-          reps.push({ id:d.id, data, name, sameCurrent, rank:dashboardRepBranchRank(data, targetBranch) });
+          reps.push({ id:d.id, data, name, sameCurrent, rank });
         });
       }catch(err){
         console.warn("users transfer pool skipped", err);
       }
 
-      const pickedFromUsers = dashboardChooseTransferRepresentative(reps, targetBranch);
-      if(pickedFromUsers) return pickedFromUsers;
-
-      try{
-        return await dashboardPickTransferRepresentativeFromBranches(targetDepartment, lead, targetBranch);
-      }catch(err){
-        console.warn("branches transfer pool skipped", err);
-        return null;
-      }
+      return dashboardChooseTransferRepresentative(reps, targetBranch);
     }
 
     async function dashboardBuildTransferPayload(lead = {}, targetDepartment = ""){
