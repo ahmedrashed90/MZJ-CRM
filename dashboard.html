@@ -23,6 +23,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -79,7 +80,7 @@
           <a href="./branches.html">الفروع</a>
           <a href="./statuses.html">حالات العملاء</a>
           <a href="./templates.html">القوالب والرسائل الجاهزة</a>
-          <a href="./kpi.html">تقييم المناديب KPi</a>
+          <a href="./kpi.html">تقييم المناديب KPI</a>
           <a href="./admin.html">الإدارة</a>
           </div>
         </div>
@@ -164,7 +165,7 @@
       { page:"branches.html", label:"الفروع" },
       { page:"statuses.html", label:"حالات العملاء" },
       { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
-      { page:"kpi.html", label:" Kpi تقييم المناديب" },
+      { page:"kpi.html", label:"KPI تقييم المناديب" },
       { page:"admin.html", label:"الإدارة" }
     ];
 
@@ -641,24 +642,107 @@
       ].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
     }
 
-    async function dashboardPickTransferRepresentative(targetDepartment, lead = {}, targetBranch = null){
-      const snap = await getDocs(collection(db, "users"));
+    function dashboardRepFieldCandidatesByDepartment(targetDepartment){
+      if(targetDepartment === "cash_sales"){
+        return {
+          uids:["cashSalesUids","cashSalesUid","cashUids","cashUid","salesUids","salesUid"],
+          names:["cashSalesNames","cashSalesName","cashNames","cashName","salesNames","salesName"]
+        };
+      }
+      if(targetDepartment === "finance_sales"){
+        return {
+          uids:["financeSalesUids","financeSalesUid","financeUids","financeUid"],
+          names:["financeSalesNames","financeSalesName","financeNames","financeName"]
+        };
+      }
+      if(targetDepartment === "customer_service"){
+        return {
+          uids:["customerServiceUids","customerServiceUid","serviceUids","serviceUid","csUids","csUid"],
+          names:["customerServiceNames","customerServiceName","serviceNames","serviceName","csNames","csName"]
+        };
+      }
+      return { uids:[], names:[] };
+    }
+
+    function dashboardArrayFromBranchValue(value){
+      if(Array.isArray(value)) return value.filter(v => String(v || "").trim() !== "");
+      if(value === undefined || value === null || String(value).trim() === "") return [];
+      return [value];
+    }
+
+    function dashboardBranchDocMatchesTransferBranch(branchData = {}, branch = null){
+      if(!branch) return true;
+      const branchKeys = [branch.id, branch.name].map(dashboardNormalizeBranchKey).filter(Boolean);
+      const dataKeys = [
+        branchData.id, branchData.branchId, branchData.branchLocationId, branchData.branchCode,
+        branchData.branchName, branchData.branchLocationName, branchData.name, branchData.title
+      ].map(dashboardNormalizeBranchKey).filter(Boolean);
+      if(!branchKeys.length || !dataKeys.length) return false;
+      return dataKeys.some(v => branchKeys.includes(v));
+    }
+
+    async function dashboardPickTransferRepresentativeFromBranches(targetDepartment, lead = {}, targetBranch = null){
+      const fields = dashboardRepFieldCandidatesByDepartment(targetDepartment);
+      if(!fields.uids.length) return null;
       const currentKeys = new Set(dashboardCurrentLeadAssigneeKeys(lead));
+      const snap = await getDocs(collection(db, "branches"));
       const reps = [];
       snap.forEach(d => {
         const data = d.data() || {};
-        if(!dashboardIsAssignableRep(data, targetDepartment)) return;
-        const name = dashboardRepName(data, d.id);
-        const keys = [d.id, data.uid, data.userId, data.email, name].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
-        const sameCurrent = keys.some(k => currentKeys.has(k));
-        reps.push({ id:d.id, data, name, sameCurrent, rank:dashboardRepBranchRank(data, targetBranch) });
+        if(data.active === false || !dashboardBranchDocMatchesTransferBranch(data, targetBranch)) return;
+        const uidValues = fields.uids.flatMap(key => dashboardArrayFromBranchValue(data[key]));
+        const nameValues = fields.names.flatMap(key => dashboardArrayFromBranchValue(data[key]));
+        const max = Math.max(uidValues.length, nameValues.length);
+        for(let i = 0; i < max; i++){
+          const id = String(uidValues[i] || nameValues[i] || "").trim();
+          const name = String(nameValues[i] || uidValues[i] || "").trim();
+          if(!id && !name) continue;
+          const keys = [id, name].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
+          const sameCurrent = keys.some(k => currentKeys.has(k));
+          reps.push({ id:id || name, data:{ uid:id || "", name, department:targetDepartment }, name:name || id, sameCurrent, rank:2 });
+        }
       });
+      const preferred = reps.filter(r => !r.sameCurrent);
+      const pool = preferred.length ? preferred : reps;
+      if(!pool.length) return null;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function dashboardChooseTransferRepresentative(reps = [], targetBranch = null){
       const sameBranchReps = targetBranch ? reps.filter(r => r.rank === 2) : reps;
       const branchPool = sameBranchReps.length ? sameBranchReps : reps;
       const preferred = branchPool.filter(r => !r.sameCurrent);
       const pool = preferred.length ? preferred : branchPool;
       if(!pool.length) return null;
       return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    async function dashboardPickTransferRepresentative(targetDepartment, lead = {}, targetBranch = null){
+      const currentKeys = new Set(dashboardCurrentLeadAssigneeKeys(lead));
+      const reps = [];
+      try{
+        const snap = await getDocs(collection(db, "users"));
+        snap.forEach(d => {
+          const data = d.data() || {};
+          if(!dashboardIsAssignableRep(data, targetDepartment)) return;
+          const name = dashboardRepName(data, d.id);
+          const keys = [d.id, data.uid, data.userId, data.email, name].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
+          const sameCurrent = keys.some(k => currentKeys.has(k));
+          reps.push({ id:d.id, data, name, sameCurrent, rank:dashboardRepBranchRank(data, targetBranch) });
+        });
+      }catch(err){
+        console.warn("users transfer pool skipped", err);
+      }
+
+      const pickedFromUsers = dashboardChooseTransferRepresentative(reps, targetBranch);
+      if(pickedFromUsers) return pickedFromUsers;
+
+      try{
+        return await dashboardPickTransferRepresentativeFromBranches(targetDepartment, lead, targetBranch);
+      }catch(err){
+        console.warn("branches transfer pool skipped", err);
+        return null;
+      }
     }
 
     async function dashboardBuildTransferPayload(lead = {}, targetDepartment = ""){
@@ -2563,7 +2647,14 @@
 
       const status = el("chatStatus").value;
       const transferDepartment = el("chatTransferDepartment")?.value || "";
-      const transferPayload = await dashboardBuildTransferPayload(lead, transferDepartment);
+      let transferPayload = null;
+      try{
+        transferPayload = await dashboardBuildTransferPayload(lead, transferDepartment);
+      }catch(err){
+        console.error(err);
+        toast(err?.message || "فشل تحويل العميل - راجع صلاحيات الحساب");
+        return;
+      }
       const effectiveDepartment = transferPayload?.department || leadDepartment(lead);
       const effectiveStatus = transferPayload?.status || status;
 
