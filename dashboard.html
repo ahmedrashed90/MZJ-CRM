@@ -1992,16 +1992,23 @@
       let leadWriteError = null;
       if(lead?.__id){
         try{
-          await setDoc(doc(db, "leads", lead.__id), payload, { merge:true });
+          // التعديل الحقيقي الذي ينقل العميل بين الأقسام لازم يتم على وثيقة الليد نفسها.
+          // updateDoc مناسب لصلاحيات المستخدمين العاديين أكثر من setDoc merge في قواعد Firestore.
+          await updateDoc(doc(db, "leads", lead.__id), payload);
         }catch(err){
-          leadWriteError = err;
-          console.warn("lead customer save skipped", err);
+          try{
+            await setDoc(doc(db, "leads", lead.__id), payload, { merge:true });
+          }catch(err2){
+            leadWriteError = err2;
+            console.warn("lead customer save skipped", err, err2);
+          }
         }
       }
 
       const results = conversationWrites.length ? await Promise.allSettled(conversationWrites) : [];
       const hasConversationSave = results.some(r => r.status === "fulfilled");
-      if(leadWriteError && !hasConversationSave) throw leadWriteError;
+      // لا نعتبر حفظ المحادثة بديل عن نقل الليد؛ لو الليد نفسه لم يتحدث فالعميل لن يختفي من القسم القديم.
+      if(leadWriteError) throw leadWriteError;
     }
 
     async function saveDashboardStatusOnly(){
@@ -2785,19 +2792,7 @@
         toast(transferPayload ? "تم تحويل العميل وتوزيعه على مندوب جديد" : "تم حفظ بيانات العميل");
       }catch(err){
         console.error(err);
-        try{
-          const cfg = chatPlatformConfig(dashboardChatState.platform);
-          const convIds = dashboardConversationSyncIds(lead, payload);
-          if(convIds.length){
-            await Promise.allSettled(convIds.map(id => setDoc(doc(db, cfg.conversations, id), { ...payload, ...(dashboardPayloadHasCustomerData(payload) ? dashboardCustomerNestedPayload(payload) : {}) }, { merge:true })));
-            Object.assign(lead, payload);
-            fillDashboardChatCustomerForm(lead);
-            if(el("chatTransferDepartment")) el("chatTransferDepartment").value = "";
-            toast(transferPayload ? "تم تحويل العميل في المحادثة" : "تم حفظ بيانات العميل في المحادثة");
-            return;
-          }
-        }catch(e2){ console.error(e2); }
-        toast("فشل حفظ بيانات العميل - راجع صلاحية تعديل العملاء لهذا الحساب");
+        toast(transferPayload ? "فشل تحويل العميل - صلاحية تعديل الليد لم تسمح بنقل القسم والفرع" : "فشل حفظ بيانات العميل - راجع صلاحية تعديل العملاء لهذا الحساب");
       }
     }
 
