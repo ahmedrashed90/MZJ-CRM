@@ -129,8 +129,8 @@
               </div>
               <div class="toggle-row">
                 <div class="toggle-info">
-                  <strong>التصعيد لمدير الفرع بعد آخر رد</strong>
-                  <span>بعد إرسال الردود التلقائية المحددة وعدم تدخل المندوب، يتم إرسال رسالة واتساب للمدير المسجل للفرع/القسم.</span>
+                  <strong>التصعيد المتدرج بعد ردود الوكيل</strong>
+                  <span>بعد رسالتين للعميل: يتم تنبيه المندوب، ثم مدير الفرع، ثم مدير المبيعات حسب مدة التأخير المحددة.</span>
                 </div>
                 <input id="escalateToBranchManager" type="checkbox" />
               </div>
@@ -149,7 +149,19 @@
                   <input id="betweenRepliesSeconds" type="number" min="60" step="30" value="120" />
                 </label>
                 <label>أقصى عدد ردود تلقائية
-                  <input id="maxBotMessages" type="number" min="1" max="3" value="3" />
+                  <input id="maxBotMessages" type="number" min="1" max="2" value="2" />
+                </label>
+                <label>تصعيد لمدير الفرع بعد تنبيه المندوب - بالثواني
+                  <input id="repEscalationDelaySeconds" type="number" min="60" step="30" value="300" />
+                </label>
+                <label>تصعيد لمدير المبيعات بعد مدير الفرع - بالثواني
+                  <input id="branchManagerEscalationDelaySeconds" type="number" min="60" step="30" value="300" />
+                </label>
+                <label>اسم مدير المبيعات
+                  <input id="salesManagerName" placeholder="اسم مدير المبيعات" />
+                </label>
+                <label>رقم واتساب مدير المبيعات
+                  <input id="salesManagerPhone" placeholder="9665xxxxxxxx" />
                 </label>
                 <label>مدة منع تكرار التصعيد - بالدقائق
                   <input id="escalationCooldownMinutes" type="number" min="5" step="5" value="60" />
@@ -179,8 +191,8 @@
                 <label>الرد الثاني
                   <textarea id="reply2">حتى نساعدك بشكل أسرع، هل استفسارك عن الشراء كاش أم تمويل؟</textarea>
                 </label>
-                <label>الرد الثالث
-                  <textarea id="reply3">فضلاً اكتب لنا المدينة أو الفرع الأقرب لك، وسيقوم أحد المختصين بالتواصل معك في أقرب وقت.</textarea>
+                <label>الرد الثالث - احتياطي فقط
+                  <textarea id="reply3" placeholder="غير مستخدم في المنطق الجديد طالما أقصى عدد الردود = 2">فضلاً اكتب لنا المدينة أو الفرع الأقرب لك، وسيقوم أحد المختصين بالتواصل معك في أقرب وقت.</textarea>
                 </label>
                 <label>نص رسالة التصعيد لمدير الفرع
                   <textarea id="escalationTemplate">تنبيه من وكيل صندوق الوارد\n\nيوجد عميل لم يتم الرد عليه من المندوب خلال الوقت المحدد.\n\nالعميل: {{customerName}}\nالجوال: {{customerPhone}}\nالفرع: {{branchName}}\nالمندوب المسؤول: {{assignedName}}\nآخر رسالة: {{lastMessageText}}\nعدد ردود الوكيل: {{botMessageCount}}\n\nيرجى التدخل أو توجيه المندوب للرد.</textarea>
@@ -192,7 +204,7 @@
               <h3>مديرو الفروع والتصعيد</h3>
               <p class="muted">اختر مدير كل قسم ورقم جواله. لو العميل لم يختر مبيعات كاش أو مبيعات تمويل أو خدمة عملاء، استخدم الصف: <b>قبل اختيار القسم / غير محدد</b>.</p>
               <div class="route-hint">
-                <b>مهم:</b> اختيار <b>قبل اختيار القسم / غير محدد</b> يتم حفظه بالمفتاح <b>__unassigned__</b>، وهو الذي يستخدمه الوركر للتصعيد قبل أن يختار العميل كاش / تمويل / خدمة عملاء.
+                <b>مهم:</b> اختيار <b>قبل اختيار القسم / غير محدد</b> يتم حفظه بالمفتاح <b>unassigned</b>، وهو الذي يستخدمه الوركر للتصعيد قبل أن يختار العميل كاش / تمويل / خدمة عملاء.
               </div>
               <div class="branch-editor">
                 <label>الفرع / القسم / حالة ما قبل الاختيار
@@ -338,7 +350,7 @@
     ];
 
     const DEFAULT_BRANCHES = [
-      { key:"__unassigned__", label:"قبل اختيار القسم / غير محدد" },
+      { key:"unassigned", label:"قبل اختيار القسم / غير محدد" },
       { key:"cash_sales", label:"مبيعات الكاش" },
       { key:"finance_sales", label:"مبيعات التمويل" },
       { key:"customer_service", label:"خدمة العملاء" },
@@ -352,8 +364,18 @@
       enabled: false,
       firstDelaySeconds: 240,
       betweenRepliesSeconds: 120,
-      maxBotMessages: 3,
+      maxBotMessages: 2,
+      escalateToAssignedRep: true,
       escalateToBranchManager: true,
+      escalateToSalesManager: true,
+      repEscalationDelaySeconds: 300,
+      branchManagerEscalationDelaySeconds: 300,
+      salesManagerName: "",
+      salesManagerPhone: "",
+      managerEscalationMode: "template",
+      managerEscalationTemplateName: "",
+      managerEscalationTemplateLanguage: "ar",
+      managerEscalationTemplateParams: ["customerName", "customerPhone", "branchName", "assignedName", "botMessageCount", "lastMessageText"],
       businessHoursOnly: false,
       businessHours: { start:"09:00", end:"22:00" },
       stopKeywords: ["إلغاء", "خلاص", "لا تتواصلون"],
@@ -446,6 +468,9 @@
       settings.businessHours = { ...DEFAULT_SETTINGS.businessHours, ...(data?.businessHours || {}) };
       settings.replies = Array.isArray(data?.replies) && data.replies.length ? data.replies : DEFAULT_SETTINGS.replies;
       settings.stopKeywords = Array.isArray(data?.stopKeywords) ? data.stopKeywords : DEFAULT_SETTINGS.stopKeywords;
+      settings.managerEscalationTemplateParams = Array.isArray(data?.managerEscalationTemplateParams) && data.managerEscalationTemplateParams.length
+        ? data.managerEscalationTemplateParams
+        : DEFAULT_SETTINGS.managerEscalationTemplateParams;
       return settings;
     }
     function fillSettingsForm(settings){
@@ -455,7 +480,11 @@
       el("businessHoursOnly").checked = !!currentSettings.businessHoursOnly;
       el("firstDelaySeconds").value = Number(currentSettings.firstDelaySeconds || 240);
       el("betweenRepliesSeconds").value = Number(currentSettings.betweenRepliesSeconds || 120);
-      el("maxBotMessages").value = Number(currentSettings.maxBotMessages || 3);
+      el("maxBotMessages").value = Number(currentSettings.maxBotMessages || 2);
+      el("repEscalationDelaySeconds").value = Number(currentSettings.repEscalationDelaySeconds || 300);
+      el("branchManagerEscalationDelaySeconds").value = Number(currentSettings.branchManagerEscalationDelaySeconds || 300);
+      el("salesManagerName").value = currentSettings.salesManagerName || "";
+      el("salesManagerPhone").value = currentSettings.salesManagerPhone || "";
       el("escalationCooldownMinutes").value = Number(currentSettings.escalationCooldownMinutes || 60);
       el("businessStart").value = currentSettings.businessHours?.start || "09:00";
       el("businessEnd").value = currentSettings.businessHours?.end || "22:00";
@@ -465,6 +494,13 @@
       el("reply2").value = currentSettings.replies?.[1] || DEFAULT_SETTINGS.replies[1];
       el("reply3").value = currentSettings.replies?.[2] || DEFAULT_SETTINGS.replies[2];
       el("escalationTemplate").value = currentSettings.escalationTemplate || DEFAULT_SETTINGS.escalationTemplate;
+      el("managerEscalationMode").value = currentSettings.managerEscalationMode || "template";
+      el("managerEscalationTemplateName").value = currentSettings.managerEscalationTemplateName || "";
+      el("managerEscalationTemplateLanguage").value = currentSettings.managerEscalationTemplateLanguage || "ar";
+      const templateParams = Array.isArray(currentSettings.managerEscalationTemplateParams)
+        ? currentSettings.managerEscalationTemplateParams
+        : ["customerName", "customerPhone", "branchName", "assignedName", "botMessageCount", "lastMessageText"];
+      el("managerEscalationTemplateParams").value = templateParams.join(", ");
       renderKpis();
     }
     function collectSettings(){
@@ -472,14 +508,24 @@
         enabled: el("enabled").checked,
         firstDelaySeconds: Math.max(60, Number(el("firstDelaySeconds").value || 240)),
         betweenRepliesSeconds: Math.max(60, Number(el("betweenRepliesSeconds").value || 120)),
-        maxBotMessages: Math.min(3, Math.max(1, Number(el("maxBotMessages").value || 3))),
+        maxBotMessages: Math.min(2, Math.max(1, Number(el("maxBotMessages").value || 2))),
+        escalateToAssignedRep: true,
         escalateToBranchManager: el("escalateToBranchManager").checked,
+        escalateToSalesManager: true,
+        repEscalationDelaySeconds: Math.max(60, Number(el("repEscalationDelaySeconds").value || 300)),
+        branchManagerEscalationDelaySeconds: Math.max(60, Number(el("branchManagerEscalationDelaySeconds").value || 300)),
+        salesManagerName: el("salesManagerName").value.trim(),
+        salesManagerPhone: safePhone(el("salesManagerPhone").value),
         businessHoursOnly: el("businessHoursOnly").checked,
         businessHours: { start: el("businessStart").value || "09:00", end: el("businessEnd").value || "22:00" },
         stopKeywords: el("stopKeywords").value.split(/[,،\n]/g).map(x => x.trim()).filter(Boolean),
         fallbackManagerPhone: safePhone(el("fallbackManagerPhone").value),
         replies: [el("reply1").value.trim(), el("reply2").value.trim(), el("reply3").value.trim()].filter(Boolean),
         escalationTemplate: el("escalationTemplate").value.trim(),
+        managerEscalationMode: el("managerEscalationMode").value || "template",
+        managerEscalationTemplateName: el("managerEscalationTemplateName").value.trim(),
+        managerEscalationTemplateLanguage: el("managerEscalationTemplateLanguage").value.trim() || "ar",
+        managerEscalationTemplateParams: el("managerEscalationTemplateParams").value.split(/[,،\n]/g).map(x => x.trim()).filter(Boolean),
         escalationCooldownMinutes: Math.max(5, Number(el("escalationCooldownMinutes").value || 60)),
         updatedAt: new Date().toISOString(),
         updatedBy: currentUser?.uid || "",
@@ -506,19 +552,19 @@
         if(key && !map.has(key)) map.set(key, branchLabelFromLead(lead) || key);
       });
       const rows = Array.from(map.entries()).map(([key,label]) => ({ key, label }));
-      const unassigned = rows.filter(x => x.key === "__unassigned__");
+      const unassigned = rows.filter(x => x.key === "unassigned");
       const rest = rows.filter(x => x.key !== "__unassigned__").sort((a,b)=>String(a.label).localeCompare(String(b.label), "ar"));
       return [...unassigned, ...rest];
     }
     function refreshBranchSelect(){
       const select = el("branchSelect");
-      const current = select.value || "__unassigned__";
+      const current = select.value || "unassigned";
       select.innerHTML = availableBranches().map(b => `<option value="${escapeHtml(b.key)}">${escapeHtml(b.label)} (${escapeHtml(b.key)})</option>`).join("");
       if([...select.options].some(o => o.value === current)) select.value = current;
-      else select.value = "__unassigned__";
+      else select.value = "unassigned";
     }
     function loadManagerForSelectedBranch(){
-      const branchId = el("branchSelect").value || "__unassigned__";
+      const branchId = el("branchSelect").value || "unassigned";
       const m = managers.find(x => (x.branchId || x.id) === branchId);
       if(m){
         el("managerName").value = m.managerName || "";
@@ -567,10 +613,15 @@
         updatedBy: currentUser?.uid || "",
         updatedByName: currentProfile?.name || currentUser?.email || ""
       };
-      await setDoc(doc(db, "branch_agent_managers", branchId), data, { merge:true });
-      el("managerName").value = "";
-      el("managerPhone").value = "";
-      toast("تم حفظ مدير الفرع.");
+      try {
+        await setDoc(doc(db, "branch_agent_managers", branchId), data, { merge:true });
+        el("managerName").value = "";
+        el("managerPhone").value = "";
+        toast("تم حفظ مدير الفرع.");
+      } catch (err) {
+        console.error(err);
+        toast("تعذر حفظ مدير الفرع. تأكد من الصلاحيات أو جرّب تحديث الصفحة.");
+      }
     }
     function editManager(id){
       const m = managers.find(x => x.id === id);
