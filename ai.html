@@ -486,34 +486,41 @@
         : DEFAULT_SETTINGS.managerEscalationTemplateParams;
       return settings;
     }
+    function setFieldValue(id, value){
+      const node = el(id);
+      if(!node) return false;
+      if(node.type === "checkbox") node.checked = !!value;
+      else node.value = value ?? "";
+      return true;
+    }
     function fillSettingsForm(settings){
       currentSettings = mergeSettings(settings);
-      el("enabled").checked = !!currentSettings.enabled;
-      el("escalateToBranchManager").checked = currentSettings.escalateToBranchManager !== false;
-      el("businessHoursOnly").checked = !!currentSettings.businessHoursOnly;
-      el("firstDelaySeconds").value = Number(currentSettings.firstDelaySeconds || 240);
-      el("betweenRepliesSeconds").value = Number(currentSettings.betweenRepliesSeconds || 120);
-      el("maxBotMessages").value = Number(currentSettings.maxBotMessages || 2);
-      el("repEscalationDelaySeconds").value = Number(currentSettings.repEscalationDelaySeconds || 300);
-      el("branchManagerEscalationDelaySeconds").value = Number(currentSettings.branchManagerEscalationDelaySeconds || 300);
-      el("salesManagerName").value = currentSettings.salesManagerName || "";
-      el("salesManagerPhone").value = currentSettings.salesManagerPhone || "";
-      el("escalationCooldownMinutes").value = Number(currentSettings.escalationCooldownMinutes || 60);
-      el("businessStart").value = currentSettings.businessHours?.start || "09:00";
-      el("businessEnd").value = currentSettings.businessHours?.end || "22:00";
-      el("stopKeywords").value = (currentSettings.stopKeywords || []).join(", ");
-      el("fallbackManagerPhone").value = currentSettings.fallbackManagerPhone || "";
-      el("reply1").value = currentSettings.replies?.[0] || DEFAULT_SETTINGS.replies[0];
-      el("reply2").value = currentSettings.replies?.[1] || DEFAULT_SETTINGS.replies[1];
-      el("reply3").value = currentSettings.replies?.[2] || DEFAULT_SETTINGS.replies[2];
-      el("escalationTemplate").value = currentSettings.escalationTemplate || DEFAULT_SETTINGS.escalationTemplate;
-      el("managerEscalationMode").value = currentSettings.managerEscalationMode || "template";
-      el("managerEscalationTemplateName").value = currentSettings.managerEscalationTemplateName || "";
-      el("managerEscalationTemplateLanguage").value = currentSettings.managerEscalationTemplateLanguage || "ar";
+      setFieldValue("enabled", !!currentSettings.enabled);
+      setFieldValue("escalateToBranchManager", currentSettings.escalateToBranchManager !== false);
+      setFieldValue("businessHoursOnly", !!currentSettings.businessHoursOnly);
+      setFieldValue("firstDelaySeconds", Number(currentSettings.firstDelaySeconds || 240));
+      setFieldValue("betweenRepliesSeconds", Number(currentSettings.betweenRepliesSeconds || 120));
+      setFieldValue("maxBotMessages", Number(currentSettings.maxBotMessages || 2));
+      setFieldValue("repEscalationDelaySeconds", Number(currentSettings.repEscalationDelaySeconds || 300));
+      setFieldValue("branchManagerEscalationDelaySeconds", Number(currentSettings.branchManagerEscalationDelaySeconds || 300));
+      setFieldValue("salesManagerName", currentSettings.salesManagerName || "");
+      setFieldValue("salesManagerPhone", currentSettings.salesManagerPhone || "");
+      setFieldValue("escalationCooldownMinutes", Number(currentSettings.escalationCooldownMinutes || 60));
+      setFieldValue("businessStart", currentSettings.businessHours?.start || "09:00");
+      setFieldValue("businessEnd", currentSettings.businessHours?.end || "22:00");
+      setFieldValue("stopKeywords", (currentSettings.stopKeywords || []).join(", "));
+      setFieldValue("fallbackManagerPhone", currentSettings.fallbackManagerPhone || "");
+      setFieldValue("reply1", currentSettings.replies?.[0] || DEFAULT_SETTINGS.replies[0]);
+      setFieldValue("reply2", currentSettings.replies?.[1] || DEFAULT_SETTINGS.replies[1]);
+      setFieldValue("reply3", currentSettings.replies?.[2] || DEFAULT_SETTINGS.replies[2]);
+      setFieldValue("escalationTemplate", currentSettings.escalationTemplate || DEFAULT_SETTINGS.escalationTemplate);
+      setFieldValue("managerEscalationMode", currentSettings.managerEscalationMode || "template");
+      setFieldValue("managerEscalationTemplateName", currentSettings.managerEscalationTemplateName || "");
+      setFieldValue("managerEscalationTemplateLanguage", currentSettings.managerEscalationTemplateLanguage || "ar");
       const templateParams = Array.isArray(currentSettings.managerEscalationTemplateParams)
         ? currentSettings.managerEscalationTemplateParams
         : ["customerName", "customerPhone", "branchName", "assignedName", "botMessageCount", "lastMessageText"];
-      el("managerEscalationTemplateParams").value = templateParams.join(", ");
+      setFieldValue("managerEscalationTemplateParams", templateParams.join(", "));
       renderKpis();
     }
     function fieldValue(id, fallback = ""){
