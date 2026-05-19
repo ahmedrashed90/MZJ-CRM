@@ -22,6 +22,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -125,7 +126,7 @@
       getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
-      getFirestore, collection, doc, getDoc, getDocs, onSnapshot, query, orderBy, addDoc, updateDoc, setDoc, serverTimestamp
+      getFirestore, collection, collectionGroup, doc, getDoc, getDocs, onSnapshot, query, orderBy, addDoc, updateDoc, setDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -419,6 +420,10 @@
     let dashboardNewLeadBaselineReady = false;
     let dashboardNewLeadAlertTimer = null;
     let dashboardAlertAudioCtx = null;
+    let dashboardIncomingMessageUnsub = null;
+    let dashboardIncomingMessageBaselineReady = false;
+    let dashboardKnownIncomingMessageIds = new Set();
+    let dashboardIncomingMessageLeadMap = new Map();
 
     const el = id => document.getElementById(id);
 
@@ -944,6 +949,177 @@
       dashboardKnownNewLeadIds = currentIds;
       if(fresh.length) showDashboardNewLeadAlert(fresh[fresh.length - 1]);
     }
+
+    function dashboardNormalizeConversationKey(value){
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function dashboardLeadConversationKeysForAlert(lead = {}){
+      const phone = normalizeKsaPhone(phoneOfLead(lead));
+      const raw = [
+        lead.conversationId,
+        lead.convId,
+        lead.contactKey,
+        lead.participantId,
+        lead.fbId,
+        lead.igId,
+        lead.tiktokId,
+        lead.waId,
+        lead.__id,
+        lead.id,
+        phone,
+        phone ? "wa_" + phone : "",
+        phone ? String(phone).replace(/^wa_/, "") : ""
+      ].filter(Boolean).map(v => String(v).trim()).filter(Boolean);
+
+      return [...new Set(raw.map(dashboardNormalizeConversationKey).filter(Boolean))];
+    }
+
+    function dashboardVisibleMessageAlertLeads(){
+      return leads.filter(lead => {
+        const dept = leadDepartment(lead);
+        if(!["cash_sales","finance_sales","customer_service"].includes(dept)) return false;
+        if(isAdmin || currentProfile?.allDepartments === true) return true;
+        return leadAssignedToCurrentRepresentative(lead);
+      });
+    }
+
+    function dashboardRebuildIncomingMessageLeadMap(){
+      const map = new Map();
+      dashboardVisibleMessageAlertLeads().forEach(lead => {
+        dashboardLeadConversationKeysForAlert(lead).forEach(key => {
+          if(key && !map.has(key)) map.set(key, lead);
+        });
+      });
+      dashboardIncomingMessageLeadMap = map;
+      return map;
+    }
+
+    function dashboardIncomingMessageConversationKeyFromDoc(messageDoc){
+      try{
+        const parentDoc = messageDoc?.ref?.parent?.parent;
+        return dashboardNormalizeConversationKey(parentDoc?.id || "");
+      }catch(e){
+        return "";
+      }
+    }
+
+    function dashboardIncomingMessageDocKey(messageDoc){
+      try{
+        return String(messageDoc?.ref?.path || messageDoc?.id || "").trim();
+      }catch(e){
+        return "";
+      }
+    }
+
+    function dashboardIsIncomingCustomerMessage(data = {}){
+      const norm = v => String(v ?? "").trim().toLowerCase();
+      const direction = norm(data.direction || data.messageDirection || data.statusDirection || data.dir);
+      const type = norm(data.type || data.messageType || data.kind || data.messageKind);
+      const senderType = norm(data.senderType || data.role || data.authorType || data.actorType);
+      const senderId = norm(data.senderId || data.from || data.authorId || data.createdBy || data.userId);
+      const senderName = norm(data.senderName || data.authorName || data.createdByName || data.sentByName);
+      const outgoingWords = ["out","outgoing","outbound","agent","sent_by_agent","system","admin","automation","reply","from_agent","to_customer"];
+      const incomingWords = ["in","incoming","inbound","customer","client","received","receive","user","lead","reply_from_customer","from_customer"];
+
+      if(data.fromAgent === true || data.isAgent === true || data.mine === true || data.isMine === true || data.fromMe === true || data.isFromMe === true) return false;
+      if(data.sentByUid || data.sentByEmail || data.agentUid || data.adminUid || data.createdByUid || data.createdByEmail) return false;
+      if(outgoingWords.includes(direction) || outgoingWords.includes(senderType) || outgoingWords.includes(type)) return false;
+      if(["automation","system","agent","admin","crm"].includes(senderId)) return false;
+      if(senderName.includes("automation") || senderName.includes("system") || senderName.includes("السيستم") || senderName.includes("admin") || senderName.includes("مندوب")) return false;
+      if(data.fromCustomer === true || data.isCustomer === true || data.mine === false || data.isMine === false || data.fromMe === false || data.isFromMe === false) return true;
+      if(incomingWords.includes(direction) || incomingWords.includes(senderType) || incomingWords.includes(type)) return true;
+      return true;
+    }
+
+    function showDashboardIncomingMessageAlert(lead, messageData = {}){
+      const id = dashboardNewLeadId(lead);
+      if(!id) return;
+      let alert = document.getElementById("dashboardNewLeadAlert");
+      if(!alert){
+        alert = document.createElement("div");
+        alert.id = "dashboardNewLeadAlert";
+        alert.className = "dashboard-new-lead-alert";
+        alert.innerHTML = `
+          <button type="button" class="dashboard-new-lead-close" aria-label="إغلاق">×</button>
+          <div class="dashboard-new-lead-icon">!</div>
+          <div>
+            <b id="dashboardNewLeadTitle">رسالة جديدة من عميل</b>
+            <p id="dashboardNewLeadText">يوجد رسالة جديدة من عميل.</p>
+          </div>
+        `;
+        document.body.appendChild(alert);
+        alert.addEventListener("mouseenter", hideDashboardNewLeadAlert);
+        alert.addEventListener("mousemove", hideDashboardNewLeadAlert);
+        alert.addEventListener("click", (e) => {
+          hideDashboardNewLeadAlert();
+          if(e.target?.classList?.contains("dashboard-new-lead-close")) return;
+          const selectedLead = leads.find(l => dashboardNewLeadId(l) === alert.dataset.leadId);
+          if(selectedLead) openLeadConversation(selectedLead);
+        });
+      }
+
+      const title = document.getElementById("dashboardNewLeadTitle");
+      const body = document.getElementById("dashboardNewLeadText");
+      const customer = customerName(lead);
+      const text = String(messageText(messageData) || "").trim();
+      alert.dataset.leadId = id;
+      if(title) title.textContent = "رسالة جديدة من عميل";
+      if(body) body.textContent = customer + (text ? " - " + text.slice(0, 90) : " - يوجد رسالة جديدة");
+      alert.classList.add("show");
+      playDashboardShortBeep();
+      clearTimeout(dashboardNewLeadAlertTimer);
+      dashboardNewLeadAlertTimer = setTimeout(hideDashboardNewLeadAlert, 15000);
+    }
+
+    function listenDashboardIncomingMessageAlerts(){
+      if(dashboardIncomingMessageUnsub) return;
+      dashboardIncomingMessageBaselineReady = false;
+      dashboardKnownIncomingMessageIds = new Set();
+
+      try{
+        dashboardIncomingMessageUnsub = onSnapshot(collectionGroup(db, "messages"), snap => {
+          const leadMap = dashboardRebuildIncomingMessageLeadMap();
+
+          if(!dashboardIncomingMessageBaselineReady){
+            snap.forEach(d => {
+              const key = dashboardIncomingMessageDocKey(d);
+              if(key) dashboardKnownIncomingMessageIds.add(key);
+            });
+            dashboardIncomingMessageBaselineReady = true;
+            return;
+          }
+
+          const fresh = [];
+          snap.docChanges().forEach(change => {
+            if(change.type !== "added") return;
+            const key = dashboardIncomingMessageDocKey(change.doc);
+            if(!key || dashboardKnownIncomingMessageIds.has(key)) return;
+            dashboardKnownIncomingMessageIds.add(key);
+
+            const convKey = dashboardIncomingMessageConversationKeyFromDoc(change.doc);
+            const lead = leadMap.get(convKey);
+            if(!lead) return;
+            const data = change.doc.data() || {};
+            if(!dashboardIsIncomingCustomerMessage(data)) return;
+
+            const openLeadId = dashboardChatState.lead ? dashboardNewLeadId(dashboardChatState.lead) : "";
+            if(openLeadId && openLeadId === dashboardNewLeadId(lead)) return;
+            fresh.push({ lead, data });
+          });
+
+          if(fresh.length){
+            const last = fresh[fresh.length - 1];
+            showDashboardIncomingMessageAlert(last.lead, last.data);
+          }
+        }, err => {
+          console.error(err);
+        });
+      }catch(e){
+        console.warn("incoming message listener skipped", e);
+      }
+    }
+
 
     function renderSectionCards(){
       const box = el("sectionCards");
@@ -3934,6 +4110,7 @@
         snap.forEach(d => leads.push({ __id:d.id, id:d.id, ...d.data() }));
         renderDashboard();
         checkDashboardNewLeadAlerts();
+        listenDashboardIncomingMessageAlerts();
       }, err => {
         console.error(err);
         toast("تعذر تحميل بيانات الداش بورد");
