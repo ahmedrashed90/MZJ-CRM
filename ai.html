@@ -516,30 +516,61 @@
       el("managerEscalationTemplateParams").value = templateParams.join(", ");
       renderKpis();
     }
+    function fieldValue(id, fallback = ""){
+      const node = el(id);
+      if(!node) return fallback;
+      if(node.type === "checkbox") return !!node.checked;
+      return node.value ?? fallback;
+    }
+    function fieldNumber(id, fallback = 0, min = null, max = null){
+      let n = Number(fieldValue(id, fallback));
+      if(!Number.isFinite(n)) n = Number(fallback) || 0;
+      if(min !== null) n = Math.max(min, n);
+      if(max !== null) n = Math.min(max, n);
+      return n;
+    }
+    function splitList(value){
+      return String(value || "").split(/[,،\n]/g).map(x => x.trim()).filter(Boolean);
+    }
+    function currentSettingsOrDefaults(){
+      return mergeSettings(currentSettings || DEFAULT_SETTINGS);
+    }
     function collectSettings(){
+      const prev = currentSettingsOrDefaults();
+      const replies = [
+        String(fieldValue("reply1", prev.replies?.[0] || DEFAULT_SETTINGS.replies[0])).trim(),
+        String(fieldValue("reply2", prev.replies?.[1] || DEFAULT_SETTINGS.replies[1])).trim()
+      ];
+      const optionalReply3 = String(fieldValue("reply3", prev.replies?.[2] || "")).trim();
+      if(optionalReply3) replies.push(optionalReply3);
+
       return {
-        enabled: el("enabled").checked,
-        firstDelaySeconds: Math.max(60, Number(el("firstDelaySeconds").value || 240)),
-        betweenRepliesSeconds: Math.max(60, Number(el("betweenRepliesSeconds").value || 120)),
-        maxBotMessages: Math.min(2, Math.max(1, Number(el("maxBotMessages").value || 2))),
+        ...prev,
+        enabled: !!fieldValue("enabled", prev.enabled),
+        firstDelaySeconds: fieldNumber("firstDelaySeconds", prev.firstDelaySeconds || 240, 60),
+        betweenRepliesSeconds: fieldNumber("betweenRepliesSeconds", prev.betweenRepliesSeconds || 120, 60),
+        maxBotMessages: fieldNumber("maxBotMessages", prev.maxBotMessages || 2, 1, 2),
         escalateToAssignedRep: true,
-        escalateToBranchManager: el("escalateToBranchManager").checked,
+        escalateToBranchManager: !!fieldValue("escalateToBranchManager", prev.escalateToBranchManager !== false),
         escalateToSalesManager: true,
-        repEscalationDelaySeconds: Math.max(60, Number(el("repEscalationDelaySeconds").value || 300)),
-        branchManagerEscalationDelaySeconds: Math.max(60, Number(el("branchManagerEscalationDelaySeconds").value || 300)),
-        salesManagerName: el("salesManagerName").value.trim(),
-        salesManagerPhone: safePhone(el("salesManagerPhone").value),
-        businessHoursOnly: el("businessHoursOnly").checked,
-        businessHours: { start: el("businessStart").value || "09:00", end: el("businessEnd").value || "22:00" },
-        stopKeywords: el("stopKeywords").value.split(/[,،\n]/g).map(x => x.trim()).filter(Boolean),
-        fallbackManagerPhone: safePhone(el("fallbackManagerPhone").value),
-        replies: [el("reply1").value.trim(), el("reply2").value.trim(), el("reply3").value.trim()].filter(Boolean),
-        escalationTemplate: el("escalationTemplate").value.trim(),
-        managerEscalationMode: el("managerEscalationMode").value || "template",
-        managerEscalationTemplateName: el("managerEscalationTemplateName").value.trim(),
-        managerEscalationTemplateLanguage: el("managerEscalationTemplateLanguage").value.trim() || "ar",
-        managerEscalationTemplateParams: el("managerEscalationTemplateParams").value.split(/[,،\n]/g).map(x => x.trim()).filter(Boolean),
-        escalationCooldownMinutes: Math.max(5, Number(el("escalationCooldownMinutes").value || 60)),
+        repEscalationDelaySeconds: fieldNumber("repEscalationDelaySeconds", prev.repEscalationDelaySeconds || 300, 60),
+        branchManagerEscalationDelaySeconds: fieldNumber("branchManagerEscalationDelaySeconds", prev.branchManagerEscalationDelaySeconds || 300, 60),
+        salesManagerName: String(fieldValue("salesManagerName", prev.salesManagerName || "")).trim(),
+        salesManagerPhone: safePhone(fieldValue("salesManagerPhone", prev.salesManagerPhone || "")),
+        businessHoursOnly: !!fieldValue("businessHoursOnly", prev.businessHoursOnly),
+        businessHours: {
+          start: String(fieldValue("businessStart", prev.businessHours?.start || "09:00") || "09:00"),
+          end: String(fieldValue("businessEnd", prev.businessHours?.end || "22:00") || "22:00")
+        },
+        stopKeywords: splitList(fieldValue("stopKeywords", (prev.stopKeywords || DEFAULT_SETTINGS.stopKeywords).join(", "))),
+        fallbackManagerPhone: safePhone(fieldValue("fallbackManagerPhone", prev.fallbackManagerPhone || "")),
+        replies,
+        escalationTemplate: String(fieldValue("escalationTemplate", prev.escalationTemplate || DEFAULT_SETTINGS.escalationTemplate)).trim(),
+        managerEscalationMode: String(fieldValue("managerEscalationMode", prev.managerEscalationMode || "template") || "template"),
+        managerEscalationTemplateName: String(fieldValue("managerEscalationTemplateName", prev.managerEscalationTemplateName || "")).trim(),
+        managerEscalationTemplateLanguage: String(fieldValue("managerEscalationTemplateLanguage", prev.managerEscalationTemplateLanguage || "ar") || "ar").trim(),
+        managerEscalationTemplateParams: splitList(fieldValue("managerEscalationTemplateParams", (prev.managerEscalationTemplateParams || DEFAULT_SETTINGS.managerEscalationTemplateParams).join(", "))),
+        escalationCooldownMinutes: fieldNumber("escalationCooldownMinutes", prev.escalationCooldownMinutes || 60, 5),
         updatedAt: new Date().toISOString(),
         updatedBy: currentUser?.uid || "",
         updatedByName: currentProfile?.name || currentUser?.email || ""
@@ -547,16 +578,23 @@
     }
     async function saveSettings(){
       if(!isAdminProfile(currentProfile)) return toast("لا توجد صلاحية للحفظ. فعّل صلاحية canManageInboxAgent أو allDepartments للمستخدم.");
-      const data = collectSettings();
+      let data;
+      try{
+        data = collectSettings();
+      } catch(err){
+        console.error("collectSettings failed", err);
+        return toast("تعذر قراءة حقول الإعدادات. حدّث الصفحة وجرب مرة أخرى.");
+      }
       try{
         el("saveSettingsBtn").disabled = true;
         await setDoc(doc(db, "agent_settings", "inbox_response_agent"), data, { merge:true });
         currentSettings = mergeSettings(data);
         fillSettingsForm(currentSettings);
-        toast(data.enabled ? "تم تفعيل الوكيل وحفظ الإعدادات." : "تم إيقاف الوكيل وحفظ الإعدادات.");
+        renderKpis();
+        toast(data.enabled ? "تم تفعيل الوكيل وحفظ كل الإعدادات." : "تم إيقاف الوكيل وحفظ كل الإعدادات.");
       } catch(err){
-        console.error(err);
-        toast("فشل حفظ الإعدادات. راجع صلاحيات Firestore أو اتصال الإنترنت.");
+        console.error("saveSettings failed", err);
+        toast(`فشل حفظ الإعدادات: ${err?.code || err?.message || "راجع صلاحيات Firestore"}`);
       } finally {
         el("saveSettingsBtn").disabled = !isAdminProfile(currentProfile);
       }
@@ -788,7 +826,7 @@
       if(window.__inboxAgentEventsBound) return;
       window.__inboxAgentEventsBound = true;
       initTabs();
-      el("saveSettingsBtn").onclick = saveSettings;
+      el("saveSettingsBtn").addEventListener("click", saveSettings);
       el("enabled").addEventListener("change", toggleAgentEnabledImmediate);
       el("addManagerBtn").onclick = addOrUpdateManager;
       el("branchSelect").onchange = loadManagerForSelectedBranch;
