@@ -16,8 +16,8 @@
     .agent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}
     .agent-grid label,.reply-box label,.branch-editor label{display:flex;flex-direction:column;gap:7px;color:#5d4037;font-size:13px;font-weight:700;}
     .agent-grid input,.agent-grid select,.reply-box textarea,.branch-editor input,.branch-editor select{width:100%;box-sizing:border-box;}
-    .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid #eadfd6;background:#fbfaf8;border-radius:14px;margin-bottom:10px;}
-    .toggle-row input{width:20px;height:20px;accent-color:#6d4c41;}
+    .toggle-row{display:flex;cursor:pointer;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid #eadfd6;background:#fbfaf8;border-radius:14px;margin-bottom:10px;}
+    .toggle-row input{width:22px;height:20px;accent-color:#6d4c41;}
     .toggle-info strong{display:block;color:#1c1c1c;margin-bottom:4px;}
     .toggle-info span{color:#8d6e63;font-size:12px;line-height:1.7;}
     .agent-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px;}
@@ -93,7 +93,7 @@
       <div class="page-head">
         <div>
           <h2>إعدادات وكيل صندوق الوارد</h2>
-          <p class="report-note">وكيل تنفيذي يراقب رسائل واتساب غير المجاب عنها، يرسل 3 ردود تلقائية، ثم يصعّد لمدير الفرع.</p>
+          <p class="report-note">وكيل تنفيذي يراقب رسائل واتساب غير المجاب عنها، يرسل ردين تلقائيًا، ثم يبدأ التصعيد المتدرج للمندوب ثم مدير الفرع ثم مدير المبيعات.</p>
         </div>
         <div class="actions">
           <span class="status-pill" id="agentStatusPill"><span class="status-dot"></span><span>جاري التحميل</span></span>
@@ -120,27 +120,27 @@
 
             <div id="generalPanel" class="tab-panel">
               <h3>قواعد تشغيل الوكيل</h3>
-              <div class="toggle-row">
+              <label class="toggle-row" for="enabled">
                 <div class="toggle-info">
                   <strong>تفعيل وكيل صندوق الوارد</strong>
                   <span>عند التفعيل، سيضع Worker فحصًا في Queue بعد وصول رسالة العميل، والـConsumer سيقرر الرد حسب هذه الإعدادات.</span>
                 </div>
                 <input id="enabled" type="checkbox" />
-              </div>
-              <div class="toggle-row">
+              </label>
+              <label class="toggle-row" for="escalateToBranchManager">
                 <div class="toggle-info">
                   <strong>التصعيد المتدرج بعد ردود الوكيل</strong>
                   <span>بعد رسالتين للعميل: يتم تنبيه المندوب، ثم مدير الفرع، ثم مدير المبيعات حسب مدة التأخير المحددة.</span>
                 </div>
                 <input id="escalateToBranchManager" type="checkbox" />
-              </div>
-              <div class="toggle-row">
+              </label>
+              <label class="toggle-row" for="businessHoursOnly">
                 <div class="toggle-info">
                   <strong>العمل داخل أوقات العمل فقط</strong>
                   <span>لو مفعلة، يرسل الوكيل الردود داخل الفترة المحددة فقط.</span>
                 </div>
                 <input id="businessHoursOnly" type="checkbox" />
-              </div>
+              </label>
               <div class="agent-grid">
                 <label>أول رد بعد - بالثواني
                   <input id="firstDelaySeconds" type="number" min="60" step="30" value="240" />
@@ -414,7 +414,20 @@
     function currentPageName(){ return location.pathname.split("/").pop() || "inbox-agent.html"; }
     function allowedPagesForCurrentUser(){ return Array.isArray(currentProfile?.pages) ? currentProfile.pages : []; }
     function hasPageAccess(page){ const pages = allowedPagesForCurrentUser(); return !pages.length || pages.includes(page); }
-    function isAdminProfile(profile){ return profile?.role === "admin" || profile?.role === "sales_manager" || profile?.allDepartments === true; }
+    function isAdminProfile(profile){
+      const role = normalizeValue(profile?.role || profile?.roleId || profile?.type).toLowerCase();
+      const permissions = profile?.permissions || {};
+      return profile?.role === "admin"
+        || profile?.role === "sales_manager"
+        || profile?.allDepartments === true
+        || profile?.isAdmin === true
+        || profile?.superAdmin === true
+        || profile?.canManageInboxAgent === true
+        || profile?.canManageAgent === true
+        || permissions?.manageInboxAgent === true
+        || permissions?.inboxAgent === true
+        || ["admin", "sales_manager", "super_admin", "owner", "general_manager", "manager"].includes(role);
+    }
     function departmentLabel(d){
       const map = { call_center:"الكول سنتر", cash_sales:"العملاء المحتملون - كاش", finance_sales:"العملاء المحتملون - تمويل", customer_service:"العملاء المحتملون - خدمة عملاء" };
       return map[d] || d || "";
@@ -456,11 +469,11 @@
       return true;
     }
     function requireAdmin(){
-      if(!isAdminProfile(currentProfile)){
-        toast("هذه الصفحة مخصصة للإدارة فقط.");
-        el("saveSettingsBtn").disabled = true;
-        el("addManagerBtn").disabled = true;
-      }
+      const allowed = isAdminProfile(currentProfile);
+      el("saveSettingsBtn").disabled = !allowed;
+      el("addManagerBtn").disabled = !allowed;
+      ["enabled", "escalateToBranchManager", "businessHoursOnly"].forEach(id => { if(el(id)) el(id).disabled = !allowed; });
+      if(!allowed) toast("هذه الصفحة تحتاج صلاحية إدارة الوكيل. فعّل canManageInboxAgent أو allDepartments لهذا المستخدم.");
     }
 
     function mergeSettings(data){
@@ -533,10 +546,51 @@
       };
     }
     async function saveSettings(){
-      if(!isAdminProfile(currentProfile)) return toast("لا توجد صلاحية للحفظ.");
+      if(!isAdminProfile(currentProfile)) return toast("لا توجد صلاحية للحفظ. فعّل صلاحية canManageInboxAgent أو allDepartments للمستخدم.");
       const data = collectSettings();
-      await setDoc(doc(db, "agent_settings", "inbox_response_agent"), data, { merge:true });
-      toast("تم حفظ إعدادات الوكيل.");
+      try{
+        el("saveSettingsBtn").disabled = true;
+        await setDoc(doc(db, "agent_settings", "inbox_response_agent"), data, { merge:true });
+        currentSettings = mergeSettings(data);
+        fillSettingsForm(currentSettings);
+        toast(data.enabled ? "تم تفعيل الوكيل وحفظ الإعدادات." : "تم إيقاف الوكيل وحفظ الإعدادات.");
+      } catch(err){
+        console.error(err);
+        toast("فشل حفظ الإعدادات. راجع صلاحيات Firestore أو اتصال الإنترنت.");
+      } finally {
+        el("saveSettingsBtn").disabled = !isAdminProfile(currentProfile);
+      }
+    }
+
+
+    async function toggleAgentEnabledImmediate(){
+      if(!isAdminProfile(currentProfile)){
+        el("enabled").checked = !!currentSettings.enabled;
+        renderKpis();
+        return toast("لا توجد صلاحية لتغيير حالة الوكيل. فعّل canManageInboxAgent أو allDepartments للمستخدم.");
+      }
+      const nextEnabled = !!el("enabled").checked;
+      const previousEnabled = !!currentSettings.enabled;
+      currentSettings = { ...currentSettings, enabled: nextEnabled };
+      renderKpis();
+      try{
+        el("enabled").disabled = true;
+        await setDoc(doc(db, "agent_settings", "inbox_response_agent"), {
+          enabled: nextEnabled,
+          updatedAt: new Date().toISOString(),
+          updatedBy: currentUser?.uid || "",
+          updatedByName: currentProfile?.name || currentUser?.email || ""
+        }, { merge:true });
+        toast(nextEnabled ? "تم تشغيل الوكيل." : "تم إيقاف الوكيل.");
+      } catch(err){
+        console.error(err);
+        currentSettings = { ...currentSettings, enabled: previousEnabled };
+        el("enabled").checked = previousEnabled;
+        renderKpis();
+        toast("فشل تغيير حالة الوكيل. راجع صلاحيات Firestore.");
+      } finally {
+        el("enabled").disabled = !isAdminProfile(currentProfile);
+      }
     }
 
     function branchKeyFromLead(lead){
@@ -553,7 +607,7 @@
       });
       const rows = Array.from(map.entries()).map(([key,label]) => ({ key, label }));
       const unassigned = rows.filter(x => x.key === "unassigned");
-      const rest = rows.filter(x => x.key !== "__unassigned__").sort((a,b)=>String(a.label).localeCompare(String(b.label), "ar"));
+      const rest = rows.filter(x => x.key !== "unassigned" && x.key !== "__unassigned__").sort((a,b)=>String(a.label).localeCompare(String(b.label), "ar"));
       return [...unassigned, ...rest];
     }
     function refreshBranchSelect(){
@@ -731,8 +785,11 @@
       }, err => { console.error(err); refreshBranchSelect(); });
     }
     function bindEvents(){
+      if(window.__inboxAgentEventsBound) return;
+      window.__inboxAgentEventsBound = true;
       initTabs();
       el("saveSettingsBtn").onclick = saveSettings;
+      el("enabled").addEventListener("change", toggleAgentEnabledImmediate);
       el("addManagerBtn").onclick = addOrUpdateManager;
       el("branchSelect").onchange = loadManagerForSelectedBranch;
       el("reloadBtn").onclick = () => { startListeners(); toast("تم تحديث البيانات."); };
