@@ -1,1 +1,4334 @@
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.png">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MZJ CRM - الداش بورد</title>
+  <link rel="stylesheet" href="./theme.css" />
+<!-- MZJ V45 dashboard completion popup-only -->
+</head>
+<body>
+  <section class="login-screen hidden" id="loginScreen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="logo-mark">MZJ</div>
+        <div>
+          <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+          <p>تسجيل الدخول إلى نظام CRM</p>
+        </div>
+      </div>
+      <form class="login-form" id="loginForm">
+        <input id="loginEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required />
+        <input id="loginPassword" type="password" placeholder="كلمة المرور" autocomplete="current-password" required />
+        <div class="login-error" id="loginError"></div>
+        <button class="primary" type="submit">تسجيل الدخول</button>
+      </form>
+    </div>
+  </section>
+  <div class="management-page hidden" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="logo-box">
+            <div class="logo-mark">MZJ</div>
+            <div>
+              <h1>مجموعة محمد ذعار العجمي للسيارات</h1>
+              <div class="status-text" id="userInfo"></div>
+            </div>
+          </div>
+          <button class="secondary" id="logoutBtn">خروج</button>
+        </div>
+        <div class="nav-card">
+          <div class="menu-label">التنقل بين صفحات النظام</div>
+          <div class="nav-tabs">
+          <a href="./inbox.html">صندوق الوارد</a>
+          <a href="./callcenter.html">الكول سنتر</a>
+          <a href="./leads-finance.html">العملاء المحتملون - تمويل</a>
+          <a href="./leads-cash.html">العملاء المحتملون - كاش</a>
+          <a href="./leads-customer-service.html">العملاء المحتملون - خدمة عملاء</a>
+          <a href="./database.html">قاعدة البيانات</a>
+          <a href="./manual-leads.html">إضافة العملاء</a>
+          <a href="./dashboard.html" class="active">الداش بورد</a>
+          <a href="./reports.html">التقارير</a>
+          <a href="./branches.html">الفروع</a>
+          <a href="./statuses.html">حالات العملاء</a>
+          <a href="./templates.html">القوالب والرسائل الجاهزة</a>
+          <a href="./kpi.html">تقييم المناديب KPI</a>
+          <a href="./admin.html">الإدارة</a>
+          </div>
+        </div>
+      
+      
+    </aside>
+    <main class="management-main">
+      <div class="no-permission-card" id="noPermissionCard">
+        <div>
+          <b>لا توجد صلاحية لدخول الصفحة المطلوبة.</b>
+          <div class="small-note">تم تحويلك إلى الداش بورد.</div>
+        </div>
+        <button class="secondary" onclick="sessionStorage.removeItem('mzj_no_permission_page')">تم</button>
+      </div>
+
+      <div class="page-head">
+        <div>
+          <h2>الداش بورد</h2>
+          <p>اضغط على القسم لعرض الحالات، واضغط على اسم العميل لفتح محادثته في صندوق الوارد.</p>
+        </div>
+      </div>
+
+      <div class="dashboard-section-cards" id="sectionCards"></div>
+
+      <div class="dashboard-board hidden" id="dashboardBoard">
+        <div class="board-head">
+          <div>
+            <h3 id="selectedSectionTitle">القسم</h3>
+            <div class="small-note" id="selectedSectionNote"></div>
+          </div>
+          <input id="dashboardLeadSearch" class="dashboard-lead-search" type="search" placeholder="بحث بالاسم أو رقم الجوال" autocomplete="off" />
+          <button class="secondary" id="backToSectionsBtn">رجوع للأقسام</button>
+        </div>
+        <div class="dashboard-status-grid" id="statusCards"></div>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script type="module">
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
+    import {
+      getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore, collection, collectionGroup, doc, getDoc, getDocs, onSnapshot, query, orderBy, addDoc, updateDoc, setDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCd2paKL200XRdz2SwFEUzAtfg51xWL5QA",
+      authDomain: "mzj-lead.firebaseapp.com",
+      projectId: "mzj-lead",
+      storageBucket: "mzj-lead.firebasestorage.app",
+      messagingSenderId: "470098288857",
+      appId: "1:470098288857:web:613125cfc1623b08abdec8",
+      measurementId: "G-981Z1T6Z91"
+    };
+
+    const appFirebase = initializeApp(firebaseConfig);
+    try { getAnalytics(appFirebase); } catch(e) {}
+    const auth = getAuth(appFirebase);
+    const db = getFirestore(appFirebase);
+
+    const DEPARTMENTS = {
+      cash_sales:"مبيعات الكاش",
+      finance_sales:"مبيعات التمويل",
+      customer_service:"خدمة العملاء",
+      call_center:"الكول سنتر"
+    };
+
+    const NAV_ITEMS = [
+      { page:"inbox.html", label:"صندوق الوارد" },
+      { page:"callcenter.html", label:"الكول سنتر" },
+      { page:"leads-finance.html", label:"العملاء المحتملون - تمويل" },
+      { page:"leads-cash.html", label:"العملاء المحتملون - كاش" },
+      { page:"leads-customer-service.html", label:"العملاء المحتملون - خدمة عملاء" },
+      { page:"database.html", label:"قاعدة البيانات" },
+      { page:"manual-leads.html", label:"إضافة العملاء" },
+      { page:"dashboard.html", label:"الداش بورد" },
+      { page:"reports.html", label:"التقارير" },
+      { page:"branches.html", label:"الفروع" },
+      { page:"statuses.html", label:"حالات العملاء" },
+      { page:"templates.html", label:"القوالب والرسائل الجاهزة" },
+      { page:"kpi.html", label:"KPI تقييم المناديب" },
+      { page:"admin.html", label:"الإدارة" }
+    ];
+
+    const CHAT_PLATFORM_CONFIG = {
+      whatsapp:{ label:"واتساب", conversations:"wa_conversations", outbox:"wa_outbox" },
+      facebook:{ label:"فيسبوك", conversations:"wa_conversations", outbox:"" },
+      instagram:{ label:"انستجرام", conversations:"ig_conversations", outbox:"ig_outbox" },
+      tiktok:{ label:"تيك توك", conversations:"wa_conversations", outbox:"" }
+    };
+
+    const FACEBOOK_SEND_ENDPOINT =
+      window.FB_SEND_ENDPOINT ||
+      localStorage.getItem("FB_SEND_ENDPOINT") ||
+      "https://facebook.next-erp-mzj.workers.dev/crm/send";
+
+    const TIKTOK_SEND_ENDPOINT =
+      window.TIKTOK_SEND_ENDPOINT ||
+      localStorage.getItem("TIKTOK_SEND_ENDPOINT") ||
+      "https://test.next-erp-mzj.workers.dev/crm/send";
+
+    const MERSAL_API_BASE = String(
+      window.MERSAL_API_ENDPOINT ||
+      localStorage.getItem("MERSAL_API_ENDPOINT") ||
+      "https://mersal-crm.next-erp-mzj.workers.dev"
+    ).replace(/\/+$/, "");
+
+    const MERSAL_SEND_ENDPOINT =
+      window.MERSAL_SEND_ENDPOINT ||
+      localStorage.getItem("MERSAL_SEND_ENDPOINT") ||
+      `${MERSAL_API_BASE}/send/mersal`;
+
+    const MERSAL_SEND_MESSAGE_ENDPOINT =
+      window.MERSAL_SEND_MESSAGE_ENDPOINT ||
+      localStorage.getItem("MERSAL_SEND_MESSAGE_ENDPOINT") ||
+      MERSAL_SEND_ENDPOINT;
+
+    const MERSAL_SEND_TEMPLATE_MESSAGE_ENDPOINT =
+      window.MERSAL_SEND_TEMPLATE_MESSAGE_ENDPOINT ||
+      localStorage.getItem("MERSAL_SEND_TEMPLATE_MESSAGE_ENDPOINT") ||
+      MERSAL_SEND_ENDPOINT;
+
+    let dashboardChatState = {
+      lead:null,
+      platform:"whatsapp",
+      convId:"",
+      unsubMessages:null,
+      unsubTemplates:null,
+      unsubClientStatuses:null,
+      templates:[],
+      clientStatuses:[],
+      actualCompletion:null,
+      completionByLead:{}
+    };
+    let dashboardStatusSaveTimer = null;
+
+    const SECTION_DEFS = {
+      cash: {
+        key: "cash",
+        title: "مبيعات الكاش",
+        department: "cash_sales",
+        page: "leads-cash.html",
+        note: "ترتيب الحالات داخل مبيعات الكاش",
+        statuses: [
+          { title:"إجمالي العملاء", match:["عميل جديد"] },
+          { title:"تم الرد", match:["تم الرد"] },
+          { title:"غير مؤهل", match:["غير مؤهل"] },
+          { title:"مؤجل", match:["مؤجل"] },
+          { title:"محتمل", match:["محتمل"] },
+          { title:"تم البيع", match:["تم البيع"] }
+        ]
+      },
+      cs: {
+        key: "cs",
+        title: "خدمة العملاء",
+        department: "customer_service",
+        page: "leads-customer-service.html",
+        note: "ترتيب الحالات داخل خدمة العملاء",
+        statuses: [
+          { title:"إجمالي العملاء", match:["عميل جديد"] },
+          { title:"جاري العمل", match:["جاري العمل"] },
+          { title:"تم الانتهاء", match:["تم الانتهاء","تم الإنتهاء"] }
+        ]
+      },
+      finance: {
+        key: "finance",
+        title: "مبيعات التمويل",
+        department: "finance_sales",
+        page: "leads-finance.html",
+        note: "ترتيب حالات مبيعات التمويل",
+        statuses: [
+          { title:"الكول سنتر", match:["عميل جديد","الكول سنتر"] },
+          { title:"تم الاتصال", match:["تم الاتصال","تم الإتصال"] },
+          { title:"غير مؤهل", match:["غير مؤهل"] },
+          { title:"مؤجل", match:["مؤجل"] },
+          { title:"مؤهل - لم يتم إرسال الأوراق", match:["مؤهل - لم يتم إرسال الأوراق"] },
+          { title:"مؤهل - تأخر في إرسال الأوراق", match:["مؤهل - تأخر في إرسال الأوراق"] },
+          { title:"مؤهل - تم إرسال الأوراق", match:["مؤهل - تم إرسال الأوراق"] },
+          { title:"تم رفع الطلب الى جهة التمويل", match:["تم رفع الطلب الى جهة التمويل","تم رفع الطلب إلى جهة التمويل"] },
+          { title:"طلب إستكمال أوراق", match:["طلب إستكمال أوراق","طلب استكمال أوراق"] },
+          { title:"طلب الدعم من الكول سنتر الى المبيعات", match:["طلب الدعم من الكول سنتر الى المبيعات","طلب الدعم من الكول سنتر إلى المبيعات"] },
+          { title:"تم إختيار السيارة", match:["تم إختيار السيارة","تم اختيار السيارة"] },
+          { title:"تم رفع أوراق السيارة المطلوبة الى جهة التمويل", match:["تم رفع أوراق السيارة المطلوبة الى جهة التمويل","تم رفع أوراق السيارة المطلوبة إلى جهة التمويل"] },
+          { title:"إستيفاء الطلب - متقدم", match:["إستيفاء الطلب - متقدم","استيفاء الطلب - متقدم"] },
+          { title:"طلبات لم تتم الموافقة", match:["طلبات لم تتم الموافقة"] },
+          { title:"طلبات تمت الموافقة", match:["طلبات تمت الموافقة"] },
+          { title:"تم إصدار العقد", match:["تم إصدار العقد"] },
+          { title:"تم الإتصال لتوقيع العقد", match:["تم الإتصال لتوقيع العقد","تم الاتصال لتوقيع العقد"] },
+          { title:"لم يتم توقيع العقد", match:["لم يتم توقيع العقد"] },
+          { title:"تم توقيع العقد", match:["تم توقيع العقد"] },
+          { title:"تم الإنتهاء - إنشاء طلب البيع", match:["تم الإنتهاء - إنشاء طلب البيع","تم الانتهاء - إنشاء طلب البيع"] }
+        ]
+      }
+    };
+
+    // ضمان ظهور كارت الكول سنتر + كل حالات التمويل داخل مبيعات التمويل.
+    // بدون أي تعديل في التنسيق أو شكل الصفحة.
+    SECTION_DEFS.finance.statuses = [
+      { title:"الكول سنتر", match:["عميل جديد","الكول سنتر"] },
+      { title:"تم الاتصال", match:["تم الاتصال","تم الإتصال"] },
+      { title:"غير مؤهل", match:["غير مؤهل"] },
+      { title:"مؤجل", match:["مؤجل"] },
+      { title:"مؤهل - لم يتم إرسال الأوراق", match:["مؤهل - لم يتم إرسال الأوراق"] },
+      { title:"مؤهل - تأخر في إرسال الأوراق", match:["مؤهل - تأخر في إرسال الأوراق"] },
+      { title:"مؤهل - تم إرسال الأوراق", match:["مؤهل - تم إرسال الأوراق"] },
+      { title:"تم رفع الطلب الى جهة التمويل", match:["تم رفع الطلب الى جهة التمويل","تم رفع الطلب إلى جهة التمويل"] },
+      { title:"طلب إستكمال أوراق", match:["طلب إستكمال أوراق","طلب استكمال أوراق"] },
+      { title:"طلب الدعم من الكول سنتر الى المبيعات", match:["طلب الدعم من الكول سنتر الى المبيعات","طلب الدعم من الكول سنتر إلى المبيعات"] },
+      { title:"تم إختيار السيارة", match:["تم إختيار السيارة","تم اختيار السيارة"] },
+      { title:"تم رفع أوراق السيارة المطلوبة الى جهة التمويل", match:["تم رفع أوراق السيارة المطلوبة الى جهة التمويل","تم رفع أوراق السيارة المطلوبة إلى جهة التمويل"] },
+      { title:"إستيفاء الطلب - متقدم", match:["إستيفاء الطلب - متقدم","استيفاء الطلب - متقدم"] },
+      { title:"طلبات لم تتم الموافقة", match:["طلبات لم تتم الموافقة"] },
+      { title:"طلبات تمت الموافقة", match:["طلبات تمت الموافقة"] },
+      { title:"تم إصدار العقد", match:["تم إصدار العقد"] },
+      { title:"تم الإتصال لتوقيع العقد", match:["تم الإتصال لتوقيع العقد","تم الاتصال لتوقيع العقد"] },
+      { title:"لم يتم توقيع العقد", match:["لم يتم توقيع العقد"] },
+      { title:"تم توقيع العقد", match:["تم توقيع العقد"] },
+      { title:"تم الإنتهاء - إنشاء طلب البيع", match:["تم الإنتهاء - إنشاء طلب البيع","تم الانتهاء - إنشاء طلب البيع"] }
+    ];
+
+    function dashboardCanonicalDepartment(value){
+      const raw = String(value || "").trim();
+      const key = raw
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+
+      if(["cash_sales","cash","leads-cash.html"].includes(raw) || key.includes("كاش")) return "cash_sales";
+      if(["finance_sales","finance","leads-finance.html"].includes(raw) || key.includes("تمويل")) return "finance_sales";
+      if(["customer_service","cs","service","leads-customer-service.html"].includes(raw) || key.includes("خدمه عملاء") || key.includes("خدمة عملاء")) return "customer_service";
+      if(["call_center","callcenter","call-center","callcenter.html"].includes(raw) || key.includes("كول سنتر")) return "call_center";
+      return raw;
+    }
+
+    function dashboardClientStatusDepartment(data = {}){
+      const candidates = [
+        data.department, data.dept, data.section, data.category, data.type,
+        data.group, data.targetDepartment, data.salesDepartment, data.page,
+        data.path, data.service, data.team
+      ];
+      for(const v of candidates){
+        const dept = dashboardCanonicalDepartment(v);
+        if(["cash_sales","finance_sales","customer_service","call_center"].includes(dept)) return dept;
+      }
+      return "";
+    }
+
+    function dashboardClientStatusTitle(data = {}){
+      return String(
+        data.title || data.status || data.name || data.label || data.statusName ||
+        data.clientStatus || data.value || ""
+      ).trim();
+    }
+
+    function dashboardClientStatusAliases(data = {}, title = ""){
+      const values = [title, data.match, data.matches, data.aliases, data.keywords, data.values, data.options]
+        .flatMap(v => Array.isArray(v) ? v : [v])
+        .filter(Boolean)
+        .map(v => String(v).trim())
+        .filter(Boolean);
+      return uniqueDashboardStatuses(values);
+    }
+
+    function dashboardStatusSortValue(data = {}, fallback = 0){
+      const v = data.sort ?? data.order ?? data.index ?? data.position ?? data.priority;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function dashboardStatusIsVisible(data = {}){
+      return data.active !== false && data.enabled !== false && data.hidden !== true && data.deleted !== true;
+    }
+
+    function buildDashboardStatusDefsFromClientStatuses(department){
+      const items = (dashboardChatState.clientStatuses || [])
+        .filter(item => item.department === department)
+        .sort((a,b) => (a.sort - b.sort) || a.title.localeCompare(b.title, "ar"));
+
+      const seen = new Set();
+      const out = [];
+      items.forEach(item => {
+        const title = String(item.title || "").trim();
+        const key = normalizeDashboardStatusKey(title);
+        if(!key || seen.has(key)) return;
+        seen.add(key);
+        out.push({ title, match: dashboardClientStatusAliases(item.raw || {}, title) });
+      });
+      return out;
+    }
+
+    function applyDashboardClientStatusesToSections(){
+      const map = { cash:"cash_sales", finance:"finance_sales", cs:"customer_service" };
+      Object.entries(map).forEach(([sectionKey, department]) => {
+        const defs = buildDashboardStatusDefsFromClientStatuses(department);
+        if(defs.length) SECTION_DEFS[sectionKey].statuses = defs;
+      });
+      renderDashboard();
+      if(dashboardChatState.lead) fillDashboardChatStatusOptions(dashboardChatState.lead);
+    }
+
+    function listenDashboardClientStatuses(){
+      if(dashboardChatState.unsubClientStatuses) dashboardChatState.unsubClientStatuses();
+      dashboardChatState.unsubClientStatuses = onSnapshot(collection(db, "client_statuses"), snap => {
+        const rows = [];
+        let i = 0;
+        snap.forEach(d => {
+          const data = d.data() || {};
+          if(!dashboardStatusIsVisible(data)) return;
+          const title = dashboardClientStatusTitle(data);
+          const department = dashboardClientStatusDepartment(data);
+          if(!title || !department) return;
+          rows.push({ id:d.id, title, department, sort:dashboardStatusSortValue(data, i++), raw:data });
+        });
+        dashboardChatState.clientStatuses = rows;
+        applyDashboardClientStatusesToSections();
+      }, err => {
+        console.error(err);
+        dashboardChatState.clientStatuses = [];
+        renderDashboard();
+      });
+    }
+
+    let currentUser = null;
+    let currentProfile = null;
+    let isAdmin = false;
+    let unsub = null;
+    let leads = [];
+    let selectedSectionKey = "";
+    let dashboardLeadSearchTerm = "";
+    let dashboardKnownNewLeadIds = new Set();
+    let dashboardNewLeadBaselineReady = false;
+    let dashboardNewLeadAlertTimer = null;
+    let dashboardAlertAudioCtx = null;
+    let dashboardIncomingMessageUnsub = null;
+    let dashboardIncomingMessageBaselineReady = false;
+    let dashboardKnownIncomingMessageIds = new Set();
+    let dashboardIncomingMessageLeadMap = new Map();
+
+    const el = id => document.getElementById(id);
+
+    function toast(msg){
+      const t = el("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(()=> t.style.display = "none", 2500);
+    }
+
+    function showLoginError(msg){
+      el("loginError").textContent = msg;
+      el("loginError").style.display = "block";
+    }
+
+    async function loadUserProfile(user){
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if(snap.exists()) return snap.data();
+      return { email:user.email, name:user.email, role:"user", department:"cash_sales", active:true };
+    }
+
+    function isSalesManagerProfile(profile){ return profile?.role === "sales_manager"; }
+
+    function isAdminProfile(profile){
+      return profile?.role === "admin" || isSalesManagerProfile(profile) || profile?.allDepartments === true;
+    }
+
+    function escapeHtml(str){
+      return String(str ?? "").replace(/[&<>"']/g, s => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[s]));
+    }
+
+    function departmentLabel(d){ return DEPARTMENTS[d] || d || ""; }
+
+    function currentPageName(){
+      return location.pathname.split("/").pop() || "inbox.html";
+    }
+
+    function allowedPagesForCurrentUser(){
+      return Array.isArray(currentProfile?.pages) ? currentProfile.pages : [];
+    }
+
+    function hasPageAccess(page){
+      const pages = allowedPagesForCurrentUser();
+      const salesManager = isSalesManagerProfile(currentProfile);
+      const unrestricted = !pages.length || (!salesManager && (isAdmin || currentProfile?.allDepartments === true));
+      return unrestricted || pages.includes(page) || page === "dashboard.html";
+    }
+
+    function renderAllowedNavigation(profile=currentProfile, adminFlag=isAdmin){
+      const currentPage = currentPageName();
+      const pages = Array.isArray(profile?.pages) ? profile.pages : [];
+      const salesManager = isSalesManagerProfile(profile);
+      const unrestricted = !pages.length || (!salesManager && (adminFlag || profile?.allDepartments === true));
+      const allowed = NAV_ITEMS.filter(item => unrestricted || pages.includes(item.page) || item.page === "dashboard.html");
+      const nav = document.querySelector(".nav-tabs");
+      if(!nav) return;
+      nav.innerHTML = allowed.map(item => `
+        <a href="./${item.page}" class="${item.page === currentPage ? "active" : ""}">
+          ${item.label}
+        </a>
+      `).join("");
+    }
+
+    function applyPagePermissions(){
+      const page = currentPageName();
+      if(!hasPageAccess(page)){
+        sessionStorage.setItem("mzj_no_permission_page", page);
+        window.location.replace("./dashboard.html");
+        return false;
+      }
+      return true;
+    }
+
+    function renderNoPermissionNotice(){
+      const blocked = sessionStorage.getItem("mzj_no_permission_page");
+      if(blocked){
+        el("noPermissionCard").classList.add("show");
+      }
+    }
+
+    function normalizeStatus(v){
+      return String(v || "").trim();
+    }
+
+    function getLeadStatus(l){
+      return normalizeStatus(
+        l.status || l.currentStatus || l.leadStatus || l.customerStatus ||
+        l.pipelineStatus || l.stage || l.clientStatus || l.statusLabel || "عميل جديد"
+      );
+    }
+
+    function matchesStatus(lead, statusDef){
+      const s = getLeadStatus(lead);
+      if(normalizeStatus(statusDef?.title) === "إجمالي العملاء"){
+        return normalizeDashboardStatusKey(s) === normalizeDashboardStatusKey("عميل جديد");
+      }
+      return statusDef.match.some(x => normalizeStatus(x) === s);
+    }
+
+    function leadDepartment(l){
+      const d = l.department || "";
+      if(d) return d;
+      const service = l.serviceKey || l.autoService || "";
+      if(service === "cash") return "cash_sales";
+      if(service === "finance") return "finance_sales";
+      if(service === "cs") return "customer_service";
+      return "";
+    }
+
+    function dashboardDepartmentServiceKey(department){
+      if(department === "cash_sales") return "cash";
+      if(department === "finance_sales") return "finance";
+      if(department === "customer_service") return "cs";
+      return "";
+    }
+
+    function dashboardDepartmentPaymentValue(department){
+      if(department === "cash_sales") return "كاش";
+      if(department === "finance_sales") return "تمويل";
+      if(department === "customer_service") return "خدمة عملاء";
+      return "";
+    }
+
+    const DASHBOARD_TRANSFER_BRANCHES = {
+      cash_sales:[
+        { id:"فرع_الصالة", name:"فرع الصالة", aliases:["فرع الصالة"] },
+        { id:"فرع_القادسية", name:"فرع القادسية", aliases:["فرع القادسية"] },
+        { id:"فرع_الملتقى", name:"فرع الملتقى", aliases:["فرع الملتقى"] }
+      ],
+      finance_sales:[
+        { id:"فرع_الاونلاين", name:"فرع الاونلاين", aliases:["فرع الاونلاين","فرع الأونلاين","فرع اونلاين","فرع أونلاين"] }
+      ],
+      customer_service:[
+        { id:"خدمة العملاء", name:"خدمة العملاء", aliases:["خدمة عملاء","خدمة العملاء"] }
+      ]
+    };
+
+    function dashboardNormalizeBranchKey(value){
+      return String(value || "")
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/[_\-]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+
+    function dashboardPickTransferBranch(targetDepartment){
+      const branches = DASHBOARD_TRANSFER_BRANCHES[targetDepartment] || [];
+      if(!branches.length) return null;
+      return branches[Math.floor(Math.random() * branches.length)];
+    }
+
+    function dashboardTransferBranchKeys(branch = null){
+      if(!branch) return [];
+      return [branch.id, branch.name, ...(Array.isArray(branch.aliases) ? branch.aliases : [])]
+        .map(dashboardNormalizeBranchKey)
+        .filter(Boolean);
+    }
+
+    function dashboardUserMatchesBranch(user = {}, branch = null){
+      if(!branch) return true;
+      const branchKeys = dashboardTransferBranchKeys(branch);
+      const userKeys = [
+        user.branchId, user.branchLocationId, user.branchName, user.branchLocationName,
+        user.branch, user.branchLocation, user.branchLabel, user.branchDisplayName
+      ].map(dashboardNormalizeBranchKey).filter(Boolean);
+      if(!branchKeys.length || !userKeys.length) return false;
+      return userKeys.some(v => branchKeys.includes(v));
+    }
+
+    function dashboardTransferBranchPayload(branch = null){
+      if(!branch) return {};
+      const branchId = String(branch.docId || branch.id || branch.name || "").trim();
+      const branchName = String(branch.name || branch.branchName || branch.id || "").trim();
+      return {
+        // نكتب كل صيغ حقول الفرع المستخدمة في صفحات النظام حتى لا تفضل قيمة الفرع القديمة ظاهرة في قاعدة البيانات.
+        branchId,
+        branchLocationId: branchId,
+        branchCode: branchId,
+        branchKey: branchId,
+        branch_id: branchId,
+        branchLocationKey: branchId,
+        branchName,
+        branchLocationName: branchName,
+        branch: branchName,
+        branchLocation: branchName,
+        branchLabel: branchName,
+        branchDisplayName: branchName
+      };
+    }
+
+    function dashboardBranchNameFromData(data = {}, fallback = ""){
+      return String(
+        data.branchLocationName || data.branchName || data.name || data.title ||
+        data.branchDisplayName || data.branchLabel || data.branch || fallback || ""
+      ).trim();
+    }
+
+    async function dashboardResolveTransferBranch(branch = null){
+      if(!branch) return null;
+      const targetKeys = dashboardTransferBranchKeys(branch);
+      try{
+        const snap = await getDocs(collection(db, "branches"));
+        let matched = null;
+        snap.forEach(d => {
+          if(matched) return;
+          const data = { __id:d.id, ...(d.data() || {}) };
+          if(data.active === false || data.enabled === false) return;
+          const dataKeys = [
+            d.id, data.branchId, data.branchLocationId, data.branchCode,
+            data.branchName, data.branchLocationName, data.name, data.title,
+            data.branch, data.branchLabel, data.branchDisplayName
+          ].map(dashboardNormalizeBranchKey).filter(Boolean);
+          if(dataKeys.some(v => targetKeys.includes(v))){
+            matched = {
+              ...branch,
+              docId:d.id,
+              id:d.id,
+              legacyId:branch.id || "",
+              name:dashboardBranchNameFromData(data, branch.name || branch.id || d.id),
+              aliases:[...(Array.isArray(branch.aliases) ? branch.aliases : []), branch.id, branch.name, d.id]
+            };
+          }
+        });
+        if(matched) return matched;
+      }catch(err){
+        console.warn("branch resolve skipped", err);
+      }
+      return branch;
+    }
+
+    function dashboardRepDepartment(user = {}){
+      return dashboardCanonicalDepartment(user.department || user.dept || user.section || user.roleDepartment || user.salesDepartment || user.team || "");
+    }
+
+    function dashboardIsAssignableRep(user = {}, targetDepartment = ""){
+      if(user.active === false || user.canReceiveLeads === false) return false;
+      if(user.role === "admin" || user.role === "sales_manager" || user.allDepartments === true) return false;
+      if(dashboardRepDepartment(user) !== targetDepartment) return false;
+      return true;
+    }
+
+    function dashboardRepBranchRank(user = {}, branch = null){
+      if(!branch) return 0;
+      return dashboardUserMatchesBranch(user, branch) ? 2 : 1;
+    }
+
+    function dashboardRepName(user = {}, uid = ""){
+      return String(user.name || user.displayName || user.fullName || user.email || uid || "").trim();
+    }
+
+    function dashboardCurrentLeadAssigneeKeys(lead = {}){
+      return [
+        lead.responsibleUid, lead.responsibleUserId, lead.responsibleEmail, lead.responsibleName, lead.responsible,
+        lead.assignedToUid, lead.assignedUid, lead.assignedUserId, lead.assignedEmail, lead.assignedName,
+        lead.salesUid, lead.salesUserId, lead.salesName, lead.salesRepUid, lead.salesRepName,
+        lead.agentUid, lead.agentName, lead.ownerUid, lead.ownerName
+      ].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
+    }
+
+    function dashboardRepFieldCandidatesByDepartment(targetDepartment){
+      if(targetDepartment === "cash_sales"){
+        return {
+          uids:["cashSalesUids","cashSalesUid","cashUids","cashUid","salesUids","salesUid"],
+          names:["cashSalesNames","cashSalesName","cashNames","cashName","salesNames","salesName"]
+        };
+      }
+      if(targetDepartment === "finance_sales"){
+        return {
+          uids:["financeSalesUids","financeSalesUid","financeUids","financeUid"],
+          names:["financeSalesNames","financeSalesName","financeNames","financeName"]
+        };
+      }
+      if(targetDepartment === "customer_service"){
+        return {
+          uids:["customerServiceUids","customerServiceUid","serviceUids","serviceUid","csUids","csUid"],
+          names:["customerServiceNames","customerServiceName","serviceNames","serviceName","csNames","csName"]
+        };
+      }
+      return { uids:[], names:[] };
+    }
+
+    function dashboardArrayFromBranchValue(value){
+      if(Array.isArray(value)) return value.filter(v => String(v || "").trim() !== "");
+      if(value === undefined || value === null || String(value).trim() === "") return [];
+      return [value];
+    }
+
+    function dashboardBranchDocMatchesTransferBranch(branchData = {}, branch = null){
+      if(!branch) return true;
+      const branchKeys = dashboardTransferBranchKeys(branch);
+      const dataKeys = [
+        branchData.__id, branchData.id, branchData.branchId, branchData.branchLocationId, branchData.branchCode,
+        branchData.branchName, branchData.branchLocationName, branchData.name, branchData.title,
+        branchData.branch, branchData.branchLabel, branchData.branchDisplayName
+      ].map(dashboardNormalizeBranchKey).filter(Boolean);
+      if(!branchKeys.length || !dataKeys.length) return false;
+      return dataKeys.some(v => branchKeys.includes(v));
+    }
+
+    async function dashboardPickTransferRepresentativeFromBranches(targetDepartment, lead = {}, targetBranch = null){
+      const fields = dashboardRepFieldCandidatesByDepartment(targetDepartment);
+      if(!fields.uids.length) return null;
+      const currentKeys = new Set(dashboardCurrentLeadAssigneeKeys(lead));
+      const snap = await getDocs(collection(db, "branches"));
+      const reps = [];
+      snap.forEach(d => {
+        const data = { __id:d.id, ...(d.data() || {}) };
+        if(data.active === false || data.enabled === false || !dashboardBranchDocMatchesTransferBranch(data, targetBranch)) return;
+        const uidValues = fields.uids.flatMap(key => dashboardArrayFromBranchValue(data[key]));
+        const nameValues = fields.names.flatMap(key => dashboardArrayFromBranchValue(data[key]));
+        const max = Math.max(uidValues.length, nameValues.length);
+        for(let i = 0; i < max; i++){
+          const id = String(uidValues[i] || "").trim();
+          const name = String(nameValues[i] || id || "").trim();
+          if(!id && !name) continue;
+          const keys = [id, name].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
+          const sameCurrent = keys.some(k => currentKeys.has(k));
+          reps.push({
+            id:id || name,
+            data:{ uid:id || "", userId:id || "", name, displayName:name, department:targetDepartment, branchId:targetBranch?.id || "", branchName:targetBranch?.name || "" },
+            name:name || id,
+            sameCurrent,
+            rank:2
+          });
+        }
+      });
+      const preferred = reps.filter(r => !r.sameCurrent);
+      const pool = preferred.length ? preferred : reps;
+      if(!pool.length) return null;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function dashboardChooseTransferRepresentative(reps = [], targetBranch = null){
+      // التحويل لازم يختار مندوب من نفس الفرع الذي تم اختياره للتحويل، وليس أي مندوب من نفس القسم.
+      const branchPool = targetBranch ? reps.filter(r => r.rank === 2) : reps;
+      const preferred = branchPool.filter(r => !r.sameCurrent);
+      const pool = preferred.length ? preferred : branchPool;
+      if(!pool.length) return null;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    async function dashboardPickTransferRepresentative(targetDepartment, lead = {}, targetBranch = null){
+      // الأولوية لبيانات صفحة الفروع لأنها هي التي تربط كل قسم بمناديبه داخل نفس الفرع.
+      try{
+        const pickedFromBranches = await dashboardPickTransferRepresentativeFromBranches(targetDepartment, lead, targetBranch);
+        if(pickedFromBranches) return pickedFromBranches;
+      }catch(err){
+        console.warn("branches transfer pool skipped", err);
+      }
+
+      const currentKeys = new Set(dashboardCurrentLeadAssigneeKeys(lead));
+      const reps = [];
+      try{
+        const snap = await getDocs(collection(db, "users"));
+        snap.forEach(d => {
+          const data = d.data() || {};
+          if(!dashboardIsAssignableRep(data, targetDepartment)) return;
+          const rank = dashboardRepBranchRank(data, targetBranch);
+          if(targetBranch && rank !== 2) return;
+          const name = dashboardRepName(data, d.id);
+          const keys = [d.id, data.uid, data.userId, data.email, name].map(v => dashboardNormalizeAssigneeValue(v)).filter(Boolean);
+          const sameCurrent = keys.some(k => currentKeys.has(k));
+          reps.push({ id:d.id, data, name, sameCurrent, rank });
+        });
+      }catch(err){
+        console.warn("users transfer pool skipped", err);
+      }
+
+      return dashboardChooseTransferRepresentative(reps, targetBranch);
+    }
+
+    async function dashboardBuildTransferPayload(lead = {}, targetDepartment = ""){
+      targetDepartment = dashboardCanonicalDepartment(targetDepartment);
+      const currentDepartment = dashboardCanonicalDepartment(leadDepartment(lead));
+      if(!targetDepartment || targetDepartment === currentDepartment) return null;
+      const pickedBranch = dashboardPickTransferBranch(targetDepartment);
+      const targetBranch = await dashboardResolveTransferBranch(pickedBranch);
+      const rep = await dashboardPickTransferRepresentative(targetDepartment, lead, targetBranch);
+      if(!rep) throw new Error("لا يوجد مندوب متاح في القسم المختار");
+      const repData = rep.data || {};
+      const repUid = repData.uid || rep.id;
+      const repName = dashboardRepName(repData, rep.id);
+      const repEmail = repData.email || "";
+      const payload = {
+        department: targetDepartment,
+        departmentLabel: departmentLabel(targetDepartment),
+        departmentName: departmentLabel(targetDepartment),
+        section: targetDepartment,
+        serviceKey: dashboardDepartmentServiceKey(targetDepartment),
+        autoService: dashboardDepartmentServiceKey(targetDepartment),
+        payment: dashboardDepartmentPaymentValue(targetDepartment),
+        paymentType: dashboardDepartmentPaymentValue(targetDepartment),
+        payType: dashboardDepartmentPaymentValue(targetDepartment),
+        leadPayment: dashboardDepartmentPaymentValue(targetDepartment),
+        ...dashboardTransferBranchPayload(targetBranch),
+        responsibleUid: repUid,
+        responsibleUserId: repUid,
+        responsibleName: repName,
+        responsibleEmail: repEmail,
+        responsible: repName,
+        assignedToUid: repUid,
+        assignedUid: repUid,
+        assignedUserId: repUid,
+        assignedToName: repName,
+        assignedName: repName,
+        assignedToEmail: repEmail,
+        assignedEmail: repEmail,
+        salesUid: repUid,
+        salesUserId: repUid,
+        salesName: repName,
+        salesRepUid: repUid,
+        salesRepName: repName,
+        agentUid: repUid,
+        agentName: repName,
+        transferredFromDepartment: currentDepartment,
+        transferredToDepartment: targetDepartment,
+        transferredToBranchId: targetBranch?.id || "",
+        transferredToBranchName: targetBranch?.name || "",
+        transferredByUid: currentUser?.uid || "",
+        transferredByEmail: currentUser?.email || "",
+        transferredAt: serverTimestamp(),
+        status: "عميل جديد",
+        statusLabel: "عميل جديد",
+        leadStatus: "عميل جديد",
+        currentStatus: "عميل جديد",
+        currentStatusLabel: "عميل جديد",
+        clientStatus: "عميل جديد",
+        customerStatus: "عميل جديد"
+      };
+      if(targetDepartment !== "finance_sales"){
+        Object.assign(payload, {
+          callCenterUid:"",
+          callCenterUserId:"",
+          callCenterName:"",
+          callCenterEmail:"",
+          callCenter:"",
+          callCenterAssigned:false,
+          callCenterStatus:""
+        });
+      }
+      return payload;
+    }
+
+    function dashboardNormalizeAssigneeValue(value){
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function dashboardAssigneeMatchesCurrentUser(value){
+      if(value === undefined || value === null || value === "") return false;
+
+      if(Array.isArray(value)){
+        return value.some(v => dashboardAssigneeMatchesCurrentUser(v));
+      }
+
+      if(typeof value === "object"){
+        return [
+          value.uid, value.id, value.userId, value.email, value.mail,
+          value.name, value.displayName, value.fullName
+        ].some(v => dashboardAssigneeMatchesCurrentUser(v));
+      }
+
+      const v = dashboardNormalizeAssigneeValue(value);
+      const currentValues = [
+        currentUser?.uid,
+        currentUser?.email,
+        currentProfile?.uid,
+        currentProfile?.id,
+        currentProfile?.userId,
+        currentProfile?.email,
+        currentProfile?.name,
+        currentProfile?.displayName,
+        currentProfile?.fullName
+      ].map(dashboardNormalizeAssigneeValue).filter(Boolean);
+
+      return currentValues.includes(v);
+    }
+
+    function leadAssignedToCurrentRepresentative(lead = {}){
+      if(isAdmin || currentProfile?.allDepartments === true) return true;
+
+      const primaryAssigneeValues = [
+        lead.responsibleUid, lead.responsibleUserId, lead.responsibleEmail,
+        lead.responsibleName, lead.responsible
+      ].filter(v => v !== undefined && v !== null && String(v).trim() !== "");
+
+      // When the lead has a current responsible person, trust that value only.
+      // Legacy fields like assignedName / ownerName may still contain the old rep after transfer.
+      if(primaryAssigneeValues.length){
+        return primaryAssigneeValues.some(v => dashboardAssigneeMatchesCurrentUser(v));
+      }
+
+      return [
+        lead.assignedToUid, lead.assignedUid, lead.assignedUserId, lead.assignedId,
+        lead.ownerUid, lead.ownerUserId,
+        lead.salesUid, lead.salesUserId, lead.salesRepUid, lead.representativeUid,
+        lead.agentUid, lead.userUid, lead.employeeUid,
+        lead.assignedToEmail, lead.assignedEmail, lead.ownerEmail,
+        lead.salesEmail, lead.salesRepEmail, lead.representativeEmail, lead.agentEmail,
+        lead.userEmail, lead.employeeEmail,
+        lead.assignedToName, lead.assignedName, lead.ownerName,
+        lead.salesName, lead.salesRepName, lead.representativeName, lead.agentName,
+        lead.userName, lead.employeeName,
+        lead.assignedTo, lead.assigned, lead.owner,
+        lead.salesRep, lead.representative, lead.agent, lead.user, lead.employee
+      ].some(v => dashboardAssigneeMatchesCurrentUser(v));
+    }
+
+    function visibleLeadsForSection(def){
+      let items = leads.filter(l => leadDepartment(l) === def.department);
+
+      if(isAdmin || currentProfile?.allDepartments === true) return items;
+      return items.filter(leadAssignedToCurrentRepresentative);
+    }
+
+    function sectionTotal(def){
+      const items = visibleLeadsForSection(def);
+      const statusKey = lead => normalizeDashboardStatusKey(getLeadStatus(lead));
+
+      if(def?.key === "cash"){
+        const included = ["عميل جديد", "تم الرد", "غير مؤهل", "مؤجل", "محتمل"].map(normalizeDashboardStatusKey);
+        return items.filter(l => included.includes(statusKey(l))).length;
+      }
+
+      if(def?.key === "finance"){
+        return items.filter(l => {
+          const s = statusKey(l);
+          return s !== normalizeDashboardStatusKey("غير مؤهل") && !s.includes(normalizeDashboardStatusKey("تم الانتهاء"));
+        }).length;
+      }
+
+      if(def?.key === "cs"){
+        return items.filter(l => !statusKey(l).includes(normalizeDashboardStatusKey("تم الانتهاء"))).length;
+      }
+
+      return items.length;
+    }
+
+    function dashboardNewLeadTargetKey(lead = {}){
+      const dept = leadDepartment(lead);
+      const status = normalizeDashboardStatusKey(getLeadStatus(lead));
+      if(dept === "cash_sales" && status === normalizeDashboardStatusKey("عميل جديد")) return "cash";
+      if(dept === "customer_service" && status === normalizeDashboardStatusKey("عميل جديد")) return "cs";
+      if(dept === "finance_sales" && (status === normalizeDashboardStatusKey("عميل جديد") || status === normalizeDashboardStatusKey("الكول سنتر"))) return "finance";
+      return "";
+    }
+
+    function dashboardNewLeadVisibleItems(){
+      return leads.filter(lead => {
+        const key = dashboardNewLeadTargetKey(lead);
+        if(!key) return false;
+        const def = SECTION_DEFS[key];
+        if(!def) return false;
+        if(isAdmin || currentProfile?.allDepartments === true) return leadDepartment(lead) === def.department;
+        return leadDepartment(lead) === def.department && leadAssignedToCurrentRepresentative(lead);
+      });
+    }
+
+    function dashboardNewLeadId(lead = {}){
+      return String(lead.__id || lead.id || lead.conversationId || lead.convId || phoneOfLead(lead) || "").trim();
+    }
+
+    function dashboardPrimeAlertAudio(){
+      try{
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if(!AudioContextClass) return;
+        if(!dashboardAlertAudioCtx) dashboardAlertAudioCtx = new AudioContextClass();
+        if(dashboardAlertAudioCtx.state === "suspended") dashboardAlertAudioCtx.resume().catch(() => {});
+      }catch(e){ console.warn("dashboard alert audio prime skipped", e); }
+    }
+
+    function playDashboardShortBeep(){
+      try{
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if(!AudioContextClass) return;
+        const ctx = dashboardAlertAudioCtx || new AudioContextClass();
+        dashboardAlertAudioCtx = ctx;
+        if(ctx.state === "suspended") ctx.resume().catch(() => {});
+
+        const start = ctx.currentTime + 0.01;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(1450, start);
+        osc.frequency.setValueAtTime(1180, start + 0.07);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.75, start + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.17);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.18);
+      }catch(e){ console.warn("dashboard alert sound skipped", e); }
+      try{
+        if(navigator.vibrate) navigator.vibrate([120, 40, 120]);
+      }catch(e){}
+    }
+
+    function hideDashboardNewLeadAlert(){
+      clearTimeout(dashboardNewLeadAlertTimer);
+      const alert = document.getElementById("dashboardNewLeadAlert");
+      if(alert) alert.classList.remove("show");
+    }
+
+    function showDashboardNewLeadAlert(lead){
+      const id = dashboardNewLeadId(lead);
+      if(!id) return;
+      let alert = document.getElementById("dashboardNewLeadAlert");
+      if(!alert){
+        alert = document.createElement("div");
+        alert.id = "dashboardNewLeadAlert";
+        alert.className = "dashboard-new-lead-alert";
+        alert.innerHTML = `
+          <button type="button" class="dashboard-new-lead-close" aria-label="إغلاق">×</button>
+          <div class="dashboard-new-lead-icon">!</div>
+          <div>
+            <b id="dashboardNewLeadTitle">عميل جديد</b>
+            <p id="dashboardNewLeadText">وصل عميل جديد في السيستم.</p>
+          </div>
+        `;
+        document.body.appendChild(alert);
+        alert.addEventListener("mouseenter", hideDashboardNewLeadAlert);
+        alert.addEventListener("mousemove", hideDashboardNewLeadAlert);
+        alert.addEventListener("click", (e) => {
+          hideDashboardNewLeadAlert();
+          if(e.target?.classList?.contains("dashboard-new-lead-close")) return;
+          const selectedLead = leads.find(l => dashboardNewLeadId(l) === alert.dataset.leadId);
+          if(selectedLead) openLeadConversation(selectedLead);
+        });
+      }
+
+      const title = document.getElementById("dashboardNewLeadTitle");
+      const body = document.getElementById("dashboardNewLeadText");
+      const customer = customerName(lead);
+      const meta = customerMeta(lead);
+      alert.dataset.leadId = id;
+      if(title) title.textContent = "عميل جديد";
+      if(body) body.textContent = customer + (meta ? " - " + meta : "");
+      alert.classList.add("show");
+      playDashboardShortBeep();
+      clearTimeout(dashboardNewLeadAlertTimer);
+      dashboardNewLeadAlertTimer = setTimeout(hideDashboardNewLeadAlert, 15000);
+    }
+
+    function checkDashboardNewLeadAlerts(){
+      const visibleTargets = dashboardNewLeadVisibleItems();
+      const currentIds = new Set(visibleTargets.map(dashboardNewLeadId).filter(Boolean));
+
+      if(!dashboardNewLeadBaselineReady){
+        dashboardKnownNewLeadIds = currentIds;
+        dashboardNewLeadBaselineReady = true;
+        return;
+      }
+
+      const fresh = visibleTargets.filter(lead => {
+        const id = dashboardNewLeadId(lead);
+        return id && !dashboardKnownNewLeadIds.has(id);
+      });
+      dashboardKnownNewLeadIds = currentIds;
+      if(fresh.length) showDashboardNewLeadAlert(fresh[fresh.length - 1]);
+    }
+
+    function dashboardNormalizeConversationKey(value){
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function dashboardLeadConversationKeysForAlert(lead = {}){
+      const phone = normalizeKsaPhone(phoneOfLead(lead));
+      const raw = [
+        lead.conversationId,
+        lead.convId,
+        lead.contactKey,
+        lead.participantId,
+        lead.fbId,
+        lead.igId,
+        lead.tiktokId,
+        lead.waId,
+        lead.__id,
+        lead.id,
+        phone,
+        phone ? "wa_" + phone : "",
+        phone ? String(phone).replace(/^wa_/, "") : ""
+      ].filter(Boolean).map(v => String(v).trim()).filter(Boolean);
+
+      return [...new Set(raw.map(dashboardNormalizeConversationKey).filter(Boolean))];
+    }
+
+    function dashboardVisibleMessageAlertLeads(){
+      return leads.filter(lead => {
+        const dept = leadDepartment(lead);
+        if(!["cash_sales","finance_sales","customer_service"].includes(dept)) return false;
+        if(isAdmin || currentProfile?.allDepartments === true) return true;
+        return leadAssignedToCurrentRepresentative(lead);
+      });
+    }
+
+    function dashboardRebuildIncomingMessageLeadMap(){
+      const map = new Map();
+      dashboardVisibleMessageAlertLeads().forEach(lead => {
+        dashboardLeadConversationKeysForAlert(lead).forEach(key => {
+          if(key && !map.has(key)) map.set(key, lead);
+        });
+      });
+      dashboardIncomingMessageLeadMap = map;
+      return map;
+    }
+
+    function dashboardIncomingMessageConversationKeyFromDoc(messageDoc){
+      try{
+        const parentDoc = messageDoc?.ref?.parent?.parent;
+        return dashboardNormalizeConversationKey(parentDoc?.id || "");
+      }catch(e){
+        return "";
+      }
+    }
+
+    function dashboardIncomingMessageDocKey(messageDoc){
+      try{
+        return String(messageDoc?.ref?.path || messageDoc?.id || "").trim();
+      }catch(e){
+        return "";
+      }
+    }
+
+    function dashboardIsIncomingCustomerMessage(data = {}){
+      const norm = v => String(v ?? "").trim().toLowerCase();
+      const direction = norm(data.direction || data.messageDirection || data.statusDirection || data.dir);
+      const type = norm(data.type || data.messageType || data.kind || data.messageKind);
+      const senderType = norm(data.senderType || data.role || data.authorType || data.actorType);
+      const senderId = norm(data.senderId || data.from || data.authorId || data.createdBy || data.userId);
+      const senderName = norm(data.senderName || data.authorName || data.createdByName || data.sentByName);
+      const outgoingWords = ["out","outgoing","outbound","agent","sent_by_agent","system","admin","automation","reply","from_agent","to_customer"];
+      const incomingWords = ["in","incoming","inbound","customer","client","received","receive","user","lead","reply_from_customer","from_customer"];
+
+      if(data.fromAgent === true || data.isAgent === true || data.mine === true || data.isMine === true || data.fromMe === true || data.isFromMe === true) return false;
+      if(data.sentByUid || data.sentByEmail || data.agentUid || data.adminUid || data.createdByUid || data.createdByEmail) return false;
+      if(outgoingWords.includes(direction) || outgoingWords.includes(senderType) || outgoingWords.includes(type)) return false;
+      if(["automation","system","agent","admin","crm"].includes(senderId)) return false;
+      if(senderName.includes("automation") || senderName.includes("system") || senderName.includes("السيستم") || senderName.includes("admin") || senderName.includes("مندوب")) return false;
+      if(data.fromCustomer === true || data.isCustomer === true || data.mine === false || data.isMine === false || data.fromMe === false || data.isFromMe === false) return true;
+      if(incomingWords.includes(direction) || incomingWords.includes(senderType) || incomingWords.includes(type)) return true;
+      return true;
+    }
+
+    function showDashboardIncomingMessageAlert(lead, messageData = {}){
+      const id = dashboardNewLeadId(lead);
+      if(!id) return;
+      let alert = document.getElementById("dashboardNewLeadAlert");
+      if(!alert){
+        alert = document.createElement("div");
+        alert.id = "dashboardNewLeadAlert";
+        alert.className = "dashboard-new-lead-alert";
+        alert.innerHTML = `
+          <button type="button" class="dashboard-new-lead-close" aria-label="إغلاق">×</button>
+          <div class="dashboard-new-lead-icon">!</div>
+          <div>
+            <b id="dashboardNewLeadTitle">رسالة جديدة من عميل</b>
+            <p id="dashboardNewLeadText">يوجد رسالة جديدة من عميل.</p>
+          </div>
+        `;
+        document.body.appendChild(alert);
+        alert.addEventListener("mouseenter", hideDashboardNewLeadAlert);
+        alert.addEventListener("mousemove", hideDashboardNewLeadAlert);
+        alert.addEventListener("click", (e) => {
+          hideDashboardNewLeadAlert();
+          if(e.target?.classList?.contains("dashboard-new-lead-close")) return;
+          const selectedLead = leads.find(l => dashboardNewLeadId(l) === alert.dataset.leadId);
+          if(selectedLead) openLeadConversation(selectedLead);
+        });
+      }
+
+      const title = document.getElementById("dashboardNewLeadTitle");
+      const body = document.getElementById("dashboardNewLeadText");
+      const customer = customerName(lead);
+      const text = String(messageText(messageData) || "").trim();
+      alert.dataset.leadId = id;
+      if(title) title.textContent = "رسالة جديدة من عميل";
+      if(body) body.textContent = customer + (text ? " - " + text.slice(0, 90) : " - يوجد رسالة جديدة");
+      alert.classList.add("show");
+      playDashboardShortBeep();
+      clearTimeout(dashboardNewLeadAlertTimer);
+      dashboardNewLeadAlertTimer = setTimeout(hideDashboardNewLeadAlert, 15000);
+    }
+
+    function listenDashboardIncomingMessageAlerts(){
+      if(dashboardIncomingMessageUnsub) return;
+      dashboardIncomingMessageBaselineReady = false;
+      dashboardKnownIncomingMessageIds = new Set();
+
+      try{
+        dashboardIncomingMessageUnsub = onSnapshot(collectionGroup(db, "messages"), snap => {
+          const leadMap = dashboardRebuildIncomingMessageLeadMap();
+
+          if(!dashboardIncomingMessageBaselineReady){
+            snap.forEach(d => {
+              const key = dashboardIncomingMessageDocKey(d);
+              if(key) dashboardKnownIncomingMessageIds.add(key);
+            });
+            dashboardIncomingMessageBaselineReady = true;
+            return;
+          }
+
+          const fresh = [];
+          snap.docChanges().forEach(change => {
+            if(change.type !== "added") return;
+            const key = dashboardIncomingMessageDocKey(change.doc);
+            if(!key || dashboardKnownIncomingMessageIds.has(key)) return;
+            dashboardKnownIncomingMessageIds.add(key);
+
+            const convKey = dashboardIncomingMessageConversationKeyFromDoc(change.doc);
+            const lead = leadMap.get(convKey);
+            if(!lead) return;
+            const data = change.doc.data() || {};
+            if(!dashboardIsIncomingCustomerMessage(data)) return;
+
+            const openLeadId = dashboardChatState.lead ? dashboardNewLeadId(dashboardChatState.lead) : "";
+            if(openLeadId && openLeadId === dashboardNewLeadId(lead)) return;
+            fresh.push({ lead, data });
+          });
+
+          if(fresh.length){
+            const last = fresh[fresh.length - 1];
+            showDashboardIncomingMessageAlert(last.lead, last.data);
+          }
+        }, err => {
+          console.error(err);
+        });
+      }catch(e){
+        console.warn("incoming message listener skipped", e);
+      }
+    }
+
+
+    function renderSectionCards(){
+      const box = el("sectionCards");
+      const cards = [SECTION_DEFS.cash, SECTION_DEFS.finance, SECTION_DEFS.cs];
+
+      box.innerHTML = cards.map(def => `
+        <button class="dashboard-section-card ${selectedSectionKey === def.key ? "active" : ""}" data-section="${def.key}">
+          <span class="stat-number">${sectionTotal(def)}</span>
+          <h3>${escapeHtml(def.title)}</h3>
+          <div class="small-note">اضغط لعرض الحالات</div>
+        </button>
+      `).join("");
+
+      box.querySelectorAll("[data-section]").forEach(btn => {
+        btn.onclick = () => selectSection(btn.dataset.section);
+      });
+    }
+
+    function selectSection(key){
+      selectedSectionKey = key;
+      const def = SECTION_DEFS[key];
+      if(!def) return;
+      el("dashboardBoard").classList.remove("hidden");
+      el("selectedSectionTitle").textContent = def.title;
+      el("selectedSectionNote").textContent = def.note || "";
+      const searchField = el("dashboardLeadSearch");
+      if(searchField) searchField.value = dashboardLeadSearchTerm;
+      renderSectionCards();
+      renderStatusCards();
+      el("dashboardBoard").scrollIntoView({ behavior:"smooth", block:"start" });
+    }
+
+    function customerName(l){
+      return l.customerName || l.fullName || l.name || l.displayName || l.leadName || "عميل بدون اسم";
+    }
+
+    function customerMeta(l){
+      const parts = [];
+      if(l.sourceName || l.source) parts.push(l.sourceName || l.source);
+      if(l.phone || l.mobile || l.phoneNumber) parts.push(l.phone || l.mobile || l.phoneNumber);
+      if(l.responsibleName || l.assignedName) parts.push("المسؤول: " + (l.responsibleName || l.assignedName));
+      return parts.join(" - ");
+    }
+
+    function dashboardLeadMatchesSearch(lead){
+      const term = String(dashboardLeadSearchTerm || "").trim().toLowerCase();
+      if(!term) return true;
+      const digits = term.replace(/\D/g, "");
+      const nameText = [customerName(lead), lead.fullName, lead.name, lead.displayName, lead.leadName]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const phoneText = [phoneOfLead(lead), lead.phone, lead.mobile, lead.phoneNumber, lead.customerPhone, lead.phoneNormalized]
+        .filter(Boolean)
+        .map(v => String(v))
+        .join(" ");
+      const phoneDigits = phoneText.replace(/\D/g, "");
+      return nameText.includes(term) || (!!digits && phoneDigits.includes(digits)) || phoneText.toLowerCase().includes(term);
+    }
+
+    function dashboardLeadTextForPlatform(l = {}){
+      return String([
+        l.platform, l.channel, l.channelCode, l.sourceCode,
+        l.source, l.sourceName, l.sourceLabel, l.provider, l.leadId
+      ].filter(Boolean).join(" ")).toLowerCase();
+    }
+
+    function dashboardLeadHasNativeTiktokRecipient(l = {}){
+      return [l.participantId, l.tiktokId, l.manychatContactId, l.subscriberId, l.subscriber_id]
+        .some(v => String(v || "").trim());
+    }
+
+    function dashboardLeadShouldSendViaWhatsapp(l = {}){
+      const raw = dashboardLeadTextForPlatform(l);
+      const phone = normalizeKsaPhone(phoneOfLead(l));
+      if(!phone) return false;
+
+      const isSnapchat = raw.includes("snapchat") || raw.includes("snap") || raw.includes("سناب");
+      const isTiktok = raw.includes("tiktok") || raw.includes("tik") || raw.includes("تيك");
+
+      if(isSnapchat) return true;
+      if(isTiktok && !dashboardLeadHasNativeTiktokRecipient(l)) return true;
+      return false;
+    }
+
+    function platformOf(l){
+      if(dashboardLeadShouldSendViaWhatsapp(l)) return "whatsapp";
+
+      const p = String(l.platform || l.channel || l.channelCode || "").toLowerCase();
+      if(p.includes("wa") || p.includes("whatsapp") || p.includes("واتساب")) return "whatsapp";
+      if(p.includes("insta") || p.includes("ig") || p.includes("انست")) return "instagram";
+      if(p.includes("face") || p.includes("fb") || p.includes("فيس")) return "facebook";
+      if(p.includes("tiktok") || p.includes("tik") || p.includes("تيك")) return "tiktok";
+      if(p.includes("snapchat") || p.includes("snap") || p.includes("سناب")) return "whatsapp";
+      return p || "whatsapp";
+    }
+
+    function phoneOfLead(l){
+      return l.phoneNormalized || l.phone || l.mobile || l.phoneNumber || l.customerPhone || "";
+    }
+
+    function conversationIdOf(l){
+      const platform = platformOf(l);
+      const phone = phoneOfLead(l);
+      if(platform === "whatsapp"){
+        return l.convId || l.conversationId || l.waId || l.participantId || String(l.id || "").replace(/^wa_/, "") || phone;
+      }
+      return l.conversationId || l.convId || l.contactKey || l.participantId || l.fbId || l.igId || l.tiktokId || l.id || "";
+    }
+
+    function normalizeKsaPhone(phone){
+      let p = String(phone || "").trim();
+      if(!p) return "";
+      if(/[eE]\+?/.test(p)){
+        const n = Number(p);
+        if(Number.isFinite(n)) p = String(Math.trunc(n));
+      }
+      p = p.replace(/[^\d+]/g,"");
+      p = p.replace(/^00/,"+").replace(/^\+/,"");
+      if(p.startsWith("966") && p.length >= 12) return p.slice(0,12);
+      if(p.startsWith("05") && p.length === 10) return "966" + p.slice(1);
+      if(p.startsWith("5") && p.length === 9) return "966" + p;
+      return p;
+    }
+
+    function getLeadField(lead, names, fallback=""){
+      for(const name of names){
+        if(lead && lead[name] !== undefined && lead[name] !== null && String(lead[name]).trim() !== "") return lead[name];
+      }
+      return fallback;
+    }
+
+
+    function dashboardFinanceTypeValue(value){
+      const raw = String(value || "").trim();
+      if(!raw) return "";
+      const compact = raw.replace(/\s+/g, "").replace("٪", "%");
+      const normalized = compact
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .toLowerCase();
+      const n = Number(compact.replace("%", ""));
+      if(n === 45 || normalized.includes("عام")) return "عام";
+      if(n === 65 || normalized.includes("عقار")) return "عقاري";
+      return "";
+    }
+
+    function dashboardFinanceRatio(value){
+      const type = dashboardFinanceTypeValue(value || el("chatPayment")?.value || "");
+      if(type === "عام") return 0.45;
+      if(type === "عقاري") return 0.65;
+      return 0;
+    }
+
+    function dashboardNumberValue(value){
+      const arabic = "٠١٢٣٤٥٦٧٨٩";
+      const eastern = "۰۱۲۳۴۵۶۷۸۹";
+      const raw = String(value || "")
+        .replace(/[٠-٩]/g, d => arabic.indexOf(d))
+        .replace(/[۰-۹]/g, d => eastern.indexOf(d));
+      const n = Number(raw.replace(/,/g, "").replace(/[^0-9.\-]/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function dashboardMoney(value){
+      const n = Number(value);
+      if(!Number.isFinite(n)) return "0";
+      return Math.max(0, n).toLocaleString("ar-EG", { maximumFractionDigits:0 });
+    }
+
+    function fillDashboardFinanceTypeSelect(value){
+      const field = el("chatPayment");
+      if(!field) return;
+      field.value = dashboardFinanceTypeValue(value);
+      updateDashboardCreditLimitResult();
+    }
+
+    function updateDashboardCreditLimitResult(){
+      const box = el("chatCreditLimitResult");
+      if(!box) return;
+      const salary = dashboardNumberValue(el("chatSalary")?.value || "");
+      const obligation = dashboardNumberValue(el("chatObligation")?.value || "");
+      const ratio = dashboardFinanceRatio(el("chatPayment")?.value || "");
+      if(!salary || !ratio){
+        box.className = "chat-credit-limit-result";
+        box.textContent = "الحد الائتماني = أدخل الراتب واختر نوع التمويل";
+        return;
+      }
+      const creditLimit = (salary * ratio) - obligation;
+      const qualified = creditLimit >= 650;
+      box.className = "chat-credit-limit-result " + (qualified ? "qualified" : "not-qualified");
+      box.innerHTML = "الحد الائتماني = " + dashboardMoney(creditLimit) + " ريال - <span>" + (qualified ? "مؤهل" : "غير مؤهل") + "</span>";
+    }
+
+    function chatPlatformConfig(platform){
+      return CHAT_PLATFORM_CONFIG[platform] || CHAT_PLATFORM_CONFIG.whatsapp;
+    }
+
+    function openLeadConversation(lead){
+      hideDashboardNewLeadAlert();
+      openLeadChatPopup(lead);
+    }
+
+    function resolveChatConversationId(lead){
+      const platform = platformOf(lead);
+      const phone = normalizeKsaPhone(phoneOfLead(lead));
+      if(platform === "whatsapp"){
+        return lead.convId || lead.conversationId || lead.waId || lead.participantId || String(lead.id || "").replace(/^wa_/, "") || phone;
+      }
+      return lead.conversationId || lead.convId || lead.contactKey || lead.participantId || lead.fbId || lead.igId || lead.tiktokId || lead.__id || "";
+    }
+
+    function ensureDashboardChatModal(){
+      if(document.getElementById("dashboardChatModal")) return;
+      const modal = document.createElement("div");
+      modal.id = "dashboardChatModal";
+      modal.className = "dashboard-chat-modal hidden";
+      modal.innerHTML = `
+        <div class="dashboard-chat-backdrop" data-chat-close></div>
+        <div class="dashboard-chat-dialog inbox-style" role="dialog" aria-modal="true">
+          <aside class="dashboard-chat-customer inbox-customer-panel">
+            <div class="customer-panel-scroll">
+              <div class="customer-form-card">
+                <h4>بيانات العميل</h4>
+                <label>حالة العميل<select id="chatStatus"></select></label>
+                <div class="two">
+                  <label>المصدر<input id="chatSource" readonly></label>
+                  <label>القسم<input id="chatDepartment" readonly></label>
+                </div>
+                <label>تحويل لقسم آخر<select id="chatTransferDepartment">
+                  <option value="">بدون تحويل</option>
+                  <option value="cash_sales">مبيعات الكاش</option>
+                  <option value="finance_sales">مبيعات التمويل</option>
+                  <option value="customer_service">خدمة العملاء</option>
+                </select></label>
+                <label id="chatFollowupDateBox" class="followup-date-box hidden">موعد المتابعة<input id="chatFollowupDate" type="datetime-local"></label>
+                <label>اسم العميل<input id="chatName"></label>
+                <div class="two">
+                  <label>رقم الجوال<input id="chatPhone"></label>
+                  <label>العمر<input id="chatAge"></label>
+                </div>
+                <div class="two">
+                  <label>الراتب<input id="chatSalary"></label>
+                  <label>الالتزام إن وجد<input id="chatObligation"></label>
+                </div>
+                <label>نزول الراتب على أي بنك<input id="chatSalaryBank"></label>
+                <label>المكان<input id="chatLocation"></label>
+                <div class="two">
+                  <label>نوع السيارة<input id="chatCar"></label>
+                  <label>الموديل<input id="chatModel"></label>
+                </div>
+                <label>اللون<input id="chatColor"></label>
+                <label>نوع التمويل<select id="chatPayment">
+                  <option value="">اختر نوع التمويل</option>
+                  <option value="عام">عام - 45%</option>
+                  <option value="عقاري">عقاري - 65%</option>
+                </select></label>
+                <div id="chatCreditLimitResult" class="chat-credit-limit-result">الحد الائتماني = أدخل الراتب واختر نوع التمويل</div>
+                <label>ملاحظات<textarea id="chatNotes" rows="3"></textarea></label>
+              </div>
+            </div>
+            <div class="customer-save-bar">
+              <button type="button" id="chatSaveBtn" class="save-chat-btn">حفظ بيانات العميل</button>
+            </div>
+          </aside>
+
+          <section class="dashboard-chat-panel inbox-chat-panel">
+            <header class="inbox-chat-header">
+              <button type="button" class="secondary-btn close-chat-btn" data-chat-close>إغلاق</button>
+              <div class="chat-title-box">
+                <div class="chat-title-line">
+                  <h3 id="chatCustomerName">عميل</h3>
+                  <span id="chatProgressBadge" class="chat-progress-badge">0% مكتمل</span>
+                </div>
+                <p id="chatCustomerMeta"></p>
+              </div>
+            </header>
+
+            <div id="chatMessages" class="dashboard-chat-messages inbox-messages">
+              <div class="empty">جاري تحميل الرسائل...</div>
+            </div>
+
+            <div class="dashboard-chat-composer inbox-composer">
+              <div class="composer-tools">
+                <label class="template-picker">
+                  <span>القالب</span>
+                  <select id="chatTemplateSelect">
+                    <option value="">اكتب رسالة عادية</option>
+                  </select>
+                </label>
+                <label class="template-picker">
+                  <span>رسالة جاهزة</span>
+                  <select id="chatQuickMessageSelect">
+                    <option value="">اختر رسالة جاهزة</option>
+                  </select>
+                </label>
+                <button type="button" class="secondary-btn" id="chatUseTemplateBtn">استخدام القالب</button>
+                <button type="button" class="secondary-btn" id="chatClearTextBtn">مسح</button>
+              </div>
+              <div class="dashboard-chat-send">
+                <textarea id="chatReplyText" rows="2" placeholder="اكتب رسالتك هنا... Enter للإرسال و Shift + Enter لسطر جديد"></textarea>
+                <button type="button" id="chatSendBtn">إرسال</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.querySelectorAll("[data-chat-close]").forEach(btn => btn.onclick = closeLeadChatPopup);
+      el("chatSendBtn").onclick = sendDashboardChatReply;
+      el("chatSaveBtn").onclick = saveDashboardChatCustomer;
+      el("chatUseTemplateBtn").onclick = insertSelectedDashboardTemplate;
+      el("chatClearTextBtn").onclick = () => { el("chatReplyText").value = ""; el("chatReplyText").focus(); };
+      el("chatTemplateSelect").onchange = () => {
+        const t = selectedDashboardTemplate();
+        if(t) applyDashboardTemplateToMessage(t, true);
+        else clearDashboardTemplateSelectionForFreeText();
+      };
+      const quickSelect = el("chatQuickMessageSelect");
+      if(quickSelect){
+        quickSelect.onchange = () => {
+          const t = selectedDashboardQuickMessage();
+          if(t) insertDashboardTemplate(t);
+        };
+      }
+      el("chatReplyText").addEventListener("keydown", (e) => {
+        if(e.key === "Enter" && !e.shiftKey){
+          e.preventDefault();
+          sendDashboardChatReply();
+        }
+      });
+      const chatStatusField = el("chatStatus");
+      if(chatStatusField){
+        chatStatusField.addEventListener("input", onDashboardStatusChanged);
+        chatStatusField.addEventListener("change", onDashboardStatusChanged);
+      }
+      ["chatName","chatPhone","chatAge","chatSalary","chatObligation","chatSalaryBank","chatLocation","chatCar","chatModel","chatColor","chatPayment","chatNotes","chatFollowupDate"].forEach(id => {
+        const field = el(id);
+        if(field) field.addEventListener("input", updateChatCompletionProgress);
+        if(field) field.addEventListener("change", updateChatCompletionProgress);
+      });
+    }
+
+    function templateAppliesToLead(t, lead){
+      const dept = leadDepartment(lead);
+      const platform = platformOf(lead);
+      const departments = Array.isArray(t.departments) ? t.departments : [];
+      const platforms = Array.isArray(t.platforms) ? t.platforms : [];
+      const typeOk = !t.type || ["quick","mersal","text"].includes(String(t.type));
+      const deptOk = !departments.length || departments.includes(dept) || departments.includes("all");
+      const platformOk = !platforms.length || platforms.includes(platform) || platforms.includes("all");
+      return typeOk && deptOk && platformOk;
+    }
+
+    function renderDashboardTemplateOptions(){
+      const templateSelect = document.getElementById("chatTemplateSelect");
+      const quickSelect = document.getElementById("chatQuickMessageSelect");
+      const lead = dashboardChatState.lead;
+      const items = dashboardChatState.templates
+        .filter(t => !lead || templateAppliesToLead(t, lead))
+        .sort((a,b) => Number(a.sort || 0) - Number(b.sort || 0));
+
+      const templates = items.filter(t => String(t.type || "quick") !== "quick");
+      const quickMessages = items.filter(t => String(t.type || "quick") === "quick");
+
+      if(templateSelect){
+        templateSelect.innerHTML = `<option value="">اكتب رسالة عادية</option>` + templates.map(t => {
+          const label = dashboardTemplateLabel(t) || "قالب بدون اسم";
+          const type = t.type === "mersal" ? "مرسال" : "قالب";
+          return `<option value="${escapeHtml(t.id)}">${escapeHtml(label)} - ${escapeHtml(type)}</option>`;
+        }).join("");
+      }
+
+      if(quickSelect){
+        quickSelect.innerHTML = `<option value="">اختر رسالة جاهزة</option>` + quickMessages.map(t => {
+          const label = dashboardTemplateLabel(t) || "رسالة جاهزة";
+          return `<option value="${escapeHtml(t.id)}">${escapeHtml(label)}</option>`;
+        }).join("");
+      }
+
+      const currentStatus = el("chatStatus")?.value || "";
+      if(currentStatus) selectDashboardTemplateByStatus(currentStatus);
+    }
+
+    function selectedDashboardTemplate(){
+      const id = document.getElementById("chatTemplateSelect")?.value || "";
+      if(!id) return null;
+      return dashboardChatState.templates.find(t => t.id === id) || null;
+    }
+
+    function selectedDashboardQuickMessage(){
+      const id = document.getElementById("chatQuickMessageSelect")?.value || "";
+      if(!id) return null;
+      return dashboardChatState.templates.find(t => t.id === id) || null;
+    }
+
+    function applyTemplateVariables(content, lead){
+      const name = customerName(lead);
+      const phone = phoneOfLead(lead) || "";
+      const car = getLeadField(lead, ["car","carName","carType","vehicleName","model","carModel"]);
+      const status = getLeadField(lead, ["status","leadStatus","currentStatus","clientStatus","customerStatus"], "عميل جديد");
+      return String(content || "")
+        .replace(/\{\{\s*name\s*\}\}/gi, name)
+        .replace(/\{\{\s*الاسم\s*\}\}/g, name)
+        .replace(/\{\{\s*phone\s*\}\}/gi, phone)
+        .replace(/\{\{\s*الجوال\s*\}\}/g, phone)
+        .replace(/\{\{\s*car\s*\}\}/gi, car)
+        .replace(/\{\{\s*السيارة\s*\}\}/g, car)
+        .replace(/\{\{\s*status\s*\}\}/gi, status)
+        .replace(/\{\{\s*الحالة\s*\}\}/g, status);
+    }
+
+
+    function dashboardTemplateLabel(t){
+      return String(t?.label || t?.title || t?.name || t?.templateName || t?.template_name || t?.template?.name || t?.subject || "").trim();
+    }
+
+    function dashboardTemplateText(t){
+      const candidates = [
+        t?.content, t?.body, t?.message, t?.text, t?.templateText, t?.templateContent,
+        t?.reply, t?.value, t?.description
+      ];
+      for(const v of candidates){
+        if(v !== undefined && v !== null && String(v).trim()) return String(v);
+      }
+      return "";
+    }
+
+    function normalizeDashboardTemplateMatch(value){
+      return String(value || "")
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/[–—−]/g, "-")
+        .replace(/\s*-\s*/g, " - ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+
+    function cleanDashboardTemplateStatus(value){
+      return normalizeDashboardTemplateMatch(value)
+        .replace(/\s-\sمرسال$/,"")
+        .replace(/\s-\sقالب$/,"")
+        .trim();
+    }
+
+    function findDashboardTemplateByStatus(status){
+      const statusNorm = cleanDashboardTemplateStatus(status);
+      if(!statusNorm) return null;
+
+      const lead = dashboardChatState.lead || {};
+      const allowed = dashboardChatState.templates
+        .filter(t => templateAppliesToLead(t, lead))
+        .filter(t => String(t.type || "quick") !== "quick");
+
+      const expectedMersal = normalizeDashboardTemplateMatch(status + " - مرسال");
+
+      return allowed.find(t => normalizeDashboardTemplateMatch(dashboardTemplateLabel(t)) === expectedMersal)
+        || allowed.find(t => cleanDashboardTemplateStatus(dashboardTemplateLabel(t)) === statusNorm)
+        || allowed.find(t => {
+          const labelNorm = normalizeDashboardTemplateMatch(dashboardTemplateLabel(t));
+          return labelNorm.includes(statusNorm) && labelNorm.includes("مرسال");
+        })
+        || allowed.find(t => normalizeDashboardTemplateMatch(dashboardTemplateLabel(t)).includes(statusNorm))
+        || null;
+    }
+
+    function dashboardStatusNeedsMessageClear(status){
+      return false;
+    }
+
+    function dashboardQuickMessageNameForStatus(status){
+      const lead = dashboardChatState.lead || {};
+      const dept = leadDepartment(lead);
+      const s = normalizeDashboardStatusKey(status);
+
+      if(dept === "cash_sales" && s === normalizeDashboardStatusKey("تم الرد")) return "تم الرد";
+      if(dept === "customer_service" && s === normalizeDashboardStatusKey("جاري العمل")) return "جاري العمل";
+      if(dept === "customer_service" && (s === normalizeDashboardStatusKey("تم الانتهاء") || s === normalizeDashboardStatusKey("تم الإنتهاء"))) return "تم الانتهاء";
+
+      return "";
+    }
+
+    function findDashboardQuickMessageByLabel(label){
+      const labelNorm = normalizeDashboardTemplateMatch(label);
+      if(!labelNorm) return null;
+      const lead = dashboardChatState.lead || {};
+      const allowed = dashboardChatState.templates
+        .filter(t => templateAppliesToLead(t, lead))
+        .filter(t => String(t.type || "quick") === "quick");
+      return allowed.find(t => normalizeDashboardTemplateMatch(dashboardTemplateLabel(t)) === labelNorm)
+        || allowed.find(t => normalizeDashboardTemplateMatch(dashboardTemplateLabel(t)).includes(labelNorm))
+        || null;
+    }
+
+    function insertDashboardTemplate(t){
+      if(!t) return false;
+      const templateSelect = el("chatTemplateSelect");
+      const quickSelect = el("chatQuickMessageSelect");
+      if(String(t.type || "quick") === "quick" && quickSelect) quickSelect.value = t.id;
+      if(String(t.type || "quick") !== "quick" && templateSelect) templateSelect.value = t.id;
+      return applyDashboardTemplateToMessage(t, true);
+    }
+
+    function applyDashboardTemplateToMessage(t, force=true){
+      if(!t) return false;
+      const text = applyTemplateVariables(dashboardTemplateText(t), dashboardChatState.lead || {});
+      if(!String(text || "").trim()) return false;
+      const textarea = el("chatReplyText");
+      if(!textarea) return false;
+
+      if(force || !textarea.value.trim()){
+        textarea.value = text;
+      }
+      textarea.focus();
+      return true;
+    }
+
+    function clearDashboardTemplateSelectionForFreeText(){
+      const templateSelect = el("chatTemplateSelect");
+      const quickSelect = el("chatQuickMessageSelect");
+      const textarea = el("chatReplyText");
+
+      if(templateSelect) templateSelect.value = "";
+      if(quickSelect) quickSelect.value = "";
+      if(textarea){
+        textarea.value = "";
+        textarea.placeholder = "اكتب رسالة نص حر هنا... Enter للإرسال و Shift + Enter لسطر جديد";
+      }
+    }
+
+    function selectDashboardTemplateByStatus(status){
+      if(dashboardStatusNeedsMessageClear(status)){
+        clearDashboardTemplateSelectionForFreeText();
+        return false;
+      }
+
+      const quickName = dashboardQuickMessageNameForStatus(status);
+      if(quickName){
+        const quick = findDashboardQuickMessageByLabel(quickName);
+        const templateSelect = el("chatTemplateSelect");
+        if(templateSelect) templateSelect.value = "";
+        if(quick) return insertDashboardTemplate(quick);
+        clearDashboardTemplateSelectionForFreeText();
+        return false;
+      }
+
+      const template = findDashboardTemplateByStatus(status);
+      const select = el("chatTemplateSelect");
+      if(!template || !select){
+        clearDashboardTemplateSelectionForFreeText();
+        return false;
+      }
+
+      select.value = template.id;
+      if(el("chatQuickMessageSelect")) el("chatQuickMessageSelect").value = "";
+      applyDashboardTemplateToMessage(template, true);
+      return true;
+    }
+
+    function onDashboardStatusChanged(){
+      updateDashboardStatusVisual();
+      updateChatCompletionProgress();
+      selectDashboardTemplateByStatus(el("chatStatus")?.value || "");
+      scheduleDashboardStatusSave();
+    }
+
+    function scheduleDashboardStatusSave(){
+      clearTimeout(dashboardStatusSaveTimer);
+      dashboardStatusSaveTimer = setTimeout(saveDashboardStatusOnly, 300);
+    }
+
+    function dashboardConversationSyncIds(lead, extra = {}){
+      const phone = normalizeKsaPhone(extra.phone || phoneOfLead(lead));
+      return [...new Set([
+        dashboardChatState.convId,
+        extra.conversationId,
+        extra.convId,
+        lead?.conversationId,
+        lead?.convId,
+        lead?.contactKey,
+        lead?.participantId,
+        lead?.fbId,
+        lead?.igId,
+        lead?.tiktokId,
+        lead?.waId,
+        lead?.__id,
+        lead?.id,
+        phone,
+        phone ? "wa_" + phone : ""
+      ].filter(Boolean).map(String))];
+    }
+
+    function dashboardPayloadHasCustomerData(payload){
+      return Object.prototype.hasOwnProperty.call(payload, "customerName")
+        || Object.prototype.hasOwnProperty.call(payload, "phone")
+        || Object.prototype.hasOwnProperty.call(payload, "car")
+        || Object.prototype.hasOwnProperty.call(payload, "notes");
+    }
+
+    function dashboardCustomerNestedPayload(payload){
+      return {
+        customer:{
+          customerName: payload.customerName || "",
+          fullName: payload.fullName || payload.customerName || "",
+          name: payload.name || payload.customerName || "",
+          phone: payload.phone || "",
+          mobile: payload.mobile || payload.phone || "",
+          phoneNumber: payload.phoneNumber || payload.phone || "",
+          phoneNormalized: payload.phoneNormalized || normalizeKsaPhone(payload.phone),
+          age: payload.age || "",
+          salary: payload.salary || "",
+          salaryBank: payload.salaryBank || payload.bank || "",
+          bank: payload.bank || payload.salaryBank || "",
+          obligation: payload.obligation || "",
+          commitment: payload.commitment || payload.obligation || "",
+          location: payload.location || "",
+          car: payload.car || "",
+          carName: payload.carName || payload.car || "",
+          carType: payload.carType || payload.car || "",
+          model: payload.model || payload.carModel || "",
+          carModel: payload.carModel || payload.model || "",
+          color: payload.color || "",
+          financeType: payload.financeType || "",
+          notes: payload.notes || ""
+        }
+      };
+    }
+
+    function dashboardConversationCollectionsForLead(lead){
+      const preferred = chatPlatformConfig(dashboardChatState.platform || platformOf(lead)).conversations;
+      return [...new Set([
+        preferred,
+        CHAT_PLATFORM_CONFIG.whatsapp.conversations,
+        CHAT_PLATFORM_CONFIG.instagram.conversations,
+        CHAT_PLATFORM_CONFIG.facebook.conversations,
+        CHAT_PLATFORM_CONFIG.tiktok.conversations
+      ].filter(Boolean))];
+    }
+
+    function dashboardSavedCustomerFieldsFromData(data = {}){
+      const customer = data.customer && typeof data.customer === "object" ? data.customer : {};
+      const src = { ...data, ...customer };
+      return {
+        customerName: src.customerName || src.fullName || src.name || "",
+        fullName: src.fullName || src.customerName || src.name || "",
+        name: src.name || src.customerName || src.fullName || "",
+        phone: src.phone || src.mobile || src.phoneNumber || "",
+        mobile: src.mobile || src.phone || src.phoneNumber || "",
+        phoneNumber: src.phoneNumber || src.phone || src.mobile || "",
+        phoneNormalized: src.phoneNormalized || normalizeKsaPhone(src.phone || src.mobile || src.phoneNumber),
+        age: src.age || src.customerAge || "",
+        salary: src.salary || src.monthlySalary || "",
+        salaryBank: src.salaryBank || src.bank || "",
+        bank: src.bank || src.salaryBank || "",
+        obligation: src.obligation || src.commitment || "",
+        commitment: src.commitment || src.obligation || "",
+        location: src.location || src.city || src.place || "",
+        car: src.car || src.carName || src.carType || src.vehicleName || "",
+        carName: src.carName || src.car || src.carType || "",
+        carType: src.carType || src.car || src.carName || "",
+        model: src.model || src.carModel || "",
+        carModel: src.carModel || src.model || "",
+        color: src.color || src.carColor || "",
+        financeType: src.financeType || src.financePercent || src.financePercentage || src.downPaymentPercent || "",
+        notes: src.notes || src.remarks || src.comment || "",
+        followupDate: src.followupDate || src.followUpDate || src.nextFollowupDate || src.appointmentDate || "",
+        followUpDate: src.followUpDate || src.followupDate || src.nextFollowupDate || src.appointmentDate || "",
+        nextFollowupDate: src.nextFollowupDate || src.followUpDate || src.followupDate || src.appointmentDate || "",
+        appointmentDate: src.appointmentDate || src.nextFollowupDate || src.followUpDate || src.followupDate || ""
+      };
+    }
+
+    function dashboardHasAnySavedCustomerField(data = {}){
+      return Object.values(dashboardSavedCustomerFieldsFromData(data)).some(v => String(v || "").trim() !== "");
+    }
+
+    async function loadDashboardSavedCustomerData(lead){
+      const ids = dashboardConversationSyncIds(lead, { phone: phoneOfLead(lead) });
+      const collections = dashboardConversationCollectionsForLead(lead);
+      for(const col of collections){
+        for(const id of ids){
+          try{
+            const snap = await getDoc(doc(db, col, id));
+            if(!snap.exists()) continue;
+            const saved = dashboardSavedCustomerFieldsFromData(snap.data() || {});
+            if(!dashboardHasAnySavedCustomerField(saved)) continue;
+            Object.entries(saved).forEach(([key, value]) => {
+              if(value !== undefined && value !== null && String(value).trim() !== "") lead[key] = value;
+            });
+            if(lead.__id){
+              setDoc(doc(db, "leads", lead.__id), saved, { merge:true }).catch(() => {});
+            }
+            return true;
+          }catch(e){
+            console.warn("saved customer read skipped", col, id, e);
+          }
+        }
+      }
+      return false;
+    }
+
+    async function syncDashboardCustomerEverywhere(lead, payload){
+      const cfg = chatPlatformConfig(dashboardChatState.platform || platformOf(lead));
+      const convPayload = {
+        ...payload,
+        ...(dashboardPayloadHasCustomerData(payload) ? dashboardCustomerNestedPayload(payload) : {}),
+        conversationId: dashboardChatState.convId || lead?.conversationId || lead?.convId || "",
+        convId: dashboardChatState.convId || lead?.convId || lead?.conversationId || "",
+        platform: dashboardChatState.platform || platformOf(lead),
+        channel: dashboardChatState.platform || platformOf(lead),
+        department: payload.department || leadDepartment(lead),
+        phoneNormalized: payload.phoneNormalized || normalizeKsaPhone(payload.phone || phoneOfLead(lead))
+      };
+
+      const ids = dashboardConversationSyncIds(lead, convPayload);
+      const conversationWrites = [];
+      dashboardConversationCollectionsForLead(lead).forEach(col => {
+        ids.forEach(id => conversationWrites.push(setDoc(doc(db, col, id), convPayload, { merge:true })));
+      });
+
+      let leadWriteError = null;
+      if(lead?.__id){
+        try{
+          await setDoc(doc(db, "leads", lead.__id), payload, { merge:true });
+        }catch(err){
+          leadWriteError = err;
+          console.warn("lead customer save skipped", err);
+        }
+      }
+
+      const results = conversationWrites.length ? await Promise.allSettled(conversationWrites) : [];
+      const hasConversationSave = results.some(r => r.status === "fulfilled");
+      if(leadWriteError && !hasConversationSave) throw leadWriteError;
+    }
+
+    async function saveDashboardStatusOnly(){
+      const lead = dashboardChatState.lead;
+      const status = el("chatStatus")?.value || "";
+      if(!lead?.__id || !status) return;
+      if(normalizeDashboardStatusKey(status) === normalizeDashboardStatusKey(getLeadStatus(lead))) return;
+
+      const payload = {
+        status,
+        statusLabel: status,
+        leadStatus: status,
+        currentStatus: status,
+        currentStatusLabel: status,
+        clientStatus: status,
+        customerStatus: status,
+        updatedByUid: currentUser?.uid || "",
+        updatedByEmail: currentUser?.email || "",
+        updatedAt: serverTimestamp(),
+        lastUpdated: serverTimestamp()
+      };
+
+      try{
+        await syncDashboardCustomerEverywhere(lead, payload);
+        Object.assign(lead, payload);
+        renderDashboard();
+        toast("تم تحديث حالة العميل");
+      }catch(err){
+        console.error(err);
+        toast("تعذر تحديث الحالة - راجع صلاحيات Firestore");
+      }
+    }
+
+
+    function insertSelectedDashboardTemplate(){
+      const t = selectedDashboardTemplate();
+      if(!t) return toast("اختر قالب أولاً");
+      if(!applyDashboardTemplateToMessage(t, true)) return toast("القالب لا يحتوي على رسالة");
+    }
+
+    function dashboardTemplateParams(t){
+      const candidates = [t?.params, t?.parameters, t?.templateParams, t?.template?.params, t?.template?.parameters];
+      for(const v of candidates){
+        if(Array.isArray(v)) return v;
+      }
+      return [];
+    }
+
+    function dashboardMersalTemplateName(t){
+      return String(t?.template_name || t?.templateName || t?.template?.name || "").trim();
+    }
+
+    function dashboardMersalIsTemplate(t){
+      return !!t && String(t?.type || "").toLowerCase() === "mersal" && !!dashboardMersalTemplateName(t);
+    }
+
+    function dashboardMersalPayload(t, phone, text){
+      if(dashboardMersalIsTemplate(t)){
+        return {
+          phone,
+          template_name:dashboardMersalTemplateName(t),
+          template_language:String(t?.template_language || t?.templateLang || t?.lang || t?.template?.lang || "ar").trim() || "ar",
+          params:dashboardTemplateParams(t),
+          components:Array.isArray(t?.components) ? t.components : undefined,
+          message:text
+        };
+      }
+      return { phone, message:text, text };
+    }
+
+    async function sendDashboardMersalDirect({ phone, text, selectedTemplate }){
+      const isTemplate = dashboardMersalIsTemplate(selectedTemplate);
+      const endpoint = isTemplate ? MERSAL_SEND_TEMPLATE_MESSAGE_ENDPOINT : MERSAL_SEND_MESSAGE_ENDPOINT;
+      const payload = dashboardMersalPayload(selectedTemplate, phone, text);
+      const res = await fetch(endpoint, {
+        method:"POST",
+        headers:{ "content-type":"application/json" },
+        body:JSON.stringify(payload)
+      });
+      const result = await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }));
+      if(!res.ok || result.ok === false){
+        throw new Error(result.error || result.message || result.raw || "mersal send failed");
+      }
+      return result;
+    }
+
+    function listenDashboardTemplates(){
+      if(dashboardChatState.unsubTemplates) dashboardChatState.unsubTemplates();
+      const q = query(collection(db, "message_templates"), orderBy("sort", "asc"));
+      dashboardChatState.unsubTemplates = onSnapshot(q, snap => {
+        dashboardChatState.templates = [];
+        snap.forEach(d => dashboardChatState.templates.push({ id:d.id, ...d.data() }));
+        renderDashboardTemplateOptions();
+      }, err => {
+        console.error(err);
+        dashboardChatState.templates = [];
+      });
+    }
+
+
+    function normalizeDashboardStatusKey(value){
+      return String(value || "")
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/[–—−]/g, "-")
+        .replace(/\s*-\s*/g, " - ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+
+    function uniqueDashboardStatuses(values){
+      const seen = new Set();
+      const out = [];
+      values.filter(Boolean).forEach(v => {
+        const label = String(v || "").trim();
+        const key = normalizeDashboardStatusKey(label);
+        if(!key || seen.has(key)) return;
+        seen.add(key);
+        out.push(label);
+      });
+      return out;
+    }
+
+    function dashboardStatusTone(status){
+      const s = normalizeDashboardStatusKey(status);
+      if(!s) return "neutral";
+      if(s.includes("تم البيع") || s.includes("تم الانتهاء") || s.includes("تم الموافقه") || s.includes("تم توقيع العقد") || s.includes("مؤهل")) return "success";
+      if(s.includes("مؤجل") || s.includes("تاخر")) return "warning";
+      if(s.includes("غير مؤهل") || s.includes("لم تتم الموافقه") || s.includes("لم يتم توقيع")) return "danger";
+      if(s.includes("تم الاتصال") || s.includes("تم الرد") || s.includes("جاري") || s.includes("طلب")) return "info";
+      return "neutral";
+    }
+
+    function updateDashboardStatusVisual(){
+      const select = el("chatStatus");
+      const box = el("chatFollowupDateBox");
+      if(!select) return;
+
+      const tone = dashboardStatusTone(select.value);
+      select.classList.remove("status-tone-success","status-tone-warning","status-tone-danger","status-tone-info","status-tone-neutral");
+      select.classList.add("status-tone-" + tone);
+
+      if(box){
+        const isDeferred = normalizeDashboardStatusKey(select.value).includes("مؤجل");
+        box.classList.toggle("hidden", !isDeferred);
+        if(!isDeferred && el("chatFollowupDate")) el("chatFollowupDate").value = "";
+      }
+    }
+
+
+    function statusOptionsForLead(lead){
+      const dept = leadDepartment(lead);
+      const def = Object.values(SECTION_DEFS).find(x => x.department === dept) || SECTION_DEFS.cash;
+      const statuses = [];
+      def.statuses.forEach(st => {
+        const titleKey = normalizeDashboardStatusKey(st.title);
+        if(titleKey === normalizeDashboardStatusKey("إجمالي العملاء") || titleKey === normalizeDashboardStatusKey("الكول سنتر")) return;
+        statuses.push(st.title);
+      });
+      return uniqueDashboardStatuses(statuses);
+    }
+
+    function fillDashboardChatStatusOptions(lead){
+      const select = el("chatStatus");
+      const current = getLeadField(lead, ["status","leadStatus","currentStatus","clientStatus","customerStatus","pipelineStatus"], "عميل جديد");
+      const options = statusOptionsForLead(lead);
+      const currentKey = normalizeDashboardStatusKey(current);
+      if(current && !options.some(v => normalizeDashboardStatusKey(v) === currentKey)) options.unshift(current);
+      select.innerHTML = uniqueDashboardStatuses(options).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+      const matchedCurrent = options.find(v => normalizeDashboardStatusKey(v) === currentKey);
+      select.value = matchedCurrent || (options[0] || "عميل جديد");
+      updateDashboardStatusVisual();
+      selectDashboardTemplateByStatus(select.value);
+    }
+
+
+    function normalizeDateTimeLocalValue(value){
+      if(!value) return "";
+      try{
+        const d = value?.toDate ? value.toDate() : new Date(value);
+        if(!d || Number.isNaN(d.getTime())) return "";
+        const pad = n => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }catch(e){
+        return "";
+      }
+    }
+
+
+    function fillDashboardChatCustomerForm(lead){
+      el("chatCustomerName").textContent = customerName(lead);
+      el("chatCustomerMeta").textContent = customerMeta(lead) || "لا توجد بيانات إضافية";
+      fillDashboardChatStatusOptions(lead);
+      el("chatSource").value = getLeadField(lead, ["sourceName","source","leadSource","campaignSource","platform","channel"], "");
+      el("chatDepartment").value = departmentLabel(leadDepartment(lead));
+      if(el("chatTransferDepartment")){
+        const currentDept = leadDepartment(lead);
+        el("chatTransferDepartment").value = "";
+        Array.from(el("chatTransferDepartment").options).forEach(opt => {
+          if(!opt.value) return;
+          opt.disabled = opt.value === currentDept;
+        });
+      }
+      el("chatName").value = customerName(lead) === "عميل بدون اسم" ? "" : customerName(lead);
+      el("chatPhone").value = phoneOfLead(lead) || "";
+      el("chatAge").value = getLeadField(lead, ["age","customerAge"]);
+      el("chatSalary").value = getLeadField(lead, ["salary","monthlySalary"]);
+      el("chatObligation").value = getLeadField(lead, ["obligation","commitment"]);
+      el("chatSalaryBank").value = getLeadField(lead, ["salaryBank","bank"]);
+      el("chatLocation").value = getLeadField(lead, ["location","city","place"]);
+      el("chatCar").value = getLeadField(lead, ["car","carName","carType","vehicleName"]);
+      el("chatModel").value = getLeadField(lead, ["model","carModel"]);
+      el("chatColor").value = getLeadField(lead, ["color","carColor"]);
+      fillDashboardFinanceTypeSelect(getLeadField(lead, ["financeType","financePercent","financePercentage","downPaymentPercent"]));
+      el("chatNotes").value = getLeadField(lead, ["notes","remarks","comment"]);
+      if(el("chatFollowupDate")){
+        el("chatFollowupDate").value = normalizeDateTimeLocalValue(getLeadField(lead, ["followupDate","followUpDate","nextFollowupDate","appointmentDate","scheduledAt"]));
+      }
+      updateDashboardStatusVisual();
+      updateChatCompletionProgress();
+    }
+
+    function inboxCompletionFromData(data = {}){
+      // V40: نفس منطق صندوق الوارد بعد استبعاد الملاحظات وروابط/ملاحظات الملفات
+      const fields = [
+        "customerName","phone","salary","obligation","location","age","salaryBank",
+        "carType","carModel","color","financeType"
+      ];
+      const filled = fields.filter(f => {
+        const v = data[f];
+        return Array.isArray(v) ? v.length : String(v || "").trim();
+      }).length;
+      return Math.round((filled / fields.length) * 100);
+    }
+
+    async function loadActualInboxCompletionForLead(lead){
+      const platform = platformOf(lead);
+      const cfg = chatPlatformConfig(platform);
+      const convId = resolveChatConversationId(lead);
+      const candidates = [...new Set([
+        convId,
+        lead.conversationId,
+        lead.convId,
+        lead.contactKey,
+        lead.participantId,
+        lead.fbId,
+        lead.igId,
+        lead.tiktokId,
+        lead.__id,
+        String(convId || "").replace(/^wa_/, ""),
+        normalizeKsaPhone(phoneOfLead(lead)),
+        normalizeKsaPhone(phoneOfLead(lead)) ? "wa_" + normalizeKsaPhone(phoneOfLead(lead)) : ""
+      ].filter(Boolean).map(String))];
+
+      for(const id of candidates){
+        try{
+          const snap = await getDoc(doc(db, cfg.conversations, id));
+          if(!snap.exists()) continue;
+          const data = snap.data() || {};
+          // لا نستخدم profileCompletion المخزن لأنه ممكن يكون محسوب بقواعد قديمة.
+          // نحسب من بيانات customer نفسها عشان كارت الداش بورد يطابق Popup العميل.
+          if(data.customer) return inboxCompletionFromData(data.customer);
+          return inboxCompletionFromData(data);
+        }catch(e){
+          console.warn("completion read skipped", id, e);
+        }
+      }
+      return null;
+    }
+
+    function updateChatCompletionProgress(){
+      let pct = dashboardChatState.actualCompletion;
+      if(typeof pct !== "number"){
+        const data = {
+          customerName: el("chatName")?.value || "",
+          phone: el("chatPhone")?.value || "",
+          salary: el("chatSalary")?.value || "",
+          obligation: el("chatObligation")?.value || "",
+          location: el("chatLocation")?.value || "",
+          age: el("chatAge")?.value || "",
+          salaryBank: el("chatSalaryBank")?.value || getLeadField(dashboardChatState.lead || {}, ["salaryBank","bank"]),
+          carType: el("chatCar")?.value || "",
+          carModel: el("chatModel")?.value || "",
+          color: el("chatColor")?.value || "",
+          financeType: el("chatPayment")?.value || ""
+        };
+        pct = inboxCompletionFromData(data);
+      }
+      const badge = document.getElementById("chatProgressBadge");
+      if(badge) badge.textContent = pct + "% مكتمل";
+      updateDashboardCreditLimitResult();
+    }
+
+    function formatMessageTime(value){
+      const d = value?.toDate ? value.toDate() : value ? new Date(value) : null;
+      if(!d || Number.isNaN(d.getTime())) return "";
+      return d.toLocaleString("ar-EG", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit" });
+    }
+
+    function messageSortTime(m){
+      const values = [
+        m.createdAt, m.sentAt, m.receivedAt, m.timestamp, m.time,
+        m.messageTimestamp, m.lastMessageAt, m.updatedAt, m.created_time,
+        m.date, m.createdAtMs, m.createdAtSeconds
+      ].filter(v => v !== undefined && v !== null && String(v).trim() !== "");
+
+      for(const value of values){
+        if(value?.toDate) return value.toDate().getTime();
+        if(typeof value === "number") return value < 9999999999 ? value * 1000 : value;
+        const raw = String(value).trim();
+        if(/^\d+(?:\.\d+)?$/.test(raw)){
+          const n = Number(raw);
+          if(Number.isFinite(n)) return n < 9999999999 ? n * 1000 : n;
+        }
+        const parsed = Date.parse(raw);
+        if(Number.isFinite(parsed)) return parsed;
+      }
+
+      const docTime = String(m.id || "").match(/^(\d{10,13})/);
+      if(docTime){
+        const n = Number(docTime[1]);
+        if(Number.isFinite(n)) return n < 9999999999 ? n * 1000 : n;
+      }
+      return 0;
+    }
+
+    function messageText(m){
+      return m.text || m.body || m.message || m.caption || m.content || m.lastMessageText || "";
+    }
+
+    function isDashboardOutgoingMessage(m){
+      const norm = v => String(v ?? "").trim().toLowerCase();
+      const text = norm(messageText(m));
+      const direction = norm(m?.direction || m?.messageDirection || m?.statusDirection || m?.dir);
+      const type = norm(m?.type || m?.messageType || m?.kind || m?.messageKind);
+      const status = norm(m?.status || m?.deliveryStatus);
+      const senderType = norm(m?.senderType || m?.role || m?.authorType || m?.actorType);
+      const senderId = norm(m?.senderId || m?.from || m?.authorId || m?.createdBy || m?.userId);
+      const senderName = norm(m?.senderName || m?.authorName || m?.createdByName || m?.sentByName);
+      const currentUid = norm(currentUser?.uid || "");
+      const currentEmail = norm(currentUser?.email || "");
+      const phone = norm(phoneOfLead(dashboardChatState.lead || {})).replace(/\D/g, "");
+      const fromPhone = norm(m?.from || m?.phone || m?.waId || m?.senderPhone || m?.customerPhone).replace(/\D/g, "");
+
+      const incomingWords = ["in","incoming","inbound","customer","client","received","receive","user","lead","reply_from_customer","from_customer"];
+      const outgoingWords = ["out","outgoing","outbound","agent","sent_by_agent","system","admin","automation","reply","from_agent","to_customer"];
+
+      if(m?.fromAgent === true || m?.isAgent === true || m?.mine === true || m?.isMine === true || m?.fromMe === true || m?.isFromMe === true) return true;
+      if(m?.fromCustomer === true || m?.isCustomer === true || m?.mine === false || m?.isMine === false || m?.fromMe === false || m?.isFromMe === false) return false;
+
+      if(currentUid && norm(m?.sentByUid || m?.updatedByUid || m?.createdByUid) === currentUid) return true;
+      if(currentEmail && norm(m?.sentByEmail || m?.updatedByEmail || m?.createdByEmail) === currentEmail) return true;
+      if(m?.sentByUid || m?.sentByEmail || m?.agentUid || m?.adminUid) return true;
+
+      if(incomingWords.includes(direction) || incomingWords.includes(senderType) || incomingWords.includes(type)) return false;
+      if(outgoingWords.includes(direction) || outgoingWords.includes(senderType) || outgoingWords.includes(type)) return true;
+
+      // Do not treat status/type "sent" alone as proof that the message is ours;
+      // some webhook payloads use delivery-like values for customer replies too.
+      if(["delivered","read","pending","queued","failed"].includes(status) && (m?.sentByUid || m?.fromAgent === true)) return true;
+      if(status === "received" || status === "incoming") return false;
+
+      if(phone && fromPhone && fromPhone.endsWith(phone.slice(-9))) return false;
+      if(["automation","system","agent","admin","crm"].includes(senderId)) return true;
+      if(senderName.includes("automation") || senderName.includes("facebook automation") || senderName.includes("system") || senderName.includes("السيستم") || senderName.includes("admin") || senderName.includes("مندوب")) return true;
+
+      // Short numeric replies are almost always customer choices/replies in these conversations.
+      if(/^\d{1,6}$/.test(text)) return false;
+      return false;
+    }
+
+
+    function messageAttachmentUrl(m){
+      return String(
+        m.mediaUrl || m.fileUrl || m.attachmentUrl || m.imageUrl || m.documentUrl ||
+        m.url || m.link || m.href || ""
+      ).trim();
+    }
+
+    function messageAttachmentName(m){
+      const type = String(m.attachmentType || m.type || "").toLowerCase();
+      const fallback =
+        type === "image" ? "تحميل الصورة" :
+        type === "audio" ? "تحميل الصوت" :
+        type === "video" ? "تحميل الفيديو" :
+        type === "sticker" ? "تحميل الملصق" :
+        "تحميل المرفق";
+
+      return String(m.fileName || m.filename || m.name || m.originalName || fallback).trim();
+    }
+
+    function messageAttachmentMime(m){
+      return String(m.mimeType || m.mime_type || m.contentType || "").toLowerCase();
+    }
+
+    function messageAttachmentType(m){
+      const explicit = String(m.attachmentType || m.type || m.messageType || "").toLowerCase();
+      const mime = messageAttachmentMime(m);
+      const url = messageAttachmentUrl(m).toLowerCase();
+      const name = messageAttachmentName(m).toLowerCase();
+
+      if(explicit === "image" || mime.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|#|$)/i.test(url) || /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(name)) return "image";
+      if(explicit === "audio" || explicit === "voice" || mime.startsWith("audio/") || /\.(mp3|m4a|aac|ogg|oga|wav|webm)(\?|#|$)/i.test(url) || /\.(mp3|m4a|aac|ogg|oga|wav|webm)$/i.test(name)) return "audio";
+      if(explicit === "video" || mime.startsWith("video/") || /\.(mp4|mov|m4v|webm|avi|mkv)(\?|#|$)/i.test(url) || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(name)) return "video";
+      if(explicit === "sticker") return "sticker";
+      return url ? "file" : "";
+    }
+
+    function messageAttachmentHtml(m){
+      const url = messageAttachmentUrl(m);
+      if(!url) return "";
+
+      const name = messageAttachmentName(m);
+      const type = messageAttachmentType(m);
+      const safeUrl = escapeHtml(url);
+      const safeName = escapeHtml(name);
+
+      if(type === "image" || type === "sticker"){
+        return `
+          <div class="dash-msg-attachment">
+            <a href="${safeUrl}" target="_blank" rel="noopener" title="فتح المرفق">
+              <img src="${safeUrl}" alt="${safeName}" class="dash-msg-attachment-img" loading="lazy">
+            </a>
+            <a class="dash-msg-download" href="${safeUrl}" target="_blank" download rel="noopener">تحميل الصورة</a>
+          </div>
+        `;
+      }
+
+      if(type === "audio"){
+        return `
+          <div class="dash-msg-attachment dash-msg-attachment-audio">
+            <audio controls src="${safeUrl}" preload="metadata"></audio>
+            <a class="dash-msg-download" href="${safeUrl}" target="_blank" download rel="noopener">${safeName}</a>
+          </div>
+        `;
+      }
+
+      if(type === "video"){
+        return `
+          <div class="dash-msg-attachment">
+            <video controls src="${safeUrl}" class="dash-msg-video" preload="metadata"></video>
+            <a class="dash-msg-download" href="${safeUrl}" target="_blank" download rel="noopener">${safeName}</a>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="dash-msg-attachment">
+          <a class="dash-msg-file" href="${safeUrl}" target="_blank" download rel="noopener">
+            <span class="dash-msg-file-icon">📎</span>
+            <span class="dash-msg-file-name">${safeName}</span>
+          </a>
+        </div>
+      `;
+    }
+
+    function renderDashboardMessages(messages){
+      const box = el("chatMessages");
+      if(!messages.length){
+        box.innerHTML = `<div class="empty">لا توجد رسائل لهذه المحادثة.</div>`;
+        return;
+      }
+      const ordered = messages.slice().sort((a,b) => messageSortTime(a) - messageSortTime(b));
+      box.innerHTML = ordered.map(m => {
+        const outgoing = isDashboardOutgoingMessage(m);
+        const attachmentHtml = messageAttachmentHtml(m);
+        const text = messageText(m) || (attachmentHtml ? "" : "رسالة");
+        return `
+          <div class="dash-msg-row ${outgoing ? "out" : "in"}">
+            <div class="dash-msg ${outgoing ? "out" : "in"}">
+              ${text ? `<div class="dash-msg-text">${escapeHtml(text)}</div>` : ""}
+              ${attachmentHtml}
+              <small>${escapeHtml(formatMessageTime(m.createdAt || m.sentAt || m.receivedAt || m.timestamp || m.time || m.messageTimestamp || m.lastMessageAt || m.updatedAt))}</small>
+            </div>
+          </div>
+        `;
+      }).join("");
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function listenDashboardChatMessages(){
+      if(dashboardChatState.unsubMessages) dashboardChatState.unsubMessages();
+      dashboardChatState.unsubMessages = null;
+
+      const cfg = chatPlatformConfig(dashboardChatState.platform);
+      const convId = dashboardChatState.convId;
+      if(!convId){
+        renderDashboardMessages([]);
+        return;
+      }
+
+      // لا نستخدم orderBy("createdAt") هنا لأن بعض رسائل العميل القادمة من الوركر
+      // لا تحتوي createdAt، وقد تحتوي timestamp / time / receivedAt بدلاً منها.
+      // Firestore يستبعد أي document لا يحتوي حقل orderBy، لذلك كانت تظهر رسائل الأوتوميشن فقط.
+      dashboardChatState.unsubMessages = onSnapshot(collection(db, cfg.conversations, convId, "messages"), snap => {
+        const messages = [];
+        snap.forEach(d => messages.push({ id:d.id, ...d.data() }));
+        messages.sort((a,b) => messageSortTime(a) - messageSortTime(b));
+        renderDashboardMessages(messages);
+      }, err => {
+        console.error(err);
+        el("chatMessages").innerHTML = `<div class="empty">تعذر تحميل رسائل المحادثة.</div>`;
+      });
+    }
+
+    async function openLeadChatPopup(lead){
+      ensureDashboardChatModal();
+      dashboardChatState.lead = lead;
+      dashboardChatState.platform = platformOf(lead);
+      dashboardChatState.convId = resolveChatConversationId(lead);
+      dashboardChatState.actualCompletion = null;
+
+      await loadDashboardSavedCustomerData(lead);
+      fillDashboardChatCustomerForm(lead);
+      renderDashboardTemplateOptions();
+      el("chatReplyText").value = "";
+      document.getElementById("dashboardChatModal").classList.remove("hidden");
+      el("chatMessages").innerHTML = `<div class="empty">جاري تحميل الرسائل...</div>`;
+
+      const cfg = chatPlatformConfig(dashboardChatState.platform);
+      if(dashboardChatState.convId){
+        try{
+          await setDoc(doc(db, cfg.conversations, dashboardChatState.convId), {
+            conversationId: dashboardChatState.convId,
+            convId: dashboardChatState.convId,
+            platform: dashboardChatState.platform,
+            channel: dashboardChatState.platform,
+            channelCode: dashboardChatState.platform === "facebook" ? "fb" : dashboardChatState.platform === "whatsapp" ? "wa" : dashboardChatState.platform,
+            customerName: customerName(lead),
+            phone: phoneOfLead(lead) || "",
+            phoneNormalized: normalizeKsaPhone(phoneOfLead(lead)),
+            department: leadDepartment(lead),
+            updatedAt: serverTimestamp()
+          }, { merge:true });
+        }catch(e){ console.warn("conversation upsert skipped", e); }
+      }
+      listenDashboardChatMessages();
+      // V45: لا نقرأ نسبة قديمة من وثيقة المحادثة. النسبة من بيانات الليد الحالية فقط.
+      dashboardChatState.actualCompletion = null;
+      updateChatCompletionProgress();
+    }
+
+    function closeLeadChatPopup(){
+      if(dashboardChatState.unsubMessages) dashboardChatState.unsubMessages();
+      dashboardChatState.unsubMessages = null;
+      dashboardChatState.lead = null;
+      const modal = document.getElementById("dashboardChatModal");
+      if(modal) modal.classList.add("hidden");
+    }
+
+    async function sendDashboardChatReply(){
+      const lead = dashboardChatState.lead;
+      const text = el("chatReplyText").value.trim();
+      if(!lead) return toast("لا يوجد عميل محدد");
+      if(!text) return toast("اكتب الرسالة أولاً");
+
+      const platform = dashboardChatState.platform;
+      const cfg = chatPlatformConfig(platform);
+      const selectedTemplate = selectedDashboardTemplate();
+      const convId = dashboardChatState.convId || resolveChatConversationId(lead);
+      if(!convId) return toast("لا توجد محادثة أو رقم لهذا العميل");
+
+      try{
+        if(platform === "facebook"){
+          const res = await fetch(FACEBOOK_SEND_ENDPOINT, {
+            method:"POST",
+            headers:{ "content-type":"application/json" },
+            body:JSON.stringify({
+              convId,
+              conversationId:convId,
+              psid: lead.participantId || lead.fbId || lead.manychatContactId || convId,
+              text,
+              message:text,
+              template:selectedTemplate || null
+            })
+          });
+          const result = await res.json().catch(() => ({}));
+          if(!res.ok || result.ok === false) throw new Error(result.error || "facebook send failed");
+        } else if(platform === "tiktok") {
+          const participantId = lead.participantId || lead.tiktokId || lead.manychatContactId || convId;
+          const res = await fetch(TIKTOK_SEND_ENDPOINT, {
+            method:"POST",
+            headers:{ "content-type":"application/json" },
+            body:JSON.stringify({
+              convId,
+              conversationId:convId,
+              subscriber_id:participantId,
+              subscriberId:participantId,
+              participantId,
+              displayName:customerName(lead),
+              name:customerName(lead),
+              text,
+              message:text,
+              serviceKey:lead.serviceKey || lead.autoService || "cs",
+              saveMessage:false
+            })
+          });
+          const result = await res.json().catch(() => ({}));
+          if(!res.ok || result.ok === false) throw new Error(result.error || "tiktok send failed");
+
+          await addDoc(collection(db, cfg.conversations, convId, "messages"), {
+            text,
+            direction:"outgoing",
+            fromAgent:true,
+            department:leadDepartment(lead),
+            template: selectedTemplate || null,
+            sentByUid:currentUser?.uid || '',
+            sentByEmail:currentUser?.email || '',
+            createdAt:serverTimestamp(),
+            status:"sent",
+            channel:"تيك توك",
+            channelCode:"tiktok",
+            provider:"manychat"
+          });
+          await setDoc(doc(db, cfg.conversations, convId), {
+            lastMessage:text,
+            lastMessageText:text,
+            updatedAt:serverTimestamp(),
+            lastUpdated:serverTimestamp()
+          }, { merge:true });
+        } else if(platform === "whatsapp") {
+          await sendDashboardMersalDirect({ phone:phoneOfLead(lead) || convId, text, selectedTemplate });
+
+          await addDoc(collection(db, cfg.conversations, convId, "messages"), {
+            text,
+            direction:"outgoing",
+            fromAgent:true,
+            department:leadDepartment(lead),
+            template: selectedTemplate || null,
+            sentByUid:currentUser?.uid || '',
+            sentByEmail:currentUser?.email || '',
+            createdAt:serverTimestamp(),
+            status:"sent"
+          });
+          await setDoc(doc(db, cfg.conversations, convId), {
+            lastMessage:text,
+            lastMessageText:text,
+            updatedAt:serverTimestamp(),
+            lastUpdated:serverTimestamp()
+          }, { merge:true });
+
+          if(cfg.outbox){
+            await addDoc(collection(db, cfg.outbox), {
+              conversationId:convId,
+              platform,
+              department:leadDepartment(lead),
+              to: phoneOfLead(lead),
+              text,
+              status:"sent",
+              messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
+              template: selectedTemplate || null,
+              sentByUid:currentUser?.uid || '',
+              sentByEmail:currentUser?.email || '',
+              createdAt:serverTimestamp()
+            }).catch(console.warn);
+          }
+        } else {
+          if(!cfg.outbox) throw new Error("لا يوجد مسار إرسال مضبوط لهذه المنصة");
+          await addDoc(collection(db, cfg.outbox), {
+            conversationId:convId,
+            platform,
+            department:leadDepartment(lead),
+            to: phoneOfLead(lead),
+            text,
+            status:"pending",
+            messageKind: selectedTemplate?.type === "mersal" ? "mersal_template" : "text",
+            template: selectedTemplate || null,
+            sentByUid:currentUser?.uid || '',
+            sentByEmail:currentUser?.email || '',
+            createdAt:serverTimestamp()
+          });
+          await addDoc(collection(db, cfg.conversations, convId, "messages"), {
+            text,
+            direction:"outgoing",
+            fromAgent:true,
+            department:leadDepartment(lead),
+            template: selectedTemplate || null,
+            sentByUid:currentUser?.uid || '',
+            sentByEmail:currentUser?.email || '',
+            createdAt:serverTimestamp(),
+            status:"pending"
+          });
+          await setDoc(doc(db, cfg.conversations, convId), {
+            lastMessage:text,
+            lastMessageText:text,
+            updatedAt:serverTimestamp()
+          }, { merge:true });
+        }
+        el("chatReplyText").value = "";
+        toast("تم الإرسال");
+      }catch(err){
+        console.error(err);
+        toast("فشل الإرسال. راجع إعدادات الإرسال أو الصلاحيات.");
+      }
+    }
+
+    async function saveDashboardChatCustomer(){
+      const lead = dashboardChatState.lead;
+      if(!lead?.__id) return toast("لا يوجد ليد محدد للحفظ");
+
+      const status = el("chatStatus").value;
+      const transferDepartment = el("chatTransferDepartment")?.value || "";
+      let transferPayload = null;
+      try{
+        transferPayload = await dashboardBuildTransferPayload(lead, transferDepartment);
+      }catch(err){
+        console.error(err);
+        toast(err?.message || "فشل تحويل العميل - راجع صلاحيات الحساب");
+        return;
+      }
+      const effectiveDepartment = transferPayload?.department || leadDepartment(lead);
+      const effectiveStatus = transferPayload?.status || status;
+
+      const payload = {
+        customerName: el("chatName").value.trim(),
+        fullName: el("chatName").value.trim(),
+        name: el("chatName").value.trim(),
+        phone: el("chatPhone").value.trim(),
+        mobile: el("chatPhone").value.trim(),
+        phoneNumber: el("chatPhone").value.trim(),
+        phoneNormalized: normalizeKsaPhone(el("chatPhone").value),
+        age: el("chatAge").value.trim(),
+        salary: el("chatSalary").value.trim(),
+        salaryBank: el("chatSalaryBank").value.trim(),
+        bank: el("chatSalaryBank").value.trim(),
+        obligation: el("chatObligation").value.trim(),
+        commitment: el("chatObligation").value.trim(),
+        location: el("chatLocation").value.trim(),
+        car: el("chatCar").value.trim(),
+        carName: el("chatCar").value.trim(),
+        carType: el("chatCar").value.trim(),
+        model: el("chatModel").value.trim(),
+        carModel: el("chatModel").value.trim(),
+        color: el("chatColor").value.trim(),
+        financeType: el("chatPayment").value || getLeadField(lead, ["financeType","financePercent","financePercentage","downPaymentPercent"], ""),
+        source: getLeadField(lead, ["source","sourceName","leadSource"], ""),
+        sourceName: getLeadField(lead, ["sourceName","source","leadSource"], ""),
+        department: effectiveDepartment,
+        notes: el("chatNotes").value.trim(),
+        followupDate: el("chatFollowupDate")?.value || "",
+        followUpDate: el("chatFollowupDate")?.value || "",
+        nextFollowupDate: el("chatFollowupDate")?.value || "",
+        appointmentDate: el("chatFollowupDate")?.value || "",
+        status: effectiveStatus,
+        statusLabel: effectiveStatus,
+        leadStatus: effectiveStatus,
+        currentStatus: effectiveStatus,
+        currentStatusLabel: effectiveStatus,
+        clientStatus: effectiveStatus,
+        customerStatus: effectiveStatus,
+        ...(transferPayload || {}),
+        updatedAt: serverTimestamp(),
+        lastUpdated: serverTimestamp()
+      };
+
+      try{
+        // حفظ موحد لبيانات العميل والحالة داخل الليد وكل وثائق المحادثة المحتملة حتى يظهر التحديث في النظام كامل.
+        await syncDashboardCustomerEverywhere(lead, payload);
+
+        Object.assign(lead, payload);
+        dashboardChatState.actualCompletion = inboxCompletionFromData({
+          customerName: payload.customerName,
+          phone: payload.phone,
+          salary: payload.salary,
+          salaryBank: payload.salaryBank || "",
+          obligation: payload.obligation,
+          location: payload.location,
+          age: payload.age,
+          salaryBank: payload.salaryBank || "",
+          carType: payload.carType,
+          carModel: payload.carModel,
+          color: payload.color,
+          financeType: payload.financeType || ""
+        });
+        renderDashboard();
+        fillDashboardChatCustomerForm(lead);
+        if(el("chatTransferDepartment")) el("chatTransferDepartment").value = "";
+        toast(transferPayload ? "تم تحويل العميل وتوزيعه على مندوب جديد" : "تم حفظ بيانات العميل");
+      }catch(err){
+        console.error(err);
+        try{
+          const cfg = chatPlatformConfig(dashboardChatState.platform);
+          const convIds = dashboardConversationSyncIds(lead, payload);
+          if(convIds.length){
+            await Promise.allSettled(convIds.map(id => setDoc(doc(db, cfg.conversations, id), { ...payload, ...(dashboardPayloadHasCustomerData(payload) ? dashboardCustomerNestedPayload(payload) : {}) }, { merge:true })));
+            Object.assign(lead, payload);
+            fillDashboardChatCustomerForm(lead);
+            if(el("chatTransferDepartment")) el("chatTransferDepartment").value = "";
+            toast(transferPayload ? "تم تحويل العميل في المحادثة" : "تم حفظ بيانات العميل في المحادثة");
+            return;
+          }
+        }catch(e2){ console.error(e2); }
+        toast("فشل حفظ بيانات العميل - راجع صلاحية تعديل العملاء لهذا الحساب");
+      }
+    }
+
+    function leadCompletionFromLeadData(lead = {}){
+      const data = {
+        customerName: customerName(lead) === "عميل بدون اسم" ? "" : customerName(lead),
+        phone: phoneOfLead(lead),
+        salary: getLeadField(lead, ["salary","monthlySalary"]),
+        obligation: getLeadField(lead, ["obligation","commitment"]),
+        location: getLeadField(lead, ["location","city","place"]),
+        age: getLeadField(lead, ["age","customerAge"]),
+        salaryBank: getLeadField(lead, ["salaryBank","bank"]),
+        carType: getLeadField(lead, ["carType","car","carName","vehicleName"]),
+        carModel: getLeadField(lead, ["carModel","model"]),
+        color: getLeadField(lead, ["color","carColor"]),
+        financeType: getLeadField(lead, ["financeType","payment","paymentType","payType","leadPayment"])
+      };
+      return inboxCompletionFromData(data);
+    }
+
+    function leadCompletionPercent(lead){
+      const id = lead.__id || lead.id || "";
+      if(id && typeof dashboardChatState.completionByLead[id] === "number"){
+        return dashboardChatState.completionByLead[id];
+      }
+      return leadCompletionFromLeadData(lead);
+    }
+
+    function renderCompletionBadge(lead){
+      const id = lead.__id || lead.id || "";
+      // V45: ممنوع أي قراءة أو كاش أو profileCompletion قديم في كروت الداش بورد.
+      // الكارت يحسب من نفس بيانات الليد المعروضة في Popup فقط.
+      const pct = leadCompletionFromLeadData(lead);
+      return `<span class="lead-completion-badge" title="اكتمال ملف العميل" data-completion-lead-id="${escapeHtml(id)}">${pct}% مكتمل</span>`;
+    }
+
+    async function hydrateStatusCompletionBadges(items){
+      // V45: متعمد تعطيل التحديث من وثيقة المحادثة هنا.
+      // السبب: وثائق قديمة فيها profile/customer قديم كانت بتغير نسبة الكارت إلى 45%
+      // بينما Popup العميل يحسب 18% من بيانات الليد الحالية.
+      return;
+    }
+
+    function renderStatusCards(){
+      dashboardChatState.completionByLead = {};
+      const def = SECTION_DEFS[selectedSectionKey];
+      if(!def) return;
+      const all = visibleLeadsForSection(def).filter(dashboardLeadMatchesSearch);
+      const grid = el("statusCards");
+
+      grid.innerHTML = def.statuses.map(statusDef => {
+        const items = all.filter(l => matchesStatus(l, statusDef));
+        return `
+          <div class="dashboard-status-card">
+            <div class="status-card-head">
+              <h4>${escapeHtml(statusDef.title)}</h4>
+              <span>${items.length}</span>
+            </div>
+            <div class="status-card-body">
+              ${items.length ? items.map(l => `
+                <button class="dashboard-customer-link" data-lead-id="${escapeHtml(l.__id)}">
+                  <span class="lead-card-title">
+                    <b>${escapeHtml(customerName(l))}</b>
+                    ${renderCompletionBadge(l)}
+                  </span>
+                  <small>${escapeHtml(customerMeta(l))}</small>
+                </button>
+              `).join("") : `<div class="empty">لا يوجد عملاء داخل هذه الحالة.</div>`}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      grid.querySelectorAll("[data-lead-id]").forEach(btn => {
+        btn.onclick = () => {
+          const lead = leads.find(l => l.__id === btn.dataset.leadId);
+          if(lead) openLeadConversation(lead);
+        };
+      });
+    }
+
+    function renderDashboard(){
+      renderSectionCards();
+      if(selectedSectionKey) renderStatusCards();
+    }
+
+    function injectDashboardStyles(){
+      if(document.getElementById("dashboardV18Styles")) return;
+      const style = document.createElement("style");
+      style.id = "dashboardV18Styles";
+      style.textContent = `
+        .dashboard-section-cards{
+          display:grid;
+          grid-template-columns:repeat(3,minmax(220px,1fr));
+          gap:16px;
+          margin:16px 0 18px;
+        }
+        .dashboard-section-card{
+          text-align:right;
+          border:1px solid var(--line);
+          border-radius:22px;
+          padding:18px;
+          background:#fff;
+          cursor:pointer;
+          box-shadow:0 12px 28px rgba(80,32,24,.06);
+          transition:.2s ease;
+          color:var(--text);
+        }
+        .dashboard-section-card:hover,
+        .dashboard-section-card.active{
+          border-color:var(--accent);
+          transform:translateY(-2px);
+        }
+        .dashboard-board{
+          border:1px solid var(--line);
+          border-radius:24px;
+          background:#fff;
+          padding:18px;
+          box-shadow:0 14px 32px rgba(80,32,24,.06);
+          margin-bottom:18px;
+        }
+        .board-head{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:12px;
+          margin-bottom:14px;
+        }
+        .dashboard-lead-search{
+          min-width:260px;
+          max-width:360px;
+          width:34%;
+          border:1px solid var(--line);
+          border-radius:14px;
+          padding:11px 13px;
+          background:#fff;
+          color:var(--text);
+          font:inherit;
+        }
+        .dashboard-status-grid{
+          display:grid;
+          grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+          gap:14px;
+        }
+        .dashboard-status-card{
+          border:1px solid var(--line);
+          border-radius:20px;
+          background:linear-gradient(180deg,#fff 0%,#fffaf6 100%);
+          overflow:hidden;
+          min-height:190px;
+        }
+        .status-card-head{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:8px;
+          padding:14px 14px 12px;
+          border-bottom:1px solid var(--line);
+        }
+        .status-card-head h4{
+          margin:0;
+          font-size:18px;
+        }
+        .status-card-head span{
+          min-width:36px;
+          height:36px;
+          border-radius:13px;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          background:#fff4ed;
+          border:1px solid var(--line);
+          font-weight:800;
+          color:var(--accent);
+        }
+        .status-card-body{
+          padding:10px;
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+          max-height:320px;
+          overflow:auto;
+        }
+        .dashboard-customer-link{
+          border:1px solid var(--line);
+          border-radius:14px;
+          padding:10px;
+          background:#fff;
+          text-align:right;
+          cursor:pointer;
+          color:var(--text);
+        }
+        .dashboard-customer-link:hover{
+          border-color:var(--accent);
+          background:#fff7f2;
+        }
+        .dashboard-customer-link b{
+          display:block;
+          margin-bottom:4px;
+        }
+        .dashboard-customer-link small{
+          display:block;
+          color:var(--muted);
+          line-height:1.5;
+        }
+        @media(max-width:900px){
+          .dashboard-section-cards{grid-template-columns:1fr;}
+          .board-head{align-items:flex-start;flex-direction:column;}
+          .dashboard-lead-search{width:100%;max-width:none;}
+        }
+        .dashboard-chat-modal.hidden{ display:none; }
+        .dashboard-chat-modal{
+          position:fixed;
+          inset:0;
+          z-index:9999;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          padding:24px;
+        }
+        .dashboard-chat-backdrop{
+          position:absolute;
+          inset:0;
+          background:rgba(45,20,16,.42);
+          backdrop-filter:blur(3px);
+        }
+        .dashboard-chat-dialog{
+          position:relative;
+          width:min(1120px,96vw);
+          max-height:92vh;
+          overflow:hidden;
+          border-radius:24px;
+          background:#fffaf6;
+          border:1px solid var(--line);
+          box-shadow:0 26px 80px rgba(45,20,16,.22);
+          display:flex;
+          flex-direction:column;
+        }
+        .dashboard-chat-head{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:12px;
+          padding:16px 18px;
+          border-bottom:1px solid var(--line);
+          background:#fff;
+        }
+        .dashboard-chat-head h3{ margin:0; font-size:22px; }
+        .dashboard-chat-head p{ margin:4px 0 0; color:var(--muted); font-size:13px; }
+        .dashboard-chat-grid{
+          display:grid;
+          grid-template-columns:minmax(420px,1fr) 340px;
+          min-height:620px;
+          max-height:calc(92vh - 74px);
+        }
+        .dashboard-chat-panel{
+          display:flex;
+          flex-direction:column;
+          min-width:0;
+          border-left:1px solid var(--line);
+        }
+        .dashboard-chat-messages{
+          flex:1;
+          overflow:auto;
+          padding:18px;
+          background:linear-gradient(180deg,#fff 0%,#fff7f1 100%);
+          display:flex;
+          flex-direction:column;
+          gap:10px;
+        }
+        .dash-msg{
+          max-width:72%;
+          border:1px solid var(--line);
+          border-radius:16px;
+          padding:10px 12px;
+          background:#fff;
+          box-shadow:0 8px 20px rgba(80,32,24,.06);
+          line-height:1.8;
+          white-space:pre-wrap;
+        }
+        .dash-msg.out{ align-self:flex-start; background:#7b2d22; color:#fff; border-color:#7b2d22; }
+        .dash-msg.in{ align-self:flex-end; background:#fff; color:var(--text); }
+        .dash-msg small{ display:block; opacity:.75; font-size:11px; margin-top:4px; }
+        .dashboard-chat-send{
+          display:grid;
+          grid-template-columns:1fr 92px;
+          gap:10px;
+          padding:12px;
+          border-top:1px solid var(--line);
+          background:#fff;
+        }
+        .dashboard-chat-send textarea,
+        .dashboard-chat-customer input,
+        .dashboard-chat-customer select,
+        .dashboard-chat-customer textarea{
+          width:100%;
+          border:1px solid var(--line);
+          border-radius:12px;
+          padding:10px;
+          background:#fff;
+          font-family:inherit;
+          color:var(--text);
+        }
+        .dashboard-chat-send button,
+        .save-chat-btn{
+          border:0;
+          border-radius:14px;
+          background:var(--accent);
+          color:#fff;
+          font-weight:800;
+          cursor:pointer;
+        }
+        .dashboard-chat-customer{
+          overflow:auto;
+          padding:16px;
+          background:#fff;
+          display:flex;
+          flex-direction:column;
+          gap:10px;
+        }
+        .dashboard-chat-customer h4{ margin:0 0 6px; font-size:18px; }
+        .dashboard-chat-customer label{ display:flex; flex-direction:column; gap:5px; color:var(--muted); font-size:12px; }
+        .dashboard-chat-customer .two{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .save-chat-btn{ padding:13px; margin-top:4px; }
+        @media(max-width:900px){
+          .dashboard-chat-grid{ grid-template-columns:1fr; overflow:auto; }
+          .dashboard-chat-customer{ max-height:none; }
+          .dash-msg{ max-width:88%; }
+        }
+
+        .dashboard-chat-dialog{
+          width:min(1220px,97vw);
+          max-height:94vh;
+          background:linear-gradient(180deg,#fff 0%,#fff8f3 100%);
+        }
+        .dashboard-chat-head{
+          background:linear-gradient(90deg,#fff 0%,#fff5ef 100%);
+          border-bottom:1px solid var(--line);
+        }
+        .dashboard-chat-head .secondary-btn{
+          min-width:90px;
+        }
+        .dashboard-chat-grid{
+          grid-template-columns:minmax(520px,1fr) 380px;
+        }
+        .dashboard-chat-messages{
+          background:
+            radial-gradient(circle at 20% 10%, rgba(123,45,34,.05), transparent 22%),
+            linear-gradient(180deg,#fff 0%,#fff7f1 100%);
+        }
+        .dashboard-chat-composer{
+          border-top:1px solid var(--line);
+          background:#fff;
+          padding:12px;
+        }
+        .composer-tools{
+          display:grid;
+          grid-template-columns:1fr auto auto;
+          gap:10px;
+          align-items:end;
+          margin-bottom:10px;
+        }
+        .template-picker{
+          display:flex;
+          flex-direction:column;
+          gap:5px;
+          color:var(--muted);
+          font-size:12px;
+        }
+        .template-picker select{
+          width:100%;
+          border:1px solid var(--line);
+          border-radius:13px;
+          padding:10px;
+          background:#fffaf6;
+          color:var(--text);
+          font-family:inherit;
+        }
+        .composer-tools .secondary-btn{
+          height:42px;
+          border:1px solid var(--line);
+          border-radius:13px;
+          background:#fffaf6;
+          color:var(--text);
+          cursor:pointer;
+          font-weight:700;
+          padding:0 14px;
+        }
+        .composer-tools .secondary-btn:hover{
+          border-color:var(--accent);
+          color:var(--accent);
+        }
+        .dashboard-chat-send{
+          grid-template-columns:1fr 104px;
+          padding:0;
+          border-top:0;
+          background:transparent;
+        }
+        .dashboard-chat-send textarea{
+          min-height:88px;
+          resize:vertical;
+          font-size:14px;
+          line-height:1.8;
+          background:#fff;
+        }
+        .dashboard-chat-send button{
+          min-height:88px;
+          box-shadow:0 10px 24px rgba(123,45,34,.16);
+        }
+        .composer-hint{
+          margin-top:7px;
+          color:var(--muted);
+          font-size:12px;
+        }
+        .dash-msg{
+          border-radius:18px;
+          padding:11px 13px;
+        }
+        .dash-msg.out{
+          background:linear-gradient(135deg,#7b2d22,#9b3d2f);
+        }
+        .dashboard-chat-customer{
+          border-right:1px solid rgba(123,45,34,.08);
+        }
+        .dashboard-chat-customer h4{
+          position:sticky;
+          top:0;
+          background:#fff;
+          padding:4px 0 10px;
+          z-index:1;
+        }
+        .save-chat-btn{
+          box-shadow:0 10px 24px rgba(123,45,34,.14);
+        }
+        @media(max-width:900px){
+          .composer-tools{ grid-template-columns:1fr; }
+          .dashboard-chat-send{ grid-template-columns:1fr; }
+          .dashboard-chat-send button{ min-height:48px; }
+        }
+
+        /* V33 inbox-style chat popup */
+        .dashboard-chat-modal.hidden{ display:none !important; }
+        .dashboard-chat-modal{
+          position:fixed !important;
+          inset:0 !important;
+          z-index:99999 !important;
+          display:flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          padding:14px !important;
+        }
+        .dashboard-chat-backdrop{
+          position:absolute !important;
+          inset:0 !important;
+          background:rgba(52,31,25,.46) !important;
+          backdrop-filter:blur(5px) !important;
+        }
+        .dashboard-chat-dialog.inbox-style{
+          position:relative !important;
+          width:min(1480px,98vw) !important;
+          height:min(900px,94vh) !important;
+          max-height:94vh !important;
+          border-radius:24px !important;
+          background:#fffaf6 !important;
+          border:1px solid #ead4c8 !important;
+          box-shadow:0 28px 90px rgba(45,20,16,.28) !important;
+          display:grid !important;
+          grid-template-columns:340px minmax(0,1fr) !important;
+          overflow:hidden !important;
+          direction:ltr !important;
+        }
+        .dashboard-chat-dialog.inbox-style *{
+          box-sizing:border-box !important;
+        }
+        .inbox-customer-panel{
+          direction:rtl !important;
+          min-width:0 !important;
+          height:100% !important;
+          background:#fff !important;
+          border-left:1px solid #ead4c8 !important;
+          display:flex !important;
+          flex-direction:column !important;
+          overflow:hidden !important;
+          padding:0 !important;
+        }
+        .customer-panel-scroll{
+          flex:1 !important;
+          overflow:auto !important;
+          padding:14px !important;
+          display:flex !important;
+          flex-direction:column !important;
+          gap:14px !important;
+        }
+        .customer-progress-card,
+        .customer-form-card{
+          border:1px solid #ead4c8 !important;
+          border-radius:18px !important;
+          background:#fff !important;
+          padding:14px !important;
+          box-shadow:0 10px 24px rgba(80,32,24,.05) !important;
+        }
+        .customer-progress-card h4,
+        .customer-form-card h4{
+          margin:0 0 12px !important;
+          font-size:17px !important;
+          color:#3d160f !important;
+        }
+        .progress-track{
+          height:10px !important;
+          border-radius:999px !important;
+          background:#f4dfd4 !important;
+          overflow:hidden !important;
+          margin:6px 0 8px !important;
+        }
+        .progress-track span{
+          display:block !important;
+          height:100% !important;
+          width:0%;
+          background:linear-gradient(90deg,#7b2d22,#a64b39) !important;
+          border-radius:999px !important;
+        }
+        .customer-form-card label{
+          display:flex !important;
+          flex-direction:column !important;
+          gap:5px !important;
+          color:#9a7669 !important;
+          font-size:12px !important;
+          margin-bottom:9px !important;
+        }
+        .customer-form-card input,
+        .customer-form-card select,
+        .customer-form-card textarea{
+          width:100% !important;
+          min-height:42px !important;
+          border:1px solid #ead4c8 !important;
+          border-radius:12px !important;
+          padding:9px 10px !important;
+          background:#fffdfb !important;
+          color:#3d160f !important;
+          font:inherit !important;
+        }
+        .customer-form-card textarea{
+          min-height:86px !important;
+          resize:vertical !important;
+        }
+        .customer-form-card .two{
+          display:grid !important;
+          grid-template-columns:1fr 1fr !important;
+          gap:9px !important;
+        }
+        .customer-save-bar{
+          padding:12px 14px !important;
+          border-top:1px solid #ead4c8 !important;
+          background:#fffaf6 !important;
+          box-shadow:0 -10px 24px rgba(80,32,24,.06) !important;
+        }
+        .customer-save-bar .save-chat-btn{
+          width:100% !important;
+          min-height:48px !important;
+          display:flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          border:0 !important;
+          border-radius:14px !important;
+          background:#7b2d22 !important;
+          color:#fff !important;
+          font-weight:900 !important;
+          font-size:15px !important;
+          cursor:pointer !important;
+          box-shadow:0 12px 26px rgba(123,45,34,.2) !important;
+        }
+        .inbox-chat-panel{
+          direction:rtl !important;
+          min-width:0 !important;
+          height:100% !important;
+          display:grid !important;
+          grid-template-rows:72px minmax(0,1fr) auto !important;
+          background:#fff7f1 !important;
+          overflow:hidden !important;
+        }
+        .inbox-chat-header{
+          display:flex !important;
+          align-items:center !important;
+          justify-content:space-between !important;
+          gap:12px !important;
+          padding:12px 16px !important;
+          border-bottom:1px solid #ead4c8 !important;
+          background:#fff !important;
+        }
+        .chat-title-box{
+          text-align:right !important;
+          min-width:0 !important;
+        }
+        .chat-title-box h3{
+          margin:0 !important;
+          color:#3d160f !important;
+          font-size:22px !important;
+          font-weight:900 !important;
+        }
+        .chat-title-box p{
+          margin:4px 0 0 !important;
+          color:#8f7065 !important;
+          font-size:13px !important;
+          white-space:nowrap !important;
+          overflow:hidden !important;
+          text-overflow:ellipsis !important;
+        }
+        .close-chat-btn{
+          border:1px solid #ead4c8 !important;
+          border-radius:12px !important;
+          background:#fffaf6 !important;
+          color:#3d160f !important;
+          min-width:88px !important;
+          height:40px !important;
+          cursor:pointer !important;
+          font-weight:800 !important;
+        }
+        .inbox-messages{
+          min-height:0 !important;
+          overflow:auto !important;
+          padding:18px 22px !important;
+          display:flex !important;
+          flex-direction:column !important;
+          gap:10px !important;
+          background:
+            radial-gradient(circle at 50% 10%, rgba(123,45,34,.06), transparent 24%),
+            linear-gradient(180deg,#fffaf6 0%,#fff2ea 100%) !important;
+        }
+        .dash-msg{
+          width:max-content !important;
+          max-width:min(680px,74%) !important;
+          min-width:150px !important;
+          border:1px solid #ead4c8 !important;
+          border-radius:18px !important;
+          padding:11px 13px !important;
+          line-height:1.8 !important;
+          white-space:pre-wrap !important;
+          box-shadow:0 10px 22px rgba(80,32,24,.06) !important;
+          font-size:15px !important;
+        }
+        .dash-msg.in{
+          align-self:flex-end !important;
+          background:#fff !important;
+          color:#3d160f !important;
+          border-bottom-right-radius:6px !important;
+        }
+        .dash-msg.out{
+          align-self:flex-start !important;
+          background:#eaf6ff !important;
+          color:#18324a !important;
+          border-color:#bfe0f7 !important;
+          border-bottom-left-radius:6px !important;
+        }
+        .dash-msg small{
+          display:block !important;
+          margin-top:7px !important;
+          font-size:11px !important;
+          color:inherit !important;
+          opacity:.65 !important;
+        }
+        .inbox-composer{
+          padding:12px 14px !important;
+          background:#fff !important;
+          border-top:1px solid #ead4c8 !important;
+          box-shadow:0 -12px 28px rgba(80,32,24,.06) !important;
+        }
+        .composer-tools{
+          display:grid !important;
+          grid-template-columns:minmax(220px,1fr) auto auto !important;
+          gap:10px !important;
+          align-items:end !important;
+          margin-bottom:10px !important;
+        }
+        .template-picker{
+          display:flex !important;
+          flex-direction:column !important;
+          gap:5px !important;
+          color:#8f7065 !important;
+          font-size:12px !important;
+        }
+        .template-picker select{
+          width:100% !important;
+          height:42px !important;
+          border:1px solid #ead4c8 !important;
+          border-radius:13px !important;
+          background:#fffaf6 !important;
+          color:#3d160f !important;
+          padding:0 12px !important;
+          font:inherit !important;
+        }
+        .composer-tools .secondary-btn{
+          height:42px !important;
+          border:1px solid #ead4c8 !important;
+          border-radius:13px !important;
+          background:#fffaf6 !important;
+          color:#3d160f !important;
+          cursor:pointer !important;
+          padding:0 14px !important;
+          font-weight:800 !important;
+        }
+        .dashboard-chat-send{
+          display:grid !important;
+          grid-template-columns:minmax(0,1fr) 96px !important;
+          gap:10px !important;
+          padding:0 !important;
+          border:0 !important;
+          background:transparent !important;
+        }
+        .dashboard-chat-send textarea{
+          min-height:58px !important;
+          max-height:140px !important;
+          resize:vertical !important;
+          border:1px solid #ead4c8 !important;
+          border-radius:14px !important;
+          padding:13px !important;
+          font:inherit !important;
+          line-height:1.7 !important;
+          background:#fff !important;
+          color:#3d160f !important;
+        }
+        .dashboard-chat-send button{
+          min-height:58px !important;
+          border:0 !important;
+          border-radius:14px !important;
+          background:#7b2d22 !important;
+          color:#fff !important;
+          font-weight:900 !important;
+          cursor:pointer !important;
+          box-shadow:0 12px 26px rgba(123,45,34,.2) !important;
+        }
+        @media(max-width:980px){
+          .dashboard-chat-dialog.inbox-style{
+            grid-template-columns:1fr !important;
+            overflow:auto !important;
+          }
+          .inbox-customer-panel{
+            order:2 !important;
+            height:auto !important;
+            max-height:none !important;
+            border-left:0 !important;
+            border-top:1px solid #ead4c8 !important;
+          }
+          .inbox-chat-panel{
+            order:1 !important;
+            min-height:620px !important;
+          }
+          .composer-tools{
+            grid-template-columns:1fr !important;
+          }
+          .dashboard-chat-send{
+            grid-template-columns:1fr !important;
+          }
+        }
+
+        /* V34 compact message bubbles */
+        .inbox-messages{
+          align-items:stretch !important;
+        }
+        .dash-msg{
+          width:fit-content !important;
+          width:-moz-fit-content !important;
+          min-width:0 !important;
+          max-width:64% !important;
+          padding:9px 12px !important;
+          border-radius:15px !important;
+          line-height:1.7 !important;
+          font-size:14px !important;
+          box-shadow:0 6px 16px rgba(80,32,24,.05) !important;
+        }
+        .dash-msg > div{
+          display:block !important;
+          width:auto !important;
+          max-width:100% !important;
+          white-space:pre-wrap !important;
+          overflow-wrap:anywhere !important;
+          word-break:normal !important;
+        }
+        .dash-msg small{
+          margin-top:5px !important;
+          font-size:10px !important;
+        }
+        .dash-msg.in{
+          align-self:flex-end !important;
+        }
+        .dash-msg.out{
+          align-self:flex-start !important;
+        }
+        .dash-msg:has(div:empty){
+          min-width:80px !important;
+        }
+        @media(max-width:900px){
+          .dash-msg{
+            max-width:82% !important;
+          }
+        }
+
+        /* V35 tight WhatsApp-like message bubbles */
+        .inbox-messages .dash-msg{
+          width:auto !important;
+          min-width:auto !important;
+          max-width:min(72%, 560px) !important;
+          min-height:0 !important;
+          height:auto !important;
+          padding:7px 10px 5px !important;
+          border-radius:12px !important;
+          display:inline-flex !important;
+          flex-direction:column !important;
+          justify-content:flex-start !important;
+          align-items:flex-start !important;
+          gap:2px !important;
+          line-height:1.55 !important;
+          font-size:14px !important;
+          box-shadow:0 3px 10px rgba(80,32,24,.04) !important;
+        }
+        .inbox-messages .dash-msg > div{
+          display:inline !important;
+          width:auto !important;
+          height:auto !important;
+          min-height:0 !important;
+          margin:0 !important;
+          padding:0 !important;
+          line-height:1.55 !important;
+          white-space:pre-wrap !important;
+          overflow-wrap:anywhere !important;
+        }
+        .inbox-messages .dash-msg small{
+          display:block !important;
+          align-self:flex-end !important;
+          margin:1px 0 0 !important;
+          padding:0 !important;
+          line-height:1 !important;
+          font-size:10px !important;
+          opacity:.55 !important;
+        }
+        .inbox-messages .dash-msg.in,
+        .inbox-messages .dash-msg.out{
+          width:fit-content !important;
+          width:-moz-fit-content !important;
+        }
+        .inbox-messages .dash-msg.in{
+          align-self:flex-end !important;
+        }
+        .inbox-messages .dash-msg.out{
+          align-self:flex-start !important;
+        }
+        .inbox-messages .dash-msg:has(div:not(:empty)){
+          min-height:0 !important;
+        }
+        @media(max-width:900px){
+          .inbox-messages .dash-msg{
+            max-width:86% !important;
+          }
+        }
+        /* V52 popup composer improvements */
+        .composer-tools{
+          grid-template-columns:1fr 1fr auto auto !important;
+          align-items:end !important;
+        }
+        .template-picker select{
+          min-height:42px !important;
+        }
+        @media(max-width:900px){
+          .composer-tools{ grid-template-columns:1fr !important; }
+        }
+
+        /* V39 completion badge beside customer name */
+        .chat-title-line{
+          display:flex !important;
+          align-items:center !important;
+          gap:10px !important;
+          justify-content:flex-start !important;
+          flex-wrap:wrap !important;
+        }
+        .chat-progress-badge{
+          display:inline-flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          min-height:28px !important;
+          padding:4px 10px !important;
+          border-radius:999px !important;
+          border:1px solid #ead4c8 !important;
+          background:#fff7f1 !important;
+          color:#7b2d22 !important;
+          font-size:12px !important;
+          font-weight:900 !important;
+          white-space:nowrap !important;
+        }
+        .customer-progress-card{display:none !important;}
+        /* V40: show completion beside customer name */
+        .chat-title-box{
+          display:flex !important;
+          flex-direction:column !important;
+          align-items:flex-start !important;
+          gap:3px !important;
+        }
+        .chat-title-line{
+          display:inline-flex !important;
+          align-items:center !important;
+          gap:10px !important;
+          justify-content:flex-start !important;
+          flex-wrap:nowrap !important;
+          direction:rtl !important;
+          width:auto !important;
+        }
+        .chat-title-line h3{
+          margin:0 !important;
+          display:inline-block !important;
+        }
+        .chat-progress-badge{
+          display:inline-flex !important;
+          vertical-align:middle !important;
+          margin-inline-start:8px !important;
+        }
+        /* V41: show completion percentage beside customer name in dashboard cards */
+        .dashboard-customer-link .lead-card-title{
+          display:flex !important;
+          align-items:center !important;
+          justify-content:flex-start !important;
+          gap:8px !important;
+          flex-wrap:wrap !important;
+          width:100% !important;
+        }
+        .dashboard-customer-link .lead-card-title b{
+          flex:0 1 auto !important;
+        }
+        .lead-completion-badge{
+          display:inline-flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          min-height:24px !important;
+          padding:3px 8px !important;
+          border-radius:999px !important;
+          border:1px solid #ead4c8 !important;
+          background:#fff7f1 !important;
+          color:#7b2d22 !important;
+          font-size:11px !important;
+          font-weight:900 !important;
+          white-space:nowrap !important;
+        }
+
+        .chat-credit-limit-result{
+          border:1px solid #ead4c8 !important;
+          border-radius:14px !important;
+          background:#fff7f1 !important;
+          color:#7b2d22 !important;
+          padding:10px 12px !important;
+          margin:-2px 0 9px !important;
+          font-size:13px !important;
+          font-weight:900 !important;
+          line-height:1.7 !important;
+        }
+        .chat-credit-limit-result.qualified,
+        .chat-credit-limit-result.qualified span{
+          color:#15803d !important;
+        }
+        .chat-credit-limit-result.not-qualified,
+        .chat-credit-limit-result.not-qualified span{
+          color:#b91c1c !important;
+        }
+
+        /* V55 popup status + follow-up + composer */
+        .customer-form-card #chatStatus{
+          font-weight:900 !important;
+          border-width:2px !important;
+          color:#15321f !important;
+          box-shadow:0 8px 18px rgba(22,101,52,.10) !important;
+        }
+        .customer-form-card #chatStatus.status-tone-success{
+          background:#dcfce7 !important;
+          border-color:#16a34a !important;
+          color:#14532d !important;
+        }
+        .customer-form-card #chatStatus.status-tone-warning{
+          background:#fef3c7 !important;
+          border-color:#d97706 !important;
+          color:#78350f !important;
+        }
+        .customer-form-card #chatStatus.status-tone-danger{
+          background:#fee2e2 !important;
+          border-color:#dc2626 !important;
+          color:#7f1d1d !important;
+        }
+        .customer-form-card #chatStatus.status-tone-info{
+          background:#dbeafe !important;
+          border-color:#2563eb !important;
+          color:#1e3a8a !important;
+        }
+        .customer-form-card #chatStatus.status-tone-neutral{
+          background:#f1f5f9 !important;
+          border-color:#64748b !important;
+          color:#1f2937 !important;
+        }
+        .followup-date-box.hidden{
+          display:none !important;
+        }
+        .followup-date-box{
+          padding:10px !important;
+          border:1px solid #f0c36b !important;
+          border-radius:14px !important;
+          background:#fffbeb !important;
+          color:#78350f !important;
+        }
+        .followup-date-box input{
+          background:#fff !important;
+          border-color:#f0c36b !important;
+          font-weight:800 !important;
+        }
+        .dashboard-chat-send textarea,
+        #chatReplyText{
+          min-height:150px !important;
+          max-height:320px !important;
+          font-size:15px !important;
+          line-height:1.9 !important;
+        }
+        .dashboard-chat-send button{
+          min-height:150px !important;
+        }
+
+
+        /* V60 final popup chat sides + stable bubbles */
+        .inbox-messages,
+        #chatMessages.dashboard-chat-messages{
+          direction:ltr !important;
+          align-items:stretch !important;
+          gap:8px !important;
+          padding:18px 22px !important;
+        }
+        .inbox-messages .dash-msg-row,
+        #chatMessages .dash-msg-row{
+          direction:ltr !important;
+          width:100% !important;
+          display:flex !important;
+          margin:0 !important;
+          padding:0 !important;
+          background:transparent !important;
+          border:0 !important;
+          box-shadow:none !important;
+        }
+        .inbox-messages .dash-msg-row.in,
+        #chatMessages .dash-msg-row.in{
+          justify-content:flex-end !important;
+        }
+        .inbox-messages .dash-msg-row.out,
+        #chatMessages .dash-msg-row.out{
+          justify-content:flex-start !important;
+        }
+        .inbox-messages .dash-msg-row .dash-msg,
+        #chatMessages .dash-msg-row .dash-msg{
+          direction:rtl !important;
+          align-self:auto !important;
+          width:auto !important;
+          max-width:min(70%, 620px) !important;
+          min-width:0 !important;
+          min-height:0 !important;
+          height:auto !important;
+          display:block !important;
+          padding:8px 12px 6px !important;
+          border-radius:14px !important;
+          line-height:1.7 !important;
+          font-size:14px !important;
+          white-space:normal !important;
+          box-shadow:0 5px 14px rgba(80,32,24,.05) !important;
+        }
+        .inbox-messages .dash-msg-row.in .dash-msg,
+        #chatMessages .dash-msg-row.in .dash-msg{
+          background:#fff !important;
+          color:#3d160f !important;
+          border:1px solid #ead4c8 !important;
+          border-bottom-right-radius:5px !important;
+        }
+        .inbox-messages .dash-msg-row.out .dash-msg,
+        #chatMessages .dash-msg-row.out .dash-msg{
+          background:#eaf6ff !important;
+          color:#18324a !important;
+          border:1px solid #bfe0f7 !important;
+          border-bottom-left-radius:5px !important;
+        }
+        .inbox-messages .dash-msg-row .dash-msg > div,
+        #chatMessages .dash-msg-row .dash-msg > div{
+          display:block !important;
+          width:auto !important;
+          max-width:100% !important;
+          margin:0 !important;
+          padding:0 !important;
+          line-height:1.75 !important;
+          white-space:pre-wrap !important;
+          word-break:break-word !important;
+          overflow-wrap:anywhere !important;
+          text-align:right !important;
+        }
+        .inbox-messages .dash-msg-row .dash-msg small,
+        #chatMessages .dash-msg-row .dash-msg small{
+          display:block !important;
+          margin-top:4px !important;
+          padding:0 !important;
+          line-height:1 !important;
+          font-size:10px !important;
+          opacity:.6 !important;
+          color:inherit !important;
+        }
+        .inbox-messages .dash-msg-row.in .dash-msg small,
+        #chatMessages .dash-msg-row.in .dash-msg small{
+          text-align:left !important;
+        }
+        .inbox-messages .dash-msg-row.out .dash-msg small,
+        #chatMessages .dash-msg-row.out .dash-msg small{
+          text-align:right !important;
+        }
+        @media(max-width:900px){
+          .inbox-messages .dash-msg-row .dash-msg,
+          #chatMessages .dash-msg-row .dash-msg{
+            max-width:86% !important;
+          }
+        }
+
+
+        /* V61 exact popup chat alignment: customer right, agent/system left */
+        #chatMessages.dashboard-chat-messages,
+        .dashboard-chat-panel #chatMessages.inbox-messages{
+          direction:ltr !important;
+          display:flex !important;
+          flex-direction:column !important;
+          align-items:stretch !important;
+          gap:8px !important;
+          padding:18px 22px !important;
+        }
+        #chatMessages .dash-msg-row{
+          direction:ltr !important;
+          width:100% !important;
+          display:flex !important;
+          margin:0 !important;
+          padding:0 !important;
+          background:transparent !important;
+          border:0 !important;
+          box-shadow:none !important;
+        }
+        #chatMessages .dash-msg-row.in{ justify-content:flex-end !important; }
+        #chatMessages .dash-msg-row.out{ justify-content:flex-start !important; }
+        #chatMessages .dash-msg-row .dash-msg{
+          direction:rtl !important;
+          align-self:auto !important;
+          width:auto !important;
+          max-width:min(68%, 620px) !important;
+          min-width:0 !important;
+          height:auto !important;
+          padding:8px 12px 6px !important;
+          border-radius:14px !important;
+          display:block !important;
+          line-height:1.75 !important;
+          font-size:14px !important;
+          box-shadow:0 5px 14px rgba(80,32,24,.05) !important;
+        }
+        #chatMessages .dash-msg-row.in .dash-msg{
+          background:#fff !important;
+          color:#3d160f !important;
+          border:1px solid #ead4c8 !important;
+          border-bottom-right-radius:5px !important;
+        }
+        #chatMessages .dash-msg-row.out .dash-msg{
+          background:#eaf6ff !important;
+          color:#18324a !important;
+          border:1px solid #bfe0f7 !important;
+          border-bottom-left-radius:5px !important;
+        }
+        #chatMessages .dash-msg-row .dash-msg > div{
+          display:block !important;
+          width:auto !important;
+          max-width:100% !important;
+          margin:0 !important;
+          padding:0 !important;
+          white-space:pre-wrap !important;
+          word-break:break-word !important;
+          overflow-wrap:anywhere !important;
+          text-align:right !important;
+        }
+        #chatMessages .dash-msg-row .dash-msg small{
+          display:block !important;
+          margin-top:4px !important;
+          line-height:1 !important;
+          font-size:10px !important;
+          opacity:.6 !important;
+          color:inherit !important;
+        }
+        #chatMessages .dash-msg-row.in .dash-msg small{ text-align:left !important; }
+        #chatMessages .dash-msg-row.out .dash-msg small{ text-align:right !important; }
+        @media(max-width:900px){
+          #chatMessages .dash-msg-row .dash-msg{ max-width:86% !important; }
+        }
+
+        /* V62 final popup chat order/alignment fix */
+        #dashboardChatModal #chatMessages.dashboard-chat-messages,
+        #dashboardChatModal #chatMessages.inbox-messages{
+          direction:ltr !important;
+          display:flex !important;
+          flex-direction:column !important;
+          justify-content:flex-start !important;
+          align-content:stretch !important;
+          align-items:stretch !important;
+          gap:8px !important;
+          padding:18px 22px !important;
+          overflow-y:auto !important;
+          overflow-x:hidden !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row{
+          direction:ltr !important;
+          width:100% !important;
+          max-width:100% !important;
+          display:flex !important;
+          flex:0 0 auto !important;
+          margin:0 !important;
+          padding:0 !important;
+          background:transparent !important;
+          border:0 !important;
+          box-shadow:none !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.in{
+          justify-content:flex-end !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.out{
+          justify-content:flex-start !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row .dash-msg{
+          direction:rtl !important;
+          flex:0 1 auto !important;
+          width:auto !important;
+          min-width:0 !important;
+          max-width:min(70%, 620px) !important;
+          height:auto !important;
+          min-height:0 !important;
+          display:block !important;
+          margin:0 !important;
+          padding:9px 12px 6px !important;
+          border-radius:14px !important;
+          line-height:1.75 !important;
+          white-space:normal !important;
+          word-break:break-word !important;
+          overflow-wrap:anywhere !important;
+          box-shadow:0 5px 14px rgba(80,32,24,.05) !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.in .dash-msg{
+          background:#fff !important;
+          color:#3d160f !important;
+          border:1px solid #ead4c8 !important;
+          border-bottom-right-radius:5px !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.out .dash-msg{
+          background:#eaf6ff !important;
+          color:#18324a !important;
+          border:1px solid #bfe0f7 !important;
+          border-bottom-left-radius:5px !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-text,
+        #dashboardChatModal #chatMessages .dash-msg > div{
+          display:block !important;
+          width:auto !important;
+          max-width:100% !important;
+          margin:0 !important;
+          padding:0 !important;
+          text-align:right !important;
+          direction:rtl !important;
+          line-height:1.75 !important;
+          white-space:pre-wrap !important;
+          word-break:break-word !important;
+          overflow-wrap:anywhere !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg small{
+          display:block !important;
+          margin-top:4px !important;
+          padding:0 !important;
+          line-height:1 !important;
+          font-size:10px !important;
+          opacity:.6 !important;
+          color:inherit !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.in .dash-msg small{
+          text-align:left !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-row.out .dash-msg small{
+          text-align:right !important;
+        }
+        @media(max-width:900px){
+          #dashboardChatModal #chatMessages .dash-msg-row .dash-msg{
+            max-width:86% !important;
+          }
+        }
+
+        /* V63 media attachments inside dashboard chat */
+        #dashboardChatModal #chatMessages .dash-msg-attachment{
+          display:flex !important;
+          flex-direction:column !important;
+          gap:8px !important;
+          margin-top:8px !important;
+          max-width:min(360px, 100%) !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-attachment-img{
+          display:block !important;
+          width:auto !important;
+          max-width:min(320px, 100%) !important;
+          max-height:300px !important;
+          border-radius:14px !important;
+          border:1px solid #ead4c8 !important;
+          object-fit:contain !important;
+          background:#fff !important;
+          box-shadow:0 6px 16px rgba(80,32,24,.08) !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-video{
+          display:block !important;
+          width:min(360px, 100%) !important;
+          max-height:300px !important;
+          border-radius:14px !important;
+          border:1px solid #ead4c8 !important;
+          background:#000 !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-attachment audio{
+          display:block !important;
+          width:min(320px, 100%) !important;
+          height:38px !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-download,
+        #dashboardChatModal #chatMessages .dash-msg-file{
+          display:inline-flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          gap:7px !important;
+          width:max-content !important;
+          max-width:min(320px, 100%) !important;
+          min-height:34px !important;
+          padding:7px 11px !important;
+          border-radius:12px !important;
+          background:#fff7f1 !important;
+          border:1px solid #ead4c8 !important;
+          color:#7b2d22 !important;
+          font-weight:900 !important;
+          font-size:12px !important;
+          text-decoration:none !important;
+          line-height:1.4 !important;
+          white-space:normal !important;
+          overflow-wrap:anywhere !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-download:hover,
+        #dashboardChatModal #chatMessages .dash-msg-file:hover{
+          background:#7b2d22 !important;
+          color:#fff !important;
+          border-color:#7b2d22 !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-file-icon{
+          font-size:16px !important;
+          line-height:1 !important;
+        }
+        #dashboardChatModal #chatMessages .dash-msg-file-name{
+          overflow-wrap:anywhere !important;
+          word-break:break-word !important;
+        }
+
+        /* New lead notification */
+        .dashboard-new-lead-alert{
+          position:fixed !important;
+          top:22px !important;
+          left:22px !important;
+          z-index:100000 !important;
+          min-width:320px !important;
+          max-width:min(440px, calc(100vw - 32px)) !important;
+          display:flex !important;
+          align-items:center !important;
+          gap:12px !important;
+          padding:14px 16px !important;
+          border-radius:18px !important;
+          border:1px solid #ead4c8 !important;
+          background:#fff !important;
+          color:#3d160f !important;
+          box-shadow:0 20px 55px rgba(45,20,16,.22) !important;
+          transform:translateY(-18px) !important;
+          opacity:0 !important;
+          pointer-events:none !important;
+          transition:.22s ease !important;
+          direction:rtl !important;
+        }
+        .dashboard-new-lead-alert.show{
+          transform:translateY(0) !important;
+          opacity:1 !important;
+          pointer-events:auto !important;
+        }
+        .dashboard-new-lead-icon{
+          width:42px !important;
+          height:42px !important;
+          border-radius:14px !important;
+          display:flex !important;
+          align-items:center !important;
+          justify-content:center !important;
+          background:#7b2d22 !important;
+          color:#fff !important;
+          font-size:24px !important;
+          font-weight:900 !important;
+          flex:0 0 auto !important;
+        }
+        .dashboard-new-lead-alert b{
+          display:block !important;
+          font-size:17px !important;
+          font-weight:900 !important;
+          margin-bottom:3px !important;
+        }
+        .dashboard-new-lead-alert p{
+          margin:0 !important;
+          color:#8f7065 !important;
+          font-size:13px !important;
+          line-height:1.6 !important;
+        }
+        .dashboard-new-lead-close{
+          position:absolute !important;
+          top:8px !important;
+          left:8px !important;
+          width:24px !important;
+          height:24px !important;
+          border:0 !important;
+          border-radius:999px !important;
+          background:#fff7f1 !important;
+          color:#7b2d22 !important;
+          font-weight:900 !important;
+          cursor:pointer !important;
+        }
+        @media(max-width:700px){
+          .dashboard-new-lead-alert{
+            left:12px !important;
+            right:12px !important;
+            top:12px !important;
+            min-width:0 !important;
+            max-width:none !important;
+          }
+        }
+
+      `;
+      document.head.appendChild(style);
+    }
+
+    function init(){
+      injectDashboardStyles();
+      renderNoPermissionNotice();
+      document.addEventListener("pointerdown", dashboardPrimeAlertAudio, { once:true, passive:true });
+      document.addEventListener("keydown", dashboardPrimeAlertAudio, { once:true });
+      listenDashboardTemplates();
+      listenDashboardClientStatuses();
+      const searchField = el("dashboardLeadSearch");
+      if(searchField){
+        searchField.oninput = () => {
+          dashboardLeadSearchTerm = searchField.value || "";
+          renderStatusCards();
+        };
+      }
+      el("backToSectionsBtn").onclick = () => {
+        selectedSectionKey = "";
+        dashboardLeadSearchTerm = "";
+        if(searchField) searchField.value = "";
+        el("dashboardBoard").classList.add("hidden");
+        renderSectionCards();
+      };
+      if(unsub) unsub();
+      dashboardNewLeadBaselineReady = false;
+      dashboardKnownNewLeadIds = new Set();
+      unsub = onSnapshot(collection(db, "leads"), snap => {
+        leads = [];
+        snap.forEach(d => leads.push({ __id:d.id, id:d.id, ...d.data() }));
+        renderDashboard();
+        checkDashboardNewLeadAlerts();
+        listenDashboardIncomingMessageAlerts();
+      }, err => {
+        console.error(err);
+        toast("تعذر تحميل بيانات الداش بورد");
+      });
+    }
+
+    function setupAuth(pageInit, adminOnly=false){
+      onAuthStateChanged(auth, async (user) => {
+        if(!user){
+          currentUser = null;
+          currentProfile = null;
+          el("loginScreen").classList.remove("hidden");
+          el("app").classList.add("hidden");
+          return;
+        }
+
+        try{
+          currentUser = user;
+          currentProfile = await loadUserProfile(user);
+          isAdmin = isAdminProfile(currentProfile);
+
+          if(currentProfile.active === false || (adminOnly && !isAdmin)){
+            await signOut(auth);
+            showLoginError("لا توجد صلاحية دخول لهذه الصفحة.");
+            return;
+          }
+
+          el("loginScreen").classList.add("hidden");
+          el("app").classList.remove("hidden");
+          el("userInfo").textContent = `${currentProfile.name || user.email} - ${isSalesManagerProfile(currentProfile) ? "مدير مبيعات" : (isAdmin ? "إدارة عامة" : departmentLabel(currentProfile.department))}`;
+          renderAllowedNavigation(currentProfile, isAdmin);
+          if(!applyPagePermissions()) return;
+          pageInit();
+        } catch(err){
+          console.error(err);
+          showLoginError("تعذر تحميل صلاحيات المستخدم.");
+        }
+      });
+
+      el("loginForm").onsubmit = async (e) => {
+        e.preventDefault();
+        el("loginError").style.display = "none";
+        try{
+          await signInWithEmailAndPassword(auth, el("loginEmail").value.trim(), el("loginPassword").value);
+        } catch(err){
+          console.error(err);
+          showLoginError("بيانات الدخول غير صحيحة أو الحساب غير مفعل.");
+        }
+      };
+
+      el("logoutBtn").onclick = () => signOut(auth);
+    }
+
+
+    // dashboard-template-hard-bind-listener
+    document.addEventListener("change", (e) => {
+      if(e.target?.id === "chatTemplateSelect"){
+        const t = selectedDashboardTemplate();
+        if(t) applyDashboardTemplateToMessage(t, true);
+        else clearDashboardTemplateSelectionForFreeText();
+      }
+      if(e.target?.id === "chatStatus"){
+        onDashboardStatusChanged();
+      }
+    }, true);
+
+    setupAuth(init);
+  </script>
+</body>
+</html>
