@@ -26,6 +26,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -940,10 +941,23 @@
       ].some(v => dashboardAssigneeMatchesCurrentUser(v));
     }
 
+    function dashboardCurrentUserDepartment(){
+      return dashboardCanonicalDepartment(currentProfile?.department || currentProfile?.dept || currentProfile?.section || currentProfile?.roleDepartment || currentProfile?.salesDepartment || currentProfile?.team || "");
+    }
+
+    function dashboardCurrentUserIsCallCenter(){
+      return dashboardCurrentUserDepartment() === "call_center";
+    }
+
     function visibleLeadsForSection(def){
       let items = leads.filter(l => leadDepartment(l) === def.department);
 
       if(isAdmin || currentProfile?.allDepartments === true) return items;
+
+      // عميل التمويل لازم يظهر لمندوب التمويل المسؤول عنه + مندوب الكول سنتر للمتابعة.
+      // باقي الأقسام تفضل بنفس فلترة المسؤول الحالية.
+      if(def?.department === "finance_sales" && dashboardCurrentUserIsCallCenter()) return items;
+
       return items.filter(leadAssignedToCurrentRepresentative);
     }
 
@@ -1607,6 +1621,11 @@
         if(field) field.addEventListener("input", updateChatCompletionProgress);
         if(field) field.addEventListener("change", updateChatCompletionProgress);
       });
+      const followupField = el("chatFollowupDate");
+      if(followupField){
+        followupField.addEventListener("input", scheduleDashboardStatusSave);
+        followupField.addEventListener("change", scheduleDashboardStatusSave);
+      }
     }
 
     function templateAppliesToLead(t, lead){
@@ -2017,6 +2036,7 @@
       if(!lead?.__id || !status) return;
       if(normalizeDashboardStatusKey(status) === normalizeDashboardStatusKey(getLeadStatus(lead))) return;
 
+      const followupValue = el("chatFollowupDate")?.value || "";
       const payload = {
         status,
         statusLabel: status,
@@ -2025,6 +2045,10 @@
         currentStatusLabel: status,
         clientStatus: status,
         customerStatus: status,
+        followupDate: followupValue,
+        followUpDate: followupValue,
+        nextFollowupDate: followupValue,
+        appointmentDate: followupValue,
         updatedByUid: currentUser?.uid || "",
         updatedByEmail: currentUser?.email || "",
         updatedAt: serverTimestamp(),
