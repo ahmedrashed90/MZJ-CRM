@@ -130,7 +130,7 @@
       getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
-      getFirestore, collection, collectionGroup, doc, getDoc, getDocs, onSnapshot, query, orderBy, addDoc, updateDoc, setDoc, serverTimestamp
+      getFirestore, collection, collectionGroup, doc, getDoc, getDocs, onSnapshot, query, orderBy, where, limit, addDoc, updateDoc, setDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -417,6 +417,8 @@
     let currentProfile = null;
     let isAdmin = false;
     let unsub = null;
+    let dashboardLeadUnsubs = [];
+    let dashboardLeadDocs = new Map();
     let leads = [];
     let selectedSectionKey = "";
     let dashboardLeadSearchTerm = "";
@@ -1236,7 +1238,7 @@
       dashboardKnownIncomingMessageIds = new Set();
 
       try{
-        dashboardIncomingMessageUnsub = onSnapshot(collectionGroup(db, "messages"), snap => {
+        dashboardIncomingMessageUnsub = onSnapshot(query(collectionGroup(db, "messages"), limit(200)), snap => {
           const leadMap = dashboardRebuildIncomingMessageLeadMap();
 
           if(!dashboardIncomingMessageBaselineReady){
@@ -4251,6 +4253,91 @@
       document.head.appendChild(style);
     }
 
+
+    function stopDashboardLeadListeners(){
+      if(unsub) unsub();
+      unsub = null;
+      dashboardLeadUnsubs.forEach(fn => {
+        try{ if(typeof fn === "function") fn(); }catch(e){}
+      });
+      dashboardLeadUnsubs = [];
+      dashboardLeadDocs = new Map();
+    }
+
+    function dashboardServiceKeysForDepartment(department){
+      const serviceKey = dashboardDepartmentServiceKey(department);
+      return serviceKey ? [serviceKey] : [];
+    }
+
+    function dashboardLeadQueriesForCurrentUser(){
+      const base = collection(db, "leads");
+
+      // Admin / all-departments keeps the original full-board behavior.
+      if(isAdmin || currentProfile?.allDepartments === true){
+        return [base];
+      }
+
+      const dept = dashboardCurrentUserDepartment();
+      const departments = new Set();
+
+      if(["cash_sales","finance_sales","customer_service"].includes(dept)){
+        departments.add(dept);
+      }
+
+      // Same existing behavior: call center can follow finance leads from dashboard.
+      if(dept === "call_center"){
+        departments.add("finance_sales");
+      }
+
+      if(!departments.size){
+        return [base];
+      }
+
+      const queries = [];
+      departments.forEach(department => {
+        queries.push(query(base, where("department", "==", department)));
+
+        dashboardServiceKeysForDepartment(department).forEach(serviceKey => {
+          queries.push(query(base, where("serviceKey", "==", serviceKey)));
+          queries.push(query(base, where("autoService", "==", serviceKey)));
+        });
+      });
+
+      return queries;
+    }
+
+    function renderDashboardFromLeadMap(){
+      leads = Array.from(dashboardLeadDocs.values());
+      renderDashboard();
+      checkDashboardNewLeadAlerts();
+      listenDashboardIncomingMessageAlerts();
+    }
+
+    function listenDashboardLeadsOptimized(){
+      stopDashboardLeadListeners();
+      dashboardNewLeadBaselineReady = false;
+      dashboardKnownNewLeadIds = new Set();
+
+      const queries = dashboardLeadQueriesForCurrentUser();
+      queries.forEach(qRef => {
+        const stop = onSnapshot(qRef, snap => {
+          snap.docChanges().forEach(change => {
+            if(change.type === "removed"){
+              dashboardLeadDocs.delete(change.doc.id);
+              return;
+            }
+            dashboardLeadDocs.set(change.doc.id, { __id:change.doc.id, id:change.doc.id, ...change.doc.data() });
+          });
+          renderDashboardFromLeadMap();
+        }, err => {
+          console.error(err);
+          toast("تعذر تحميل بيانات الداش بورد");
+        });
+        dashboardLeadUnsubs.push(stop);
+      });
+    }
+
+
     function init(){
       injectDashboardStyles();
       renderNoPermissionNotice();
@@ -4272,19 +4359,7 @@
         el("dashboardBoard").classList.add("hidden");
         renderSectionCards();
       };
-      if(unsub) unsub();
-      dashboardNewLeadBaselineReady = false;
-      dashboardKnownNewLeadIds = new Set();
-      unsub = onSnapshot(collection(db, "leads"), snap => {
-        leads = [];
-        snap.forEach(d => leads.push({ __id:d.id, id:d.id, ...d.data() }));
-        renderDashboard();
-        checkDashboardNewLeadAlerts();
-        listenDashboardIncomingMessageAlerts();
-      }, err => {
-        console.error(err);
-        toast("تعذر تحميل بيانات الداش بورد");
-      });
+      listenDashboardLeadsOptimized();
     }
 
     function setupAuth(pageInit, adminOnly=false){
