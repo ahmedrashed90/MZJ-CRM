@@ -1484,46 +1484,25 @@
       return dates;
     }
 
-    function isPastDateKey(dateKey){
-      const date = parseDateKey(dateKey);
-      if(!date) return false;
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      date.setHours(0,0,0,0);
-      return date < today;
-    }
-
-    function enteredDateSet(kpi=selectedKpi){
-      const dates = new Set();
-      (Array.isArray(kpi?.speed?.delayEnteredDates) ? kpi.speed.delayEnteredDates : Object.keys(kpi?.speed?.dailyDelays || {})).forEach(d => dates.add(d));
-      Object.keys(kpi?.dailyPerformance || {}).forEach(d => dates.add(d));
-      return dates;
-    }
-
     function isDailyDateLocked(dateKey){
-      if(isAdminProfile(currentProfile)) return false;
-      if(!dateKey || !isPastDateKey(dateKey)) return false;
-      return savedLockedDateSet(selectedKpi).has(dateKey) || enteredDateSet(selectedKpi).has(dateKey);
+      // فتح التعديل مؤقتًا لأي مستخدم: لا يوجد قفل يومي على الأيام المحفوظة.
+      return false;
     }
 
     function collectLockedDatesForSave(){
-      const locked = savedLockedDateSet(selectedKpi);
-      enteredDateSet(selectedKpi).forEach(dateKey => {
-        if(isPastDateKey(dateKey)) locked.add(dateKey);
-      });
-      return [...locked].sort();
+      // فتح التعديل مؤقتًا لأي مستخدم: لا نحفظ أيام مقفولة بعد الحفظ.
+      return [];
     }
 
     function updateModalLockState(){
-      const hasLockedDays = !isAdminProfile(currentProfile) && collectLockedDatesForSave().some(dateKey => isDailyDateLocked(dateKey));
-      el("lockNote").textContent = "الأيام التي انتهت وتم حفظها لا يمكن تعديلها مرة أخرى إلا من حساب الأدمن.";
-      el("lockNote").classList.toggle("hidden", !hasLockedDays);
+      // فتح التعديل مؤقتًا لأي مستخدم حتى لو التقييم محفوظ/معتمد.
+      const locked = false;
+      el("lockNote").classList.toggle("hidden", true);
       const finalBtn = el("finalSaveBtn");
       if(finalBtn) finalBtn.disabled = false;
-      document.querySelectorAll("#kpiModal input").forEach(input => {
-        const locked = input.dataset?.date ? isDailyDateLocked(input.dataset.date) : false;
-        input.disabled = locked;
-        input.classList.toggle("locked-input", locked);
+      document.querySelectorAll("#kpiModal input").forEach(i => {
+        i.disabled = false;
+        i.classList.remove("locked-input");
       });
     }
 
@@ -1665,7 +1644,9 @@
       selectedKpi.periodTo = el("dateToFilter").value || selectedKpi.periodTo || "";
       selectedKpi.workDays = updateWorkDaysCount();
 
-      const lockedSet = isAdminProfile(currentProfile) ? new Set() : savedLockedDateSet(selectedKpi);
+      // فتح التعديل والحفظ مؤقتًا لأي مستخدم لديه صلاحية دخول الصفحة.
+      // مهم: لا نعتبر الأيام المحفوظة مقفولة، حتى لا يتم تجاهل المدخلات الجديدة أو ترجع القيم 0 بعد الحفظ.
+      const lockedSet = new Set();
       const oldSpeed = selectedKpi.speed?.dailyDelays || {};
       const oldEnteredDates = Array.isArray(selectedKpi.speed?.delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys(oldSpeed);
       const nextDailyDelays = {};
@@ -1813,13 +1794,14 @@
           dailyDelays:{...((selectedKpi.speed || {}).dailyDelays || {})},
           delayEnteredDates:[...(Array.isArray((selectedKpi.speed || {}).delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys((selectedKpi.speed || {}).dailyDelays || {}))].sort()
         },
-        dailyPerformance:{...((savedKpi || {}).dailyPerformance || {}), ...((selectedKpi || {}).dailyPerformance || {})},
-        lockedDates:[...new Set([...(Array.isArray(savedKpi.lockedDates) ? savedKpi.lockedDates : []), ...(Array.isArray(selectedKpi.lockedDates) ? selectedKpi.lockedDates : [])])].sort()
+        dailyPerformance:{...((selectedKpi || {}).dailyPerformance || {})},
+        lockedDates:[]
       };
     }
 
     async function saveKpi(status="completed"){
       if(!selectedRep || !selectedKpi) return;
+      // فتح التعديل مؤقتًا لأي مستخدم: السماح بحفظ التقييم حتى لو كان معتمدًا.
       applyModalPeriodToPage();
       const month = el("monthFilter").value || defaultMonth();
       const branch = branchForRep(selectedRep);
