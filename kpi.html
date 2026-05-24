@@ -10,6 +10,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -157,6 +158,12 @@
     .kpi-table tbody tr:hover td{background:#f8fafc;}
     .day-box{transition:border-color .2s ease, box-shadow .2s ease;}
     .day-box:focus-within{border-color:#111827;box-shadow:0 8px 20px rgba(15,23,42,.08);}
+    .delay-sales-list{display:grid;gap:6px;margin-top:6px;}
+    .delay-sale-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:end;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:7px;}
+    .delay-sale-row .input-label{margin:0 0 4px;}
+    .delay-sale-row input{background:#fff;}
+    .delay-remove-sale{padding:7px 9px;border-radius:10px;background:#fee2e2;color:#991b1b;font-size:12px;}
+    .delay-add-sale{width:100%;margin-top:6px;padding:7px 9px;border-radius:10px;background:#eef2ff;color:#1e3a8a;font-size:12px;}
 
 
     .pdf-export-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:linear-gradient(180deg,#fff,#f8fafc);border:1px solid #e5e7eb;border-radius:18px;padding:12px 14px;margin:0 0 14px;box-shadow:0 8px 22px rgba(15,23,42,.035);}
@@ -1036,15 +1043,65 @@
       return '<span class="pill gray">مسودة</span>';
     }
 
+    function normalizeDelaySales(speed){
+      const dailyDelaySales = speed?.dailyDelaySales || {};
+      const dailyDelays = speed?.dailyDelays || {};
+      const keys = new Set([...Object.keys(dailyDelays || {}), ...Object.keys(dailyDelaySales || {})]);
+      const normalized = {};
+      keys.forEach(key => {
+        let raw = Object.prototype.hasOwnProperty.call(dailyDelaySales, key) ? dailyDelaySales[key] : dailyDelays[key];
+        if(raw === undefined || raw === null || raw === "") return;
+        const values = Array.isArray(raw) ? raw : [raw];
+        const cleanValues = values
+          .map(v => Number(v) || 0)
+          .filter(v => Number.isFinite(v));
+        if(cleanValues.length) normalized[key] = cleanValues;
+      });
+      return normalized;
+    }
+
+    function addDelaySaleInput(dateKey, value="", locked=false){
+      const list = document.querySelector(`.delay-sales-list[data-date="${dateKey}"]`);
+      if(!list) return;
+      const row = document.createElement("div");
+      row.className = "delay-sale-row";
+      row.innerHTML = `
+        <div>
+          <label class="input-label">الدقائق ${list.children.length + 1}</label>
+          <input class="delay-input${locked ? " locked-input" : ""}" data-date="${dateKey}" type="number" min="0" step="0.5" value="${escapeHtml(value)}" ${locked ? "disabled" : ""} placeholder="دقائق التأخير">
+        </div>
+        <button class="delay-remove-sale" type="button" ${locked ? "disabled" : ""}>حذف</button>
+      `;
+      list.appendChild(row);
+      const input = row.querySelector("input");
+      input.oninput = () => { syncModalData(); calculateModal(); };
+      const removeBtn = row.querySelector(".delay-remove-sale");
+      removeBtn.onclick = () => {
+        row.remove();
+        renumberDelaySaleRows(dateKey);
+        syncModalData();
+        calculateModal();
+      };
+      renumberDelaySaleRows(dateKey);
+    }
+
+    function renumberDelaySaleRows(dateKey){
+      const list = document.querySelector(`.delay-sales-list[data-date="${dateKey}"]`);
+      if(!list) return;
+      Array.from(list.querySelectorAll(".delay-sale-row .input-label")).forEach((label, idx) => {
+        label.textContent = `الدقائق ${idx + 1}`;
+      });
+    }
+
     function calcFromData(data){
       const workDays = Number(data.workDays || el("workDaysInput").value || updateWorkDaysCount() || 26) || 26;
-      const dailyDelays = data.speed?.dailyDelays || {};
+      const dailyDelaySales = normalizeDelaySales(data.speed || {});
       const periodKeys = periodDates(false).map(d => d.key);
       const explicitEnteredDates = Array.isArray(data.speed?.delayEnteredDates) ? data.speed.delayEnteredDates : null;
       const enteredKeys = explicitEnteredDates
-        ? periodKeys.filter(key => explicitEnteredDates.includes(key))
-        : periodKeys.filter(key => Object.prototype.hasOwnProperty.call(dailyDelays, key) && Number(dailyDelays[key]) > 0);
-      const enteredDelayValues = enteredKeys.map(key => Math.max(0, Number(dailyDelays[key]) || 0));
+        ? periodKeys.filter(key => explicitEnteredDates.includes(key) || dailyDelaySales[key]?.length)
+        : periodKeys.filter(key => dailyDelaySales[key]?.length);
+      const enteredDelayValues = enteredKeys.flatMap(key => (dailyDelaySales[key] || []).map(v => Math.max(0, Number(v) || 0)));
       const positiveDelays = enteredDelayValues.filter(v => v > 0);
       const totalDelay = round(enteredDelayValues.reduce((a,b)=>a+b,0));
       const delayDays = positiveDelays.length;
@@ -1447,7 +1504,7 @@
         periodFrom: el("dateFromFilter").value || monthStartEnd(el("monthFilter").value || defaultMonth()).from,
         periodTo: el("dateToFilter").value || monthStartEnd(el("monthFilter").value || defaultMonth()).to,
         workDays: updateWorkDaysCount(),
-        speed:{ maxAllowedMinutes:3, dailyDelays:{} },
+        speed:{ maxAllowedMinutes:3, dailyDelays:{}, dailyDelaySales:{} },
         efficiency:{
           personality:{ customerFitHonesty:0, carNotesHonesty:0 },
           technical:{ currentPrices:0, oldPrices:0, carSpecs:0, competitorsComparison:0, salesChannels:0 }
@@ -1514,31 +1571,43 @@
 
     function buildDelayInputs(){
       const grid = el("delayDaysGrid");
-      const daily = selectedKpi.speed?.dailyDelays || {};
-      const explicitEnteredDates = Array.isArray(selectedKpi.speed?.delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : null;
-      const enteredSet = new Set(explicitEnteredDates || []);
+      const dailySales = normalizeDelaySales(selectedKpi.speed || {});
       const groups = weekGroups();
       grid.innerHTML = groups.map((week, idx) => `
         <div class="week-card">
           <div class="week-title">الأسبوع ${idx + 1} <span class="muted">من السبت إلى الخميس - الجمعة مستبعدة</span></div>
           <div class="week-days">
             ${week.map(info => {
-              const hasOldAutoZero = !explicitEnteredDates && Object.prototype.hasOwnProperty.call(daily, info.key) && Number(daily[info.key]) === 0;
-              const shouldShowValue = explicitEnteredDates ? enteredSet.has(info.key) : (Object.prototype.hasOwnProperty.call(daily, info.key) && !hasOldAutoZero);
-              const value = shouldShowValue ? (daily[info.key] ?? 0) : '';
+              const values = dailySales[info.key] || [];
               const locked = isDailyDateLocked(info.key);
               return `
                 <div class="day-box">
                   <span class="day-name">${info.dayName}</span>
                   <span class="day-date">${info.key}</span>
-                  <input class="delay-input${locked ? " locked-input" : ""}" data-date="${info.key}" type="number" min="0" step="0.5" value="${value}" ${locked ? "disabled" : ""}>
+                  <div class="delay-sales-list" data-date="${info.key}"></div>
+                  <button class="delay-add-sale" type="button" data-add-delay-sale="${info.key}" ${locked ? "disabled" : ""}>+ إضافة الدقائق في نفس اليوم</button>
                 </div>
               `;
             }).join("")}
           </div>
         </div>
       `).join("");
-      grid.querySelectorAll("input").forEach(input => input.oninput = () => { syncModalData(); calculateModal(); });
+      periodDates(false).forEach(info => {
+        const values = dailySales[info.key] || [];
+        const locked = isDailyDateLocked(info.key);
+        if(values.length){
+          values.forEach(value => addDelaySaleInput(info.key, value, locked));
+        }else{
+          addDelaySaleInput(info.key, "", locked);
+        }
+      });
+      grid.querySelectorAll("[data-add-delay-sale]").forEach(btn => {
+        btn.onclick = () => {
+          addDelaySaleInput(btn.dataset.addDelaySale, "", btn.disabled);
+          syncModalData();
+          calculateModal();
+        };
+      });
     }
 
     function buildPerformanceInputs(){
@@ -1647,15 +1716,15 @@
       // فتح التعديل والحفظ مؤقتًا لأي مستخدم لديه صلاحية دخول الصفحة.
       // مهم: لا نعتبر الأيام المحفوظة مقفولة، حتى لا يتم تجاهل المدخلات الجديدة أو ترجع القيم 0 بعد الحفظ.
       const lockedSet = new Set();
-      const oldSpeed = selectedKpi.speed?.dailyDelays || {};
-      const oldEnteredDates = Array.isArray(selectedKpi.speed?.delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys(oldSpeed);
-      const nextDailyDelays = {};
+      const oldSpeedSales = normalizeDelaySales(selectedKpi.speed || {});
+      const oldEnteredDates = Array.isArray(selectedKpi.speed?.delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys(oldSpeedSales);
+      const nextDailyDelaySales = {};
       const nextEnteredDates = new Set();
 
       // نحافظ على الأيام المقفولة كما هي، ونضيف عليها الأيام الجديدة فقط.
       oldEnteredDates.forEach(dateKey => {
-        if(lockedSet.has(dateKey) && Object.prototype.hasOwnProperty.call(oldSpeed, dateKey)){
-          nextDailyDelays[dateKey] = Number(oldSpeed[dateKey]) || 0;
+        if(lockedSet.has(dateKey) && oldSpeedSales[dateKey]?.length){
+          nextDailyDelaySales[dateKey] = [...oldSpeedSales[dateKey]];
           nextEnteredDates.add(dateKey);
         }
       });
@@ -1666,13 +1735,15 @@
         if(lockedSet.has(dateKey)) return;
         const raw = String(input.value ?? "").trim();
         if(raw !== ""){
-          nextDailyDelays[dateKey] = Number(raw) || 0;
+          nextDailyDelaySales[dateKey] = nextDailyDelaySales[dateKey] || [];
+          nextDailyDelaySales[dateKey].push(Number(raw) || 0);
           nextEnteredDates.add(dateKey);
         }
       });
 
-      selectedKpi.speed = selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{}};
-      selectedKpi.speed.dailyDelays = nextDailyDelays;
+      selectedKpi.speed = selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{},dailyDelaySales:{}};
+      selectedKpi.speed.dailyDelaySales = nextDailyDelaySales;
+      selectedKpi.speed.dailyDelays = Object.fromEntries(Object.entries(nextDailyDelaySales).map(([dateKey, values]) => [dateKey, values.reduce((sum,v)=>sum+(Number(v)||0),0)]));
       selectedKpi.speed.delayEnteredDates = [...nextEnteredDates].sort();
 
       selectedKpi.efficiency = selectedKpi.efficiency || {};
@@ -1790,9 +1861,10 @@
         createdByUid: selectedKpi.createdByUid || savedKpi.createdByUid,
         createdByName: selectedKpi.createdByName || savedKpi.createdByName,
         speed:{
-          ...(selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{}}),
+          ...(selectedKpi.speed || {maxAllowedMinutes:3,dailyDelays:{},dailyDelaySales:{}}),
+          dailyDelaySales:{...normalizeDelaySales(selectedKpi.speed || {})},
           dailyDelays:{...((selectedKpi.speed || {}).dailyDelays || {})},
-          delayEnteredDates:[...(Array.isArray((selectedKpi.speed || {}).delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys((selectedKpi.speed || {}).dailyDelays || {}))].sort()
+          delayEnteredDates:[...(Array.isArray((selectedKpi.speed || {}).delayEnteredDates) ? selectedKpi.speed.delayEnteredDates : Object.keys(normalizeDelaySales(selectedKpi.speed || {})))].sort()
         },
         dailyPerformance:{...((selectedKpi || {}).dailyPerformance || {})},
         lockedDates:[]
@@ -2042,6 +2114,9 @@
   .pdf-performanceTab .day-box{padding:3px;}
   .pdf-performanceTab .input-label,.pdf-performanceTab .day-name,.pdf-performanceTab .day-date{font-size:7.5px;margin-bottom:1px;}
   .pdf-performanceTab input{font-size:8px;padding:2px 4px;border-radius:5px;}
+  .delay-sales-list{display:grid;gap:3px;margin-top:3px;}
+  .delay-sale-row{display:block;background:#f8fafc;border:1px solid #e5e7eb;border-radius:7px;padding:3px;margin-bottom:3px;}
+  .delay-remove-sale,.delay-add-sale{display:none!important;}
   @media print{body{background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact;} .pdf-page{max-width:none;padding:0;} .pdf-cover{page-break-inside:avoid;break-inside:avoid;} .pdf-section-heading,.week-card,.kpi-card,.result-summary-card{page-break-inside:avoid;break-inside:avoid;} @page{size:A4 landscape;margin:0;}}
 </style>
 </head>
