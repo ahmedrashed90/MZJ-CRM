@@ -27,6 +27,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -308,6 +309,12 @@
       { title:"تم الإنتهاء - إنشاء طلب البيع", match:["تم الإنتهاء - إنشاء طلب البيع","تم الانتهاء - إنشاء طلب البيع"] }
     ];
 
+    const DASHBOARD_BASE_SECTION_STATUSES = {
+      cash: SECTION_DEFS.cash.statuses.map(st => ({ title:st.title, match:[...(st.match || [])] })),
+      finance: SECTION_DEFS.finance.statuses.map(st => ({ title:st.title, match:[...(st.match || [])] })),
+      cs: SECTION_DEFS.cs.statuses.map(st => ({ title:st.title, match:[...(st.match || [])] }))
+    };
+
     function dashboardCanonicalDepartment(value){
       const raw = String(value || "").trim();
       const key = raw
@@ -325,17 +332,30 @@
       return raw;
     }
 
-    function dashboardClientStatusDepartment(data = {}){
-      const candidates = [
+    function dashboardClientStatusDepartments(data = {}){
+      const directValues = [
+        data.departments, data.departmentIds, data.departmentKeys, data.allowedDepartments,
         data.department, data.dept, data.section, data.category, data.type,
         data.group, data.targetDepartment, data.salesDepartment, data.page,
         data.path, data.service, data.team
       ];
-      for(const v of candidates){
+      const values = directValues
+        .flatMap(v => Array.isArray(v) ? v : [v])
+        .filter(v => v !== undefined && v !== null && String(v).trim() !== "");
+
+      const seen = new Set();
+      const departments = [];
+      values.forEach(v => {
         const dept = dashboardCanonicalDepartment(v);
-        if(["cash_sales","finance_sales","customer_service","call_center"].includes(dept)) return dept;
-      }
-      return "";
+        if(!["cash_sales","finance_sales","customer_service","call_center"].includes(dept) || seen.has(dept)) return;
+        seen.add(dept);
+        departments.push(dept);
+      });
+      return departments;
+    }
+
+    function dashboardClientStatusDepartment(data = {}){
+      return dashboardClientStatusDepartments(data)[0] || "";
     }
 
     function dashboardClientStatusTitle(data = {}){
@@ -366,7 +386,7 @@
 
     function buildDashboardStatusDefsFromClientStatuses(department){
       const items = (dashboardChatState.clientStatuses || [])
-        .filter(item => item.department === department)
+        .filter(item => item.department === department || (Array.isArray(item.departments) && item.departments.includes(department)))
         .sort((a,b) => (a.sort - b.sort) || a.title.localeCompare(b.title, "ar"));
 
       const seen = new Set();
@@ -381,11 +401,28 @@
       return out;
     }
 
+    function mergeDashboardStatusDefs(baseStatuses = [], clientStatuses = []){
+      const seen = new Set();
+      const out = [];
+      [...baseStatuses, ...clientStatuses].forEach(st => {
+        const title = String(st?.title || "").trim();
+        const key = normalizeDashboardStatusKey(title);
+        if(!key || seen.has(key)) return;
+        seen.add(key);
+        out.push({
+          title,
+          match: uniqueDashboardStatuses([...(Array.isArray(st?.match) ? st.match : []), title])
+        });
+      });
+      return out;
+    }
+
     function applyDashboardClientStatusesToSections(){
       const map = { cash:"cash_sales", finance:"finance_sales", cs:"customer_service" };
       Object.entries(map).forEach(([sectionKey, department]) => {
         const defs = buildDashboardStatusDefsFromClientStatuses(department);
-        if(defs.length) SECTION_DEFS[sectionKey].statuses = defs;
+        const base = DASHBOARD_BASE_SECTION_STATUSES[sectionKey] || SECTION_DEFS[sectionKey].statuses || [];
+        SECTION_DEFS[sectionKey].statuses = mergeDashboardStatusDefs(base, defs);
       });
       renderDashboard();
       if(dashboardChatState.lead) fillDashboardChatStatusOptions(dashboardChatState.lead);
@@ -400,9 +437,11 @@
           const data = d.data() || {};
           if(!dashboardStatusIsVisible(data)) return;
           const title = dashboardClientStatusTitle(data);
-          const department = dashboardClientStatusDepartment(data);
-          if(!title || !department) return;
-          rows.push({ id:d.id, title, department, sort:dashboardStatusSortValue(data, i++), raw:data });
+          const departments = dashboardClientStatusDepartments(data);
+          if(!title || !departments.length) return;
+          departments.forEach(department => {
+            rows.push({ id:d.id, title, department, departments, sort:dashboardStatusSortValue(data, i++), raw:data });
+          });
         });
         dashboardChatState.clientStatuses = rows;
         applyDashboardClientStatusesToSections();
