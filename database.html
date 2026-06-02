@@ -8,6 +8,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -78,6 +79,267 @@
       min-width: 180px;
       box-sizing: border-box;
     }
+
+    .transfer-wizard-actions {
+      margin-top: 10px;
+      display: none;
+      justify-content: flex-start;
+      gap: 10px;
+    }
+
+    .transfer-wizard-actions .secondary {
+      border-radius: 999px;
+      padding-inline: 18px;
+      font-weight: 700;
+    }
+
+    .transfer-wizard-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .transfer-wizard-modal.hidden {
+      display: none;
+    }
+
+    .transfer-wizard-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.58);
+      backdrop-filter: blur(5px);
+    }
+
+    .transfer-wizard-dialog {
+      position: relative;
+      z-index: 1;
+      width: min(980px, 96vw);
+      max-height: 92vh;
+      overflow: hidden;
+      background: #fff;
+      border-radius: 24px;
+      box-shadow: 0 30px 90px rgba(15, 23, 42, 0.28);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .transfer-wizard-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 20px 22px 16px;
+      background: linear-gradient(135deg, #fff7ed 0%, #ffffff 54%, #f8fafc 100%);
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .transfer-wizard-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .transfer-wizard-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      background: linear-gradient(135deg, #8a3b2e, #c06b48);
+      box-shadow: 0 10px 26px rgba(138, 59, 46, 0.22);
+      font-size: 21px;
+      flex: 0 0 auto;
+    }
+
+    .transfer-wizard-head h3 {
+      margin: 0 0 5px;
+      font-size: 21px;
+    }
+
+    .transfer-wizard-head p {
+      margin: 0;
+      color: #64748b;
+      font-size: 13px;
+    }
+
+    .transfer-wizard-body {
+      padding: 18px 22px 0;
+      overflow: auto;
+    }
+
+    .transfer-wizard-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .transfer-wizard-field label {
+      display: block;
+      margin: 0 0 6px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .transfer-wizard-field select {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid #dbe3ef;
+      border-radius: 12px;
+      padding: 8px 10px;
+      background: #fff;
+      color: #1f2937;
+    }
+
+    .transfer-wizard-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .transfer-wizard-stat {
+      padding: 12px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      background: #f8fafc;
+      color: #334155;
+      min-height: 62px;
+    }
+
+    .transfer-wizard-stat b {
+      display: block;
+      color: #8a3b2e;
+      font-size: 20px;
+      margin-bottom: 3px;
+    }
+
+    .transfer-wizard-stat span {
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .transfer-wizard-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      background: #fff;
+      margin-bottom: 12px;
+      color: #334155;
+      font-size: 13px;
+    }
+
+    .transfer-wizard-tools label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .transfer-wizard-small-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .transfer-wizard-small-actions button {
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 999px;
+      padding: 7px 12px;
+      cursor: pointer;
+      color: #334155;
+      font-weight: 700;
+    }
+
+    .transfer-wizard-list {
+      max-height: 310px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      margin-bottom: 14px;
+      background: #fff;
+    }
+
+    .transfer-wizard-list table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .transfer-wizard-list th,
+    .transfer-wizard-list td {
+      padding: 9px 11px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .transfer-wizard-list th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 12px;
+    }
+
+    .transfer-wizard-list tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .transfer-wizard-list tbody tr:hover {
+      background: #fff7ed;
+    }
+
+    .transfer-wizard-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 22px 18px;
+      border-top: 1px solid #e2e8f0;
+      background: #fff;
+    }
+
+    .transfer-wizard-note {
+      color: #64748b;
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .transfer-wizard-grid,
+      .transfer-wizard-summary {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .transfer-wizard-grid,
+      .transfer-wizard-summary {
+        grid-template-columns: 1fr;
+      }
+      .transfer-wizard-footer,
+      .transfer-wizard-tools {
+        align-items: stretch;
+        flex-direction: column;
+      }
+    }
+
   </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -157,6 +419,9 @@
           <select id="branchFilter"><option value="">كل الفروع</option></select>
           <input id="searchInput" placeholder="بحث عام..." />
         </div>
+        <div class="transfer-wizard-actions admin-assignment-col" id="transferWizardActions">
+          <button class="secondary" type="button" id="openTransferWizardBtn">نقل العملاء بين المناديب</button>
+        </div>
       </div>
 
       <div class="table-wrap">
@@ -187,6 +452,52 @@
     </main>
   </div>
   <div class="toast" id="toast"></div>
+  <div class="transfer-wizard-modal hidden" id="transferWizardModal">
+    <div class="transfer-wizard-backdrop" data-transfer-close></div>
+    <div class="transfer-wizard-dialog">
+      <div class="transfer-wizard-head">
+        <div class="transfer-wizard-title">
+          <span class="transfer-wizard-icon">⇄</span>
+          <div>
+            <h3>معالج نقل العملاء</h3>
+            <p>نقل العملاء من مندوب إلى مندوب آخر داخل نفس الفرع والقسم حسب الحالة.</p>
+          </div>
+        </div>
+        <button class="secondary" type="button" data-transfer-close>إغلاق</button>
+      </div>
+      <div class="transfer-wizard-body">
+        <div class="transfer-wizard-grid">
+          <div class="transfer-wizard-field"><label>الفرع</label><select id="transferBranchSelect"><option value="">اختر الفرع</option></select></div>
+          <div class="transfer-wizard-field"><label>القسم</label><select id="transferDepartmentSelect"><option value="">اختر القسم</option></select></div>
+          <div class="transfer-wizard-field"><label>الحالة</label><select id="transferStatusSelect"><option value="">اختر الحالة</option></select></div>
+          <div class="transfer-wizard-field"><label>من المندوب</label><select id="transferFromSelect"><option value="">اختر المندوب الحالي</option></select></div>
+          <div class="transfer-wizard-field"><label>إلى المندوب</label><select id="transferToSelect"><option value="">اختر المندوب الجديد</option></select></div>
+        </div>
+        <div class="transfer-wizard-summary">
+          <div class="transfer-wizard-stat"><b id="transferWizardCount">0</b><span>عميل مطابق</span></div>
+          <div class="transfer-wizard-stat"><b id="transferWizardSelectedCount">0</b><span>عميل محدد للنقل</span></div>
+          <div class="transfer-wizard-stat"><b id="transferWizardToName">—</b><span>المندوب الجديد</span></div>
+        </div>
+        <div class="transfer-wizard-tools">
+          <label><input type="checkbox" id="transferSelectAll" /> تحديد كل العملاء المطابقين</label>
+          <div class="transfer-wizard-small-actions">
+            <button type="button" id="transferSelectVisibleBtn">تحديد الظاهر</button>
+            <button type="button" id="transferClearSelectedBtn">إلغاء التحديد</button>
+          </div>
+        </div>
+        <div class="transfer-wizard-list" id="transferWizardList">
+          <table>
+            <thead><tr><th>تحديد</th><th>اسم العميل</th><th>الجوال</th><th>الحالة</th><th>المندوب الحالي</th></tr></thead>
+            <tbody><tr><td colspan="5">لا توجد بيانات</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="transfer-wizard-footer">
+        <div class="transfer-wizard-note" id="transferWizardHint">اختر الفرع والقسم والحالة والمندوب الحالي، ثم حدد العملاء المطلوب نقلهم أو اختر تحديد الكل.</div>
+        <button class="primary" type="button" id="confirmTransferWizardBtn">تنفيذ النقل</button>
+      </div>
+    </div>
+  </div>
   <script type="module">
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -196,7 +507,7 @@
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
       getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy,
-      addDoc, setDoc, updateDoc, serverTimestamp
+      addDoc, setDoc, updateDoc, serverTimestamp, writeBatch
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -1087,6 +1398,9 @@
       applyFilterOptions();
       const rows = filteredRows();
       el("countBadge").textContent = rows.length + " عميل";
+      const transferActions = el("transferWizardActions");
+      if(transferActions) transferActions.style.display = isAdmin ? "flex" : "none";
+      if(el("transferWizardModal") && !el("transferWizardModal").classList.contains("hidden")) transferRefreshAll();
 
       const body = el("leadsBody");
       body.innerHTML = rows.length ? "" : '<tr><td colspan="16">لا توجد بيانات</td></tr>';
@@ -1178,6 +1492,364 @@
       });
     }
 
+
+
+    let transferSelectedIds = new Set();
+
+    function transferCurrentLeadStatus(lead){
+      return String(lead.status || lead.statusLabel || lead.leadStatus || lead.currentStatus || lead.currentStatusLabel || lead.clientStatus || lead.customerStatus || lead.customerStatusLabel || lead.pipelineStatus || lead.pipelineStatusLabel || lead.stage || lead.stageLabel || "").trim();
+    }
+
+    function transferTextKey(value){
+      return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+    }
+
+    function transferLeadBranchMatches(lead, selectedBranchName){
+      const wanted = transferTextKey(selectedBranchName);
+      if(!wanted) return false;
+      const wantedBranchDoc = branchForName(selectedBranchName);
+      const wantedBranchId = transferTextKey(wantedBranchDoc?.id || "");
+      const values = [lead.branch, lead.branchName, lead.branchLabel, lead.branchId, lead.branchLocationName, lead.branchLocationId]
+        .filter(v => !isDepartmentLabel(v))
+        .map(transferTextKey)
+        .filter(Boolean);
+      if(values.includes(wanted)) return true;
+      if(wantedBranchId && values.includes(wantedBranchId)) return true;
+      return values.some(v => {
+        const leadBranchDoc = branchForName(v);
+        return leadBranchDoc && (transferTextKey(branchLabel(leadBranchDoc)) === wanted || transferTextKey(leadBranchDoc.id) === wantedBranchId);
+      });
+    }
+
+    function transferLeadResponsibleMatches(lead, selectedUid){
+      const user = users.find(u => (u.uid || u.id) === selectedUid);
+      const ids = [selectedUid, user?.uid, user?.id, user?.userId].map(transferTextKey).filter(Boolean);
+      const names = [user?.name, user?.displayName, user?.email].map(transferTextKey).filter(Boolean);
+      const leadIdFields = [
+        lead.responsibleUid, lead.responsibleUserId, lead.assignedToUid, lead.assignedUid, lead.assignedUserId, lead.assignedId,
+        lead.ownerUid, lead.ownerUserId, lead.salesUid, lead.salesUserId, lead.salesRepUid, lead.representativeUid,
+        lead.agentUid, lead.userUid, lead.employeeUid
+      ].map(transferTextKey).filter(Boolean);
+      const leadNameFields = [
+        lead.responsibleName, lead.responsibleEmail, lead.assignedToName, lead.assignedName, lead.assignedToEmail, lead.assignedEmail,
+        lead.assignedTo, lead.assigned, lead.ownerName, lead.ownerEmail, lead.owner, lead.salesName, lead.salesEmail, lead.salesRep,
+        lead.representativeName, lead.representativeEmail, lead.representative, lead.agentName, lead.agentEmail, lead.agent,
+        lead.userName, lead.userEmail, lead.user, lead.employeeName, lead.employeeEmail, lead.employee
+      ].map(transferTextKey).filter(Boolean);
+      return ids.some(id => leadIdFields.includes(id)) || names.some(name => leadNameFields.includes(name));
+    }
+
+    function transferVisibleLeads(){
+      return leads.filter(l => {
+        if(l.manualOnly === true || l.manualDuplicateRequest === true || l.manualRequestType === "duplicate_phone") return false;
+        return canSeeLead(l);
+      });
+    }
+
+    function transferLeadDepartmentMatches(lead, dept, fromUid=""){
+      const targetDept = normalizeDepartment(dept);
+      if(!targetDept) return false;
+      const leadDept = normalizeDepartment(responsibleDepartmentForLead(lead));
+      if(leadDept === targetDept) return true;
+
+      const deptValues = [
+        lead.department, lead.departmentId, lead.departmentKey, lead.departmentName, lead.section, lead.sectionKey,
+        lead.responsibleDepartment, lead.salesDepartment, lead.leadDepartment, lead.assignedDepartment
+      ].map(v => normalizeDepartment(v)).filter(Boolean);
+      if(deptValues.includes(targetDept)) return true;
+
+      const payment = String(lead.payment || lead.paymentType || lead.payType || "").trim();
+      if(PAGE_PAYMENTS[targetDept] && payment.includes(PAGE_PAYMENTS[targetDept])) return true;
+      if(targetDept === "finance_sales" && payment.includes("تمويل")) return true;
+      if(targetDept === "cash_sales" && payment.includes("كاش")) return true;
+      if(targetDept === "customer_service" && payment.includes("خدمة")) return true;
+
+      // بعض العملاء في كارت الكول سنتر يكون القسم/الفرع غير محفوظين بنفس الشكل،
+      // لذلك نعتمد على المندوب المختار من نفس الفرع والقسم طالما حالة العميل والمسؤول مطابقين.
+      return !!fromUid && transferLeadResponsibleMatches(lead, fromUid);
+    }
+
+    function transferFromUserBelongsToBranchDept(branchName, dept, fromUid){
+      if(!branchName || !dept || !fromUid) return false;
+      return usersForBranchDepartment(branchName, dept).some(u => (u.uid || u.id) === fromUid);
+    }
+
+    function transferMatchedRows(){
+      const branchName = el("transferBranchSelect")?.value || "";
+      const dept = el("transferDepartmentSelect")?.value || "";
+      const status = el("transferStatusSelect")?.value || "";
+      const fromUid = el("transferFromSelect")?.value || "";
+      if(!branchName || !dept || !status || !fromUid) return [];
+      const fromUserInSelectedScope = transferFromUserBelongsToBranchDept(branchName, dept, fromUid);
+      return transferVisibleLeads().filter(l => {
+        const leadStatus = transferCurrentLeadStatus(l);
+        const responsibleOk = transferLeadResponsibleMatches(l, fromUid);
+        const branchOk = transferLeadBranchMatches(l, branchName) || (fromUserInSelectedScope && responsibleOk);
+        const deptOk = transferLeadDepartmentMatches(l, dept, fromUid);
+        return branchOk && deptOk && transferTextKey(leadStatus) === transferTextKey(status) && responsibleOk;
+      });
+    }
+
+    function transferUserOptionHtml(dept, branchName, selectedUid="", excludeUid=""){
+      const opts = ['<option value="">اختر المندوب</option>'];
+      usersForBranchDepartment(branchName, dept).forEach(u => {
+        const uid = u.uid || u.id;
+        if(excludeUid && uid === excludeUid) return;
+        opts.push(`<option value="${escapeHtml(uid)}" ${uid === selectedUid ? "selected" : ""}>${escapeHtml(u.name || u.email || uid)}</option>`);
+      });
+      return opts.join("");
+    }
+
+    function transferRefreshBranches(){
+      const select = el("transferBranchSelect");
+      if(!select) return;
+      const selected = select.value;
+      const values = branches
+        .filter(b => b.active !== false)
+        .map(b => branchLabel(b))
+        .filter(Boolean)
+        .sort((a,b) => a.localeCompare(b, "ar"));
+      fillSelectOptions(select, "اختر الفرع", values, selected);
+    }
+
+    function transferRefreshDepartments(){
+      const branchName = el("transferBranchSelect")?.value || "";
+      const selected = el("transferDepartmentSelect")?.value || "";
+      const values = ["cash_sales", "finance_sales", "customer_service"]
+        .filter(d => departmentHasBranchUsers(branchName, d))
+        .map(d => ({ value:d, label:departmentLabel(d) }));
+      fillSelectOptions(el("transferDepartmentSelect"), "اختر القسم", values, selected);
+      if(selected && !values.some(v => v.value === selected)) el("transferDepartmentSelect").value = "";
+    }
+
+    function transferRefreshStatuses(){
+      const branchName = el("transferBranchSelect")?.value || "";
+      const dept = el("transferDepartmentSelect")?.value || "";
+      const selected = el("transferStatusSelect")?.value || "";
+      const seen = new Set();
+      const values = [];
+      if(!branchName || !dept){
+        fillSelectOptions(el("transferStatusSelect"), "اختر الحالة", [], "");
+        return;
+      }
+      transferVisibleLeads().forEach(l => {
+        if(!transferLeadBranchMatches(l, branchName)) return;
+        if(responsibleDepartmentForLead(l) !== dept) return;
+        const status = transferCurrentLeadStatus(l);
+        if(!status || seen.has(status)) return;
+        seen.add(status);
+        values.push(status);
+      });
+      statuses
+        .filter(s => s.active !== false && statusBelongsToDepartment(s, dept))
+        .forEach(s => {
+          const value = statusValue(s);
+          if(!value || seen.has(value)) return;
+          seen.add(value);
+          values.push(value);
+        });
+      values.sort((a,b) => a.localeCompare(b, "ar"));
+      fillSelectOptions(el("transferStatusSelect"), "اختر الحالة", values, selected);
+      if(selected && !seen.has(selected)) el("transferStatusSelect").value = "";
+    }
+
+    function transferRefreshUsers(){
+      const branchName = el("transferBranchSelect")?.value || "";
+      const dept = el("transferDepartmentSelect")?.value || "";
+      const fromSelected = el("transferFromSelect")?.value || "";
+      const toSelected = el("transferToSelect")?.value || "";
+      el("transferFromSelect").innerHTML = transferUserOptionHtml(dept, branchName, fromSelected);
+      const fromUid = el("transferFromSelect").value || "";
+      el("transferToSelect").innerHTML = transferUserOptionHtml(dept, branchName, toSelected, fromUid);
+      transferUpdateToName();
+    }
+
+    function transferUpdateToName(){
+      const toUid = el("transferToSelect")?.value || "";
+      const user = users.find(u => (u.uid || u.id) === toUid);
+      const target = el("transferWizardToName");
+      if(target) target.textContent = user ? (user.name || user.email || "—") : "—";
+    }
+
+    function transferSelectedMatchedRows(){
+      const rows = transferMatchedRows();
+      return rows.filter(l => transferSelectedIds.has(l.id));
+    }
+
+    function transferSyncSelectionState(rows){
+      const rowIds = new Set(rows.map(l => l.id));
+      transferSelectedIds = new Set([...transferSelectedIds].filter(id => rowIds.has(id)));
+      const selectedCount = transferSelectedIds.size;
+      const selectedTarget = el("transferWizardSelectedCount");
+      if(selectedTarget) selectedTarget.textContent = String(selectedCount);
+      const allBox = el("transferSelectAll");
+      if(allBox){
+        allBox.checked = rows.length > 0 && rows.every(l => transferSelectedIds.has(l.id));
+        allBox.indeterminate = selectedCount > 0 && selectedCount < rows.length;
+      }
+      const hint = el("transferWizardHint");
+      if(hint){
+        hint.textContent = rows.length
+          ? (selectedCount ? `سيتم نقل ${selectedCount} عميل محدد من أصل ${rows.length} عميل مطابق.` : "حدد العملاء المطلوب نقلهم أو اختر تحديد كل العملاء المطابقين.")
+          : "لا توجد بيانات مطابقة للاختيارات الحالية.";
+      }
+    }
+
+    function transferRenderList(){
+      const rows = transferMatchedRows();
+      const tbody = el("transferWizardList")?.querySelector("tbody");
+      if(!tbody) return;
+      transferSyncSelectionState(rows);
+      const countTarget = el("transferWizardCount");
+      if(countTarget) countTarget.textContent = String(rows.length);
+      if(!rows.length){
+        tbody.innerHTML = '<tr><td colspan="5">لا توجد بيانات</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.slice(0, 200).map(l => `
+        <tr>
+          <td><input type="checkbox" class="transfer-row-check" data-transfer-row="${escapeHtml(l.id)}" ${transferSelectedIds.has(l.id) ? "checked" : ""}></td>
+          <td>${escapeHtml(l.customerName || "عميل بدون اسم")}</td>
+          <td>${escapeHtml(l.phone || "")}</td>
+          <td>${escapeHtml(transferCurrentLeadStatus(l))}</td>
+          <td>${escapeHtml(l.responsibleName || "")}</td>
+        </tr>
+      `).join("") + (rows.length > 200 ? `<tr><td colspan="5">و ${rows.length - 200} عميل آخر. استخدم تحديد كل العملاء المطابقين لنقل الكل.</td></tr>` : "");
+      tbody.querySelectorAll(".transfer-row-check").forEach(chk => {
+        chk.onchange = () => {
+          if(chk.checked) transferSelectedIds.add(chk.dataset.transferRow);
+          else transferSelectedIds.delete(chk.dataset.transferRow);
+          transferSyncSelectionState(rows);
+        };
+      });
+    }
+
+    function transferClearSelection(){
+      transferSelectedIds.clear();
+      transferRenderList();
+    }
+
+    function transferRefreshAll(clearSelection=false){
+      if(!el("transferWizardModal")) return;
+      if(clearSelection) transferSelectedIds.clear();
+      transferRefreshBranches();
+      transferRefreshDepartments();
+      transferRefreshStatuses();
+      transferRefreshUsers();
+      transferRenderList();
+    }
+
+    function openTransferWizard(){
+      if(!isAdmin) return toast("هذه الصلاحية متاحة للإدارة العامة فقط");
+      el("transferWizardModal").classList.remove("hidden");
+      transferRefreshAll(true);
+    }
+
+    function closeTransferWizard(){
+      el("transferWizardModal")?.classList.add("hidden");
+    }
+
+    function transferBuildPayload(newUser, branchName, dept, status){
+      const responsibleId = newUser.uid || newUser.id;
+      const responsibleName = newUser.name || newUser.email || "";
+      const responsibleEmail = newUser.email || "";
+      const branchDoc = branchForName(branchName);
+      return {
+        branch: branchName,
+        branchId: branchDoc?.id || "",
+        branchName,
+        department: dept,
+        payment: PAGE_PAYMENTS[dept] || "",
+        status,
+        statusLabel: status,
+        leadStatus: status,
+        currentStatus: status,
+        currentStatusLabel: status,
+        clientStatus: status,
+        customerStatus: status,
+        customerStatusLabel: status,
+        pipelineStatus: status,
+        pipelineStatusLabel: status,
+        stage: status,
+        stageLabel: status,
+        responsibleUid: responsibleId,
+        responsibleUserId: responsibleId,
+        responsibleName,
+        responsibleEmail,
+        assignedToUid: responsibleId,
+        assignedUid: responsibleId,
+        assignedUserId: responsibleId,
+        assignedId: responsibleId,
+        assignedToName: responsibleName,
+        assignedName: responsibleName,
+        assignedToEmail: responsibleEmail,
+        assignedEmail: responsibleEmail,
+        assignedTo: responsibleName,
+        assigned: responsibleName,
+        ownerUid: responsibleId,
+        ownerUserId: responsibleId,
+        ownerName: responsibleName,
+        ownerEmail: responsibleEmail,
+        owner: responsibleName,
+        salesUid: responsibleId,
+        salesUserId: responsibleId,
+        salesRepUid: responsibleId,
+        salesName: responsibleName,
+        salesEmail: responsibleEmail,
+        salesRep: responsibleName,
+        representativeUid: responsibleId,
+        representativeName: responsibleName,
+        representativeEmail: responsibleEmail,
+        representative: responsibleName,
+        agentUid: responsibleId,
+        agentName: responsibleName,
+        agentEmail: responsibleEmail,
+        agent: responsibleName,
+        userUid: responsibleId,
+        userName: responsibleName,
+        userEmail: responsibleEmail,
+        user: responsibleName,
+        employeeUid: responsibleId,
+        employeeName: responsibleName,
+        employeeEmail: responsibleEmail,
+        employee: responsibleName,
+        lastUpdated: serverTimestamp()
+      };
+    }
+
+    async function confirmTransferWizard(){
+      if(!isAdmin) return toast("هذه الصلاحية متاحة للإدارة العامة فقط");
+      const branchName = el("transferBranchSelect").value;
+      const dept = el("transferDepartmentSelect").value;
+      const status = el("transferStatusSelect").value;
+      const fromUid = el("transferFromSelect").value;
+      const toUid = el("transferToSelect").value;
+      if(!branchName || !dept || !status || !fromUid || !toUid) return toast("اكمل اختيارات النقل أولاً");
+      if(fromUid === toUid) return toast("اختر مندوب جديد مختلف");
+      const newUser = users.find(u => (u.uid || u.id) === toUid);
+      if(!newUser) return toast("المندوب الجديد غير موجود");
+      if(!usersForBranchDepartment(branchName, dept).some(u => (u.uid || u.id) === toUid)) return toast("المندوب الجديد لا يتبع نفس الفرع والقسم");
+      const rows = transferSelectedMatchedRows();
+      if(!rows.length) return toast("حدد عميل واحد على الأقل أو اختر تحديد كل العملاء المطابقين");
+
+      const payload = transferBuildPayload(newUser, branchName, dept, status);
+
+      try{
+        for(let i = 0; i < rows.length; i += 400){
+          const chunk = rows.slice(i, i + 400);
+          const batch = writeBatch(db);
+          chunk.forEach(l => batch.update(doc(db, "leads", l.id), payload));
+          await batch.commit();
+        }
+        toast("تم نقل " + rows.length + " عميل للمندوب الجديد");
+        transferSelectedIds.clear();
+        closeTransferWizard();
+      }catch(err){
+        console.error(err);
+        toast("فشل نقل العملاء");
+      }
+    }
+
     function exportExcel(){
       const rows = filteredRows().map(l => ({
         "اسم العميل": l.customerName || "",
@@ -1210,6 +1882,38 @@
         el(id).addEventListener("change", render);
       });
       el("exportBtn").onclick = exportExcel;
+      el("openTransferWizardBtn").onclick = openTransferWizard;
+      document.querySelectorAll("[data-transfer-close]").forEach(btn => btn.onclick = closeTransferWizard);
+      ["transferBranchSelect", "transferDepartmentSelect", "transferStatusSelect", "transferFromSelect"].forEach(id => {
+        el(id).addEventListener("change", () => {
+          if(id === "transferBranchSelect"){
+            el("transferDepartmentSelect").value = "";
+            el("transferStatusSelect").value = "";
+            el("transferFromSelect").value = "";
+            el("transferToSelect").value = "";
+          }
+          if(id === "transferDepartmentSelect"){
+            el("transferStatusSelect").value = "";
+            el("transferFromSelect").value = "";
+            el("transferToSelect").value = "";
+          }
+          if(id === "transferFromSelect") el("transferToSelect").value = "";
+          transferRefreshAll(true);
+        });
+      });
+      el("transferToSelect").addEventListener("change", () => { transferUpdateToName(); transferRenderList(); });
+      el("transferSelectAll").addEventListener("change", () => {
+        const rows = transferMatchedRows();
+        if(el("transferSelectAll").checked) rows.forEach(l => transferSelectedIds.add(l.id));
+        else transferSelectedIds.clear();
+        transferRenderList();
+      });
+      el("transferSelectVisibleBtn").onclick = () => {
+        transferMatchedRows().slice(0, 200).forEach(l => transferSelectedIds.add(l.id));
+        transferRenderList();
+      };
+      el("transferClearSelectedBtn").onclick = transferClearSelection;
+      el("confirmTransferWizardBtn").onclick = confirmTransferWizard;
       // V39: تم إلغاء فتح الشات من اسم العميل أو رقم الجوال في صفحة قاعدة البيانات.
     }
 
