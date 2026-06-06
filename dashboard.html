@@ -569,6 +569,10 @@
       if(normalizeStatus(statusDef?.title) === "إجمالي العملاء"){
         return normalizeDashboardStatusKey(s) === normalizeDashboardStatusKey("عميل جديد");
       }
+      if(normalizeDashboardStatusKey(statusDef?.title) === normalizeDashboardStatusKey("مؤهل")){
+        const statusKey = normalizeDashboardStatusKey(s);
+        return statusKey.includes(normalizeDashboardStatusKey("مؤهل")) && !statusKey.includes(normalizeDashboardStatusKey("غير مؤهل"));
+      }
       return statusDef.match.some(x => normalizeStatus(x) === s);
     }
 
