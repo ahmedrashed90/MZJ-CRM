@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -390,9 +391,31 @@
       return { branch, label, id: branch ? branch.id : label };
     }
 
+    function paymentKeyFromDepartment(dept){
+      if(dept === "finance_sales") return "finance";
+      if(dept === "customer_service") return "cs";
+      return "cash";
+    }
+
+    function defaultPaymentKeyForCurrentUser(){
+      return paymentKeyFromDepartment(currentProfile?.department || "cash_sales");
+    }
+
+    function ensureAdminPaymentDefault(){
+      const box = el("adminPaymentType");
+      if(!box) return;
+      // مهم: مدير المبيعات أو أي مستخدم allDepartments كان بياخد القيمة الافتراضية من أول option = تمويل.
+      // هنا نخلي الافتراضي حسب قسم اليوزر الفعلي، خصوصًا مبيعات الكاش.
+      if(!box.dataset.userDefaultApplied){
+        box.value = defaultPaymentKeyForCurrentUser();
+        box.dataset.userDefaultApplied = "1";
+      }
+    }
+
     function selectedPaymentConfig(){
       if(isAdmin){
-        const v = el("adminPaymentType").value;
+        ensureAdminPaymentDefault();
+        const v = el("adminPaymentType").value || defaultPaymentKeyForCurrentUser();
         if(v === "finance") return paymentFromDepartment("finance_sales");
         if(v === "cs") return paymentFromDepartment("customer_service");
         return paymentFromDepartment("cash_sales");
@@ -400,6 +423,7 @@
       return paymentFromDepartment(currentProfile?.department || "cash_sales");
     }
     function refreshPaymentView(){
+      ensureAdminPaymentDefault();
       const cfg = selectedPaymentConfig();
       el("paymentReadonly").value = cfg.payment;
       el("paymentBadge").textContent = `الدفع: ${cfg.payment}`;
@@ -940,7 +964,8 @@
       el("leadSource").value = l.requestedSource || l.source || "موقع حراج";
       el("leadNotes").value = l.requestedNotes || l.notes || "";
       if(isAdmin){
-        const p = l.payment || l.paymentType || l.payType || "";
+        const p = l.requestedPayment || l.payment || l.paymentType || l.payType || "";
+        el("adminPaymentType").dataset.userDefaultApplied = "1";
         el("adminPaymentType").value = p === "تمويل" ? "finance" : (p === "خدمة عملاء" ? "cs" : "cash");
       }
       refreshPaymentView();
