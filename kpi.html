@@ -11,6 +11,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -557,6 +558,116 @@
       { page:"admin.html", label:"الإدارة" }
     ];
 
+
+    const NEW_BRANCHES = [
+      { id:"qadisiyah", name:"فرع القادسية" },
+      { id:"salan", name:"فرع الصالة" },
+      { id:"multaqa", name:"فرع الملتقى" },
+      { id:"online", name:"فرع الاونلاين" },
+      { id:"call_center_branch", name:"كول سنتر" },
+      { id:"customer_service", name:"خدمة عملاء" }
+    ];
+
+    const BRANCH_ALIASES = {
+      "branch_1777929907322":"qadisiyah",
+      "فرع_القادسية":"qadisiyah",
+      "فرع القادسية":"qadisiyah",
+      "القادسية":"qadisiyah",
+      "qadisiyah":"qadisiyah",
+      "branch_1777930716465":"salan",
+      "فرع_الصالة":"salan",
+      "فرع الصالة":"salan",
+      "الصالة":"salan",
+      "salan":"salan",
+      "branch_1777930778285":"multaqa",
+      "فرع_الملتقى":"multaqa",
+      "فرع الملتقى":"multaqa",
+      "الملتقى":"multaqa",
+      "multaqa":"multaqa",
+      "branch_1778437132317":"online",
+      "فرع_الاونلاين":"online",
+      "فرع الاونلاين":"online",
+      "فرع الأونلاين":"online",
+      "الأونلاين":"online",
+      "الاونلاين":"online",
+      "online":"online",
+      "branch_1778437182674":"call_center_branch",
+      "كول سنتر":"call_center_branch",
+      "الكول سنتر":"call_center_branch",
+      "call_center_branch":"call_center_branch",
+      "خدمة عملاء":"customer_service",
+      "خدمة العملاء":"customer_service",
+      "customer_service":"customer_service"
+    };
+
+    function normalizeTextKey(value){
+      return String(value ?? "").trim()
+        .replace(/[إأآا]/g,"ا")
+        .replace(/ى/g,"ي")
+        .replace(/ة/g,"ه")
+        .replace(/[ًٌٍَُِّْـ]/g,"")
+        .replace(/\s+/g," ")
+        .toLowerCase();
+    }
+
+    function normalizeBranchValue(value){
+      const raw = String(value ?? "").trim();
+      if(!raw) return "";
+      if(BRANCH_ALIASES[raw]) return BRANCH_ALIASES[raw];
+      const normalizedRaw = normalizeTextKey(raw).replace(/ /g,"_");
+      const aliasEntry = Object.entries(BRANCH_ALIASES).find(([key]) => normalizeTextKey(key).replace(/ /g,"_") === normalizedRaw);
+      return aliasEntry ? aliasEntry[1] : raw;
+    }
+
+    function branchDisplayName(value){
+      const normalized = normalizeBranchValue(value);
+      const branch = NEW_BRANCHES.find(item => item.id === normalized);
+      return branch?.name || String(value || normalized || "").replace(/_/g," ");
+    }
+
+    function branchValuesEqual(a,b){
+      const aa = String(a ?? "").trim();
+      const bb = String(b ?? "").trim();
+      if(!aa || !bb) return false;
+      return aa === bb || normalizeBranchValue(aa) === normalizeBranchValue(bb);
+    }
+
+    function userBranchValues(user={}){
+      const values = [
+        user.branch, user.branchId, user.branchName, user.branchTitle,
+        user.branchLocationId, user.branchLocationName,
+        user.locationId, user.locationName,
+        user.officeBranchId, user.officeBranchName,
+        user.mainBranch, user.mainBranchId, user.mainBranchName
+      ];
+      ["branches","branchIds","branchNames","locations","locationIds","officeBranches"].forEach(key => {
+        if(Array.isArray(user[key])) values.push(...user[key]);
+      });
+      return [...new Set(valuesFromBranchField(values).filter(Boolean))];
+    }
+
+    function branchCandidateValues(branch={}){
+      const values = [branch.id, branch.name, branch.branch, branch.branchName, branch.title, branch.label, branch.value];
+      const normalized = normalizeBranchValue(branch.id || branchLabel(branch));
+      values.push(normalized, branchDisplayName(normalized));
+      Object.entries(BRANCH_ALIASES).forEach(([alias, id]) => {
+        if(id === normalized) values.push(alias);
+      });
+      return [...new Set(valuesFromBranchField(values).filter(Boolean))];
+    }
+
+    function mergeStaticBranches(branchDocs=[]){
+      const map = new Map();
+      NEW_BRANCHES.forEach(item => map.set(item.id, {...item}));
+      (branchDocs || []).forEach(branch => {
+        const id = normalizeBranchValue(branch.id || branchLabel(branch));
+        if(!id) return;
+        const current = map.get(id) || {};
+        map.set(id, {...current, ...branch, id, name: branchDisplayName(id)});
+      });
+      return Array.from(map.values());
+    }
+
     let currentUser = null;
     let currentProfile = null;
     let isAdmin = false;
@@ -661,13 +772,14 @@
     function normalizeDepartment(value){
       const raw = String(value || "").trim();
       const low = raw.toLowerCase().replace(/\s+/g," ");
+      const normalizedArabic = normalizeTextKey(raw);
       const aliases = {
-        "cash_sales":"cash_sales", "cash sales":"cash_sales", "مبيعات الكاش":"cash_sales", "كاش":"cash_sales", "الكاش":"cash_sales",
-        "finance_sales":"finance_sales", "finance sales":"finance_sales", "مبيعات التمويل":"finance_sales", "تمويل":"finance_sales", "التمويل":"finance_sales",
-        "customer_service":"customer_service", "customer service":"customer_service", "خدمة العملاء":"customer_service", "خدمة عملاء":"customer_service",
+        "cash_sales":"cash_sales", "cash sales":"cash_sales", "cash":"cash_sales", "مبيعات الكاش":"cash_sales", "مندوب مبيعات الكاش":"cash_sales", "العملاء المحتملون - كاش":"cash_sales", "كاش":"cash_sales", "الكاش":"cash_sales",
+        "finance_sales":"finance_sales", "finance sales":"finance_sales", "finance":"finance_sales", "مبيعات التمويل":"finance_sales", "مندوب مبيعات التمويل":"finance_sales", "العملاء المحتملون - تمويل":"finance_sales", "تمويل":"finance_sales", "التمويل":"finance_sales",
+        "customer_service":"customer_service", "customer service":"customer_service", "خدمة العملاء":"customer_service", "خدمة عملاء":"customer_service", "العملاء المحتملون - خدمة عملاء":"customer_service",
         "call_center":"call_center", "call center":"call_center", "callcenter":"call_center", "الكول سنتر":"call_center", "كول سنتر":"call_center"
       };
-      return aliases[raw] || aliases[low] || raw;
+      return aliases[raw] || aliases[low] || aliases[normalizedArabic] || raw;
     }
 
     function departmentLabel(d){
@@ -684,7 +796,10 @@
     }
 
     function branchLabel(branch){
-      return branch?.name || branch?.branch || branch?.branchName || branch?.title || branch?.label || branch?.id || "";
+      if(!branch) return "";
+      const id = normalizeBranchValue(branch.id || branch.branchId || branch.branch || branch.branchName || branch.name || branch.title || branch.label || "");
+      const staticName = branchDisplayName(id);
+      return staticName || branch?.name || branch?.branch || branch?.branchName || branch?.title || branch?.label || branch?.id || "";
     }
 
     function valuesFromBranchField(value){
@@ -730,14 +845,12 @@
     function usersForBranchDepartment(branch, dept){
       const base = usersForDepartment(dept);
       if(!branch) return [];
-      const values = branchDepartmentValues(branch, dept);
-      if(values.length){
-        return base.filter(u => values.some(v => userMatchesValue(u, v)));
-      }
-      const label = branchLabel(branch);
+      const assignedValues = branchDepartmentValues(branch, dept);
+      const branchValues = branchCandidateValues(branch);
       return base.filter(u => {
-        const userBranchValues = [u.branchId, u.branchName, u.branch, u.branchTitle, ...(Array.isArray(u.branches) ? u.branches : [])].filter(Boolean);
-        return userBranchValues.some(v => String(v).trim() === branch.id || String(v).trim() === label);
+        const byAssignment = assignedValues.length && assignedValues.some(v => userMatchesValue(u, v));
+        const byUserBranch = userBranchValues(u).some(userValue => branchValues.some(branchValue => branchValuesEqual(userValue, branchValue)));
+        return byAssignment || byUserBranch;
       });
     }
 
@@ -771,8 +884,8 @@
 
     function profileBranchMatches(branch){
       if(!branch) return false;
-      const profileBranches = [currentProfile?.branchId, currentProfile?.branchName, currentProfile?.branch, ...(Array.isArray(currentProfile?.branches) ? currentProfile.branches : [])].filter(Boolean);
-      return profileBranches.some(v => String(v).trim() === branch.id || String(v).trim() === branchLabel(branch));
+      const branchValues = branchCandidateValues(branch);
+      return userBranchValues(currentProfile || {}).some(profileValue => branchValues.some(branchValue => branchValuesEqual(profileValue, branchValue)));
     }
 
     function userManagesBranch(user, profile, branch){
@@ -780,8 +893,8 @@
       if(isAdminProfile(profile)) return true;
       const managerValues = branchManagerValues(branch);
       if(managerValues.some(v => userMatchesValue({uid:user.uid,email:user.email,name:profile?.name,displayName:profile?.displayName}, v))) return true;
-      const profileBranches = [profile?.branchId, profile?.branchName, profile?.branch, ...(Array.isArray(profile?.branches) ? profile.branches : [])].filter(Boolean);
-      return profileBranches.some(v => String(v).trim() === branch.id || String(v).trim() === branchLabel(branch));
+      const branchValues = branchCandidateValues(branch);
+      return userBranchValues(profile || {}).some(profileValue => branchValues.some(branchValue => branchValuesEqual(profileValue, branchValue)));
     }
 
     function userCanAccessBranchKpi(branch){
@@ -885,8 +998,8 @@
     function fillBranches(){
       const select = el("branchFilter");
       const prev = select.value;
-      const allBranches = branches
-        .slice()
+      const allBranches = mergeStaticBranches(branches)
+        .filter(b => ["qadisiyah","salan","multaqa","online"].includes(normalizeBranchValue(b.id || branchLabel(b))))
         .sort((a,b) => branchLabel(a).localeCompare(branchLabel(b), "ar"));
       // الأدمن فقط يرى كل الفروع. مدير/مندوب الفرع يرى الفروع المرتبط بها فقط.
       availableBranches = isAdminProfile(currentProfile) ? allBranches : allBranches.filter(userCanAccessBranchKpi);
@@ -895,7 +1008,7 @@
         return;
       }
       select.innerHTML = '<option value="__all__">كل الفروع</option>' + availableBranches.map(b => `<option value="${escapeHtml(b.id)}">${escapeHtml(branchLabel(b))}</option>`).join("");
-      if(prev === "__all__" || (prev && availableBranches.some(b => b.id === prev))) select.value = prev;
+      if(prev === "__all__" || (prev && availableBranches.some(b => branchValuesEqual(b.id, prev)))) select.value = prev;
       else select.value = availableBranches.length === 1 ? availableBranches[0].id : "__all__";
       select.disabled = false;
     }
@@ -903,12 +1016,12 @@
     function selectedBranch(){
       const value = el("branchFilter").value;
       if(value === "__all__") return null;
-      return availableBranches.find(b => b.id === value) || null;
+      return availableBranches.find(b => branchValuesEqual(b.id, value)) || null;
     }
 
     function branchForRep(rep){
       if(rep?.kpiBranchId){
-        return availableBranches.find(b => b.id === rep.kpiBranchId) || {id:rep.kpiBranchId, name:rep.kpiBranchName || rep.branchName || rep.branch || rep.kpiBranchId};
+        return availableBranches.find(b => branchValuesEqual(b.id, rep.kpiBranchId)) || {id:normalizeBranchValue(rep.kpiBranchId), name:rep.kpiBranchName || rep.branchName || rep.branch || branchDisplayName(rep.kpiBranchId)};
       }
       return selectedBranch();
     }
@@ -989,7 +1102,7 @@
       if(!kpi || !branch) return false;
       const kpiBranchId = String(kpi.branchId || "").trim();
       const branchId = String(branch.id || "").trim();
-      if(kpiBranchId && branchId && kpiBranchId === branchId) return true;
+      if(kpiBranchId && branchId && branchValuesEqual(kpiBranchId, branchId)) return true;
       const kpiBranchName = normalizeKpiMatchText(kpi.branchName || kpi.kpiBranchName || kpi.branch || kpi.branchTitle);
       const currentBranchName = normalizeKpiMatchText(branchLabel(branch));
       return !!kpiBranchName && !!currentBranchName && kpiBranchName === currentBranchName;
