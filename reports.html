@@ -11,6 +11,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -358,10 +359,12 @@
     let isAdmin = false;
     let leads = [];
     let users = [];
+    let branches = [];
     let lastAgentGroups = [];
     let activeAgentGroupKey = "";
     let unsubLeads = null;
     let unsubUsers = null;
+    let unsubBranches = null;
 
     function toast(msg){
       const t = el("toast");
@@ -405,6 +408,71 @@
       return [...new Set((values || []).map(normalizeValue).filter(Boolean))];
     }
 
+
+    const BRANCH_ALIASES = {
+      "فرع_القادسية": "qadisiyah",
+      "فرع القادسية": "qadisiyah",
+      "القادسية": "qadisiyah",
+      "qadisiyah": "qadisiyah",
+      "فرع_الصالة": "salan",
+      "فرع الصالة": "salan",
+      "الصالة": "salan",
+      "salan": "salan",
+      "فرع_الملتقى": "multaqa",
+      "فرع الملتقى": "multaqa",
+      "الملتقى": "multaqa",
+      "multaqa": "multaqa",
+      "فرع_الاونلاين": "online",
+      "فرع الاونلاين": "online",
+      "فرع الأونلاين": "online",
+      "الأونلاين": "online",
+      "الاونلاين": "online",
+      "online": "online",
+      "كول سنتر": "call_center_branch",
+      "الكول سنتر": "call_center_branch",
+      "call_center_branch": "call_center_branch",
+      "خدمة عملاء": "customer_service",
+      "خدمة العملاء": "customer_service",
+      "customer_service": "customer_service"
+    };
+
+    const LEGACY_BRANCH_ALIASES = {
+      "branch_1777929907322": "qadisiyah",
+      "branch_1777930716465": "salan",
+      "branch_1777930778285": "multaqa",
+      "branch_1778437132317": "online",
+      "branch_1778437182674": "call_center_branch"
+    };
+
+    function branchDocLabel(branch){
+      return normalizeValue(branch?.nameAr || branch?.arabicName || branch?.labelAr || branch?.name || branch?.branchName || branch?.title || branch?.label || branch?.displayName || branch?.id);
+    }
+
+    function normalizeBranchValue(value){
+      const raw = normalizeValue(value);
+      if(!raw) return "";
+      if(LEGACY_BRANCH_ALIASES[raw]) return LEGACY_BRANCH_ALIASES[raw];
+      if(BRANCH_ALIASES[raw]) return BRANCH_ALIASES[raw];
+      const matched = branches.find(branch => branch.id === raw || branchDocLabel(branch) === raw);
+      return matched?.id || raw;
+    }
+
+    function branchLabel(value){
+      const normalized = normalizeBranchValue(value);
+      const branch = branches.find(item => item.id === normalized);
+      const fromDoc = branchDocLabel(branch);
+      if(fromDoc && fromDoc !== normalized) return fromDoc;
+      const fallbackLabels = {
+        qadisiyah: "فرع القادسية",
+        salan: "فرع الصالة",
+        multaqa: "فرع الملتقى",
+        online: "فرع الاونلاين",
+        call_center_branch: "كول سنتر",
+        customer_service: "خدمة عملاء"
+      };
+      return fallbackLabels[normalized] || String(value || normalized || "").replace(/_/g, " ");
+    }
+
     function getProfileBranchValues(profile){
       const values = [
         profile?.branch,
@@ -426,7 +494,7 @@
       if(Array.isArray(profile?.locations)) values.push(...profile.locations);
       if(Array.isArray(profile?.locationIds)) values.push(...profile.locationIds);
       if(Array.isArray(profile?.officeBranches)) values.push(...profile.officeBranches);
-      return uniqueNormalizedValues(values);
+      return uniqueNormalizedValues(values).map(normalizeBranchValue).filter(Boolean);
     }
 
     function getLeadBranchValues(lead){
@@ -443,7 +511,7 @@
         lead?.mainBranch,
         lead?.mainBranchId,
         lead?.mainBranchName
-      ]);
+      ]).map(normalizeBranchValue).filter(Boolean);
     }
 
     function isDepartmentLikeBranchValue(value){
@@ -472,8 +540,8 @@
         item?.locationId,
         item?.branchId,
         item?.branch
-      ].map(normalizeValue).filter(v => v && !isDepartmentLikeBranchValue(v));
-      return values[0] || "";
+      ].map(normalizeBranchValue).filter(v => v && !isDepartmentLikeBranchValue(v));
+      return values[0] ? branchLabel(values[0]) : "";
     }
 
     function getBranchLabelsFromRows(rows=[]){
@@ -1000,7 +1068,7 @@
 
     function filteredRows(){
       const section = el("departmentFilter").value;
-      const branch = el("branchFilter").value;
+      const branch = normalizeBranchValue(el("branchFilter").value);
       const agent = el("agentFilter").value;
       const q = el("searchInput").value.trim().toLowerCase();
       const from = el("dateFrom").value;
@@ -1052,11 +1120,15 @@
     ]);
 
     function refreshBranchOptions(){
+      const newBranchIds = branches.map(branch => branch.id).filter(id => !HIDDEN_BRANCH_DROPDOWN_VALUES.has(id));
       const leadBranches = leads.filter(userCanSeeLead).flatMap(getLeadBranchValues);
       const userBranches = users.filter(userMatchesCurrentReportScope).flatMap(getUserBranchValues);
-      const branchItems = uniqueNormalizedValues([...leadBranches, ...userBranches])
-        .filter(value => !isDepartmentLikeBranchValue(value))
-        .filter(value => !HIDDEN_BRANCH_DROPDOWN_VALUES.has(value));
+      const branchItems = uniqueNormalizedValues([...newBranchIds, ...leadBranches, ...userBranches])
+        .map(normalizeBranchValue)
+        .filter(value => value && !isDepartmentLikeBranchValue(value))
+        .filter(value => !HIDDEN_BRANCH_DROPDOWN_VALUES.has(value))
+        .map(value => ({ value, label: branchLabel(value) }))
+        .sort((a,b)=>String(a.label).localeCompare(String(b.label), 'ar'));
       fillSelectOptions(el("branchFilter"), "كل الفروع", branchItems);
     }
 
@@ -1118,7 +1190,7 @@
 
     function agentMatchesVisibleFilters(agent){
       const section = el("departmentFilter").value;
-      const branch = el("branchFilter").value;
+      const branch = normalizeBranchValue(el("branchFilter").value);
       const selectedAgent = el("agentFilter").value;
       const q = el("searchInput").value.trim().toLowerCase();
 
@@ -1325,10 +1397,10 @@
         return `المصدر: ${el('sourceReportFilter').value || 'كل المصادر'} - من ${el('sourceDateFrom').value || 'بداية البيانات'} إلى ${el('sourceDateTo').value || 'نهاية البيانات'}`;
       }
       if(sectionType === 'departments'){
-        return `القسم: ${departmentLabel(el('departmentFilter').value) || 'كل الأقسام'} - الفرع: ${el('branchFilter').value || 'كل الفروع'} - المندوب: ${el('agentFilter').selectedOptions[0]?.textContent || 'كل المناديب'} - من ${generalFrom} إلى ${generalTo}`;
+        return `القسم: ${departmentLabel(el('departmentFilter').value) || 'كل الأقسام'} - الفرع: ${el('branchFilter').selectedOptions[0]?.textContent || 'كل الفروع'} - المندوب: ${el('agentFilter').selectedOptions[0]?.textContent || 'كل المناديب'} - من ${generalFrom} إلى ${generalTo}`;
       }
       if(sectionType === 'customer_service'){
-        return `تقرير خدمة العملاء - الفرع: ${el('branchFilter').value || 'كل الفروع'} - من ${generalFrom} إلى ${generalTo}`;
+        return `تقرير خدمة العملاء - الفرع: ${el('branchFilter').selectedOptions[0]?.textContent || 'كل الفروع'} - من ${generalFrom} إلى ${generalTo}`;
       }
       return `من ${generalFrom} إلى ${generalTo}`;
     }
@@ -1347,6 +1419,7 @@
     function init(){
       if(unsubLeads) unsubLeads();
       if(unsubUsers) unsubUsers();
+      if(unsubBranches) unsubBranches();
 
       unsubLeads = onSnapshot(collection(db, 'leads'), snap => {
         leads = [];
@@ -1361,6 +1434,15 @@
         users = [];
         snap.forEach(d => users.push({ id:d.id, uid:d.id, ...d.data() }));
         render();
+      });
+
+      unsubBranches = onSnapshot(collection(db, 'branches'), snap => {
+        branches = [];
+        snap.forEach(d => branches.push({ id:d.id, ...d.data() }));
+        render();
+      }, err => {
+        console.error(err);
+        toast('تعذر تحميل بيانات الفروع');
       });
 
       ['dateFrom','dateTo','departmentFilter','branchFilter','agentFilter','searchInput','sourceReportFilter','sourceDateFrom','sourceDateTo'].forEach(id => {
