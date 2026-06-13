@@ -447,6 +447,27 @@
       "customer_service": "customer_service"
     };
 
+    const DEPARTMENT_ALIASES = {
+      "مبيعات الكاش": "cash_sales",
+      "مندوب مبيعات الكاش": "cash_sales",
+      "العملاء المحتملون - كاش": "cash_sales",
+      "cash": "cash_sales",
+      "cash_sales": "cash_sales",
+      "مبيعات التمويل": "finance_sales",
+      "مندوب مبيعات التمويل": "finance_sales",
+      "العملاء المحتملون - تمويل": "finance_sales",
+      "finance": "finance_sales",
+      "finance_sales": "finance_sales",
+      "كول سنتر": "call_center",
+      "الكول سنتر": "call_center",
+      "callcenter": "call_center",
+      "call_center": "call_center",
+      "خدمة عملاء": "customer_service",
+      "خدمة العملاء": "customer_service",
+      "العملاء المحتملون - خدمة عملاء": "customer_service",
+      "customer_service": "customer_service"
+    };
+
     function normalizeBranchValue(value){
       const raw = normalizeValue(value);
       if(!raw) return "";
@@ -457,6 +478,22 @@
       const normalized = normalizeBranchValue(value);
       const branch = NEW_BRANCHES.find(item => item.id === normalized);
       return branch?.label || String(value || normalized || "").replace(/_/g, " ");
+    }
+
+    function branchValuesMatch(a, b){
+      const aa = normalizeValue(a);
+      const bb = normalizeValue(b);
+      if(!aa || !bb) return false;
+      return aa === bb || normalizeBranchValue(aa) === normalizeBranchValue(bb);
+    }
+
+    function anyBranchMatches(values, target){
+      return (values || []).some(value => branchValuesMatch(value, target));
+    }
+
+    function normalizeDepartmentKey(value){
+      const text = normalizeValue(value);
+      return DEPARTMENT_ALIASES[text] || text;
     }
 
     function getProfileBranchValues(profile){
@@ -480,7 +517,7 @@
       if(Array.isArray(profile?.locations)) values.push(...profile.locations);
       if(Array.isArray(profile?.locationIds)) values.push(...profile.locationIds);
       if(Array.isArray(profile?.officeBranches)) values.push(...profile.officeBranches);
-      return uniqueNormalizedValues(values).map(normalizeBranchValue).filter(Boolean);
+      return uniqueNormalizedValues(values);
     }
 
     function getLeadBranchValues(lead){
@@ -497,7 +534,7 @@
         lead?.mainBranch,
         lead?.mainBranchId,
         lead?.mainBranchName
-      ]).map(normalizeBranchValue).filter(Boolean);
+      ]);
     }
 
     function isDepartmentLikeBranchValue(value){
@@ -526,7 +563,7 @@
         item?.locationId,
         item?.branchId,
         item?.branch
-      ].map(normalizeBranchValue).filter(v => v && !isDepartmentLikeBranchValue(v));
+      ].map(normalizeValue).filter(v => v && !isDepartmentLikeBranchValue(v));
       return values[0] ? branchLabel(values[0]) : "";
     }
 
@@ -551,14 +588,14 @@
       const profileBranches = getProfileBranchValues(profile);
       if(!profileBranches.length) return true;
       const leadBranches = getLeadBranchValues(lead);
-      return leadBranches.some(branch => profileBranches.includes(branch));
+      return leadBranches.some(branch => profileBranches.some(profileBranch => branchValuesMatch(branch, profileBranch)));
     }
 
     function canManageLeadDepartment(lead, profile){
-      const profileDepartment = normalizeValue(profile?.department || profile?.managedDepartment || profile?.section);
-      const profileDeptKey = normalizeValue(profile?.deptKey);
+      const profileDepartment = normalizeDepartmentKey(profile?.department || profile?.managedDepartment || profile?.section);
+      const profileDeptKey = normalizeDepartmentKey(profile?.deptKey);
       const leadSection = getLeadSectionKey(lead);
-      const leadDeptKey = normalizeValue(lead?.deptKey);
+      const leadDeptKey = normalizeDepartmentKey(lead?.deptKey);
       if(!profileDepartment && !profileDeptKey) return true;
       return leadSection === profileDepartment || (!!profileDeptKey && leadDeptKey === profileDeptKey);
     }
@@ -613,7 +650,7 @@
         return canManageLeadDepartment(lead, currentProfile) && leadMatchesProfileBranch(lead, currentProfile);
       }
 
-      const dept = currentProfile?.department || currentProfile?.role || "";
+      const dept = normalizeDepartmentKey(currentProfile?.department || currentProfile?.role || "");
       if(dept === "call_center") return lead.callCenterUid === uid;
       if(["cash_sales","finance_sales","customer_service"].includes(dept)) return lead.responsibleUid === uid;
       return lead.responsibleUid === uid || lead.callCenterUid === uid;
@@ -705,7 +742,7 @@
     }
 
     function getLeadSectionKey(lead){
-      const dept = String(lead.department || "").trim();
+      const dept = normalizeDepartmentKey(lead.department || lead.managedDepartment || lead.section || lead.deptKey || "");
       if(SECTION_DEFS.some(sec => sec.key === dept)) return dept;
       if((lead.callCenterUid || lead.callCenterName) && !dept) return "call_center";
       return dept || "";
@@ -1066,7 +1103,7 @@
         const leadSection = getLeadSectionKey(lead);
         if(!SECTION_DEFS.some(sec => sec.key === leadSection)) return false;
         if(section && leadSection !== section) return false;
-        if(branch && !getLeadBranchValues(lead).includes(branch)) return false;
+        if(branch && !anyBranchMatches(getLeadBranchValues(lead), branch)) return false;
         if(agent && getAgentUidForSection(lead, leadSection) !== agent) return false;
 
         const dt = leadDate(lead);
@@ -1109,11 +1146,15 @@
       const staticBranches = NEW_BRANCHES.map(branch => branch.id);
       const leadBranches = leads.filter(userCanSeeLead).flatMap(getLeadBranchValues);
       const userBranches = users.filter(userMatchesCurrentReportScope).flatMap(getUserBranchValues);
-      const branchItems = uniqueNormalizedValues([...staticBranches, ...leadBranches, ...userBranches])
-        .map(normalizeBranchValue)
-        .filter(value => value && !isDepartmentLikeBranchValue(value))
-        .filter(value => !HIDDEN_BRANCH_DROPDOWN_VALUES.has(value))
-        .map(value => ({ value, label: branchLabel(value) }))
+      const branchMap = new Map();
+      uniqueNormalizedValues([...staticBranches, ...leadBranches, ...userBranches]).forEach(value => {
+        const normalized = normalizeBranchValue(value);
+        if(!normalized || isDepartmentLikeBranchValue(normalized)) return;
+        if(HIDDEN_BRANCH_DROPDOWN_VALUES.has(value) && normalized === value) return;
+        if(!branchMap.has(normalized)) branchMap.set(normalized, branchLabel(normalized));
+      });
+      const branchItems = Array.from(branchMap.entries())
+        .map(([value, label]) => ({ value, label }))
         .sort((a,b)=>String(a.label).localeCompare(String(b.label), 'ar'));
       fillSelectOptions(el("branchFilter"), "كل الفروع", branchItems);
     }
@@ -1121,7 +1162,7 @@
     function getUserSectionKey(user){
       const values = [user?.department, user?.managedDepartment, user?.section, user?.deptKey, user?.roleId, user?.role];
       for(const value of values){
-        const text = normalizeValue(value);
+        const text = normalizeDepartmentKey(value);
         if(SECTION_DEFS.some(sec => sec.key === text)) return text;
       }
       return "";
@@ -1144,13 +1185,13 @@
       if(isAdmin) return true;
 
       if(isBranchManagerProfile(currentProfile)){
-        const profileDepartment = normalizeValue(currentProfile?.department || currentProfile?.managedDepartment || currentProfile?.section || currentProfile?.deptKey);
+        const profileDepartment = normalizeDepartmentKey(currentProfile?.department || currentProfile?.managedDepartment || currentProfile?.section || currentProfile?.deptKey);
         if(profileDepartment && sec !== profileDepartment) return false;
 
         const profileBranches = getProfileBranchValues(currentProfile).filter(value => value && !isDepartmentLikeBranchValue(value));
         if(!profileBranches.length) return true;
         const userBranches = getUserBranchValues(user);
-        return userBranches.some(branch => profileBranches.includes(branch));
+        return userBranches.some(branch => profileBranches.some(profileBranch => branchValuesMatch(branch, profileBranch)));
       }
 
       return uid && uid === normalizeValue(currentUser?.uid);
@@ -1181,7 +1222,7 @@
       const q = el("searchInput").value.trim().toLowerCase();
 
       if(section && agent.sectionKey !== section) return false;
-      if(branch && !(agent.branches || []).includes(branch)) return false;
+      if(branch && !anyBranchMatches(agent.branches || [], branch)) return false;
       if(selectedAgent && agent.uid !== selectedAgent) return false;
       if(q){
         const hay = [agent.name, agent.section, ...(agent.branches || [])].map(v => String(v || "").toLowerCase()).join(" ");
@@ -1383,10 +1424,10 @@
         return `المصدر: ${el('sourceReportFilter').value || 'كل المصادر'} - من ${el('sourceDateFrom').value || 'بداية البيانات'} إلى ${el('sourceDateTo').value || 'نهاية البيانات'}`;
       }
       if(sectionType === 'departments'){
-        return `القسم: ${departmentLabel(el('departmentFilter').value) || 'كل الأقسام'} - الفرع: ${el('branchFilter').selectedOptions[0]?.textContent || 'كل الفروع'} - المندوب: ${el('agentFilter').selectedOptions[0]?.textContent || 'كل المناديب'} - من ${generalFrom} إلى ${generalTo}`;
+        return `القسم: ${departmentLabel(el('departmentFilter').value) || 'كل الأقسام'} - الفرع: ${el('branchFilter').value || 'كل الفروع'} - المندوب: ${el('agentFilter').selectedOptions[0]?.textContent || 'كل المناديب'} - من ${generalFrom} إلى ${generalTo}`;
       }
       if(sectionType === 'customer_service'){
-        return `تقرير خدمة العملاء - الفرع: ${el('branchFilter').selectedOptions[0]?.textContent || 'كل الفروع'} - من ${generalFrom} إلى ${generalTo}`;
+        return `تقرير خدمة العملاء - الفرع: ${el('branchFilter').value || 'كل الفروع'} - من ${generalFrom} إلى ${generalTo}`;
       }
       return `من ${generalFrom} إلى ${generalTo}`;
     }
