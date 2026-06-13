@@ -1036,7 +1036,10 @@
 
     function candidateKpiDocIds(month, branch, repUid){
       const ids = new Set();
-      [branch?.id, branchLabel(branch), branch?.name, branch?.branchName, branch?.branch].filter(Boolean).forEach(v => {
+      // مهم: تقييمات الشهور السابقة قد تكون محفوظة بمعرف الفرع القديم branch_...
+      // أو بالاسم العربي، بينما الشاشة الآن تعرض الفروع الجديدة مثل multaqa / qadisiyah.
+      // لذلك نحاول كل مرادفات الفرع بدون تغيير منطق الحفظ أو الحسابات.
+      branchCandidateValues(branch).filter(Boolean).forEach(v => {
         ids.add(kpiDocId(month, v, repUid));
       });
       return [...ids];
