@@ -1,17 +1,7 @@
-# MZJ CRM V3 - Vite + React + Firebase
+# MZJ CRM V3 - Client Matching Audit v39
 
-## التشغيل المحلي
-```bash
-npm install
-npm run dev
-```
-
-## النشر على Vercel
-- Framework/Preset: Vite
-- Build command: npm run build
-- Output directory: dist
-
-## Firebase
-تسجيل الدخول يعمل عبر Firebase Auth بالإيميل والباسورد.
-مسارات Firestore يتم تعديلها من: الإدارة > إعدادات Firebase والمسارات.
-لا يتم حفظ إعدادات السيستم في localStorage. كل الإعدادات تقرأ وتكتب في Firestore.
+- Added Admin tab: كشف تطابق العملاء.
+- Reads and compares leads and wa_conversations.
+- Shows actual counts per representative before saving matching fixes.
+- Can sync selected mismatched customers in both paths.
+- Clean package: no old notification v38 file; current files only use v39.
