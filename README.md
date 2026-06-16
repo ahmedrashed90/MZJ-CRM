@@ -1,9 +1,7 @@
-# MZJ CRM V3 - v52
+MZJ CRM V3 - v54
 
-- Fix dashboard popup send through the existing Mersal worker without changing the worker.
-- WhatsApp/Mersal sources send to https://mersal-crm.next-erp-mzj.workers.dev/send/mersal.
-- Outgoing messages appear immediately in the popup chat, then Firestore save is attempted safely.
-- Sheet import remains leads-only.
-
-
-V53: Free text send fix. Text typed in dashboard popup is sent as normal Mersal message and does not use template_name unless a real template is selected without text.
+Fixes:
+- Free text WhatsApp/Mersal messages are saved as type=text.
+- templateName is not saved for free text messages.
+- Templates are still saved as type=template only when a real template is selected and no free text overrides it.
+- No changes to the Mersal Cloudflare Worker.
