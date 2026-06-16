@@ -17,4 +17,4 @@ npm run dev
 لا يتم حفظ إعدادات السيستم في localStorage. كل الإعدادات تقرأ وتكتب في Firestore.
 
 
-V47: fixed sheet import tab loader, UID map import, leads-only import.
+V48: fixed sheet import tab loader, UID map import, leads-only import.
