@@ -1,8 +1,6 @@
-MZJ CRM V3 - v51
+# MZJ CRM V3 - v52
 
-- Source-based send routing from dashboard popup.
-- WhatsApp/Mersal for Haraj, other website, branch, friend, unified number, WhatsApp, Snapchat, Snapchat Lead, TikTok Lead.
-- Facebook source sends through Facebook channel.
-- Instagram source sends through Instagram channel.
-- Outgoing free-text/template messages are saved into the correct chat messages subcollection so they appear in chat.
-- Sheet import remains leads-only; wa_conversations is not populated during import.
+- Fix dashboard popup send through the existing Mersal worker without changing the worker.
+- WhatsApp/Mersal sources send to https://mersal-crm.next-erp-mzj.workers.dev/send/mersal.
+- Outgoing messages appear immediately in the popup chat, then Firestore save is attempted safely.
+- Sheet import remains leads-only.
