@@ -1,7 +1,5 @@
-# MZJ CRM V3 - Sheet Import UID Auth Bridge CLEAN v49
+MZJ CRM V3 - Sheet Import Main Firestore Fix CLEAN v50
 
-- Safe sheet import tab.
-- Imports leads only into leads collection.
-- Does not create wa_conversations.
-- Uses the main app Firebase Auth exported session for import.
-- UID map included.
+- Import writes leads only.
+- Uses modular Firestore from the same Firebase SDK import to avoid custom object mismatch.
+- No wa_conversations writes.
