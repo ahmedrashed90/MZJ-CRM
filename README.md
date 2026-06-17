@@ -1,10 +1,5 @@
-MZJ CRM V3 - v55
+# MZJ CRM V3 - Call Center Finance Only Scope FIX v57
 
-- Added حاسبة التقسيط to WhatsApp/Mersal source routing.
-- Free text remains type=text; selected template remains type=template.
-- No Worker changes.
-
-
-## v56
-- Call Center users can view finance leads and work on them from dashboard.
-- Finance imports assign Amjad Al-Dosari as call center companion fields.
+- Call center users see finance customers only.
+- Cash/customer-service customers with stale callCenter fields are excluded.
+- Import still assigns finance leads to call center follow-up fields.
