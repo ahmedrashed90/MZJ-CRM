@@ -470,3 +470,12 @@
 .agent-log-message{font-weight:800;color:#5d4037;line-height:1.9!important;max-width:420px}
 .agent-page .management-table td.wrap{min-width:220px}.agent-page .management-table{border-collapse:separate;border-spacing:0}.agent-page .management-table tbody tr{transition:background .15s ease,transform .15s ease}.agent-page .management-table tbody tr:hover{background:#fff8f2!important}
 @media(max-width:900px){.agent-action-chip{min-width:auto}.agent-log-time{white-space:normal}.agent-log-message{max-width:none}}
+/* v70 social inbox agent page additions */
+.agent-page .agent-kpis{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))!important}
+.agent-page .social-agent-grid{grid-template-columns:repeat(2,minmax(240px,1fr))!important}
+.agent-page .social-platform-box{display:grid;gap:10px;background:#fffaf6;border:1px solid #f0ded2;border-radius:16px;padding:12px;color:#593b31}
+.agent-page .social-platform-box strong{color:#4d2418;font-weight:900}
+.agent-page .social-worker-card{grid-column:1/-1}
+.agent-page .social-worker-card p{margin:8px 0 12px;line-height:1.8;font-weight:800}
+.agent-page .social-worker-card .actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:900px){.agent-page .social-agent-grid{grid-template-columns:1fr!important}}
