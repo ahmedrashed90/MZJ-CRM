@@ -1,5 +1,5 @@
-# MZJ CRM V3 - Call Center Finance Only Scope FIX v57
-
-- Call center users see finance customers only.
-- Cash/customer-service customers with stale callCenter fields are excluded.
-- Import still assigns finance leads to call center follow-up fields.
+MZJ CRM V3 v68
+- Improved Inbox Agent page styling inside CRM V3 SPA.
+- Inbox Agent settings page saves the worker-compatible fields in agent_settings/inbox_response_agent.
+- Added businessHoursOnly toggle and clear worker behavior note.
+- Uses current V3 paths: wa_conversations, leads, agent_settings/inbox_response_agent, branch_agent_managers, inbox_agent_logs.
