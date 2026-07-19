@@ -18254,8 +18254,8 @@ var gs = (...e) =>
     {
       id: `cash-potential`,
       department: `cash`,
-      label: `محتمل`,
-      value: `محتمل`,
+      label: `لم يتم الرد`,
+      value: `لم يتم الرد`,
       order: 50,
       active: !0,
     },
@@ -42529,7 +42529,7 @@ function Ry({
       `تم الاتصال`,
       `غير مؤهل`,
       `مؤجل`,
-      `محتمل`,
+      `لم يتم الرد`,
       `مؤهل`,
       `تم البيع`,
       `جاري العمل`,
@@ -48353,7 +48353,7 @@ function eb({ leads: e = [], user = null, users: reportUsers = [] }) {
   };
   const isWaste = (s) => val(s) === `غير مؤهل`;
   const isDelayed = (s) => val(s) === `مؤجل`;
-  const isPotential = (s) => val(s) === `محتمل`;
+  const isPotential = (s) => val(s) === `لم يتم الرد`;
   const isQualified = (s) => val(s) === `مؤهل`;
   const normalizedMetricStatus = (status) =>
     val(status)
@@ -48977,7 +48977,7 @@ function eb({ leads: e = [], user = null, users: reportUsers = [] }) {
     { key: `waste`, label: `غير مؤهل` },
     { key: `qualified`, label: `مؤهل` },
     { key: `delayed`, label: `مؤجل` },
-    { key: `potential`, label: `محتمل` },
+    { key: `potential`, label: `لم يتم الرد` },
     { key: `sold`, label: `تم البيع` },
     { key: `quality`, label: `الجودة` },
   ];
@@ -49161,7 +49161,7 @@ function eb({ leads: e = [], user = null, users: reportUsers = [] }) {
             value: callCenterFilterActive ? `-` : m.delayed,
           }),
           (0, F.jsx)(zy, {
-            title: `محتمل`,
+            title: `لم يتم الرد`,
             value: callCenterFilterActive ? `-` : m.potential,
           }),
           (0, F.jsx)(zy, {
@@ -49210,7 +49210,7 @@ function eb({ leads: e = [], user = null, users: reportUsers = [] }) {
               { key: `waste`, label: `غير مؤهل` },
               { key: `qualified`, label: `مؤهل` },
               { key: `delayed`, label: `مؤجل` },
-              { key: `potential`, label: `محتمل` },
+              { key: `potential`, label: `لم يتم الرد` },
               { key: `sold`, label: `تم البيع` },
               { key: `quality`, label: `جودة المصدر` },
             ],
@@ -49242,7 +49242,7 @@ function eb({ leads: e = [], user = null, users: reportUsers = [] }) {
               { key: `waste`, label: `غير مؤهل` },
               { key: `qualified`, label: `مؤهل` },
               { key: `delayed`, label: `مؤجل` },
-              { key: `potential`, label: `محتمل` },
+              { key: `potential`, label: `لم يتم الرد` },
               { key: `sold`, label: `تم البيع` },
               { key: `quality`, label: `جودة القسم` },
             ],
@@ -49264,7 +49264,7 @@ function eb({ leads: e = [], user = null, users: reportUsers = [] }) {
               { key: `waste`, label: `غير مؤهل` },
               { key: `qualified`, label: `مؤهل` },
               { key: `delayed`, label: `مؤجل` },
-              { key: `potential`, label: `محتمل` },
+              { key: `potential`, label: `لم يتم الرد` },
               { key: `sold`, label: `تم البيع` },
               { key: `quality`, label: `جودة المندوب` },
               {
@@ -49434,7 +49434,7 @@ function eb({ leads: e = [], user = null, users: reportUsers = [] }) {
                   }),
                   (0, F.jsxs)(`div`, {
                     children: [
-                      (0, F.jsx)(`span`, { children: `محتمل` }),
+                      (0, F.jsx)(`span`, { children: `لم يتم الرد` }),
                       (0, F.jsx)(`strong`, {
                         children: popupMetrics.potential,
                       }),
