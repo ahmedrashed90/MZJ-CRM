@@ -44492,11 +44492,11 @@ function By({ users: e = [], user = null }) {
           { className: "kpi-sub-card" },
           h("h4", null, "الشخصية"),
           input(
-            "المصداقية في إعطاء العميل السيارة التي تناسبه",
+            "المصداقية",
             "efficiency.personality.customerFitHonesty",
           ),
           input(
-            "المصداقية فيما يتواجد من ملاحظات في السيارة",
+            "المعرفة التفصيلية بالمخزون",
             "efficiency.personality.carNotesHonesty",
           ),
           h(
